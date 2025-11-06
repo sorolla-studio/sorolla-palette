@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEditor;
+using UnityEditor.PackageManager;
+using UnityEditor.PackageManager.Requests;
 using System.IO;
 using System.Collections.Generic;
 
@@ -11,6 +13,8 @@ namespace SorollaPalette.Editor
         private const string SETUP_COMPLETE_KEY = "SorollaPalette_SetupComplete";
         private const string OPENUPM_REGISTRY_URL = "https://package.openupm.com";
         private const string GOOGLE_REGISTRY_URL = "https://unityregistry-pa.googleapis.com/";
+        
+        private static AddAndRemoveRequest resolveRequest;
         
         static SorollaPaletteSetup()
         {
@@ -27,21 +31,40 @@ namespace SorollaPalette.Editor
             
             Debug.Log("[Sorolla Palette] Running initial setup...");
             
-            if (AddScopedRegistriesToManifest())
+            bool registriesAdded = AddScopedRegistriesToManifest();
+            bool dependenciesAdded = AddGameAnalyticsDependency();
+            
+            if (registriesAdded || dependenciesAdded)
             {
-                Debug.Log("[Sorolla Palette] Scoped registries added successfully. GameAnalytics will be available shortly.");
+                Debug.Log("[Sorolla Palette] Dependencies added to manifest. Triggering Package Manager resolve...");
                 
-                // Add GameAnalytics dependency
-                if (AddGameAnalyticsDependency())
-                {
-                    Debug.Log("[Sorolla Palette] GameAnalytics SDK dependency added. Unity Package Manager is resolving...");
-                    AssetDatabase.Refresh();
-                }
+                // Force Package Manager to reload the manifest
+                resolveRequest = Client.AddAndRemove();
+                EditorApplication.update += CheckResolveProgress;
             }
             else
             {
-                Debug.LogWarning("[Sorolla Palette] Could not modify manifest.json. You may need to add GameAnalytics manually.");
+                Debug.Log("[Sorolla Palette] All dependencies already configured.");
             }
+        }
+        
+        private static void CheckResolveProgress()
+        {
+            if (resolveRequest == null || !resolveRequest.IsCompleted)
+                return;
+                
+            EditorApplication.update -= CheckResolveProgress;
+            
+            if (resolveRequest.Status == StatusCode.Success)
+            {
+                Debug.Log("[Sorolla Palette] Package Manager resolved successfully. GameAnalytics SDK is now available.");
+            }
+            else if (resolveRequest.Status >= StatusCode.Failure)
+            {
+                Debug.LogError($"[Sorolla Palette] Package Manager resolve failed: {resolveRequest.Error.message}");
+            }
+            
+            resolveRequest = null;
         }
         
         private static bool AddScopedRegistriesToManifest()
