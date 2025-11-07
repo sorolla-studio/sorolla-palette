@@ -1,7 +1,15 @@
 # Sorolla Palette - Fast Testing Workflow Guide
 
 ## The Problem
-When developing a package, switching Git branches doesn't trigger Unity's `[InitializeOnLoad]` scripts, meaning the package setup doesn't run automatically. You'd normally have to close and reopen Unity to test changes.
+When developing a package, switching Git branches doesn't trigger Unity's `[InitializeOnLoad]` scripts, meaning the package setup doesn't run automatically. Additionally, Unity's Package Manager doesn't automatically detect changes when you switch branches - it only checks for package changes on startup or when manually triggered.
+
+## Important Limitation ⚠️
+**Git branch switching is NOT detected by Unity's Package Manager.** When you switch from an empty branch to master (or vice versa), Unity doesn't know the package files have changed. This is a Unity limitation, not a bug in our package.
+
+**You MUST force a package refresh after switching branches:**
+- Option 1: Close and reopen Unity (slow but reliable)
+- Option 2: Use Window > Package Manager > Refresh button (faster)
+- Option 3: Use our testing tools (fastest for development)
 
 ## The Solution
 We've added testing tools accessible via the Unity menu: **Tools > Sorolla Palette > Testing**
@@ -10,31 +18,31 @@ We've added testing tools accessible via the Unity menu: **Tools > Sorolla Palet
 
 ## 🚀 Fast Testing Workflow
 
-### Method 1: Using Menu Commands (Fastest)
-1. Make changes to package code on your `master` branch
-2. Switch to empty branch: `git checkout empty-branch` (or switch via IDE)
-3. In Unity menu: **Tools > Sorolla Palette > Testing > Full Reset & Rerun**
-   - This clears manifest changes, resets state, and runs setup
+### Recommended: Two-Step Process (Most Reliable)
+
+**Step 1: Clean State**
+1. Switch to empty branch: `git checkout empty-branch`
+2. In Unity menu: **Window > Package Manager > Refresh** (or Ctrl/Cmd+R in Package Manager window)
+   - This tells Unity to detect the package is gone
+3. Wait for Package Manager to finish resolving
+
+**Step 2: Test Setup**
 4. Switch back to master: `git checkout master`
-5. In Unity menu: **Tools > Sorolla Palette > Run Setup (Force)**
-   - This reruns the setup with your latest changes
+5. In Unity menu: **Window > Package Manager > Refresh** (or Ctrl/Cmd+R)
+   - This tells Unity the package is back
+6. Wait for domain reload (Unity will recompile)
+7. Check Console - setup should run automatically via `[InitializeOnLoad]`
 
-**No Unity restart needed!** ⚡
+### Alternative: Using Menu Commands (Faster but Less Realistic)
 
-### Method 2: Manual Steps
-If you prefer more control:
+This skips Package Manager and directly tests the setup logic:
 
-1. **Clear the manifest** (removes Sorolla dependencies):
-   - Menu: **Tools > Sorolla Palette > Testing > Clear Manifest Changes**
-   - Confirms before removing registries and dependencies
+1. Make changes to package code on your `master` branch
+2. In Unity menu: **Tools > Sorolla Palette > Testing > Full Reset & Rerun**
+   - Clears manifest, resets state, runs setup
+3. Check Console for setup logs
 
-2. **Reset package state**:
-   - Menu: **Tools > Sorolla Palette > Testing > Reset Package State**
-   - Clears the SessionState flag
-
-3. **Force setup to run again**:
-   - Menu: **Tools > Sorolla Palette > Run Setup (Force)**
-   - Runs setup even if it already ran this session
+**Note**: This method bypasses the normal package loading flow, so it won't test the `[InitializeOnLoad]` trigger properly. Use the two-step process above for accurate testing.
 
 ---
 
