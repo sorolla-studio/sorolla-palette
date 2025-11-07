@@ -1,7 +1,5 @@
 using UnityEngine;
 using UnityEditor;
-using UnityEditor.PackageManager;
-using UnityEditor.PackageManager.Requests;
 using System.IO;
 using System.Collections.Generic;
 
@@ -14,8 +12,6 @@ namespace SorollaPalette.Editor
         private const string OPENUPM_REGISTRY_URL = "https://package.openupm.com";
         private const string GOOGLE_REGISTRY_URL = "https://unityregistry-pa.googleapis.com/";
         
-        private static AddAndRemoveRequest resolveRequest;
-        
         static SorollaPaletteSetup()
         {
             // Run setup once when package is first imported
@@ -23,6 +19,13 @@ namespace SorollaPalette.Editor
             {
                 EditorApplication.delayCall += RunSetup;
             }
+        }
+        
+        [MenuItem("Tools/Sorolla Palette/Run Setup (Force)")]
+        public static void ForceRunSetup()
+        {
+            SessionState.SetBool(SETUP_COMPLETE_KEY, false);
+            RunSetup();
         }
         
         private static void RunSetup()
@@ -36,35 +39,17 @@ namespace SorollaPalette.Editor
             
             if (registriesAdded || dependenciesAdded)
             {
-                Debug.Log("[Sorolla Palette] Dependencies added to manifest. Triggering Package Manager resolve...");
+                Debug.Log("[Sorolla Palette] Dependencies added to manifest. Refreshing Asset Database to trigger Package Manager resolve...");
                 
-                // Force Package Manager to reload the manifest
-                resolveRequest = Client.AddAndRemove();
-                EditorApplication.update += CheckResolveProgress;
+                // Force Unity to reload the manifest by refreshing the asset database
+                AssetDatabase.Refresh();
+                
+                Debug.Log("[Sorolla Palette] Setup complete. Package Manager will resolve dependencies.");
             }
             else
             {
                 Debug.Log("[Sorolla Palette] All dependencies already configured.");
             }
-        }
-        
-        private static void CheckResolveProgress()
-        {
-            if (resolveRequest == null || !resolveRequest.IsCompleted)
-                return;
-                
-            EditorApplication.update -= CheckResolveProgress;
-            
-            if (resolveRequest.Status == StatusCode.Success)
-            {
-                Debug.Log("[Sorolla Palette] Package Manager resolved successfully. GameAnalytics SDK is now available.");
-            }
-            else if (resolveRequest.Status >= StatusCode.Failure)
-            {
-                Debug.LogError($"[Sorolla Palette] Package Manager resolve failed: {resolveRequest.Error.message}");
-            }
-            
-            resolveRequest = null;
         }
         
         private static bool AddScopedRegistriesToManifest()
@@ -652,4 +637,3 @@ namespace SorollaPalette.Editor
         }
     }
 }
-

@@ -52,6 +52,15 @@ Create a UPM package providing a complete mobile publisher stack with:
   - Adds OpenUPM scoped registry to project manifest.json
   - Adds GameAnalytics SDK dependency (7.10.6)
   - Adds External Dependency Manager dependency (Git URL)
+  - Uses AssetDatabase.Refresh() to trigger Package Manager resolve
+  - Menu item: Tools > Sorolla Palette > Run Setup (Force)
+- [x] Testing utilities (SorollaPaletteTestingTools.cs):
+  - Reset package state (clear SessionState)
+  - Clear manifest changes (remove Sorolla entries)
+  - Full reset & rerun (complete testing cycle)
+  - Show session state (debug info)
+  - Open manifest (quick access)
+  - See Documentation~/TESTING.md for workflow guide
 - [x] Create assembly definition files (.asmdef) for Runtime, Editor, each Module
 - [x] Unity auto-installs GameAnalytics & EDM
 
