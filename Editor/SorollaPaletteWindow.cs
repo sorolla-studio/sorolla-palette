@@ -118,15 +118,29 @@ namespace SorollaPalette.Editor
         private void DrawSDKStatusSection()
         {
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            
+
             GUILayout.Label("SDK Status", EditorStyles.boldLabel);
             GUILayout.Space(5);
-            
+
+            string currentMode = EditorPrefs.GetString(MODE_KEY, "Not Selected");
+
             DrawSDKStatus("GameAnalytics", IsGameAnalyticsInstalled(), true);
-            DrawSDKStatus("AppLovin MAX", IsMaxInstalled(), false);
-            DrawSDKStatus("Facebook SDK", IsFacebookInstalled(), false);
-            DrawSDKStatus("Adjust SDK", IsAdjustInstalled(), false);
-            
+
+            // Show MAX status in both modes
+            DrawSDKStatus("AppLovin MAX", IsMaxInstalled(), currentMode == "Full");
+
+            // Facebook only in Prototype mode (required)
+            if (currentMode == "Prototype")
+            {
+                DrawSDKStatus("Facebook SDK", IsFacebookInstalled(), true);
+            }
+
+            // Adjust only in Full mode
+            if (currentMode == "Full")
+            {
+                DrawSDKStatus("Adjust SDK", IsAdjustInstalled(), true);
+            }
+
             EditorGUILayout.EndVertical();
         }
         
@@ -157,19 +171,28 @@ namespace SorollaPalette.Editor
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             GUILayout.Label("Module Management", EditorStyles.boldLabel);
             GUILayout.Space(5);
-            
+
             string currentMode = EditorPrefs.GetString(MODE_KEY, "Not Selected");
-            
-            DrawModuleToggle("Facebook Module", FACEBOOK_DEFINE, IsFacebookInstalled(), 
-                currentMode == "Prototype" ? "(Recommended for Prototype)" : null, Color.yellow);
-                
-            DrawModuleToggle("AppLovin MAX Module", MAX_DEFINE, IsMaxInstalled(), 
-                currentMode == "Full" ? "(Required for Full Mode)" : null, Color.red, 
+
+            // Facebook Module - Only show in Prototype Mode (Required)
+            if (currentMode == "Prototype")
+            {
+                DrawModuleToggle("Facebook Module", FACEBOOK_DEFINE, IsFacebookInstalled(),
+                    "(Required for Prototype)", Color.red);
+            }
+
+            // MAX Module - Optional in both modes, but required for Full Mode
+            DrawModuleToggle("AppLovin MAX Module", MAX_DEFINE, IsMaxInstalled(),
+                currentMode == "Full" ? "(Required for Full Mode)" : "(Optional)", Color.red,
                 SorollaPaletteSetup.InstallAppLovinMAX, "AppLovin MAX");
-                
-            DrawModuleToggle("Adjust Module", ADJUST_DEFINE, IsAdjustInstalled(), 
-                currentMode == "Full" ? "(Required for Full Mode)" : null, Color.red);
-            
+
+            // Adjust Module - Only show in Full Mode
+            if (currentMode == "Full")
+            {
+                DrawModuleToggle("Adjust Module", ADJUST_DEFINE, IsAdjustInstalled(),
+                    "(Required for Full Mode)", Color.red);
+            }
+
             EditorGUILayout.EndVertical();
         }
         

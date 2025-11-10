@@ -112,17 +112,26 @@ namespace SorollaPalette.Editor
 
             Debug.Log($"[Sorolla Palette] Mode set to: {mode}");
 
-            // Auto-install MAX if Full Mode is selected
+            // Auto-install MAX and Adjust if Full Mode is selected
             if (mode == "Full")
             {
                 // Check if MAX is already installed
                 var isMaxInstalled = Type.GetType("MaxSdk, MaxSdk.Scripts") != null ||
-                                     Type.GetType("MaxSdkBase, MaxSdk.Scripts") != null;
+                                      Type.GetType("MaxSdkBase, MaxSdk.Scripts") != null;
 
                 if (!isMaxInstalled)
                 {
                     Debug.Log("[Sorolla Palette] Full Mode requires AppLovin MAX. Installing automatically...");
                     SorollaPaletteSetup.InstallAppLovinMAX();
+                }
+
+                // Check if Adjust is already installed
+                var isAdjustInstalled = Type.GetType("com.adjust.sdk.Adjust, com.adjust.sdk") != null;
+
+                if (!isAdjustInstalled)
+                {
+                    Debug.Log("[Sorolla Palette] Full Mode requires Adjust SDK. Installing automatically...");
+                    SorollaPaletteSetup.InstallAdjustSDK();
                 }
             }
 

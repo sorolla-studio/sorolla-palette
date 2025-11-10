@@ -13,7 +13,12 @@
   "defineConstraints": [
     "SOROLLA_MAX_ENABLED"
   ],
-  "versionDefines": [],
+  "versionDefines": [
+    {
+      "name": "com.applovin.mediation.ads",
+      "expression": "",
+      "define": "APPLOVIN_MAX_INSTALLED"
+    }
+  ],
   "noEngineReferences": false
 }
-

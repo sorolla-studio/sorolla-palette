@@ -16,7 +16,8 @@ Step-by-step guide for integrating each SDK into Sorolla Palette.
 When you install Sorolla Palette, Unity Package Manager automatically installs:
 
 ✅ **GameAnalytics** - Both modes (analytics + remote config)
-✅ **AppLovin MAX** - Full Mode only
+✅ **AppLovin MAX** - Full Mode only (auto-installed when selecting Full Mode)
+✅ **Adjust SDK** - Full Mode only (auto-installed when selecting Full Mode)
 ✅ **External Dependency Manager** - Both modes (Android/iOS dependencies)
 
 **You don't need to manually download these!** Just wait 1-2 minutes after package installation.
@@ -28,7 +29,6 @@ When you install Sorolla Palette, Unity Package Manager automatically installs:
 These SDKs are distributed as `.unitypackage` files and must be imported manually:
 
 ⏳ **Facebook SDK** - Required for Prototype Mode only
-⏳ **Adjust SDK** - Required for Full Mode only (not used in Prototype)
 
 Our Configuration Window will guide you with download links.
 
@@ -40,9 +40,9 @@ Our Configuration Window will guide you with download links.
 |-----|------|--------------|---------|
 | GameAnalytics | Both | ✅ Auto | Analytics + Remote Config |
 | AppLovin MAX | Optional (Prototype), Required (Full) | ✅ Auto | Ad Mediation |
+| Adjust SDK | Full Only | ✅ Auto | Attribution |
 | External Dependency Manager | Both | ✅ Auto | Dependency Resolution |
 | Facebook SDK | Prototype Only | ⏳ Manual | Facebook Events + UA Tracking |
-| Adjust SDK | Full Only | ⏳ Manual | Attribution |
 
 ---
 
@@ -200,40 +200,33 @@ SorollaPalette.TrackDesignEvent("test");
 
 ---
 
-## 4️⃣ **Adjust SDK** - Manual Install ⏳ (Full Mode Only)
+## 4️⃣ **Adjust SDK** - Auto-Installed ✅ (Full Mode Only)
 
-### Status: Requires Manual Import
+### Status: Auto-Installed
 **Not used in:** Prototype Mode (uses Facebook for UA tracking instead)
 **Required for:** Full Mode
 
-1. **Download SDK**
-   - Go to: https://github.com/adjust/unity_sdk/releases
-   - Download latest **Adjust.unitypackage**
-   - Save file
+Adjust SDK is automatically installed via Unity Package Manager when you select **Full Mode** in the mode selector wizard. No manual download required!
 
-2. **Import into Unity**
-   - Unity → `Assets > Import Package > Custom Package`
-   - Select downloaded `.unitypackage`
-   - Click "Import" (import all files)
-   - Wait for compilation
+### Configuration
 
-3. **Create Adjust App**
-   - Go to: https://www.adjust.com/ (or https://suite.adjust.com/)
-   - Sign up for account (**~$2000+/month**)
-   - Create new app
-   - Copy **App Token**
+1. **Create Adjust App**
+    - Go to: https://www.adjust.com/ (or https://suite.adjust.com/)
+    - Sign up for account (**~$2000+/month**)
+    - Create new app
+    - Copy **App Token**
 
-4. **Configure in Unity**
-   - Open: `Tools > Sorolla Palette > Configure`
-   - Ensure you're in **Full Mode**
-   - Adjust section → Click **"Enable Adjust Module"**
-   - Enter **App Token**
-   - Select **Environment**:
-     - **Sandbox** - For testing
-     - **Production** - For live app
-   - Click Save
+2. **Configure in Unity**
+    - Open: `Tools > Sorolla Palette > Configure`
+    - Ensure you're in **Full Mode**
+    - Adjust section → Click **"Enable Adjust Module"**
+    - Enter **App Token**
+    - Select **Environment**:
+      - **Sandbox** - For testing
+      - **Production** - For live app
+    - Click Save
 
-5. **Test**
+3. **Test**
 ```csharp
 // Adjust auto-initializes with Sorolla Palette
 // Events are tracked automatically
@@ -339,7 +332,7 @@ Check: `Edit > Project Settings > Player > Scripting Define Symbols`
 
 ### Download Links
 - **Facebook SDK**: https://developers.facebook.com/docs/unity/downloads/
-- **Adjust SDK**: https://github.com/adjust/unity_sdk/releases
+- **Adjust SDK**: Auto-installed (via UPM)
 - **GameAnalytics**: Auto-installed
 - **MAX**: Auto-installed
 

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using UnityEngine;
 #if GAMEANALYTICS_INSTALLED
 using GameAnalyticsSDK;
@@ -52,10 +53,7 @@ namespace SorollaPalette
 
             // Initialize MAX if enabled
 #if SOROLLA_MAX_ENABLED
-            if (config.maxModuleEnabled)
-            {
-                InitializeMAX();
-            }
+            if (config.maxModuleEnabled) InitializeMax();
 #endif
 
             // Initialize Facebook in Prototype Mode
@@ -92,13 +90,11 @@ namespace SorollaPalette
         {
 #if SOROLLA_FACEBOOK_ENABLED
             Debug.Log("[Sorolla Palette] Initializing Facebook SDK...");
-            
-            if (string.IsNullOrEmpty(_config.facebookAppId))
+            if (string.IsNullOrEmpty(_Config.facebookAppId))
             {
                 Debug.LogError("[Sorolla Palette] Facebook App ID is empty!");
                 return;
             }
-            
             Facebook.FacebookAdapter.Initialize();
 #endif
         }
@@ -111,14 +107,12 @@ namespace SorollaPalette
         {
 #if SOROLLA_ADJUST_ENABLED
             Debug.Log("[Sorolla Palette] Initializing Adjust SDK...");
-            
-            if (string.IsNullOrEmpty(_config.adjustAppToken))
+            if (string.IsNullOrEmpty(_Config.adjustAppToken))
             {
                 Debug.LogError("[Sorolla Palette] Adjust App Token is empty!");
                 return;
             }
-            
-            Adjust.AdjustAdapter.Initialize(_config.adjustAppToken, _config.adjustEnvironment);
+            Adjust.AdjustAdapter.Initialize(_Config.adjustAppToken, _Config.adjustEnvironment);
 #endif
         }
 
@@ -187,7 +181,7 @@ namespace SorollaPalette
 
             // Forward to Facebook in Prototype Mode
 #if SOROLLA_FACEBOOK_ENABLED
-            if (_config.mode == PaletteMode.Prototype && _config.facebookModuleEnabled)
+            if (_Config.mode == PaletteMode.Prototype && _Config.facebookModuleEnabled)
             {
                 Facebook.FacebookAdapter.TrackEvent(eventName, value);
             }
@@ -252,8 +246,8 @@ namespace SorollaPalette
         /// </summary>
         public static int GetRemoteConfigInt(string key, int defaultValue = 0)
         {
-            var value = GetRemoteConfigValue(key, defaultValue.ToString());
-            if (int.TryParse(value, out var result)) return result;
+            var value = GetRemoteConfigValue(key, defaultValue.ToString(CultureInfo.InvariantCulture));
+            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result)) return result;
             return defaultValue;
         }
 
@@ -262,8 +256,8 @@ namespace SorollaPalette
         /// </summary>
         public static float GetRemoteConfigFloat(string key, float defaultValue = 0f)
         {
-            var value = GetRemoteConfigValue(key, defaultValue.ToString());
-            if (float.TryParse(value, out var result)) return result;
+            var value = GetRemoteConfigValue(key, defaultValue.ToString(CultureInfo.InvariantCulture));
+            if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var result)) return result;
             return defaultValue;
         }
 
@@ -281,23 +275,35 @@ namespace SorollaPalette
 
         #region MAX Integration
 
-        private static void InitializeMAX()
+        private static bool TryInvokeMax(string methodName, params object[] args)
         {
-#if SOROLLA_MAX_ENABLED
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            var type = Type.GetType("SorollaPalette.MAX.MaxAdapter, SorollaPalette.MAX");
+            if (type == null) return false;
+            var method =
+ type.GetMethod(methodName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            if (method == null) return false;
+            try { method.Invoke(null, args); return true; } catch { return false; }
+#else
+            return false;
+#endif
+        }
+
+        private static void InitializeMax()
+        {
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
             Debug.Log("[Sorolla Palette] Initializing AppLovin MAX...");
-            
-            if (string.IsNullOrEmpty(_config.maxSdkKey))
+            if (string.IsNullOrEmpty(_Config.maxSdkKey))
             {
-                Debug.LogError("[Sorolla Palette] MAX SDK Key is empty!");
+                Debug.LogError("[Sorolla Palette] AppLovin MAX SDK Key is empty!");
                 return;
             }
-            
-            MAX.MaxAdapter.Initialize(
-                _config.maxSdkKey,
-                _config.maxRewardedAdUnitId,
-                _config.maxInterstitialAdUnitId,
-                _config.maxBannerAdUnitId
-            );
+            if (!TryInvokeMax("Initialize", _Config.maxSdkKey, _Config.maxRewardedAdUnitId, _Config.maxInterstitialAdUnitId, _Config.maxBannerAdUnitId))
+            {
+                Debug.LogWarning("[Sorolla Palette] Failed to locate MAX adapter. Is the MAX module compiled?");
+            }
+#else
+            Debug.LogWarning("[Sorolla Palette] AppLovin MAX package not installed yet. Skipping initialization.");
 #endif
         }
 
@@ -307,16 +313,23 @@ namespace SorollaPalette
         public static void ShowRewardedAd(Action onComplete, Action onFailed)
         {
 #if SOROLLA_MAX_ENABLED
-            if (!_config.maxModuleEnabled)
+#if APPLOVIN_MAX_INSTALLED
+            if (!_Config.maxModuleEnabled)
             {
-                Debug.LogWarning("[Sorolla Palette] MAX module not enabled!");
-                onFailed?.Invoke();
-                return;
+                Debug.LogWarning("[Sorolla Palette] AppLovin MAX module not enabled!");
+                onFailed?.Invoke(); return;
             }
-            
-            MAX.MaxAdapter.ShowRewardedAd(onComplete, onFailed);
+            if (!TryInvokeMax("ShowRewardedAd", onComplete, onFailed))
+            {
+                Debug.LogWarning("[Sorolla Palette] Failed to locate MAX adapter. Is the MAX module compiled?");
+                onFailed?.Invoke();
+            }
 #else
-            Debug.LogWarning("[Sorolla Palette] MAX module not compiled. Enable MAX module in configuration.");
+            Debug.LogWarning("[Sorolla Palette] AppLovin MAX package not installed.");
+            onFailed?.Invoke();
+#endif
+#else
+            Debug.LogWarning("[Sorolla Palette] AppLovin MAX module not compiled. Enable module in configuration.");
             onFailed?.Invoke();
 #endif
         }
@@ -327,15 +340,23 @@ namespace SorollaPalette
         public static void ShowInterstitialAd(Action onComplete)
         {
 #if SOROLLA_MAX_ENABLED
-            if (!_config.maxModuleEnabled)
+#if APPLOVIN_MAX_INSTALLED
+            if (!_Config.maxModuleEnabled)
             {
-                Debug.LogWarning("[Sorolla Palette] MAX module not enabled!");
+                Debug.LogWarning("[Sorolla Palette] AppLovin MAX module not enabled!");
                 return;
             }
-            
-            MAX.MaxAdapter.ShowInterstitialAd(onComplete);
+            if (!TryInvokeMax("ShowInterstitialAd", onComplete))
+            {
+                Debug.LogWarning("[Sorolla Palette] Failed to locate MAX adapter. Is the MAX module compiled?");
+                onComplete?.Invoke();
+            }
 #else
-            Debug.LogWarning("[Sorolla Palette] MAX module not compiled. Enable MAX module in configuration.");
+            Debug.LogWarning("[Sorolla Palette] AppLovin MAX package not installed.");
+            onComplete?.Invoke();
+#endif
+#else
+            Debug.LogWarning("[Sorolla Palette] AppLovin MAX module not compiled. Enable module in configuration.");
 #endif
         }
 

@@ -179,6 +179,31 @@ namespace SorollaPalette.Editor
             }
         }
 
+        /// <summary>
+        ///     Installs Adjust SDK via UPM - called by Mode Selector for Full Mode
+        /// </summary>
+        public static void InstallAdjustSDK()
+        {
+            Debug.Log("[Sorolla Palette] Installing Adjust SDK...");
+
+            // Adjust SDK is available via git URL: https://github.com/adjust/unity_sdk.git?path=Assets/Adjust
+            var adjustRequest = Client.Add("https://github.com/adjust/unity_sdk.git?path=Assets/Adjust");
+            EditorApplication.update += () => CheckAdjustInstallProgress(adjustRequest);
+        }
+
+        private static void CheckAdjustInstallProgress(AddRequest request)
+        {
+            if (request == null || !request.IsCompleted)
+                return;
+
+            EditorApplication.update -= () => CheckAdjustInstallProgress(request);
+
+            if (request.Status == StatusCode.Success)
+                Debug.Log("[Sorolla Palette] Adjust SDK installed successfully!");
+            else if (request.Status >= StatusCode.Failure)
+                Debug.LogError($"[Sorolla Palette] Adjust SDK installation failed: {request.Error.message}");
+        }
+
         private static void CheckMaxInstallProgress()
         {
             if (_MaxRequest == null || !_MaxRequest.IsCompleted)

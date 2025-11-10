@@ -1,4 +1,4 @@
-#if SOROLLA_MAX_ENABLED
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
 using UnityEngine;
 using System;
 
@@ -287,5 +287,25 @@ namespace SorollaPalette.MAX
         #endregion
     }
 }
+#else
+namespace SorollaPalette.MAX
+{
+    public static class MaxAdapter
+    {
+        public static void Initialize(string sdkKey, string rewardedAdUnitId, string interstitialAdUnitId, string bannerAdUnitId)
+        {
+            UnityEngine.Debug.LogWarning("[MAX Adapter] AppLovin MAX package not installed. Install MAX before enabling the module.");
+        }
+        public static void ShowRewardedAd(System.Action onComplete, System.Action onFailed)
+        {
+            UnityEngine.Debug.LogWarning("[MAX Adapter] AppLovin MAX package not installed.");
+            onFailed?.Invoke();
+        }
+        public static void ShowInterstitialAd(System.Action onComplete)
+        {
+            UnityEngine.Debug.LogWarning("[MAX Adapter] AppLovin MAX package not installed.");
+            onComplete?.Invoke();
+        }
+    }
+}
 #endif
-
