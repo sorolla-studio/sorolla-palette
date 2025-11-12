@@ -3,11 +3,11 @@ using UnityEngine;
 
 namespace SorollaPalette.Editor
 {
+    /// <summary>
+    /// Streamlined configuration window - KISS approach with single-page configuration
+    /// </summary>
     public class SorollaPaletteWindow : EditorWindow
     {
-        private const string MODE_KEY = "SorollaPalette_Mode";
-        private const string MAX_DEFINE = "SOROLLA_MAX_ENABLED";
-
         private SorollaPaletteConfig _config;
         private Vector2 _scrollPos;
 
@@ -77,7 +77,7 @@ namespace SorollaPalette.Editor
 
             GUILayout.Label("Development Mode", EditorStyles.boldLabel);
 
-            var currentMode = EditorPrefs.GetString(MODE_KEY, "Not Selected");
+            var currentMode = ModeManager.GetCurrentMode();
 
             EditorGUILayout.BeginHorizontal();
             GUILayout.Label("Current Mode: ", GUILayout.Width(100));
@@ -115,7 +115,7 @@ namespace SorollaPalette.Editor
             GUILayout.Label("SDK Status", EditorStyles.boldLabel);
             GUILayout.Space(5);
 
-            var currentMode = EditorPrefs.GetString(MODE_KEY, "Not Selected");
+            var currentMode = ModeManager.GetCurrentMode();
 
             DrawSDKStatus("GameAnalytics", SdkDetection.IsGameAnalyticsInstalled(), true);
 
@@ -155,7 +155,7 @@ namespace SorollaPalette.Editor
 
         private void DrawModuleToggles()
         {
-            var currentMode = EditorPrefs.GetString(MODE_KEY, "Not Selected");
+            var currentMode = ModeManager.GetCurrentMode();
             if (currentMode == "Full") return;
             if (currentMode == "Prototype")
             {
@@ -167,11 +167,11 @@ namespace SorollaPalette.Editor
                 if (desired && !isInstalled)
                 {
                     SorollaPaletteSetup.InstallAppLovinMAX();
-                    SetDefineEnabled(MAX_DEFINE, true);
+                    DefineManager.SetDefineEnabled(DefineManager.MAX_DEFINE, true);
                 }
                 else if (!desired && isInstalled)
                 {
-                    SetDefineEnabled(MAX_DEFINE, false);
+                    DefineManager.SetDefineEnabled(DefineManager.MAX_DEFINE, false);
                     SorollaPaletteSetup.UninstallAppLovinMAX();
                 }
 
@@ -193,7 +193,7 @@ namespace SorollaPalette.Editor
 
             var serializedConfig = new SerializedObject(_config);
 
-            var currentMode = EditorPrefs.GetString(MODE_KEY, "Not Selected");
+            var currentMode = ModeManager.GetCurrentMode();
 
             // Always show GA
             DrawConfigGroup(serializedConfig, "GameAnalytics", true, "gaGameKey", "gaSecretKey");

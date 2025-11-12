@@ -157,22 +157,7 @@ namespace SorollaPalette.Editor
         /// </summary>
         public static void InstallAppLovinMAX()
         {
-            Debug.Log("[Sorolla Palette] Installing AppLovin MAX SDK...");
-
-            var registryAdded = AddAppLovinRegistry();
-            var dependencyAdded = AddAppLovinDependency();
-
-            if (registryAdded || dependencyAdded)
-            {
-                Debug.Log("[Sorolla Palette] AppLovin MAX added to manifest. Triggering Package Manager resolve...");
-
-                _MaxRequest = Client.Add("com.applovin.mediation.ads@8.5.0");
-                EditorApplication.update += CheckMaxInstallProgress;
-            }
-            else
-            {
-                Debug.Log("[Sorolla Palette] AppLovin MAX is already installed.");
-            }
+            InstallationManager.InstallAppLovinMAX();
         }
 
         /// <summary>
@@ -200,31 +185,7 @@ namespace SorollaPalette.Editor
         /// </summary>
         public static void InstallAdjustSDK()
         {
-            if (_AdjustRequest != null && !_AdjustRequest.IsCompleted)
-            {
-                Debug.Log("[Sorolla Palette] Adjust SDK installation already in progress...");
-                return;
-            }
-
-            Debug.Log("[Sorolla Palette] Installing Adjust SDK...");
-
-            _AdjustRequest = Client.Add("https://github.com/adjust/unity_sdk.git?path=Assets/Adjust");
-            EditorApplication.update += CheckAdjustInstallProgress;
-        }
-
-        private static void CheckAdjustInstallProgress()
-        {
-            if (_AdjustRequest == null || !_AdjustRequest.IsCompleted)
-                return;
-
-            EditorApplication.update -= CheckAdjustInstallProgress;
-
-            if (_AdjustRequest.Status == StatusCode.Success)
-                Debug.Log("[Sorolla Palette] Adjust SDK installed successfully!");
-            else if (_AdjustRequest.Status >= StatusCode.Failure)
-                Debug.LogError($"[Sorolla Palette] Adjust SDK installation failed: {_AdjustRequest.Error.message}");
-
-            _AdjustRequest = null;
+            InstallationManager.InstallAdjustSDK();
         }
 
         private static void CheckMaxInstallProgress()

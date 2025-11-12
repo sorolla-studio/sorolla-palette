@@ -3,11 +3,11 @@ using UnityEngine;
 
 namespace SorollaPalette.Editor
 {
+    /// <summary>
+    /// Simplified mode selector - KISS approach with single method calls
+    /// </summary>
     public class SorollaPaletteModeSelector : EditorWindow
     {
-        private const string MODE_KEY = "SorollaPalette_Mode";
-        private const string MODE_SELECTED_KEY = "SorollaPalette_ModeSelected";
-
         private void OnGUI()
         {
             GUILayout.Space(20);
@@ -86,8 +86,8 @@ namespace SorollaPalette.Editor
         [InitializeOnLoadMethod]
         private static void Initialize()
         {
-            // Show mode selector on first import
-            if (!SessionState.GetBool(MODE_SELECTED_KEY, false))
+            // Show mode selector on first import if no mode selected
+            if (!ModeManager.IsModeSelected())
                 EditorApplication.delayCall += () =>
                 {
                     // Wait a bit for package resolution to complete
@@ -106,37 +106,8 @@ namespace SorollaPalette.Editor
 
         private void SelectMode(string mode)
         {
-            EditorPrefs.SetString(MODE_KEY, mode);
-            SessionState.SetBool(MODE_SELECTED_KEY, true);
-
-            Debug.Log($"[Sorolla Palette] Mode set to: {mode}");
-
-            // Apply defines immediately
-            DefineManager.ApplyModeDefines(mode);
-
-            // Auto-install MAX and Adjust if Full Mode is selected
-            if (mode == "Full")
-            {
-                // Check if MAX is already installed
-                var isMaxInstalled = SdkDetection.IsMaxInstalled();
-
-                if (!isMaxInstalled)
-                {
-                    Debug.Log("[Sorolla Palette] Full Mode requires AppLovin MAX. Installing automatically...");
-                    SorollaPaletteSetup.InstallAppLovinMAX();
-                }
-
-                // Check if Adjust is already installed
-                var isAdjustInstalled = SdkDetection.IsAdjustInstalled();
-
-                if (!isAdjustInstalled)
-                {
-                    Debug.Log("[Sorolla Palette] Full Mode requires Adjust SDK. Installing automatically...");
-                    SorollaPaletteSetup.InstallAdjustSDK();
-                }
-            }
-
-            Debug.Log("[Sorolla Palette] Open 'Sorolla Palette → Configuration' to set up your SDKs.");
+            // Single method call handles everything
+            ModeManager.SetMode(mode);
 
             Close();
 
