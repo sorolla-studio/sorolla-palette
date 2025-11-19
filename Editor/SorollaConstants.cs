@@ -14,7 +14,7 @@ namespace SorollaPalette.Editor
         public const string PackageIdExternalDependencyManager = "com.google.external-dependency-manager";
 
         // Package URLs
-        public const string UrlFacebook = "https://github.com/LaCreArthur/facebook-unity-sdk-upm.git#v18.0.0";
+        public const string UrlFacebook = "https://github.com/LaCreArthur/facebook-unity-sdk-upm.git";
         public const string UrlAdjust = "https://github.com/adjust/unity_sdk.git";
         public const string UrlGameAnalytics = "https://github.com/GameAnalytics/GA-SDK-UNITY.git";
         public const string UrlMax = "https://github.com/AppLovin/AppLovin-MAX-Unity-Plugin.git";
