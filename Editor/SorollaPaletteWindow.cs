@@ -250,17 +250,17 @@ namespace SorollaPalette.Editor
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
                 GUILayout.Label("Optional Package", EditorStyles.boldLabel);
                 GUILayout.Space(5);
+                
                 var isInstalled = SdkDetection.IsMaxInstalled();
                 var desired = EditorGUILayout.Toggle("AppLovin MAX (Prototype)", isInstalled);
+                
                 if (desired && !isInstalled)
                 {
-                    SorollaPaletteSetup.InstallAppLovinMAX();
-                    DefineManager.SetDefineEnabled(DefineManager.MAX_DEFINE, true);
+                    InstallationManager.InstallAppLovinMAX();
                 }
                 else if (!desired && isInstalled)
                 {
-                    DefineManager.SetDefineEnabled(DefineManager.MAX_DEFINE, false);
-                    SorollaPaletteSetup.UninstallAppLovinMAX();
+                    InstallationManager.UninstallAppLovinMAX();
                 }
 
                 EditorGUILayout.EndVertical();

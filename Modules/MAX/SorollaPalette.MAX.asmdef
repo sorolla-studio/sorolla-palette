@@ -2,7 +2,6 @@
     "name": "SorollaPalette.MAX",
     "rootNamespace": "SorollaPalette.MAX",
     "references": [
-        "MaxSdk.Scripts",
         "SorollaPalette.Adjust"
     ],
     "includePlatforms": [],
@@ -18,7 +17,7 @@
         {
             "name": "com.applovin.mediation.ads",
             "expression": "",
-            "define": "APPLOVIN_MAX_INSTALLED"
+            "define": "SOROLLA_MAX_ENABLED"
         }
     ],
     "noEngineReferences": false

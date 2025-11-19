@@ -1,9 +1,7 @@
 {
     "name": "SorollaPalette.Facebook",
     "rootNamespace": "SorollaPalette.Facebook",
-    "references": [
-        "Facebook.Unity"
-    ],
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -13,6 +11,12 @@
     "defineConstraints": [
         "SOROLLA_FACEBOOK_ENABLED"
     ],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.lacrearthur.facebook-sdk-for-unity",
+            "expression": "",
+            "define": "SOROLLA_FACEBOOK_ENABLED"
+        }
+    ],
     "noEngineReferences": false
 }

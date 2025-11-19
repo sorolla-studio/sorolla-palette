@@ -75,7 +75,7 @@ namespace SorollaPalette.Editor
             if (!isMaxInstalled)
             {
                 Debug.Log("[ModeManager] Full Mode requires AppLovin MAX. Installing automatically...");
-                SorollaPaletteSetup.InstallAppLovinMAX();
+                InstallationManager.InstallAppLovinMAX();
             }
 
             // Check if Adjust is already installed
@@ -83,7 +83,7 @@ namespace SorollaPalette.Editor
             if (!isAdjustInstalled)
             {
                 Debug.Log("[ModeManager] Full Mode requires Adjust SDK. Installing automatically...");
-                SorollaPaletteSetup.InstallAdjustSDK();
+                InstallationManager.InstallAdjustSDK();
             }
         }
     }

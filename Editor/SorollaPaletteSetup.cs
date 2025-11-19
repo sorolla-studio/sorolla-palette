@@ -39,20 +39,5 @@ namespace SorollaPalette.Editor
 
             Debug.Log("[Sorolla Palette] Setup initiated. Check the progress bar for details.");
         }
-
-        public static void InstallAppLovinMAX()
-        {
-            InstallationManager.InstallAppLovinMAX();
-        }
-
-        public static void UninstallAppLovinMAX()
-        {
-            InstallationManager.UninstallAppLovinMAX();
-        }
-
-        public static void InstallAdjustSDK()
-        {
-            InstallationManager.InstallAdjustSDK();
-        }
     }
 }

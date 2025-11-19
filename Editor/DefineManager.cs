@@ -1,22 +1,20 @@
 using System.Linq;
 using UnityEditor;
+using System.Linq;
+using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
 
 namespace SorollaPalette.Editor
 {
     /// <summary>
-    /// Centralized define symbol management for Sorolla Palette
-    /// Eliminates DRY violations by providing unified define management
+    ///     Centralized define symbol management for Sorolla Palette
+    ///     Eliminates DRY violations by providing unified define management
     /// </summary>
     public static class DefineManager
     {
-        public const string FACEBOOK_DEFINE = "SOROLLA_FACEBOOK_ENABLED";
-        public const string MAX_DEFINE = "SOROLLA_MAX_ENABLED";
-        public const string ADJUST_DEFINE = "SOROLLA_ADJUST_ENABLED";
-
         /// <summary>
-        /// Set a define symbol enabled/disabled for all build targets
+        ///     Set a define symbol enabled/disabled for all build targets
         /// </summary>
         public static void SetDefineEnabled(string define, bool enabled)
         {
@@ -25,7 +23,7 @@ namespace SorollaPalette.Editor
         }
 
         /// <summary>
-        /// Set a define symbol enabled/disabled for a specific build target
+        ///     Set a define symbol enabled/disabled for a specific build target
         /// </summary>
         public static void SetDefineEnabledForTarget(NamedBuildTarget buildTarget, string define, bool enabled)
         {
@@ -57,44 +55,20 @@ namespace SorollaPalette.Editor
         }
 
         /// <summary>
-        /// Check if a define symbol is enabled for a build target
-        /// </summary>
-        public static bool IsDefineEnabled(NamedBuildTarget buildTarget, string define)
-        {
-            var defines = PlayerSettings.GetScriptingDefineSymbols(buildTarget)
-                .Split(';')
-                .Where(d => !string.IsNullOrWhiteSpace(d));
-
-            return defines.Contains(define);
-        }
-
-        /// <summary>
-        /// Get all define symbols for a build target
-        /// </summary>
-        public static string[] GetDefines(NamedBuildTarget buildTarget)
-        {
-            return PlayerSettings.GetScriptingDefineSymbols(buildTarget)
-                .Split(';')
-                .Where(d => !string.IsNullOrWhiteSpace(d))
-                .ToArray();
-        }
-
-        /// <summary>
-        /// Apply mode-specific defines
+        ///     Apply mode-specific defines
         /// </summary>
         public static void ApplyModeDefines(string mode)
         {
-            if (mode == "Prototype")
+            // Only manage mode defines. SDK defines are handled by versionDefines in asmdefs.
+            if (mode == SorollaConstants.ModePrototype)
             {
-                SetDefineEnabled(FACEBOOK_DEFINE, true);
-                SetDefineEnabled(ADJUST_DEFINE, false);
-                // MAX is optional in Prototype mode - don't force it
+                SetDefineEnabled(SorollaConstants.DefinePrototype, true);
+                SetDefineEnabled(SorollaConstants.DefineFull, false);
             }
-            else if (mode == "Full")
+            else if (mode == SorollaConstants.ModeFull)
             {
-                SetDefineEnabled(ADJUST_DEFINE, true);
-                SetDefineEnabled(MAX_DEFINE, true);
-                SetDefineEnabled(FACEBOOK_DEFINE, false);
+                SetDefineEnabled(SorollaConstants.DefinePrototype, false);
+                SetDefineEnabled(SorollaConstants.DefineFull, true);
             }
         }
     }
