@@ -32,10 +32,11 @@ namespace SorollaPalette.Editor
         private static Request _currentRequest;
         private static PackageOperation _currentOperation;
 
-        static InstallationManager()
-        {
-            EditorApplication.update += Update;
-        }
+        // Removed static constructor to avoid unconditional update loop
+        // static InstallationManager()
+        // {
+        //     EditorApplication.update += Update;
+        // }
 
         private static void Update()
         {
@@ -60,6 +61,12 @@ namespace SorollaPalette.Editor
                         $"{(_currentOperation.Type == OperationType.Install ? "Installing" : "Uninstalling")} {_currentOperation.DisplayName}...", 
                         0.5f);
                 }
+            }
+            else
+            {
+                // No requests and empty queue, stop updating
+                EditorApplication.update -= Update;
+                EditorUtility.ClearProgressBar();
             }
         }
 
@@ -86,6 +93,12 @@ namespace SorollaPalette.Editor
             if (_currentRequest.Status == StatusCode.Success)
             {
                 Debug.Log($"[InstallationManager] {operationName} of {_currentOperation.DisplayName} successful.");
+                
+                // If we just installed something, try to resolve dependencies (EDM)
+                if (_currentOperation.Type == OperationType.Install)
+                {
+                    ResolveDependencies();
+                }
             }
             else if (_currentRequest.Status >= StatusCode.Failure)
             {
@@ -104,6 +117,29 @@ namespace SorollaPalette.Editor
             }
         }
 
+        private static void ResolveDependencies()
+        {
+            // Use reflection to call Google.JarResolver.PlayServicesResolver.Resolve
+            // This avoids a hard dependency on the EDM package which might not be compiled yet
+            try
+            {
+                var resolverType = Type.GetType("Google.JarResolver.PlayServicesResolver, Google.JarResolver");
+                if (resolverType != null)
+                {
+                    var resolveMethod = resolverType.GetMethod("Resolve", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                    if (resolveMethod != null)
+                    {
+                        Debug.Log("[InstallationManager] Triggering External Dependency Manager Resolution...");
+                        resolveMethod.Invoke(null, new object[] { null, null, true });
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[InstallationManager] Could not auto-resolve dependencies: {e.Message}");
+            }
+        }
+
         /// <summary>
         ///     Queue a package for installation
         /// </summary>
@@ -117,6 +153,10 @@ namespace SorollaPalette.Editor
                 PackageId = packageId,
                 DisplayName = displayName
             });
+            
+            // Ensure update loop is running
+            EditorApplication.update -= Update;
+            EditorApplication.update += Update;
         }
 
         /// <summary>
@@ -132,6 +172,10 @@ namespace SorollaPalette.Editor
                 PackageId = packageId,
                 DisplayName = displayName
             });
+
+            // Ensure update loop is running
+            EditorApplication.update -= Update;
+            EditorApplication.update += Update;
         }
 
         // --- Specific SDK Helpers (Using Constants) ---

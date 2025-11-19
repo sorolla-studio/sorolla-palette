@@ -17,6 +17,19 @@ namespace SorollaPalette.Editor
             // Defines are managed centrally by SorollaDefineSync
         }
 
+        [InitializeOnLoadMethod]
+        private static void AutoOpenOnLoad()
+        {
+            // Delay call to ensure Editor is fully initialized
+            EditorApplication.delayCall += () =>
+            {
+                if (!ModeManager.IsModeSelected() && !Application.isPlaying)
+                {
+                    ShowWindow();
+                }
+            };
+        }
+
         private void OnGUI()
         {
             _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);

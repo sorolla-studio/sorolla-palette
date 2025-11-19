@@ -10,6 +10,8 @@ namespace SorollaPalette.Editor
     [InitializeOnLoad]
     public static class SorollaPaletteSetup
     {
+        private const string SetupKey = "SorollaPalette_Setup_Completed_v1";
+
         static SorollaPaletteSetup()
         {
             // Run simplified setup on package import
@@ -19,11 +21,18 @@ namespace SorollaPalette.Editor
         [MenuItem("Tools/Sorolla Palette/Run Setup (Force)")]
         public static void ForceRunSetup()
         {
+            // Clear the key to force run
+            EditorPrefs.DeleteKey(GetProjectSpecificKey());
             RunSetup();
         }
 
         private static void RunSetup()
         {
+            if (EditorPrefs.GetBool(GetProjectSpecificKey(), false))
+            {
+                return;
+            }
+
             Debug.Log("[Sorolla Palette] Running initial setup...");
 
             // Add required registries
@@ -38,6 +47,14 @@ namespace SorollaPalette.Editor
             InstallationManager.InstallExternalDependencyManager();
 
             Debug.Log("[Sorolla Palette] Setup initiated. Check the progress bar for details.");
+            
+            // Mark setup as complete
+            EditorPrefs.SetBool(GetProjectSpecificKey(), true);
+        }
+
+        private static string GetProjectSpecificKey()
+        {
+            return $"{SetupKey}_{Application.dataPath.GetHashCode()}";
         }
     }
 }
