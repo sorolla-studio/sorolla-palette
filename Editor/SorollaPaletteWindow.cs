@@ -1,3 +1,4 @@
+using System;
 using UnityEditor;
 using UnityEngine;
 
@@ -15,19 +16,6 @@ namespace SorollaPalette.Editor
         {
             LoadOrCreateConfig();
             // Defines are managed centrally by SorollaDefineSync
-        }
-
-        [InitializeOnLoadMethod]
-        private static void AutoOpenOnLoad()
-        {
-            // Delay call to ensure Editor is fully initialized
-            EditorApplication.delayCall += () =>
-            {
-                if (!ModeManager.IsModeSelected() && !Application.isPlaying)
-                {
-                    ShowWindow();
-                }
-            };
         }
 
         private void OnGUI()
@@ -59,6 +47,16 @@ namespace SorollaPalette.Editor
             }
 
             EditorGUILayout.EndScrollView();
+        }
+
+        [InitializeOnLoadMethod]
+        private static void AutoOpenOnLoad()
+        {
+            // Delay call to ensure Editor is fully initialized
+            EditorApplication.delayCall += () =>
+            {
+                if (!ModeManager.IsModeSelected() && !Application.isPlaying) ShowWindow();
+            };
         }
 
         [MenuItem("Sorolla Palette/Configuration")]
@@ -95,42 +93,37 @@ namespace SorollaPalette.Editor
         {
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             GUILayout.Space(10);
-            
-            var headerStyle = new GUIStyle(EditorStyles.boldLabel) { alignment = TextAnchor.MiddleCenter, fontSize = 14 };
+
+            var headerStyle = new GUIStyle(EditorStyles.boldLabel)
+                { alignment = TextAnchor.MiddleCenter, fontSize = 14 };
             GUILayout.Label("Welcome to Sorolla Palette!", headerStyle);
             GUILayout.Space(10);
-            
+
             var bodyStyle = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleCenter, wordWrap = true };
-            GUILayout.Label("Please select a development mode to get started.\nThis will configure your project with the appropriate SDKs and settings.", bodyStyle);
+            GUILayout.Label(
+                "Please select a development mode to get started.\nThis will configure your project with the appropriate SDKs and settings.",
+                bodyStyle);
             GUILayout.Space(20);
 
             if (GUILayout.Button("🧪  Start in Prototype Mode\n(Facebook SDK, Rapid Iteration)", GUILayout.Height(50)))
-            {
-                 if (EditorUtility.DisplayDialog("Switch to Prototype Mode?", 
-                    "This will configure the project for rapid prototyping:\n\n" +
-                    "• Facebook SDK will be installed\n" +
-                    "• Adjust SDK will be uninstalled\n" +
-                    "• 'PROTOTYPE' define will be added\n\n" +
-                    "Are you sure?", "Yes, Switch", "Cancel"))
-                {
+                if (EditorUtility.DisplayDialog("Switch to Prototype Mode?",
+                        "This will configure the project for rapid prototyping:\n\n" +
+                        "• Facebook SDK will be installed\n" +
+                        "• Adjust SDK will be uninstalled\n" +
+                        "• 'PROTOTYPE' define will be added\n\n" +
+                        "Are you sure?", "Yes, Switch", "Cancel"))
                     ModeManager.SetMode(SorollaConstants.ModePrototype);
-                }
-            }
-            
+
             GUILayout.Space(10);
 
             if (GUILayout.Button("🚀  Start in Full Mode\n(Adjust SDK, Production Ready)", GUILayout.Height(50)))
-            {
-                 if (EditorUtility.DisplayDialog("Switch to Full Mode?", 
-                    "This will configure the project for production:\n\n" +
-                    "• Adjust SDK will be installed\n" +
-                    "• Facebook SDK will be uninstalled\n" +
-                    "• 'FULL_MODE' define will be added\n\n" +
-                    "Are you sure?", "Yes, Switch", "Cancel"))
-                {
+                if (EditorUtility.DisplayDialog("Switch to Full Mode?",
+                        "This will configure the project for production:\n\n" +
+                        "• Adjust SDK will be installed\n" +
+                        "• Facebook SDK will be uninstalled\n" +
+                        "• 'FULL_MODE' define will be added\n\n" +
+                        "Are you sure?", "Yes, Switch", "Cancel"))
                     ModeManager.SetMode(SorollaConstants.ModeFull);
-                }
-            }
 
             GUILayout.Space(10);
             EditorGUILayout.EndVertical();
@@ -170,32 +163,24 @@ namespace SorollaPalette.Editor
 
             // Mode Selection Buttons
             EditorGUILayout.BeginHorizontal();
-            
+
             if (GUILayout.Button("Switch to Prototype Mode", GUILayout.Height(30)))
-            {
-                if (EditorUtility.DisplayDialog("Switch to Prototype Mode?", 
-                    "This will configure the project for rapid prototyping:\n\n" +
-                    "• Facebook SDK will be installed\n" +
-                    "• Adjust SDK will be uninstalled\n" +
-                    "• 'PROTOTYPE' define will be added\n\n" +
-                    "Are you sure?", "Yes, Switch", "Cancel"))
-                {
+                if (EditorUtility.DisplayDialog("Switch to Prototype Mode?",
+                        "This will configure the project for rapid prototyping:\n\n" +
+                        "• Facebook SDK will be installed\n" +
+                        "• Adjust SDK will be uninstalled\n" +
+                        "• 'PROTOTYPE' define will be added\n\n" +
+                        "Are you sure?", "Yes, Switch", "Cancel"))
                     ModeManager.SetMode(SorollaConstants.ModePrototype);
-                }
-            }
 
             if (GUILayout.Button("Switch to Full Mode", GUILayout.Height(30)))
-            {
-                if (EditorUtility.DisplayDialog("Switch to Full Mode?", 
-                    "This will configure the project for production:\n\n" +
-                    "• Adjust SDK will be installed\n" +
-                    "• Facebook SDK will be uninstalled\n" +
-                    "• 'FULL_MODE' define will be added\n\n" +
-                    "Are you sure?", "Yes, Switch", "Cancel"))
-                {
+                if (EditorUtility.DisplayDialog("Switch to Full Mode?",
+                        "This will configure the project for production:\n\n" +
+                        "• Adjust SDK will be installed\n" +
+                        "• Facebook SDK will be uninstalled\n" +
+                        "• 'FULL_MODE' define will be added\n\n" +
+                        "Are you sure?", "Yes, Switch", "Cancel"))
                     ModeManager.SetMode(SorollaConstants.ModeFull);
-                }
-            }
 
             EditorGUILayout.EndHorizontal();
 
@@ -211,23 +196,27 @@ namespace SorollaPalette.Editor
 
             var currentMode = ModeManager.GetCurrentMode();
 
-            DrawSDKStatus("GameAnalytics", SdkDetection.IsGameAnalyticsInstalled(), true, InstallationManager.InstallGameAnalytics);
+            DrawSDKStatus("GameAnalytics", SdkDetection.IsGameAnalyticsInstalled(), true,
+                InstallationManager.InstallGameAnalytics);
 
             // Show MAX status in both modes
-            DrawSDKStatus("AppLovin MAX", SdkDetection.IsMaxInstalled(), currentMode == SorollaConstants.ModeFull, InstallationManager.InstallAppLovinMAX);
+            DrawSDKStatus("AppLovin MAX", SdkDetection.IsMaxInstalled(), currentMode == SorollaConstants.ModeFull,
+                InstallationManager.InstallAppLovinMAX);
 
             // Facebook only in Prototype mode (required)
-            if (currentMode == SorollaConstants.ModePrototype) 
-                DrawSDKStatus("Facebook SDK", SdkDetection.IsFacebookInstalled(), true, InstallationManager.InstallFacebookSDK);
+            if (currentMode == SorollaConstants.ModePrototype)
+                DrawSDKStatus("Facebook SDK", SdkDetection.IsFacebookInstalled(), true,
+                    InstallationManager.InstallFacebookSDK);
 
             // Adjust: Full only
-            if (currentMode == SorollaConstants.ModeFull) 
-                DrawSDKStatus("Adjust SDK", SdkDetection.IsAdjustInstalled(), true, InstallationManager.InstallAdjustSDK);
+            if (currentMode == SorollaConstants.ModeFull)
+                DrawSDKStatus("Adjust SDK", SdkDetection.IsAdjustInstalled(), true,
+                    InstallationManager.InstallAdjustSDK);
 
             EditorGUILayout.EndVertical();
         }
 
-        private void DrawSDKStatus(string sdkName, bool isInstalled, bool isRequired, System.Action installAction)
+        private void DrawSDKStatus(string sdkName, bool isInstalled, bool isRequired, Action installAction)
         {
             EditorGUILayout.BeginHorizontal();
 
@@ -244,11 +233,8 @@ namespace SorollaPalette.Editor
             {
                 style.normal.textColor = isRequired ? Color.red : Color.yellow;
                 GUILayout.Label(isRequired ? "❌ Not Found (Required)" : "⚠️ Not Found", style);
-                
-                if (GUILayout.Button("Install", GUILayout.Width(80)))
-                {
-                    installAction?.Invoke();
-                }
+
+                if (GUILayout.Button("Install", GUILayout.Width(80))) installAction?.Invoke();
             }
 
             EditorGUILayout.EndHorizontal();
@@ -263,18 +249,14 @@ namespace SorollaPalette.Editor
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
                 GUILayout.Label("Optional Package", EditorStyles.boldLabel);
                 GUILayout.Space(5);
-                
+
                 var isInstalled = SdkDetection.IsMaxInstalled();
                 var desired = EditorGUILayout.Toggle("AppLovin MAX (Prototype)", isInstalled);
-                
+
                 if (desired && !isInstalled)
-                {
                     InstallationManager.InstallAppLovinMAX();
-                }
                 else if (!desired && isInstalled)
-                {
-                    InstallationManager.UninstallAppLovinMAX();
-                }
+                    InstallationManager.UninstallPackage("com.applovin.mediation.ads", "AppLovin MAX");
 
                 EditorGUILayout.EndVertical();
             }
@@ -306,7 +288,8 @@ namespace SorollaPalette.Editor
                     "maxInterstitialAdUnitId");
 
             // Facebook: Prototype only
-            if (currentMode == SorollaConstants.ModePrototype) DrawConfigGroup(serializedConfig, "Facebook", true, "facebookAppId");
+            if (currentMode == SorollaConstants.ModePrototype)
+                DrawConfigGroup(serializedConfig, "Facebook", true, "facebookAppId");
 
             // Adjust: Full only
             if (currentMode == SorollaConstants.ModeFull)

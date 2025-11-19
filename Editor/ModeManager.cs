@@ -1,26 +1,28 @@
 using UnityEditor;
 using UnityEngine;
-using SorollaPalette; // Added for SorollaConstants
+
+// Added for SorollaConstants
 
 namespace SorollaPalette.Editor
 {
     /// <summary>
-    /// KISS mode management - single method call to switch modes
-    /// Eliminates complex wizard + define sync + validation flow
+    ///     KISS mode management - single method call to switch modes
+    ///     Eliminates complex wizard + define sync + validation flow
     /// </summary>
     public static class ModeManager
     {
         private const string MODE_KEY = "SorollaPalette_Mode";
 
         /// <summary>
-        /// Single method to switch modes - handles everything
+        ///     Single method to switch modes - handles everything
         /// </summary>
         public static void SetMode(string mode)
         {
             // Validate mode
             if (mode != SorollaConstants.ModePrototype && mode != SorollaConstants.ModeFull)
             {
-                Debug.LogError($"[ModeManager] Invalid mode: {mode}. Use '{SorollaConstants.ModePrototype}' or '{SorollaConstants.ModeFull}'");
+                Debug.LogError(
+                    $"[ModeManager] Invalid mode: {mode}. Use '{SorollaConstants.ModePrototype}' or '{SorollaConstants.ModeFull}'");
                 return;
             }
 
@@ -36,24 +38,25 @@ namespace SorollaPalette.Editor
             {
                 InstallFullModeDependencies();
                 // Facebook SDK is not needed in Full Mode (Adjust handles attribution)
-                InstallationManager.UninstallFacebookSDK();
+                InstallationManager.UninstallPackage(SorollaConstants.PackageIdFacebook, "Facebook SDK");
             }
             else if (mode == SorollaConstants.ModePrototype)
             {
                 // Prototype mode needs Facebook SDK
                 InstallationManager.InstallFacebookSDK();
                 // Adjust SDK is not needed in Prototype Mode
-                InstallationManager.UninstallAdjustSDK();
+                InstallationManager.UninstallPackage(SorollaConstants.PackageIdAdjust, "Adjust SDK");
             }
 
             // Refresh assets
             AssetDatabase.Refresh();
 
-            Debug.Log("[Sorolla Palette] Mode switch complete. Open 'Sorolla Palette → Configuration' to set up your SDKs.");
+            Debug.Log(
+                "[Sorolla Palette] Mode switch complete. Open 'Sorolla Palette → Configuration' to set up your SDKs.");
         }
 
         /// <summary>
-        /// Get current mode
+        ///     Get current mode
         /// </summary>
         public static string GetCurrentMode()
         {
@@ -61,7 +64,7 @@ namespace SorollaPalette.Editor
         }
 
         /// <summary>
-        /// Check if mode is selected
+        ///     Check if mode is selected
         /// </summary>
         public static bool IsModeSelected()
         {

@@ -103,16 +103,15 @@ namespace SorollaPalette.Editor
         {
             return ModifyManifest((manifest, scopedRegistries) =>
             {
-                if (!manifest.ContainsKey("dependencies"))
+                if (!manifest.TryGetValue("dependencies", out var value))
                     return false;
 
-                var dependencies = manifest["dependencies"] as Dictionary<string, object>;
+                var dependencies = value as Dictionary<string, object>;
                 var modified = false;
 
                 foreach (var name in packageNames)
-                    if (dependencies.ContainsKey(name))
+                    if (dependencies.Remove(name))
                     {
-                        dependencies.Remove(name);
                         modified = true;
                         Debug.Log($"[ManifestManager] Removed {name} dependency");
                     }
@@ -133,8 +132,7 @@ namespace SorollaPalette.Editor
             // Find existing registry
             foreach (var reg in scopedRegistries)
             {
-                var r = reg as Dictionary<string, object>;
-                if (r != null && r.ContainsKey("url") && r["url"].ToString() == url)
+                if (reg is Dictionary<string, object> r && r.ContainsKey("url") && r["url"].ToString() == url)
                 {
                     registry = r;
                     exists = true;
@@ -157,10 +155,9 @@ namespace SorollaPalette.Editor
             }
 
             // Update existing registry scopes
-            if (registry.ContainsKey("scopes"))
+            if (registry.TryGetValue("scopes", out var value))
             {
-                var scopes = registry["scopes"] as List<object>;
-                if (scopes != null)
+                if (value is List<object> scopes)
                 {
                     var modified = false;
                     foreach (var scope in requiredScopes)

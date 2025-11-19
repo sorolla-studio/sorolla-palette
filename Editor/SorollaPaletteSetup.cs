@@ -1,5 +1,4 @@
 using UnityEditor;
-using UnityEditor.PackageManager;
 using UnityEngine;
 
 namespace SorollaPalette.Editor
@@ -28,26 +27,22 @@ namespace SorollaPalette.Editor
 
         private static void RunSetup()
         {
-            if (EditorPrefs.GetBool(GetProjectSpecificKey(), false))
-            {
-                return;
-            }
+            if (EditorPrefs.GetBool(GetProjectSpecificKey(), false)) return;
 
             Debug.Log("[Sorolla Palette] Running initial setup...");
 
-            // Add required registries
-            ManifestManager.AddOrUpdateRegistry("Game Package Registry by Google",
-                                      "https://unityregistry-pa.googleapis.com/", new[] { "com.google" });
+            // Add required registry for GA and EDM
             ManifestManager.AddOrUpdateRegistry("package.openupm.com",
-                                      "https://package.openupm.com",
-                                      new[] { "com.gameanalytics", "com.google.external-dependency-manager" });
+                "https://package.openupm.com",
+                new[] { "com.gameanalytics", "com.google.external-dependency-manager" });
 
             // Install core dependencies
             InstallationManager.InstallGameAnalytics();
-            InstallationManager.InstallExternalDependencyManager();
+            InstallationManager.InstallPackage(SorollaConstants.PackageIdExternalDependencyManager,
+                "External Dependency Manager");
 
             Debug.Log("[Sorolla Palette] Setup initiated. Check the progress bar for details.");
-            
+
             // Mark setup as complete
             EditorPrefs.SetBool(GetProjectSpecificKey(), true);
         }

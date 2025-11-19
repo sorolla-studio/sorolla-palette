@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
@@ -12,31 +12,11 @@ namespace SorollaPalette.Editor
     ///     Non-blocking installation manager with queue system and progress bar.
     ///     Uses EditorApplication.update to poll requests without freezing the Editor.
     /// </summary>
-    [InitializeOnLoad]
     public static class InstallationManager
     {
-        private enum OperationType
-        {
-            Install,
-            Uninstall
-        }
-
-        private class PackageOperation
-        {
-            public OperationType Type;
-            public string PackageId;
-            public string DisplayName;
-        }
-
-        private static readonly Queue<PackageOperation> _operationQueue = new Queue<PackageOperation>();
+        private static readonly Queue<PackageOperation> _operationQueue = new();
         private static Request _currentRequest;
         private static PackageOperation _currentOperation;
-
-        // Removed static constructor to avoid unconditional update loop
-        // static InstallationManager()
-        // {
-        //     EditorApplication.update += Update;
-        // }
 
         private static void Update()
         {
@@ -52,13 +32,13 @@ namespace SorollaPalette.Editor
                 }
                 else
                 {
-                    // Update Progress Bar
-                    var progress = _operationQueue.Count > 0 
-                        ? $"Processing... ({_operationQueue.Count} remaining)" 
+                    // Update Progress Bar 
+                    var progress = _operationQueue.Count > 0
+                        ? $"Processing... ({_operationQueue.Count} remaining)"
                         : "Processing...";
-                    
-                    EditorUtility.DisplayProgressBar("Sorolla Palette", 
-                        $"{(_currentOperation.Type == OperationType.Install ? "Installing" : "Uninstalling")} {_currentOperation.DisplayName}...", 
+
+                    EditorUtility.DisplayProgressBar("Sorolla Palette",
+                        $"{(_currentOperation.Type == OperationType.Install ? "Installing" : "Uninstalling")} {_currentOperation.DisplayName}...",
                         0.5f);
                 }
             }
@@ -73,7 +53,7 @@ namespace SorollaPalette.Editor
         private static void ProcessNextOperation()
         {
             _currentOperation = _operationQueue.Dequeue();
-            
+
             if (_currentOperation.Type == OperationType.Install)
             {
                 Debug.Log($"[InstallationManager] Starting installation of {_currentOperation.DisplayName}...");
@@ -93,16 +73,14 @@ namespace SorollaPalette.Editor
             if (_currentRequest.Status == StatusCode.Success)
             {
                 Debug.Log($"[InstallationManager] {operationName} of {_currentOperation.DisplayName} successful.");
-                
+
                 // If we just installed something, try to resolve dependencies (EDM)
-                if (_currentOperation.Type == OperationType.Install)
-                {
-                    ResolveDependencies();
-                }
+                if (_currentOperation.Type == OperationType.Install) ResolveDependencies();
             }
             else if (_currentRequest.Status >= StatusCode.Failure)
             {
-                Debug.LogError($"[InstallationManager] {operationName} of {_currentOperation.DisplayName} failed: {_currentRequest.Error.message}");
+                Debug.LogError(
+                    $"[InstallationManager] {operationName} of {_currentOperation.DisplayName} failed: {_currentRequest.Error.message}");
             }
 
             _currentRequest = null;
@@ -126,7 +104,7 @@ namespace SorollaPalette.Editor
                 var resolverType = Type.GetType("Google.JarResolver.PlayServicesResolver, Google.JarResolver");
                 if (resolverType != null)
                 {
-                    var resolveMethod = resolverType.GetMethod("Resolve", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                    var resolveMethod = resolverType.GetMethod("Resolve", BindingFlags.Public | BindingFlags.Static);
                     if (resolveMethod != null)
                     {
                         Debug.Log("[InstallationManager] Triggering External Dependency Manager Resolution...");
@@ -146,14 +124,14 @@ namespace SorollaPalette.Editor
         public static void InstallPackage(string packageId, string displayName = null)
         {
             if (string.IsNullOrEmpty(displayName)) displayName = packageId;
-            
+
             _operationQueue.Enqueue(new PackageOperation
             {
                 Type = OperationType.Install,
                 PackageId = packageId,
                 DisplayName = displayName
             });
-            
+
             // Ensure update loop is running
             EditorApplication.update -= Update;
             EditorApplication.update += Update;
@@ -186,7 +164,7 @@ namespace SorollaPalette.Editor
             // For MAX, we need to add registry first. 
             // Since this is a specific complex flow, we'll do the registry part immediately (it's fast)
             // and queue the package install.
-            
+
             Debug.Log("[InstallationManager] Setting up AppLovin MAX Registry...");
             var registryAdded = ManifestManager.AddOrUpdateRegistry(
                 "AppLovin MAX Unity",
@@ -200,52 +178,30 @@ namespace SorollaPalette.Editor
             });
 
             if (registryAdded || dependencyAdded)
-            {
                 InstallPackage("com.applovin.mediation.ads@8.5.0", "AppLovin MAX");
-            }
             else
-            {
                 Debug.Log("[InstallationManager] AppLovin MAX is already configured.");
-            }
-        }
-        
-        public static void UninstallAppLovinMAX()
-        {
-             // For uninstallation, we just remove the package. 
-             // Removing registry entries is complex and usually not required, but we can remove the package.
-             UninstallPackage("com.applovin.mediation.ads", "AppLovin MAX");
         }
 
-        public static void InstallFacebookSDK()
+        public static void InstallFacebookSDK() => InstallPackage(SorollaConstants.UrlFacebook, "Facebook SDK");
+
+        public static void InstallAdjustSDK() =>
+            InstallPackage(SorollaConstants.UrlAdjust, "Adjust SDK");
+
+        public static void InstallGameAnalytics() =>
+            InstallPackage(SorollaConstants.UrlGameAnalytics, "GameAnalytics SDK");
+
+        private enum OperationType
         {
-            InstallPackage(SorollaConstants.UrlFacebook, "Facebook SDK");
+            Install,
+            Uninstall
         }
 
-        public static void UninstallFacebookSDK()
+        private class PackageOperation
         {
-            UninstallPackage(SorollaConstants.PackageIdFacebook, "Facebook SDK");
-        }
-
-        public static void InstallAdjustSDK()
-        {
-            InstallPackage(SorollaConstants.UrlAdjust + "?path=Assets/Adjust", "Adjust SDK");
-        }
-
-        public static void UninstallAdjustSDK()
-        {
-            UninstallPackage(SorollaConstants.PackageIdAdjust, "Adjust SDK");
-        }
-
-        public static void InstallGameAnalytics()
-        {
-            InstallPackage(SorollaConstants.UrlGameAnalytics, "GameAnalytics SDK"); // Using URL from constants if available, or ID
-            // Note: Constants might need update if I used ID before. Checking Constants...
-            // Constants had UrlGameAnalytics.
-        }
-        
-        public static void InstallExternalDependencyManager()
-        {
-            InstallPackage(SorollaConstants.PackageIdExternalDependencyManager, "External Dependency Manager");
+            public string DisplayName;
+            public string PackageId;
+            public OperationType Type;
         }
     }
 }
