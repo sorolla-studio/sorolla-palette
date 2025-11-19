@@ -2,6 +2,7 @@
 using System;
 using SorollaPalette.Adjust;
 using UnityEngine;
+using SorollaPalette;
 
 namespace SorollaPalette.MAX
 {
@@ -22,8 +23,7 @@ namespace SorollaPalette.MAX
         private static bool _rewardedAdReady;
         private static bool _interstitialAdReady;
 
-        public static void Initialize(string sdkKey, string rewardedAdUnitId, string interstitialAdUnitId,
-            string bannerAdUnitId)
+        public static void Initialize(string sdkKey, string rewardedAdUnitId, string interstitialAdUnitId, string bannerAdUnitId)
         {
             if (_isInitialized)
             {
@@ -47,6 +47,10 @@ namespace SorollaPalette.MAX
         {
             Debug.Log("[MAX Adapter] MAX SDK Initialized");
             _isInitialized = true;
+            
+            // AppLovin automatically shows the CMP if configured in settings
+            var consentStatus = sdkConfiguration.AppTrackingStatus;
+            Debug.Log($"[MAX Adapter] Consent Status: {consentStatus}");
 
             // Initialize ad units
             InitializeRewardedAds();
@@ -94,9 +98,22 @@ namespace SorollaPalette.MAX
 
             if (!_rewardedAdReady || !MaxSdk.IsRewardedAdReady(_rewardedAdUnitId))
             {
-                Debug.LogWarning("[MAX Adapter] Rewarded ad not ready");
-                onFailed?.Invoke();
-                LoadRewardedAd(); // Try to load for next time
+                Debug.Log("[MAX Adapter] Rewarded ad not ready, waiting...");
+                LoadRewardedAd(); // Ensure load is triggered
+                
+                SorollaLoadingOverlay.WaitForAd(
+                    () => MaxSdk.IsRewardedAdReady(_rewardedAdUnitId),
+                    () => {
+                        _onRewardedAdComplete = onComplete;
+                        _onRewardedAdFailed = onFailed;
+                        Debug.Log("[MAX Adapter] Showing rewarded ad");
+                        MaxSdk.ShowRewardedAd(_rewardedAdUnitId);
+                    },
+                    () => {
+                        Debug.LogWarning("[MAX Adapter] Rewarded ad failed to load in time");
+                        onFailed?.Invoke();
+                    }
+                );
                 return;
             }
 

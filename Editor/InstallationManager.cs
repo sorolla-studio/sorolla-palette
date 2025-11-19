@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
@@ -9,81 +9,147 @@ using UnityEngine;
 namespace SorollaPalette.Editor
 {
     /// <summary>
-    ///     KISS installation manager - synchronous installation with clear error handling
-    ///     Eliminates complex async progress tracking
+    ///     Non-blocking installation manager with queue system and progress bar.
+    ///     Uses EditorApplication.update to poll requests without freezing the Editor.
     /// </summary>
+    [InitializeOnLoad]
     public static class InstallationManager
     {
-        private static AddRequest _currentRequest;
-
-        /// <summary>
-        ///     Synchronous package installation with clear error handling
-        /// </summary>
-        public static bool InstallPackage(string packageId, string displayName = null)
+        private enum OperationType
         {
-            if (string.IsNullOrEmpty(displayName))
-                displayName = packageId;
+            Install,
+            Uninstall
+        }
 
-            try
+        private class PackageOperation
+        {
+            public OperationType Type;
+            public string PackageId;
+            public string DisplayName;
+        }
+
+        private static readonly Queue<PackageOperation> _operationQueue = new Queue<PackageOperation>();
+        private static Request _currentRequest;
+        private static PackageOperation _currentOperation;
+
+        static InstallationManager()
+        {
+            EditorApplication.update += Update;
+        }
+
+        private static void Update()
+        {
+            if (_currentRequest == null && _operationQueue.Count > 0)
             {
-                Debug.Log($"[InstallationManager] Installing {displayName}...");
-
-                _currentRequest = Client.Add(packageId);
-
-                // Wait synchronously for completion
-                var startTime = EditorApplication.timeSinceStartup;
-                const double timeout = 30.0; // 30 second timeout
-
-                while (!_currentRequest.IsCompleted)
+                ProcessNextOperation();
+            }
+            else if (_currentRequest != null)
+            {
+                if (_currentRequest.IsCompleted)
                 {
-                    if (EditorApplication.timeSinceStartup - startTime > timeout)
-                    {
-                        Debug.LogError($"[InstallationManager] Timeout installing {displayName}");
-                        return false;
-                    }
-
-                    // Allow Unity to process events
-                    Thread.Sleep(10);
-                }
-
-                if (_currentRequest.Status == StatusCode.Success)
-                {
-                    Debug.Log($"[InstallationManager] Successfully installed {displayName}");
-                    return true;
+                    HandleRequestCompletion();
                 }
                 else
                 {
-                    Debug.LogError(
-                        $"[InstallationManager] Failed to install {displayName}: {_currentRequest.Error.message}");
-                    return false;
+                    // Update Progress Bar
+                    var progress = _operationQueue.Count > 0 
+                        ? $"Processing... ({_operationQueue.Count} remaining)" 
+                        : "Processing...";
+                    
+                    EditorUtility.DisplayProgressBar("Sorolla Palette", 
+                        $"{(_currentOperation.Type == OperationType.Install ? "Installing" : "Uninstalling")} {_currentOperation.DisplayName}...", 
+                        0.5f);
                 }
             }
-            catch (Exception e)
+        }
+
+        private static void ProcessNextOperation()
+        {
+            _currentOperation = _operationQueue.Dequeue();
+            
+            if (_currentOperation.Type == OperationType.Install)
             {
-                Debug.LogError($"[InstallationManager] Exception installing {displayName}: {e.Message}");
-                return false;
+                Debug.Log($"[InstallationManager] Starting installation of {_currentOperation.DisplayName}...");
+                _currentRequest = Client.Add(_currentOperation.PackageId);
             }
-            finally
+            else
             {
-                _currentRequest = null;
+                Debug.Log($"[InstallationManager] Starting uninstallation of {_currentOperation.DisplayName}...");
+                _currentRequest = Client.Remove(_currentOperation.PackageId);
+            }
+        }
+
+        private static void HandleRequestCompletion()
+        {
+            var operationName = _currentOperation.Type == OperationType.Install ? "Installation" : "Uninstallation";
+
+            if (_currentRequest.Status == StatusCode.Success)
+            {
+                Debug.Log($"[InstallationManager] {operationName} of {_currentOperation.DisplayName} successful.");
+            }
+            else if (_currentRequest.Status >= StatusCode.Failure)
+            {
+                Debug.LogError($"[InstallationManager] {operationName} of {_currentOperation.DisplayName} failed: {_currentRequest.Error.message}");
+            }
+
+            _currentRequest = null;
+            _currentOperation = null;
+
+            // If queue is empty, clear progress bar
+            if (_operationQueue.Count == 0)
+            {
+                EditorUtility.ClearProgressBar();
+                // Refresh assets to ensure defines and scripts are updated
+                AssetDatabase.Refresh();
             }
         }
 
         /// <summary>
-        ///     Install AppLovin MAX with registry and dependency
+        ///     Queue a package for installation
         /// </summary>
-        public static bool InstallAppLovinMAX()
+        public static void InstallPackage(string packageId, string displayName = null)
         {
-            Debug.Log("[InstallationManager] Installing AppLovin MAX SDK...");
+            if (string.IsNullOrEmpty(displayName)) displayName = packageId;
+            
+            _operationQueue.Enqueue(new PackageOperation
+            {
+                Type = OperationType.Install,
+                PackageId = packageId,
+                DisplayName = displayName
+            });
+        }
 
-            // Add registry
+        /// <summary>
+        ///     Queue a package for uninstallation
+        /// </summary>
+        public static void UninstallPackage(string packageId, string displayName = null)
+        {
+            if (string.IsNullOrEmpty(displayName)) displayName = packageId;
+
+            _operationQueue.Enqueue(new PackageOperation
+            {
+                Type = OperationType.Uninstall,
+                PackageId = packageId,
+                DisplayName = displayName
+            });
+        }
+
+        // --- Specific SDK Helpers (Using Constants) ---
+
+        public static void InstallAppLovinMAX()
+        {
+            // Add registry logic is synchronous/instant usually, but let's keep it simple
+            // For MAX, we need to add registry first. 
+            // Since this is a specific complex flow, we'll do the registry part immediately (it's fast)
+            // and queue the package install.
+            
+            Debug.Log("[InstallationManager] Setting up AppLovin MAX Registry...");
             var registryAdded = ManifestManager.AddOrUpdateRegistry(
                 "AppLovin MAX Unity",
                 "https://unity.packages.applovin.com/",
                 new[] { "com.applovin.mediation.ads", "com.applovin.mediation.adapters", "com.applovin.mediation.dsp" }
             );
 
-            // Add dependency
             var dependencyAdded = ManifestManager.AddDependencies(new Dictionary<string, string>
             {
                 { "com.applovin.mediation.ads", "8.5.0" }
@@ -91,49 +157,51 @@ namespace SorollaPalette.Editor
 
             if (registryAdded || dependencyAdded)
             {
-                Debug.Log("[InstallationManager] AppLovin MAX added to manifest. Installing package...");
-                return InstallPackage("com.applovin.mediation.ads@8.5.0", "AppLovin MAX");
+                InstallPackage("com.applovin.mediation.ads@8.5.0", "AppLovin MAX");
             }
-
-            Debug.Log("[InstallationManager] AppLovin MAX is already installed.");
-            return true;
+            else
+            {
+                Debug.Log("[InstallationManager] AppLovin MAX is already configured.");
+            }
+        }
+        
+        public static void UninstallAppLovinMAX()
+        {
+             // For uninstallation, we just remove the package. 
+             // Removing registry entries is complex and usually not required, but we can remove the package.
+             UninstallPackage("com.applovin.mediation.ads", "AppLovin MAX");
         }
 
-        /// <summary>
-        ///     Install Facebook SDK
-        /// </summary>
-        public static bool InstallFacebookSDK()
+        public static void InstallFacebookSDK()
         {
-            //todo: pûblished the UPM package of the Facebook SDK to public github and update this url
-            Debug.Log("[InstallationManager] Installing Facebook SDK...");
-            return InstallPackage("https://github.com/facebook/facebook-sdk-for-unity.git#v18.0.0", "Facebook SDK");
+            InstallPackage(SorollaConstants.UrlFacebook, "Facebook SDK");
         }
 
-        /// <summary>
-        ///     Install Adjust SDK
-        /// </summary>
-        public static bool InstallAdjustSDK()
+        public static void UninstallFacebookSDK()
         {
-            Debug.Log("[InstallationManager] Installing Adjust SDK...");
-            return InstallPackage("https://github.com/adjust/unity_sdk.git?path=Assets/Adjust", "Adjust SDK");
+            UninstallPackage(SorollaConstants.PackageIdFacebook, "Facebook SDK");
         }
 
-        /// <summary>
-        ///     Install GameAnalytics SDK
-        /// </summary>
-        public static bool InstallGameAnalytics()
+        public static void InstallAdjustSDK()
         {
-            Debug.Log("[InstallationManager] Installing GameAnalytics SDK...");
-            return InstallPackage("com.gameanalytics.sdk@7.10.6", "GameAnalytics SDK");
+            InstallPackage(SorollaConstants.UrlAdjust + "?path=Assets/Adjust", "Adjust SDK");
         }
 
-        /// <summary>
-        ///     Install External Dependency Manager
-        /// </summary>
-        public static bool InstallExternalDependencyManager()
+        public static void UninstallAdjustSDK()
         {
-            Debug.Log("[InstallationManager] Installing External Dependency Manager...");
-            return InstallPackage("com.google.external-dependency-manager", "External Dependency Manager");
+            UninstallPackage(SorollaConstants.PackageIdAdjust, "Adjust SDK");
+        }
+
+        public static void InstallGameAnalytics()
+        {
+            InstallPackage(SorollaConstants.UrlGameAnalytics, "GameAnalytics SDK"); // Using URL from constants if available, or ID
+            // Note: Constants might need update if I used ID before. Checking Constants...
+            // Constants had UrlGameAnalytics.
+        }
+        
+        public static void InstallExternalDependencyManager()
+        {
+            InstallPackage(SorollaConstants.PackageIdExternalDependencyManager, "External Dependency Manager");
         }
     }
 }

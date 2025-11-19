@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using SorollaPalette; // Added for SorollaConstants
 
 namespace SorollaPalette.Editor
 {
@@ -17,9 +18,9 @@ namespace SorollaPalette.Editor
         public static void SetMode(string mode)
         {
             // Validate mode
-            if (mode != "Prototype" && mode != "Full")
+            if (mode != SorollaConstants.ModePrototype && mode != SorollaConstants.ModeFull)
             {
-                Debug.LogError($"[ModeManager] Invalid mode: {mode}. Use 'Prototype' or 'Full'");
+                Debug.LogError($"[ModeManager] Invalid mode: {mode}. Use '{SorollaConstants.ModePrototype}' or '{SorollaConstants.ModeFull}'");
                 return;
             }
 
@@ -31,9 +32,18 @@ namespace SorollaPalette.Editor
             DefineManager.ApplyModeDefines(mode);
 
             // Auto-install required SDKs
-            if (mode == "Full")
+            if (mode == SorollaConstants.ModeFull)
             {
                 InstallFullModeDependencies();
+                // Facebook SDK is not needed in Full Mode (Adjust handles attribution)
+                InstallationManager.UninstallFacebookSDK();
+            }
+            else if (mode == SorollaConstants.ModePrototype)
+            {
+                // Prototype mode needs Facebook SDK
+                InstallationManager.InstallFacebookSDK();
+                // Adjust SDK is not needed in Prototype Mode
+                InstallationManager.UninstallAdjustSDK();
             }
 
             // Refresh assets
