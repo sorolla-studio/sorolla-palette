@@ -3,7 +3,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace SorollaPalette
+namespace Sorolla
 {
     public class SorollaLoadingOverlay : MonoBehaviour
     {

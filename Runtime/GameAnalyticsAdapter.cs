@@ -1,177 +1,94 @@
+using System.Runtime.CompilerServices;
 using UnityEngine;
-
 #if GAMEANALYTICS_INSTALLED
-using GameAnalyticsSDK; 
+using GameAnalyticsSDK;
 #endif
 
-namespace SorollaPalette
+namespace Sorolla
 {
     /// <summary>
-    /// GameAnalytics adapter - always available since GA is auto-installed
+    ///     Internal adapter for GameAnalytics SDK.
+    ///     Use Sorolla API instead of calling this directly.
     /// </summary>
-    public static class GameAnalyticsAdapter
+    internal static class GameAnalyticsAdapter
     {
-        private static bool _isInitialized;
-        private static bool _remoteConfigReady;
-        
-        public static void Initialize(string gameKey, string secretKey)
+        private const string Tag = "[Sorolla:GA]";
+        private static bool s_init;
+
+        public static void Initialize()
         {
-            if (_isInitialized)
+            if (s_init) return;
+
+#if GAMEANALYTICS_INSTALLED
+            if (GameAnalytics.Initialized)
             {
-                Debug.LogWarning("[GA Adapter] Already initialized");
+                Debug.Log($"{Tag} Already initialized externally");
+                s_init = true;
                 return;
             }
-            
-            Debug.Log("[GA Adapter] Initializing GameAnalytics...");
-            
-            // GameAnalytics auto-initializes via their prefab/settings
-            // We just need to ensure it's ready
-            
-#if !UNITY_EDITOR
-            // In builds, GA initializes automatically
-            // Check if remote config is available
-            CheckRemoteConfigStatus();
+
+            Debug.Log($"{Tag} Initializing...");
+            GameAnalytics.Initialize();
+            s_init = true;
 #else
-            Debug.Log($"[GA Adapter] Editor mode - GameAnalytics configured with Game Key: {gameKey}");
-            _remoteConfigReady = true; // Simulate ready in editor
+            Debug.LogWarning($"{Tag} SDK not installed");
+            s_init = true;
 #endif
-            
-            _isInitialized = true;
-            Debug.Log("[GA Adapter] GameAnalytics initialized successfully");
         }
-        
-#if GAMEANALYTICS_INSTALLED
-        private static void CheckRemoteConfigStatus()
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool EnsureInit()
         {
-            // GameAnalytics remote config becomes available after SDK initialization
-            // We'll check this periodically or via callback if available
-            _remoteConfigReady = GameAnalytics.IsRemoteConfigsReady();
+            if (s_init) return true;
+            Debug.LogWarning($"{Tag} Not initialized");
+            return false;
         }
-#endif
-        
+
         public static bool IsRemoteConfigReady()
         {
-#if UNITY_EDITOR
-            return true; // Always ready in editor for testing
+#if GAMEANALYTICS_INSTALLED
+            return s_init && GameAnalytics.IsRemoteConfigsReady();
 #else
-            return _remoteConfigReady;
+            return false;
 #endif
         }
-        
+
 #if GAMEANALYTICS_INSTALLED
-        public static void TrackProgressionEvent(GAProgressionStatus status, string progression01, string progression02 = null, string progression03 = null, int score = 0)
+        public static void TrackProgressionEvent(GAProgressionStatus status, string p1, string p2 = null, string p3 = null, int score = 0)
         {
-            if (!_isInitialized)
-            {
-                Debug.LogWarning("[GA Adapter] Not initialized");
-                return;
-            }
-            
-#if !UNITY_EDITOR
-            if (string.IsNullOrEmpty(progression02) && string.IsNullOrEmpty(progression03))
-            {
-                if (score > 0)
-                    GameAnalyticsSDK.GameAnalytics.NewProgressionEvent(status, progression01, score);
-                else
-                    GameAnalyticsSDK.GameAnalytics.NewProgressionEvent(status, progression01);
-            }
-            else if (string.IsNullOrEmpty(progression03))
-            {
-                if (score > 0)
-                    GameAnalyticsSDK.GameAnalytics.NewProgressionEvent(status, progression01, progression02, score);
-                else
-                    GameAnalyticsSDK.GameAnalytics.NewProgressionEvent(status, progression01, progression02);
-            }
+            if (!EnsureInit()) return;
+
+            if (string.IsNullOrEmpty(p2) && string.IsNullOrEmpty(p3))
+                if (score > 0) GameAnalytics.NewProgressionEvent(status, p1, score);
+                else GameAnalytics.NewProgressionEvent(status, p1);
+            else if (string.IsNullOrEmpty(p3))
+                if (score > 0) GameAnalytics.NewProgressionEvent(status, p1, p2, score);
+                else GameAnalytics.NewProgressionEvent(status, p1, p2);
             else
-            {
-                if (score > 0)
-                    GameAnalyticsSDK.GameAnalytics.NewProgressionEvent(status, progression01, progression02, progression03, score);
-                else
-                    GameAnalyticsSDK.GameAnalytics.NewProgressionEvent(status, progression01, progression02, progression03);
-            }
-#else
-            Debug.Log($"[GA Adapter] Progression Event: {status} - {progression01}/{progression02}/{progression03} (Score: {score})");
-#endif
+                if (score > 0) GameAnalytics.NewProgressionEvent(status, p1, p2, p3, score);
+                else GameAnalytics.NewProgressionEvent(status, p1, p2, p3);
         }
-#else
-        // Fallback when GameAnalytics is not installed
-        public static void TrackProgressionEvent(string status, string progression01, string progression02 = null, string progression03 = null, int score = 0)
-        {
-            Debug.LogWarning("[GA Adapter] GameAnalytics not installed. Install package to enable analytics.");
-        }
-#endif
-        
-#if GAMEANALYTICS_INSTALLED
+
         public static void TrackDesignEvent(string eventName, float value = 0)
         {
-            if (!_isInitialized)
-            {
-                Debug.LogWarning("[GA Adapter] Not initialized");
-                return;
-            }
-            
-#if !UNITY_EDITOR
-            if (value != 0)
-                GameAnalyticsSDK.GameAnalytics.NewDesignEvent(eventName, value);
-            else
-                GameAnalyticsSDK.GameAnalytics.NewDesignEvent(eventName);
-#else
-            Debug.Log($"[GA Adapter] Design Event: {eventName} = {value}");
-#endif
+            if (!EnsureInit()) return;
+            if (value != 0) GameAnalytics.NewDesignEvent(eventName, value);
+            else GameAnalytics.NewDesignEvent(eventName);
         }
-#else
-        // Fallback when GameAnalytics is not installed
-        public static void TrackDesignEvent(string eventName, float value = 0)
-        {
-            Debug.LogWarning("[GA Adapter] GameAnalytics not installed. Install package to enable analytics.");
-        }
-#endif
-        
-#if GAMEANALYTICS_INSTALLED
+
         public static void TrackResourceEvent(GAResourceFlowType flowType, string currency, float amount, string itemType, string itemId)
         {
-            if (!_isInitialized)
-            {
-                Debug.LogWarning("[GA Adapter] Not initialized");
-                return;
-            }
-            
-#if !UNITY_EDITOR
-            GameAnalyticsSDK.GameAnalytics.NewResourceEvent(flowType, currency, amount, itemType, itemId);
-#else
-            Debug.Log($"[GA Adapter] Resource Event: {flowType} - {currency} {amount} ({itemType}:{itemId})");
-#endif
+            if (!EnsureInit()) return;
+            GameAnalytics.NewResourceEvent(flowType, currency, amount, itemType, itemId);
         }
+
+        public static string GetRemoteConfigValue(string key, string defaultValue = "") =>
+            s_init && IsRemoteConfigReady() ? GameAnalytics.GetRemoteConfigsValueAsString(key, defaultValue) : defaultValue;
 #else
-        // Fallback when GameAnalytics is not installed
-        public static void TrackResourceEvent(string flowType, string currency, float amount, string itemType, string itemId)
-        {
-            Debug.LogWarning("[GA Adapter] GameAnalytics not installed. Install package to enable analytics.");
-        }
-#endif
-        
-#if GAMEANALYTICS_INSTALLED
-        public static string GetRemoteConfigValue(string key, string defaultValue = "")
-        {
-            if (!_isInitialized || !IsRemoteConfigReady())
-            {
-                return defaultValue;
-            }
-            
-#if !UNITY_EDITOR
-            return GameAnalyticsSDK.GameAnalytics.GetRemoteConfigsValueAsString(key, defaultValue);
-#else
-            Debug.Log($"[GA Adapter] Remote Config: {key} (default: {defaultValue})");
-            return defaultValue;
-#endif
-        }
-#else
-        // Fallback when GameAnalytics is not installed
-        public static string GetRemoteConfigValue(string key, string defaultValue = "")
-        {
-            Debug.LogWarning("[GA Adapter] GameAnalytics not installed. Install package to enable analytics.");
-            return defaultValue;
-        }
+        public static void TrackProgressionEvent(string status, string p1, string p2 = null, string p3 = null, int score = 0) { }
+        public static void TrackDesignEvent(string eventName, float value = 0) { }
+        public static void TrackResourceEvent(string flowType, string currency, float amount, string itemType, string itemId) { }
+        public static string GetRemoteConfigValue(string key, string defaultValue = "") => defaultValue;
 #endif
     }
 }

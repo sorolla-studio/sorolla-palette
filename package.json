@@ -1,8 +1,8 @@
 {
-  "name": "com.sorolla.palette",
-  "version": "1.0.0",
-  "displayName": "Sorolla Palette",
-  "description": "Publisher SDK for mobile games - Complete mobile publisher stack with GameAnalytics, AppLovin MAX, Facebook SDK, and Adjust",
+  "name": "com.sorolla.sdk",
+  "version": "2.0.0",
+  "displayName": "Sorolla SDK",
+  "description": "Plug & Play Publisher SDK - GameAnalytics, AppLovin MAX, Facebook, Adjust",
   "unity": "2022.3",
   "keywords": [
     "sdk",
@@ -13,7 +13,7 @@
   ],
   "author": {
     "name": "Sorolla",
-    "url": "https://github.com/yourusername/sorolla-palette"
+    "url": "https://github.com/LaCreArthur/sorolla-palette-upm"
   },
   "dependencies": {
   }

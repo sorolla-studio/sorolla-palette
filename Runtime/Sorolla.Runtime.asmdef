@@ -1,0 +1,39 @@
+{
+    "name": "Sorolla.Runtime",
+    "rootNamespace": "Sorolla",
+    "references": [
+        "GameAnalyticsSDK",
+        "Sorolla.Adapters",
+        "Unity.Advertisement.IosSupport"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.gameanalytics.sdk",
+            "expression": "",
+            "define": "GAMEANALYTICS_INSTALLED"
+        },
+        {
+            "name": "com.applovin.mediation.ads",
+            "expression": "",
+            "define": "APPLOVIN_MAX_INSTALLED"
+        },
+        {
+            "name": "com.adjust.sdk",
+            "expression": "",
+            "define": "ADJUST_SDK_INSTALLED"
+        },
+        {
+            "name": "com.unity.ads.ios-support",
+            "expression": "",
+            "define": "UNITY_IOS_SUPPORT_INSTALLED"
+        }
+    ],
+    "noEngineReferences": false
+}

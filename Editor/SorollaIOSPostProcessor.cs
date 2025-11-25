@@ -5,7 +5,7 @@ using UnityEditor.iOS.Xcode;
 using System.IO;
 using UnityEngine;
 
-namespace SorollaPalette.Editor
+namespace Sorolla.Editor
 {
     public static class SorollaIOSPostProcessor
     {

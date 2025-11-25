@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 
-namespace SorollaPalette.Editor
+namespace Sorolla.Editor
 {
     /// <summary>
     /// Minimal JSON serializer/deserializer for manifest.json manipulation

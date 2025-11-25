@@ -1,0 +1,35 @@
+{
+    "name": "Sorolla.Adapters",
+    "rootNamespace": "Sorolla.Adapters",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.lacrearthur.facebook-sdk-for-unity",
+            "expression": "",
+            "define": "SOROLLA_FACEBOOK_ENABLED"
+        },
+        {
+            "name": "com.applovin.mediation.ads",
+            "expression": "",
+            "define": "SOROLLA_MAX_ENABLED"
+        },
+        {
+            "name": "com.applovin.mediation.ads",
+            "expression": "",
+            "define": "APPLOVIN_MAX_INSTALLED"
+        },
+        {
+            "name": "com.adjust.sdk",
+            "expression": "",
+            "define": "SOROLLA_ADJUST_ENABLED"
+        }
+    ],
+    "noEngineReferences": false
+}
