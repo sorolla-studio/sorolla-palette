@@ -19,26 +19,4 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-{
-  "name": "com.sorolla.palette",
-  "version": "1.0.0",
-  "displayName": "Sorolla Palette",
-  "description": "Publisher SDK for mobile games - Complete mobile publisher stack with GameAnalytics, AppLovin MAX, Facebook SDK, and Adjust",
-  "unity": "2022.3",
-  "keywords": [
-    "sdk",
-    "analytics",
-    "ads",
-    "monetization",
-    "publisher"
-  ],
-  "author": {
-    "name": "Sorolla",
-    "url": "https://github.com/yourusername/sorolla-palette"
-  },
-  "dependencies": {
-    "com.gameanalytics.sdk": "https://github.com/GameAnalytics/GA-SDK-UNITY.git",
-    "com.applovin.max": "https://github.com/AppLovin/AppLovin-MAX-Unity-Plugin.git"
-  }
-}
 

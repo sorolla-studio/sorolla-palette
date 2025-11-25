@@ -2,6 +2,9 @@
 
 A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration initialization with automatic iOS ATT handling.
 
+[![Unity 2022.3+](https://img.shields.io/badge/Unity-2022.3%2B-blue)](https://unity.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
+
 ## Features
 
 - 🔌 **Plug & Play**: Auto-initializes on app start - no code required
@@ -32,9 +35,10 @@ A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration ini
 The Configuration window opens automatically. Select **Prototype** or **Full** mode.
 
 ### 2. Configure SDKs
-- **GameAnalytics**: `GameAnalytics > Setup Wizard`
-- **Facebook**: `Facebook > Edit Settings`
-- **MAX/Adjust**: Enter keys in Sorolla Configuration
+The Setup Checklist guides you through configuration:
+- **GameAnalytics**: Click "Open Settings" → Setup Wizard
+- **Facebook**: Click "Open Settings" → Edit Settings  
+- **MAX/Adjust**: Enter keys directly in Sorolla Configuration
 
 ### 3. Done! 🎉
 
@@ -65,6 +69,11 @@ Sorolla.ShowRewardedAd(
 );
 ```
 
+## Documentation
+
+- [Configuration Guide](Documentation~/CONFIGURATION.md)
+
 ## Support
 
-[GitHub Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
+- [GitHub Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
+- [Changelog](CHANGELOG.md)
