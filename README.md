@@ -69,9 +69,28 @@ Sorolla.ShowRewardedAd(
 );
 ```
 
-## Documentation
+## SDK Configuration
 
-- [Configuration Guide](Documentation~/CONFIGURATION.md)
+### GameAnalytics
+1. Create account at [gameanalytics.com](https://gameanalytics.com/)
+2. Create game → Copy Game Key & Secret Key
+3. In Unity: `GameAnalytics > Setup Wizard`
+
+### Facebook (Prototype Mode)
+1. Create app at [developers.facebook.com](https://developers.facebook.com/apps/)
+2. Copy App ID
+3. In Unity: `Facebook > Edit Settings`
+
+### AppLovin MAX
+1. Create account at [dash.applovin.com](https://dash.applovin.com/)
+2. Get SDK Key from Account → Keys
+3. Create Ad Units (Rewarded, Interstitial)
+4. Enter keys in Sorolla Configuration window
+
+### Adjust (Full Mode)
+1. Create account at [adjust.com](https://www.adjust.com/)
+2. Create app → Copy App Token
+3. Enter token in Sorolla Configuration window
 
 ## Support
 
