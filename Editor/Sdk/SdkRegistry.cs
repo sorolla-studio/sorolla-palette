@@ -38,10 +38,18 @@ namespace Sorolla.Editor
         public SdkId Id;
         public string Name;
         public string PackageId;
+        /// <summary>Version for OpenUPM packages (null = use InstallUrl instead)</summary>
+        public string Version;
+        /// <summary>Git URL for packages not on OpenUPM (null = use PackageId@Version)</summary>
         public string InstallUrl;
+        /// <summary>OpenUPM scope required for this package (null = no scope needed)</summary>
+        public string Scope;
         public string[] DetectionAssemblies;
         public string[] DetectionTypes;
         public SdkRequirement Requirement;
+
+        /// <summary>Get the dependency value for manifest.json</summary>
+        public string DependencyValue => !string.IsNullOrEmpty(InstallUrl) ? InstallUrl : Version;
 
         public bool IsRequiredFor(bool isPrototype) => Requirement switch
         {
@@ -60,18 +68,38 @@ namespace Sorolla.Editor
     }
 
     /// <summary>
-    ///     Single source of truth for all SDK metadata.
+    ///     Single source of truth for all SDK metadata and versions.
     /// </summary>
     public static class SdkRegistry
     {
+        // ============================================================
+        // VERSION CONSTANTS - Update these when upgrading SDK versions
+        // ============================================================
+        public const string EDM_VERSION = "1.2.186";
+        public const string GA_VERSION = "7.10.6";
+        public const string MAX_VERSION = "8.5.0";
+        public const string FB_VERSION = "18.0.1";
+
         public static readonly IReadOnlyDictionary<SdkId, SdkInfo> All = new Dictionary<SdkId, SdkInfo>
         {
+            [SdkId.ExternalDependencyManager] = new()
+            {
+                Id = SdkId.ExternalDependencyManager,
+                Name = "External Dependency Manager",
+                PackageId = "com.google.external-dependency-manager",
+                Version = EDM_VERSION,
+                Scope = "com.google.external-dependency-manager",
+                DetectionAssemblies = new[] { "Google.JarResolver" },
+                DetectionTypes = System.Array.Empty<string>(),
+                Requirement = SdkRequirement.Core
+            },
             [SdkId.GameAnalytics] = new()
             {
                 Id = SdkId.GameAnalytics,
                 Name = "GameAnalytics",
                 PackageId = "com.gameanalytics.sdk",
-                InstallUrl = "https://github.com/GameAnalytics/GA-SDK-UNITY.git",
+                Version = GA_VERSION,
+                Scope = "com.gameanalytics",
                 DetectionAssemblies = new[] { "GameAnalyticsSDK" },
                 DetectionTypes = new[] { "GameAnalyticsSDK.GameAnalytics, GameAnalyticsSDK" },
                 Requirement = SdkRequirement.Core
@@ -81,19 +109,10 @@ namespace Sorolla.Editor
                 Id = SdkId.IosSupport,
                 Name = "iOS Support (ATT)",
                 PackageId = "com.unity.ads.ios-support",
-                InstallUrl = "com.unity.ads.ios-support",
+                Version = "1.2.0",
+                // No scope needed - Unity registry
                 DetectionAssemblies = new[] { "Unity.Advertisement.IosSupport" },
                 DetectionTypes = new[] { "Unity.Advertisement.IosSupport.ATTrackingStatusBinding, Unity.Advertisement.IosSupport" },
-                Requirement = SdkRequirement.Core
-            },
-            [SdkId.ExternalDependencyManager] = new()
-            {
-                Id = SdkId.ExternalDependencyManager,
-                Name = "External Dependency Manager",
-                PackageId = "com.google.external-dependency-manager",
-                InstallUrl = "com.google.external-dependency-manager",
-                DetectionAssemblies = new[] { "Google.JarResolver" },
-                DetectionTypes = System.Array.Empty<string>(),
                 Requirement = SdkRequirement.Core
             },
             [SdkId.Facebook] = new()
@@ -101,6 +120,7 @@ namespace Sorolla.Editor
                 Id = SdkId.Facebook,
                 Name = "Facebook SDK",
                 PackageId = "com.lacrearthur.facebook-sdk-for-unity",
+                // Use Git URL - works great, no need to change
                 InstallUrl = "https://github.com/LaCreArthur/facebook-unity-sdk-upm.git",
                 DetectionAssemblies = new[] { "Facebook.Unity" },
                 DetectionTypes = new[] { "Facebook.Unity.FB, Facebook.Unity" },
@@ -111,7 +131,8 @@ namespace Sorolla.Editor
                 Id = SdkId.AppLovinMAX,
                 Name = "AppLovin MAX",
                 PackageId = "com.applovin.mediation.ads",
-                InstallUrl = null, // Special handling (registry + version)
+                Version = MAX_VERSION,
+                Scope = "com.applovin",
                 DetectionAssemblies = new[] { "MaxSdk.Scripts", "applovin" },
                 DetectionTypes = new[] { "MaxSdk, MaxSdk.Scripts", "MaxSdkBase, MaxSdk.Scripts" },
                 Requirement = SdkRequirement.FullOnly
@@ -121,6 +142,7 @@ namespace Sorolla.Editor
                 Id = SdkId.Adjust,
                 Name = "Adjust SDK",
                 PackageId = "com.adjust.sdk",
+                // Use Git URL - official distribution
                 InstallUrl = "https://github.com/adjust/unity_sdk.git?path=Assets/Adjust",
                 DetectionAssemblies = new[] { "com.adjust.sdk", "adjustsdk.scripts", "adjust" },
                 DetectionTypes = new[] { "AdjustSdk.Adjust, AdjustSdk.Scripts" },

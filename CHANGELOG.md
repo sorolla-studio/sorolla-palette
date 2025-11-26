@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.1] - 2025-11-26
+
+### Changed
+- **Refactored**: SDK installation now uses manifest.json directly instead of `Client.Add()` queue
+- **Refactored**: Core dependencies (GA, EDM, iOS Support) installed via OpenUPM scoped registry
+- SDK versions now centralized in `SdkRegistry` for easy updates
+
+### Fixed
+- Fixed GameAnalytics installation failing due to EDM dependency order
+- Fixed potential infinite loading when Package Manager was busy during installation
+
+### SDK Versions
+- GameAnalytics: 7.10.6
+- External Dependency Manager: 1.2.186
+- AppLovin MAX: 8.5.0
+- Facebook SDK: 18.0.1 (Git URL)
+
 ## [2.0.0] - 2025-11-25
 
 ### Changed
