@@ -98,13 +98,19 @@ namespace Sorolla.Editor
         }
 
         /// <summary>
-        ///     Install core dependencies (called on package import)
+        ///     Install core dependencies (called on package import).
+        ///     Order matters: EDM must be installed before GA (GA depends on EDM).
         /// </summary>
         public static void InstallCoreDependencies()
         {
-            foreach (var sdk in SdkRegistry.All.Values)
+            // Priority order: EDM first, then others that depend on it
+            var priorityOrder = new[] { SdkId.ExternalDependencyManager, SdkId.IosSupport, SdkId.GameAnalytics };
+
+            foreach (var id in priorityOrder)
             {
-                if (sdk.Requirement == SdkRequirement.Core && !SdkDetector.IsInstalled(sdk))
+                if (SdkRegistry.All.TryGetValue(id, out var sdk) && 
+                    sdk.Requirement == SdkRequirement.Core && 
+                    !SdkDetector.IsInstalled(sdk))
                 {
                     Debug.Log($"[Sorolla] Installing core dependency: {sdk.Name}");
                     Install(sdk.Id);
