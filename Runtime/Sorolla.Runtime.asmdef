@@ -33,6 +33,21 @@
             "name": "com.unity.ads.ios-support",
             "expression": "",
             "define": "UNITY_IOS_SUPPORT_INSTALLED"
+        },
+        {
+            "name": "com.google.firebase.analytics",
+            "expression": "",
+            "define": "FIREBASE_ANALYTICS_INSTALLED"
+        },
+        {
+            "name": "com.google.firebase.crashlytics",
+            "expression": "",
+            "define": "FIREBASE_CRASHLYTICS_INSTALLED"
+        },
+        {
+            "name": "com.google.firebase.remote-config",
+            "expression": "",
+            "define": "FIREBASE_REMOTE_CONFIG_INSTALLED"
         }
     ],
     "noEngineReferences": false

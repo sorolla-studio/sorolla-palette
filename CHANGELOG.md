@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2025-11-27
+
+### Added
+- **Firebase Suite**: Full Firebase integration with Analytics, Crashlytics, and Remote Config
+- `FirebaseAdapter` with async-safe initialization and event queuing
+- `FirebaseCrashlyticsAdapter` with automatic exception capture and custom logging
+- `FirebaseRemoteConfigAdapter` with typed getters and fetch/activate support
+- Firebase section in Configuration window with install button, module toggles, and config file checklist
+- Detection for `google-services.json` and `GoogleService-Info.plist` config files
+- `enableFirebaseAnalytics`, `enableCrashlytics`, `enableRemoteConfig` toggles in SorollaConfig
+- New public APIs:
+  - `Sorolla.LogException(Exception)` - Log non-fatal exceptions
+  - `Sorolla.LogCrashlytics(string)` - Add breadcrumb logs
+  - `Sorolla.SetCrashlyticsKey(string, string)` - Set custom keys
+  - `Sorolla.IsFirebaseRemoteConfigReady()` - Check RC status
+  - `Sorolla.FetchFirebaseRemoteConfig(Action<bool>)` - Fetch remote values
+  - `Sorolla.GetFirebaseRemoteConfig*(key, default)` - Get typed values
+
+### Changed
+- All analytics events (`TrackProgression`, `TrackDesign`, `TrackResource`) now dispatch to Firebase when enabled
+- Firebase SDK now installed via Git UPM from `github.com/LaCreArthur/unity-firebase-app`
+- Single "Install Firebase" button installs all 4 packages (App, Analytics, Crashlytics, Remote Config)
+
+### SDK Versions
+- Firebase App: 12.10.1 (Git UPM)
+- Firebase Analytics: 12.10.1 (Git UPM)
+- Firebase Crashlytics: 12.10.1 (Git UPM)
+- Firebase Remote Config: 12.10.1 (Git UPM)
+- GameAnalytics: 7.10.6
+- External Dependency Manager: 1.2.186
+- AppLovin MAX: 8.5.0
+- Facebook SDK: 18.0.1 (Git URL)
+
 ## [2.0.1] - 2025-11-26
 
 ### Changed

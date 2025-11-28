@@ -12,7 +12,11 @@ namespace Sorolla.Editor
         Facebook,
         AppLovinMAX,
         Adjust,
-        ExternalDependencyManager
+        ExternalDependencyManager,
+        FirebaseApp,
+        FirebaseAnalytics,
+        FirebaseCrashlytics,
+        FirebaseRemoteConfig
     }
 
     /// <summary>
@@ -79,6 +83,7 @@ namespace Sorolla.Editor
         public const string GA_VERSION = "7.10.6";
         public const string MAX_VERSION = "8.5.0";
         public const string FB_VERSION = "18.0.1";
+        public const string FIREBASE_VERSION = "12.10.1";
 
         public static readonly IReadOnlyDictionary<SdkId, SdkInfo> All = new Dictionary<SdkId, SdkInfo>
         {
@@ -147,6 +152,46 @@ namespace Sorolla.Editor
                 DetectionAssemblies = new[] { "com.adjust.sdk", "adjustsdk.scripts", "adjust" },
                 DetectionTypes = new[] { "AdjustSdk.Adjust, AdjustSdk.Scripts" },
                 Requirement = SdkRequirement.FullOnly
+            },
+            [SdkId.FirebaseApp] = new()
+            {
+                Id = SdkId.FirebaseApp,
+                Name = "Firebase App",
+                PackageId = "com.google.firebase.app",
+                InstallUrl = "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseApp#" + FIREBASE_VERSION,
+                DetectionAssemblies = new[] { "Firebase.App" },
+                DetectionTypes = new[] { "Firebase.FirebaseApp, Firebase.App" },
+                Requirement = SdkRequirement.Optional
+            },
+            [SdkId.FirebaseAnalytics] = new()
+            {
+                Id = SdkId.FirebaseAnalytics,
+                Name = "Firebase Analytics",
+                PackageId = "com.google.firebase.analytics",
+                InstallUrl = "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseAnalytics#" + FIREBASE_VERSION,
+                DetectionAssemblies = new[] { "Firebase.Analytics" },
+                DetectionTypes = new[] { "Firebase.Analytics.FirebaseAnalytics, Firebase.Analytics" },
+                Requirement = SdkRequirement.Optional
+            },
+            [SdkId.FirebaseCrashlytics] = new()
+            {
+                Id = SdkId.FirebaseCrashlytics,
+                Name = "Firebase Crashlytics",
+                PackageId = "com.google.firebase.crashlytics",
+                InstallUrl = "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseCrashlytics#" + FIREBASE_VERSION,
+                DetectionAssemblies = new[] { "Firebase.Crashlytics" },
+                DetectionTypes = new[] { "Firebase.Crashlytics.Crashlytics, Firebase.Crashlytics" },
+                Requirement = SdkRequirement.Optional
+            },
+            [SdkId.FirebaseRemoteConfig] = new()
+            {
+                Id = SdkId.FirebaseRemoteConfig,
+                Name = "Firebase Remote Config",
+                PackageId = "com.google.firebase.remote-config",
+                InstallUrl = "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseRemoteConfig#" + FIREBASE_VERSION,
+                DetectionAssemblies = new[] { "Firebase.RemoteConfig" },
+                DetectionTypes = new[] { "Firebase.RemoteConfig.FirebaseRemoteConfig, Firebase.RemoteConfig" },
+                Requirement = SdkRequirement.Optional
             }
         };
 

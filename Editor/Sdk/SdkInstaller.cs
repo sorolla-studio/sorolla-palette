@@ -163,5 +163,51 @@ namespace Sorolla.Editor
                 Debug.LogWarning($"[Sorolla] Could not auto-resolve dependencies: {e.Message}");
             }
         }
+
+        /// <summary>
+        ///     Install Firebase packages (App + Analytics + Crashlytics + Remote Config)
+        /// </summary>
+        public static void InstallFirebase()
+        {
+            var appInfo = SdkRegistry.All[SdkId.FirebaseApp];
+            var analyticsInfo = SdkRegistry.All[SdkId.FirebaseAnalytics];
+            var crashlyticsInfo = SdkRegistry.All[SdkId.FirebaseCrashlytics];
+            var remoteConfigInfo = SdkRegistry.All[SdkId.FirebaseRemoteConfig];
+
+            Debug.Log("[Sorolla] Installing Firebase (App + Analytics + Crashlytics + Remote Config)...");
+
+            ManifestManager.AddDependencies(new Dictionary<string, string>
+            {
+                { appInfo.PackageId, appInfo.DependencyValue },
+                { analyticsInfo.PackageId, analyticsInfo.DependencyValue },
+                { crashlyticsInfo.PackageId, crashlyticsInfo.DependencyValue },
+                { remoteConfigInfo.PackageId, remoteConfigInfo.DependencyValue }
+            });
+
+            Debug.Log("[Sorolla] Firebase added to manifest. Package Manager will resolve.");
+        }
+
+        /// <summary>
+        ///     Uninstall all Firebase packages
+        /// </summary>
+        public static void UninstallFirebase()
+        {
+            var appInfo = SdkRegistry.All[SdkId.FirebaseApp];
+            var analyticsInfo = SdkRegistry.All[SdkId.FirebaseAnalytics];
+            var crashlyticsInfo = SdkRegistry.All[SdkId.FirebaseCrashlytics];
+            var remoteConfigInfo = SdkRegistry.All[SdkId.FirebaseRemoteConfig];
+
+            Debug.Log("[Sorolla] Uninstalling Firebase...");
+
+            ManifestManager.RemoveDependencies(new[]
+            {
+                appInfo.PackageId,
+                analyticsInfo.PackageId,
+                crashlyticsInfo.PackageId,
+                remoteConfigInfo.PackageId
+            });
+
+            Debug.Log("[Sorolla] Firebase removed from manifest.");
+        }
     }
 }

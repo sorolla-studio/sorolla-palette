@@ -150,5 +150,81 @@ namespace Sorolla.Editor
         {
             EditorApplication.ExecuteMenuItem("AppLovin/Integration Manager");
         }
+
+        /// <summary>
+        ///     Checks if Firebase Android config file exists.
+        /// </summary>
+        public static bool IsFirebaseAndroidConfigured()
+        {
+            // Check common locations for google-services.json
+            return System.IO.File.Exists("Assets/google-services.json") ||
+                   System.IO.File.Exists("Assets/StreamingAssets/google-services.json") ||
+                   AssetDatabase.FindAssets("google-services").Length > 0;
+        }
+
+        /// <summary>
+        ///     Checks if Firebase iOS config file exists.
+        /// </summary>
+        public static bool IsFirebaseIOSConfigured()
+        {
+            // Check common locations for GoogleService-Info.plist
+            return System.IO.File.Exists("Assets/GoogleService-Info.plist") ||
+                   System.IO.File.Exists("Assets/StreamingAssets/GoogleService-Info.plist") ||
+                   AssetDatabase.FindAssets("GoogleService-Info").Length > 0;
+        }
+
+        /// <summary>
+        ///     Checks if Firebase is fully configured (both platforms).
+        /// </summary>
+        public static ConfigStatus GetFirebaseStatus(SorollaConfig config)
+        {
+            if (!SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
+                return ConfigStatus.NotInstalled;
+
+            if (config == null || !config.enableFirebaseAnalytics)
+                return ConfigStatus.NotConfigured;
+
+            // At least one platform should be configured
+            if (IsFirebaseAndroidConfigured() || IsFirebaseIOSConfigured())
+                return ConfigStatus.Configured;
+
+            return ConfigStatus.NotConfigured;
+        }
+
+        /// <summary>
+        ///     Checks if Firebase Crashlytics is configured.
+        /// </summary>
+        public static ConfigStatus GetCrashlyticsStatus(SorollaConfig config)
+        {
+            if (!SdkDetector.IsInstalled(SdkId.FirebaseCrashlytics))
+                return ConfigStatus.NotInstalled;
+
+            if (config == null || !config.enableCrashlytics)
+                return ConfigStatus.NotConfigured;
+
+            // Crashlytics needs config files too
+            if (IsFirebaseAndroidConfigured() || IsFirebaseIOSConfigured())
+                return ConfigStatus.Configured;
+
+            return ConfigStatus.NotConfigured;
+        }
+
+        /// <summary>
+        ///     Checks if Firebase Remote Config is configured.
+        /// </summary>
+        public static ConfigStatus GetRemoteConfigStatus(SorollaConfig config)
+        {
+            if (!SdkDetector.IsInstalled(SdkId.FirebaseRemoteConfig))
+                return ConfigStatus.NotInstalled;
+
+            if (config == null || !config.enableRemoteConfig)
+                return ConfigStatus.NotConfigured;
+
+            // Remote Config needs config files too
+            if (IsFirebaseAndroidConfigured() || IsFirebaseIOSConfigured())
+                return ConfigStatus.Configured;
+
+            return ConfigStatus.NotConfigured;
+        }
     }
 }

@@ -2,13 +2,7 @@ using System;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using UnityEngine;
-#if SOROLLA_MAX_ENABLED
-using Sorolla.Adapters;
-#endif
-#if SOROLLA_ADJUST_ENABLED
-using Sorolla.Adapters;
-#endif
-#if SOROLLA_FACEBOOK_ENABLED
+#if SOROLLA_MAX_ENABLED || SOROLLA_ADJUST_ENABLED || SOROLLA_FACEBOOK_ENABLED || FIREBASE_ANALYTICS_INSTALLED || FIREBASE_CRASHLYTICS_INSTALLED || FIREBASE_REMOTE_CONFIG_INSTALLED
 using Sorolla.Adapters;
 #endif
 #if GAMEANALYTICS_INSTALLED
@@ -99,6 +93,24 @@ namespace Sorolla
                 InitializeAdjust();
 #endif
 
+            // Firebase Analytics (optional)
+#if FIREBASE_ANALYTICS_INSTALLED
+            if (s_config != null && s_config.enableFirebaseAnalytics)
+                FirebaseAdapter.Initialize();
+#endif
+
+            // Firebase Crashlytics (optional)
+#if FIREBASE_CRASHLYTICS_INSTALLED
+            if (s_config != null && s_config.enableCrashlytics)
+                FirebaseCrashlyticsAdapter.Initialize(captureUncaughtExceptions: true);
+#endif
+
+            // Firebase Remote Config (optional)
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+            if (s_config != null && s_config.enableRemoteConfig)
+                FirebaseRemoteConfigAdapter.Initialize(autoFetch: true);
+#endif
+
             IsInitialized = true;
             Debug.Log($"{Tag} Ready!");
         }
@@ -129,6 +141,11 @@ namespace Sorolla
 #else
             GameAnalyticsAdapter.TrackProgressionEvent(status.ToString().ToLower(), progression01, progression02, progression03, score);
 #endif
+
+#if FIREBASE_ANALYTICS_INSTALLED
+            if (s_config != null && s_config.enableFirebaseAnalytics)
+                FirebaseAdapter.TrackProgressionEvent(status.ToString().ToLower(), progression01, progression02, progression03, score);
+#endif
         }
 
         #endregion
@@ -149,6 +166,11 @@ namespace Sorolla
             if (isPrototype)
                 FacebookAdapter.TrackEvent(eventName, value);
 #endif
+
+#if FIREBASE_ANALYTICS_INSTALLED
+            if (s_config != null && s_config.enableFirebaseAnalytics)
+                FirebaseAdapter.TrackDesignEvent(eventName, value);
+#endif
         }
 
         #endregion
@@ -168,6 +190,11 @@ namespace Sorolla
             GameAnalyticsAdapter.TrackResourceEvent(gaFlow, currency, amount, itemType, itemId);
 #else
             GameAnalyticsAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId);
+#endif
+
+#if FIREBASE_ANALYTICS_INSTALLED
+            if (s_config != null && s_config.enableFirebaseAnalytics)
+                FirebaseAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId);
 #endif
         }
 
@@ -194,6 +221,106 @@ namespace Sorolla
         /// <summary>Get remote config bool value</summary>
         public static bool GetRemoteConfigBool(string key, bool defaultValue = false) =>
             bool.TryParse(GetRemoteConfig(key, defaultValue.ToString()), out var r) ? r : defaultValue;
+
+        #endregion
+
+        #region Firebase Remote Config
+
+        /// <summary>Check if Firebase Remote Config is ready</summary>
+        public static bool IsFirebaseRemoteConfigReady()
+        {
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+            return IsInitialized && FirebaseRemoteConfigAdapter.IsReady;
+#else
+            return false;
+#endif
+        }
+
+        /// <summary>Fetch Firebase Remote Config values</summary>
+        public static void FetchFirebaseRemoteConfig(Action<bool> onComplete = null)
+        {
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+            if (!EnsureInit()) { onComplete?.Invoke(false); return; }
+            FirebaseRemoteConfigAdapter.FetchAndActivate(onComplete);
+#else
+            Debug.LogWarning($"{Tag} Firebase Remote Config not available.");
+            onComplete?.Invoke(false);
+#endif
+        }
+
+        /// <summary>Get Firebase Remote Config string value</summary>
+        public static string GetFirebaseRemoteConfig(string key, string defaultValue = "")
+        {
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+            return IsInitialized ? FirebaseRemoteConfigAdapter.GetString(key, defaultValue) : defaultValue;
+#else
+            return defaultValue;
+#endif
+        }
+
+        /// <summary>Get Firebase Remote Config int value</summary>
+        public static int GetFirebaseRemoteConfigInt(string key, int defaultValue = 0)
+        {
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+            return IsInitialized ? FirebaseRemoteConfigAdapter.GetInt(key, defaultValue) : defaultValue;
+#else
+            return defaultValue;
+#endif
+        }
+
+        /// <summary>Get Firebase Remote Config float value</summary>
+        public static float GetFirebaseRemoteConfigFloat(string key, float defaultValue = 0f)
+        {
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+            return IsInitialized ? FirebaseRemoteConfigAdapter.GetFloat(key, defaultValue) : defaultValue;
+#else
+            return defaultValue;
+#endif
+        }
+
+        /// <summary>Get Firebase Remote Config bool value</summary>
+        public static bool GetFirebaseRemoteConfigBool(string key, bool defaultValue = false)
+        {
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+            return IsInitialized ? FirebaseRemoteConfigAdapter.GetBool(key, defaultValue) : defaultValue;
+#else
+            return defaultValue;
+#endif
+        }
+
+        #endregion
+
+        #region Error Logging
+
+        /// <summary>Log an exception to crash reporting services (Firebase Crashlytics)</summary>
+        public static void LogException(Exception exception)
+        {
+#if FIREBASE_CRASHLYTICS_INSTALLED
+            if (!EnsureInit()) return;
+            if (s_config != null && s_config.enableCrashlytics)
+                FirebaseCrashlyticsAdapter.LogException(exception);
+#endif
+        }
+
+        /// <summary>Log a message to crash reporting services (Firebase Crashlytics)</summary>
+        public static void LogCrashlytics(string message)
+        {
+#if FIREBASE_CRASHLYTICS_INSTALLED
+            if (!EnsureInit()) return;
+            if (s_config != null && s_config.enableCrashlytics)
+                FirebaseCrashlyticsAdapter.Log(message);
+#endif
+        }
+
+        /// <summary>Set a custom key for crash reports (Firebase Crashlytics)</summary>
+        public static void SetCrashlyticsKey(string key, string value)
+        {
+#if FIREBASE_CRASHLYTICS_INSTALLED
+            if (!EnsureInit()) return;
+            if (s_config != null && s_config.enableCrashlytics)
+                FirebaseCrashlyticsAdapter.SetCustomKey(key, value);
+#endif
+        }
 
         #endregion
 
@@ -280,3 +407,4 @@ namespace Sorolla
         #endregion
     }
 }
+

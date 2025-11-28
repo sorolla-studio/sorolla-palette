@@ -10,6 +10,7 @@ A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration ini
 - 🔌 **Plug & Play**: Auto-initializes on app start - no code required
 - 📱 **iOS ATT Support**: Automatic App Tracking Transparency handling
 - 📊 **Unified Analytics API**: Single interface for all analytics providers
+- 🔥 **Firebase Suite**: Analytics, Crashlytics, and Remote Config
 - 💰 **Monetization Ready**: AppLovin MAX with Adjust attribution
 
 ### Two Modes
@@ -18,6 +19,14 @@ A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration ini
 |------|------|----------|
 | **Prototype** | GameAnalytics + Facebook | Rapid UA testing |
 | **Full** | GameAnalytics + MAX + Adjust | Production |
+
+### Optional Add-ons
+
+| Add-on | Description |
+|--------|-------------|
+| **Firebase Analytics** | Dual analytics backend (parallel with GameAnalytics) |
+| **Firebase Crashlytics** | Automatic crash & exception reporting |
+| **Firebase Remote Config** | A/B testing and feature flags |
 
 ## Installation
 
@@ -56,11 +65,21 @@ Sorolla.TrackDesign("tutorial:completed");
 // Track resources
 Sorolla.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
 
-// Remote config
+// Remote config (GameAnalytics)
 if (Sorolla.IsRemoteConfigReady())
 {
     int difficulty = Sorolla.GetRemoteConfigInt("difficulty", 1);
 }
+
+// Firebase Remote Config (A/B testing)
+if (Sorolla.IsFirebaseRemoteConfigReady())
+{
+    bool newFeature = Sorolla.GetFirebaseRemoteConfigBool("enable_new_feature", false);
+}
+
+// Log exceptions to Crashlytics
+try { /* risky code */ }
+catch (Exception ex) { Sorolla.LogException(ex); }
 
 // Show ads (requires MAX)
 Sorolla.ShowRewardedAd(
@@ -91,6 +110,20 @@ Sorolla.ShowRewardedAd(
 1. Create account at [adjust.com](https://www.adjust.com/)
 2. Create app → Copy App Token
 3. Enter token in Sorolla Configuration window
+
+### Firebase Analytics (Optional)
+1. Create project at [Firebase Console](https://console.firebase.google.com/)
+2. Add your Unity app (Android and/or iOS)
+3. Download config files:
+   - **Android**: `google-services.json` → place in `Assets/`
+   - **iOS**: `GoogleService-Info.plist` → place in `Assets/`
+4. In Unity: `Sorolla > Configuration` → Click "Install" under Firebase
+5. Enable desired modules in the Firebase section:
+   - **Analytics**: Track custom events alongside GameAnalytics
+   - **Crashlytics**: Automatic crash & exception reporting
+   - **Remote Config**: A/B testing and feature flags
+
+**Note**: All Firebase features work in parallel — no code changes required!
 
 ## Support
 

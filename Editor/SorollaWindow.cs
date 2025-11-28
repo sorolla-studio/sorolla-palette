@@ -259,7 +259,65 @@ namespace Sorolla.Editor
             if (isPrototype)
                 DrawSdkStatus(SdkRegistry.All[SdkId.AppLovinMAX], isOptional: true);
 
+            // Show optional Firebase Analytics
+            DrawFirebaseSdkStatus();
+
             EditorGUILayout.EndVertical();
+        }
+
+        private void DrawFirebaseSdkStatus()
+        {
+            var isInstalled = SdkDetector.IsInstalled(SdkId.FirebaseAnalytics);
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Firebase (optional)", GUILayout.Width(180));
+
+            var style = new GUIStyle(EditorStyles.label);
+            if (isInstalled)
+            {
+                style.normal.textColor = Color.green;
+                GUILayout.Label("✓ Installed", style);
+
+                if (GUILayout.Button("Uninstall", GUILayout.Width(70)))
+                    SdkInstaller.UninstallFirebase();
+            }
+            else
+            {
+                style.normal.textColor = Color.yellow;
+                GUILayout.Label("○ Not installed", style);
+
+                if (GUILayout.Button("Install", GUILayout.Width(60)))
+                    SdkInstaller.InstallFirebase();
+            }
+            EditorGUILayout.EndHorizontal();
+
+            // Show installed Firebase modules when installed
+            if (isInstalled)
+            {
+                EditorGUI.indentLevel++;
+                var miniStyle = new GUIStyle(EditorStyles.miniLabel) { fixedWidth = 170 };
+                
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Space(20);
+                miniStyle.normal.textColor = new Color(0.6f, 0.8f, 0.6f);
+                GUILayout.Label("├ Analytics", miniStyle);
+                GUILayout.Label(SdkDetector.IsInstalled(SdkId.FirebaseAnalytics) ? "✓" : "○", GUILayout.Width(20));
+                EditorGUILayout.EndHorizontal();
+
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Space(20);
+                GUILayout.Label("├ Crashlytics", miniStyle);
+                GUILayout.Label(SdkDetector.IsInstalled(SdkId.FirebaseCrashlytics) ? "✓" : "○", GUILayout.Width(20));
+                EditorGUILayout.EndHorizontal();
+
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Space(20);
+                GUILayout.Label("└ Remote Config", miniStyle);
+                GUILayout.Label(SdkDetector.IsInstalled(SdkId.FirebaseRemoteConfig) ? "✓" : "○", GUILayout.Width(20));
+                EditorGUILayout.EndHorizontal();
+                
+                EditorGUI.indentLevel--;
+            }
         }
 
         private void DrawSdkStatus(SdkInfo sdk, bool isOptional = false)
@@ -354,6 +412,81 @@ namespace Sorolla.Editor
             }
             EditorGUILayout.EndHorizontal();
 
+            EditorGUILayout.EndVertical();
+
+            // Firebase section (only show when installed)
+            DrawFirebaseConfigSection(serializedConfig);
+        }
+
+        private void DrawFirebaseConfigSection(SerializedObject serializedConfig)
+        {
+            if (!SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
+                return;
+
+            EditorGUILayout.Space(10);
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            GUILayout.Label("Firebase", EditorStyles.boldLabel);
+
+            EditorGUILayout.Space(5);
+
+            // Module toggles
+            GUILayout.Label("Modules:", EditorStyles.miniLabel);
+            EditorGUI.indentLevel++;
+            
+            EditorGUILayout.PropertyField(serializedConfig.FindProperty("enableFirebaseAnalytics"), 
+                new GUIContent("Analytics", "Track custom events to Firebase Analytics"));
+            
+            EditorGUILayout.PropertyField(serializedConfig.FindProperty("enableCrashlytics"), 
+                new GUIContent("Crashlytics", "Automatic crash and exception reporting"));
+            
+            EditorGUILayout.PropertyField(serializedConfig.FindProperty("enableRemoteConfig"), 
+                new GUIContent("Remote Config", "A/B testing and feature flags"));
+            
+            EditorGUI.indentLevel--;
+
+            EditorGUILayout.Space(8);
+
+            // Config file status
+            var androidConfigured = SdkConfigDetector.IsFirebaseAndroidConfigured();
+            var iosConfigured = SdkConfigDetector.IsFirebaseIOSConfigured();
+
+            GUILayout.Label("Configuration Files:", EditorStyles.miniLabel);
+
+            // Android config
+            EditorGUILayout.BeginHorizontal();
+            var androidStyle = new GUIStyle(EditorStyles.label) { fixedWidth = 20 };
+            androidStyle.normal.textColor = androidConfigured ? new Color(0.2f, 0.8f, 0.2f) : new Color(1f, 0.5f, 0.2f);
+            GUILayout.Label(androidConfigured ? "✓" : "○", androidStyle);
+            GUILayout.Label("google-services.json", GUILayout.Width(150));
+            
+            var androidStatusStyle = new GUIStyle(EditorStyles.miniLabel);
+            if (androidConfigured)
+                androidStatusStyle.normal.textColor = new Color(0.5f, 0.8f, 0.5f);
+            GUILayout.Label(androidConfigured ? "Found in Assets/" : "Missing - download from Firebase Console", androidStatusStyle);
+            EditorGUILayout.EndHorizontal();
+
+            // iOS config
+            EditorGUILayout.BeginHorizontal();
+            var iosStyle = new GUIStyle(EditorStyles.label) { fixedWidth = 20 };
+            iosStyle.normal.textColor = iosConfigured ? new Color(0.2f, 0.8f, 0.2f) : new Color(1f, 0.5f, 0.2f);
+            GUILayout.Label(iosConfigured ? "✓" : "○", iosStyle);
+            GUILayout.Label("GoogleService-Info.plist", GUILayout.Width(150));
+            
+            var iosStatusStyle = new GUIStyle(EditorStyles.miniLabel);
+            if (iosConfigured)
+                iosStatusStyle.normal.textColor = new Color(0.5f, 0.8f, 0.5f);
+            GUILayout.Label(iosConfigured ? "Found in Assets/" : "Missing - download from Firebase Console", iosStatusStyle);
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.Space(5);
+
+            if (!androidConfigured || !iosConfigured)
+            {
+                if (GUILayout.Button("Open Firebase Console", GUILayout.Height(25)))
+                    Application.OpenURL("https://console.firebase.google.com/");
+            }
+
+            serializedConfig.ApplyModifiedProperties();
             EditorGUILayout.EndVertical();
         }
 

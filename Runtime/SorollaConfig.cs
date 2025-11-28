@@ -31,6 +31,18 @@ namespace Sorolla
         [Tooltip("Adjust App Token")]
         public string adjustAppToken;
 
+        [Header("Firebase Analytics (Optional)")]
+        [Tooltip("Enable Firebase Analytics (requires google-services.json / GoogleService-Info.plist)")]
+        public bool enableFirebaseAnalytics;
+
+        [Header("Firebase Crashlytics (Optional)")]
+        [Tooltip("Enable Firebase Crashlytics for crash reporting")]
+        public bool enableCrashlytics;
+
+        [Header("Firebase Remote Config (Optional)")]
+        [Tooltip("Enable Firebase Remote Config for A/B testing and feature flags")]
+        public bool enableRemoteConfig;
+
         /// <summary>
         ///     Validate configuration for current mode
         /// </summary>

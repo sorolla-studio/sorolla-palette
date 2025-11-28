@@ -1,7 +1,12 @@
 {
     "name": "Sorolla.Adapters",
     "rootNamespace": "Sorolla.Adapters",
-    "references": [],
+    "references": [
+        "Firebase.App",
+        "Firebase.Analytics",
+        "Firebase.Crashlytics",
+        "Firebase.RemoteConfig"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -29,6 +34,21 @@
             "name": "com.adjust.sdk",
             "expression": "",
             "define": "SOROLLA_ADJUST_ENABLED"
+        },
+        {
+            "name": "com.google.firebase.analytics",
+            "expression": "",
+            "define": "FIREBASE_ANALYTICS_INSTALLED"
+        },
+        {
+            "name": "com.google.firebase.crashlytics",
+            "expression": "",
+            "define": "FIREBASE_CRASHLYTICS_INSTALLED"
+        },
+        {
+            "name": "com.google.firebase.remote-config",
+            "expression": "",
+            "define": "FIREBASE_REMOTE_CONFIG_INSTALLED"
         }
     ],
     "noEngineReferences": false
