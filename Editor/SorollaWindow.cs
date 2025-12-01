@@ -383,69 +383,69 @@ namespace Sorolla.Editor
             var serializedConfig = new SerializedObject(_config);
             var isPrototype = SorollaSettings.IsPrototype;
 
-            // Only show config section if MAX or Adjust needs keys
+            // Only show SDK Keys section if MAX or Adjust needs keys
             var showMaxConfig = SdkDetector.IsInstalled(SdkId.AppLovinMAX);
             var showAdjustConfig = !isPrototype && SdkDetector.IsInstalled(SdkId.Adjust);
 
-            if (!showMaxConfig && !showAdjustConfig)
-                return;
-
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            GUILayout.Label("SDK Keys", EditorStyles.boldLabel);
-
-            // MAX config (if installed)
-            if (showMaxConfig)
+            if (showMaxConfig || showAdjustConfig)
             {
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                GUILayout.Label("SDK Keys", EditorStyles.boldLabel);
+
+                // MAX config (if installed)
+                if (showMaxConfig)
+                {
+                    EditorGUILayout.Space(5);
+                    EditorGUILayout.BeginHorizontal();
+                    GUILayout.Label("AppLovin MAX", EditorStyles.boldLabel, GUILayout.Width(120));
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button("Integration Manager", EditorStyles.miniButton, GUILayout.Width(120)))
+                        SdkConfigDetector.OpenMaxSettings();
+                    EditorGUILayout.EndHorizontal();
+
+                    EditorGUI.indentLevel++;
+                    EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxSdkKey"), new GUIContent("SDK Key"));
+                    EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxRewardedAdUnitId"),
+                        new GUIContent("Rewarded Ad Unit"));
+                    EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxInterstitialAdUnitId"),
+                        new GUIContent("Interstitial Ad Unit"));
+                    EditorGUI.indentLevel--;
+                }
+
+                // Adjust config (full mode only)
+                if (showAdjustConfig)
+                {
+                    EditorGUILayout.Space(5);
+                    GUILayout.Label("Adjust", EditorStyles.boldLabel);
+                    EditorGUI.indentLevel++;
+                    EditorGUILayout.PropertyField(serializedConfig.FindProperty("adjustAppToken"),
+                        new GUIContent("App Token"));
+                    EditorGUI.indentLevel--;
+                }
+
+                serializedConfig.ApplyModifiedProperties();
+
                 EditorGUILayout.Space(5);
                 EditorGUILayout.BeginHorizontal();
-                GUILayout.Label("AppLovin MAX", EditorStyles.boldLabel, GUILayout.Width(120));
-                GUILayout.FlexibleSpace();
-                if (GUILayout.Button("Integration Manager", EditorStyles.miniButton, GUILayout.Width(120)))
-                    SdkConfigDetector.OpenMaxSettings();
+                if (GUILayout.Button("Save"))
+                {
+                    EditorUtility.SetDirty(_config);
+                    AssetDatabase.SaveAssets();
+                    Debug.Log("[Sorolla] Configuration saved.");
+                }
+
+                if (GUILayout.Button("Select Asset"))
+                {
+                    Selection.activeObject = _config;
+                    EditorGUIUtility.PingObject(_config);
+                }
+
                 EditorGUILayout.EndHorizontal();
 
-                EditorGUI.indentLevel++;
-                EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxSdkKey"), new GUIContent("SDK Key"));
-                EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxRewardedAdUnitId"),
-                    new GUIContent("Rewarded Ad Unit"));
-                EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxInterstitialAdUnitId"),
-                    new GUIContent("Interstitial Ad Unit"));
-                EditorGUI.indentLevel--;
+                EditorGUILayout.EndVertical();
             }
 
-            // Adjust config (full mode only)
-            if (showAdjustConfig)
-            {
-                EditorGUILayout.Space(5);
-                GUILayout.Label("Adjust", EditorStyles.boldLabel);
-                EditorGUI.indentLevel++;
-                EditorGUILayout.PropertyField(serializedConfig.FindProperty("adjustAppToken"),
-                    new GUIContent("App Token"));
-                EditorGUI.indentLevel--;
-            }
-
-            serializedConfig.ApplyModifiedProperties();
-
-            EditorGUILayout.Space(5);
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Save"))
-            {
-                EditorUtility.SetDirty(_config);
-                AssetDatabase.SaveAssets();
-                Debug.Log("[Sorolla] Configuration saved.");
-            }
-
-            if (GUILayout.Button("Select Asset"))
-            {
-                Selection.activeObject = _config;
-                EditorGUIUtility.PingObject(_config);
-            }
-
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.EndVertical();
-
-            // Firebase section (only show when installed)
+            // Firebase section (always check, shown when installed)
             DrawFirebaseConfigSection(serializedConfig);
         }
 
@@ -460,8 +460,26 @@ namespace Sorolla.Editor
 
             EditorGUILayout.Space(5);
 
-            // Module toggles
-            GUILayout.Label("Modules:", EditorStyles.miniLabel);
+            // Module toggles with helper text
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Modules (auto-enabled on install):", EditorStyles.miniLabel);
+            GUILayout.FlexibleSpace();
+            
+            // Quick enable/disable all
+            if (GUILayout.Button("All On", EditorStyles.miniButton, GUILayout.Width(50)))
+            {
+                serializedConfig.FindProperty("enableFirebaseAnalytics").boolValue = true;
+                serializedConfig.FindProperty("enableCrashlytics").boolValue = true;
+                serializedConfig.FindProperty("enableRemoteConfig").boolValue = true;
+            }
+            if (GUILayout.Button("All Off", EditorStyles.miniButton, GUILayout.Width(50)))
+            {
+                serializedConfig.FindProperty("enableFirebaseAnalytics").boolValue = false;
+                serializedConfig.FindProperty("enableCrashlytics").boolValue = false;
+                serializedConfig.FindProperty("enableRemoteConfig").boolValue = false;
+            }
+            EditorGUILayout.EndHorizontal();
+            
             EditorGUI.indentLevel++;
 
             EditorGUILayout.PropertyField(serializedConfig.FindProperty("enableFirebaseAnalytics"),

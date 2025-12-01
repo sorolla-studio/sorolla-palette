@@ -2,28 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.0] - 2025-11-27
+## [2.1.0] - 2025-12-01
 
 ### Added
 - **Firebase Suite**: Full Firebase integration with Analytics, Crashlytics, and Remote Config
 - `FirebaseAdapter` with async-safe initialization and event queuing
 - `FirebaseCrashlyticsAdapter` with automatic exception capture and custom logging
 - `FirebaseRemoteConfigAdapter` with typed getters and fetch/activate support
+- `FirebaseCoreManager` for centralized Firebase initialization (prevents race conditions)
 - Firebase section in Configuration window with install button, module toggles, and config file checklist
+- Firebase in Setup Checklist (shown when installed, as optional item)
 - Detection for `google-services.json` and `GoogleService-Info.plist` config files
 - `enableFirebaseAnalytics`, `enableCrashlytics`, `enableRemoteConfig` toggles in SorollaConfig
+- **[Firebase Setup Guide](Documentation~/FirebaseSetup.md)**: Documentation for Firebase Console setup and usage
 - New public APIs:
-  - `Sorolla.LogException(Exception)` - Log non-fatal exceptions
-  - `Sorolla.LogCrashlytics(string)` - Add breadcrumb logs
-  - `Sorolla.SetCrashlyticsKey(string, string)` - Set custom keys
-  - `Sorolla.IsFirebaseRemoteConfigReady()` - Check RC status
-  - `Sorolla.FetchFirebaseRemoteConfig(Action<bool>)` - Fetch remote values
-  - `Sorolla.GetFirebaseRemoteConfig*(key, default)` - Get typed values
+  - **Crashlytics**:
+    - `Sorolla.LogException(Exception)` - Log non-fatal exceptions
+    - `Sorolla.LogCrashlytics(string)` - Add breadcrumb logs
+    - `Sorolla.SetCrashlyticsKey(string, value)` - Set custom keys
+  - **Unified Remote Config** (Firebase → GameAnalytics → default fallback):
+    - `Sorolla.IsRemoteConfigReady()` - Check if Remote Config is available
+    - `Sorolla.FetchRemoteConfig(Action<bool>)` - Fetch remote values
+    - `Sorolla.GetRemoteConfig(key, default)` - Get string value
+    - `Sorolla.GetRemoteConfigInt(key, default)` - Get int value
+    - `Sorolla.GetRemoteConfigFloat(key, default)` - Get float value
+    - `Sorolla.GetRemoteConfigBool(key, default)` - Get bool value
 
 ### Changed
 - All analytics events (`TrackProgression`, `TrackDesign`, `TrackResource`) now dispatch to Firebase when enabled
-- Firebase SDK now installed via Git UPM from `github.com/LaCreArthur/unity-firebase-app`
+- Firebase SDK installed via Git UPM from `github.com/LaCreArthur/unity-firebase-app`
 - Single "Install Firebase" button installs all 4 packages (App, Analytics, Crashlytics, Remote Config)
+- **Unified Remote Config API**: Single set of methods that checks Firebase first, then falls back to GameAnalytics
 
 ### SDK Versions
 - Firebase App: 12.10.1 (Git UPM)

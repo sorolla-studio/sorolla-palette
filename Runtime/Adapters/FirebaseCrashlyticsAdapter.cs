@@ -1,5 +1,6 @@
 #if FIREBASE_CRASHLYTICS_INSTALLED
 using System;
+using System.Collections.Generic;
 using Firebase.Crashlytics;
 using UnityEngine;
 
@@ -11,9 +12,12 @@ namespace Sorolla.Adapters
     public static class FirebaseCrashlyticsAdapter
     {
         private const string Tag = "[Sorolla:Crashlytics]";
-        private static bool s_init;
+        private static bool s_initRequested;
+        private static bool s_ready;
+        private static bool s_captureExceptions;
+        private static readonly Queue<Action> s_pendingActions = new();
 
-        public static bool IsReady => s_init;
+        public static bool IsReady => s_ready;
 
         /// <summary>
         ///     Initialize Crashlytics and optionally register for uncaught exceptions.
@@ -21,16 +25,44 @@ namespace Sorolla.Adapters
         /// <param name="captureUncaughtExceptions">If true, automatically logs Unity errors and exceptions</param>
         public static void Initialize(bool captureUncaughtExceptions = true)
         {
-            if (s_init) return;
-            s_init = true;
+            if (s_initRequested) return;
+            s_initRequested = true;
+            s_captureExceptions = captureUncaughtExceptions;
 
-            Debug.Log($"{Tag} Initialized");
-
-            if (captureUncaughtExceptions)
+            FirebaseCoreManager.Initialize(available =>
             {
-                Application.logMessageReceived += OnLogMessageReceived;
-                Debug.Log($"{Tag} Auto-capture enabled for uncaught exceptions");
+                if (available)
+                {
+                    s_ready = true;
+                    Debug.Log($"{Tag} Initialized");
+
+                    if (s_captureExceptions)
+                        Application.logMessageReceived += OnLogMessageReceived;
+
+                    FlushPendingActions();
+                }
+                else
+                {
+                    Debug.LogError($"{Tag} Firebase not available");
+                }
+            });
+        }
+
+        private static void FlushPendingActions()
+        {
+            while (s_pendingActions.Count > 0)
+            {
+                var action = s_pendingActions.Dequeue();
+                action?.Invoke();
             }
+        }
+
+        private static void QueueOrExecute(Action action)
+        {
+            if (s_ready)
+                action();
+            else if (s_initRequested)
+                s_pendingActions.Enqueue(action);
         }
 
         /// <summary>
@@ -71,8 +103,7 @@ namespace Sorolla.Adapters
         /// </summary>
         public static void LogException(Exception exception)
         {
-            if (!s_init) return;
-            Crashlytics.LogException(exception);
+            QueueOrExecute(() => Crashlytics.LogException(exception));
         }
 
         /// <summary>
@@ -80,8 +111,7 @@ namespace Sorolla.Adapters
         /// </summary>
         public static void Log(string message)
         {
-            if (!s_init) return;
-            Crashlytics.Log(message);
+            QueueOrExecute(() => Crashlytics.Log(message));
         }
 
         /// <summary>
@@ -89,8 +119,7 @@ namespace Sorolla.Adapters
         /// </summary>
         public static void SetCustomKey(string key, string value)
         {
-            if (!s_init) return;
-            Crashlytics.SetCustomKey(key, value);
+            QueueOrExecute(() => Crashlytics.SetCustomKey(key, value));
         }
 
         /// <summary>
@@ -98,8 +127,7 @@ namespace Sorolla.Adapters
         /// </summary>
         public static void SetCustomKey(string key, int value)
         {
-            if (!s_init) return;
-            Crashlytics.SetCustomKey(key, value.ToString());
+            QueueOrExecute(() => Crashlytics.SetCustomKey(key, value.ToString()));
         }
 
         /// <summary>
@@ -107,8 +135,7 @@ namespace Sorolla.Adapters
         /// </summary>
         public static void SetCustomKey(string key, bool value)
         {
-            if (!s_init) return;
-            Crashlytics.SetCustomKey(key, value.ToString());
+            QueueOrExecute(() => Crashlytics.SetCustomKey(key, value.ToString()));
         }
 
         /// <summary>
@@ -116,8 +143,7 @@ namespace Sorolla.Adapters
         /// </summary>
         public static void SetCustomKey(string key, float value)
         {
-            if (!s_init) return;
-            Crashlytics.SetCustomKey(key, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            QueueOrExecute(() => Crashlytics.SetCustomKey(key, value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         }
 
         /// <summary>
@@ -125,14 +151,13 @@ namespace Sorolla.Adapters
         /// </summary>
         public static void SetUserId(string userId)
         {
-            if (!s_init) return;
-            Crashlytics.SetUserId(userId);
+            QueueOrExecute(() => Crashlytics.SetUserId(userId));
         }
 
         /// <summary>
         ///     Check if Crashlytics collection is enabled.
         /// </summary>
-        public static bool IsCrashlyticsCollectionEnabled => Crashlytics.IsCrashlyticsCollectionEnabled;
+        public static bool IsCrashlyticsCollectionEnabled => s_ready && Crashlytics.IsCrashlyticsCollectionEnabled;
     }
 }
 #else

@@ -65,21 +65,22 @@ Sorolla.TrackDesign("tutorial:completed");
 // Track resources
 Sorolla.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
 
-// Remote config (GameAnalytics)
-if (Sorolla.IsRemoteConfigReady())
-{
-    int difficulty = Sorolla.GetRemoteConfigInt("difficulty", 1);
-}
+// Remote Config (unified: Firebase → GameAnalytics → default)
+Sorolla.FetchRemoteConfig(success => {
+    if (success)
+    {
+        int difficulty = Sorolla.GetRemoteConfigInt("difficulty", 1);
+        bool newFeature = Sorolla.GetRemoteConfigBool("enable_new_feature", false);
+        string message = Sorolla.GetRemoteConfig("welcome_message", "Hello!");
+    }
+});
 
-// Firebase Remote Config (A/B testing)
-if (Sorolla.IsFirebaseRemoteConfigReady())
-{
-    bool newFeature = Sorolla.GetFirebaseRemoteConfigBool("enable_new_feature", false);
-}
-
-// Log exceptions to Crashlytics
+// Crashlytics: Log exceptions and custom data
 try { /* risky code */ }
 catch (Exception ex) { Sorolla.LogException(ex); }
+
+Sorolla.LogCrashlytics("User reached level 5");
+Sorolla.SetCrashlyticsKey("player_id", "12345");
 
 // Show ads (requires MAX)
 Sorolla.ShowRewardedAd(
@@ -111,19 +112,22 @@ Sorolla.ShowRewardedAd(
 2. Create app → Copy App Token
 3. Enter token in Sorolla Configuration window
 
-### Firebase Analytics (Optional)
+### Firebase (Optional)
+
+Firebase provides Analytics, Crashlytics, and Remote Config.
+
+**Quick Setup:**
 1. Create project at [Firebase Console](https://console.firebase.google.com/)
 2. Add your Unity app (Android and/or iOS)
-3. Download config files:
-   - **Android**: `google-services.json` → place in `Assets/`
-   - **iOS**: `GoogleService-Info.plist` → place in `Assets/`
+3. Download config files → place in `Assets/`:
+   - **Android**: `google-services.json`
+   - **iOS**: `GoogleService-Info.plist`
 4. In Unity: `Sorolla > Configuration` → Click "Install" under Firebase
-5. Enable desired modules in the Firebase section:
-   - **Analytics**: Track custom events alongside GameAnalytics
-   - **Crashlytics**: Automatic crash & exception reporting
-   - **Remote Config**: A/B testing and feature flags
+5. Enable modules (Analytics, Crashlytics, Remote Config)
 
-**Note**: All Firebase features work in parallel — no code changes required!
+📖 **[Firebase Setup Guide](Documentation~/FirebaseSetup.md)** | **[Quick Start Guide](Documentation~/QuickStart.md)**
+
+**Note**: All Firebase features work in parallel with GameAnalytics — no code changes required!
 
 ## Support
 

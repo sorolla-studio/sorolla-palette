@@ -96,19 +96,40 @@ namespace Sorolla
             // Firebase Analytics (optional)
 #if FIREBASE_ANALYTICS_INSTALLED
             if (s_config != null && s_config.enableFirebaseAnalytics)
+            {
+                Debug.Log($"{Tag} Initializing Firebase Analytics...");
                 FirebaseAdapter.Initialize();
+            }
+            else
+            {
+                Debug.Log($"{Tag} Firebase Analytics disabled (config: {s_config != null}, enabled: {s_config?.enableFirebaseAnalytics})");
+            }
 #endif
 
             // Firebase Crashlytics (optional)
 #if FIREBASE_CRASHLYTICS_INSTALLED
             if (s_config != null && s_config.enableCrashlytics)
+            {
+                Debug.Log($"{Tag} Initializing Firebase Crashlytics...");
                 FirebaseCrashlyticsAdapter.Initialize(captureUncaughtExceptions: true);
+            }
+            else
+            {
+                Debug.Log($"{Tag} Firebase Crashlytics disabled (config: {s_config != null}, enabled: {s_config?.enableCrashlytics})");
+            }
 #endif
 
             // Firebase Remote Config (optional)
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
             if (s_config != null && s_config.enableRemoteConfig)
+            {
+                Debug.Log($"{Tag} Initializing Firebase Remote Config...");
                 FirebaseRemoteConfigAdapter.Initialize(autoFetch: true);
+            }
+            else
+            {
+                Debug.Log($"{Tag} Firebase Remote Config disabled (config: {s_config != null}, enabled: {s_config?.enableRemoteConfig})");
+            }
 #endif
 
             IsInitialized = true;
@@ -202,90 +223,99 @@ namespace Sorolla
 
         #region Remote Config
 
-        /// <summary>Check if remote config is ready</summary>
-        public static bool IsRemoteConfigReady() => IsInitialized && GameAnalyticsAdapter.IsRemoteConfigReady();
-
-        /// <summary>Get remote config string value</summary>
-        public static string GetRemoteConfig(string key, string defaultValue = null) =>
-            IsInitialized ? GameAnalyticsAdapter.GetRemoteConfigValue(key, defaultValue ?? "") : defaultValue;
-
-        /// <summary>Get remote config int value</summary>
-        public static int GetRemoteConfigInt(string key, int defaultValue = 0) =>
-            int.TryParse(GetRemoteConfig(key, defaultValue.ToString()), out var r) ? r : defaultValue;
-
-        /// <summary>Get remote config float value</summary>
-        public static float GetRemoteConfigFloat(string key, float defaultValue = 0f) =>
-            float.TryParse(GetRemoteConfig(key, defaultValue.ToString(CultureInfo.InvariantCulture)),
-                NumberStyles.Float, CultureInfo.InvariantCulture, out var r) ? r : defaultValue;
-
-        /// <summary>Get remote config bool value</summary>
-        public static bool GetRemoteConfigBool(string key, bool defaultValue = false) =>
-            bool.TryParse(GetRemoteConfig(key, defaultValue.ToString()), out var r) ? r : defaultValue;
-
-        #endregion
-
-        #region Firebase Remote Config
-
-        /// <summary>Check if Firebase Remote Config is ready</summary>
-        public static bool IsFirebaseRemoteConfigReady()
+        /// <summary>
+        /// Check if Remote Config is ready (Firebase if enabled, otherwise GameAnalytics)
+        /// </summary>
+        public static bool IsRemoteConfigReady()
         {
+            if (!IsInitialized) return false;
+            
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            return IsInitialized && FirebaseRemoteConfigAdapter.IsReady;
-#else
-            return false;
+            if (s_config != null && s_config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+                return true;
 #endif
+            return GameAnalyticsAdapter.IsRemoteConfigReady();
         }
 
-        /// <summary>Fetch Firebase Remote Config values</summary>
-        public static void FetchFirebaseRemoteConfig(Action<bool> onComplete = null)
+        /// <summary>
+        /// Fetch Remote Config values. Fetches from Firebase if enabled, GameAnalytics is always ready.
+        /// </summary>
+        public static void FetchRemoteConfig(Action<bool> onComplete = null)
         {
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (!EnsureInit()) { onComplete?.Invoke(false); return; }
-            FirebaseRemoteConfigAdapter.FetchAndActivate(onComplete);
-#else
-            Debug.LogWarning($"{Tag} Firebase Remote Config not available.");
-            onComplete?.Invoke(false);
+            if (s_config != null && s_config.enableRemoteConfig)
+            {
+                FirebaseRemoteConfigAdapter.FetchAndActivate(onComplete);
+                return;
+            }
 #endif
+            // GameAnalytics RC doesn't need explicit fetch
+            onComplete?.Invoke(GameAnalyticsAdapter.IsRemoteConfigReady());
         }
 
-        /// <summary>Get Firebase Remote Config string value</summary>
-        public static string GetFirebaseRemoteConfig(string key, string defaultValue = "")
+        /// <summary>
+        /// Get Remote Config string value. Checks Firebase first (if enabled), then GameAnalytics.
+        /// </summary>
+        public static string GetRemoteConfig(string key, string defaultValue = "")
         {
+            if (!IsInitialized) return defaultValue;
+
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            return IsInitialized ? FirebaseRemoteConfigAdapter.GetString(key, defaultValue) : defaultValue;
-#else
-            return defaultValue;
+            if (s_config != null && s_config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+            {
+                var value = FirebaseRemoteConfigAdapter.GetString(key, null);
+                if (value != null) return value;
+            }
 #endif
+            // Fallback to GameAnalytics
+            var gaValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
+            return gaValue ?? defaultValue;
         }
 
-        /// <summary>Get Firebase Remote Config int value</summary>
-        public static int GetFirebaseRemoteConfigInt(string key, int defaultValue = 0)
+        /// <summary>
+        /// Get Remote Config int value. Checks Firebase first (if enabled), then GameAnalytics.
+        /// </summary>
+        public static int GetRemoteConfigInt(string key, int defaultValue = 0)
         {
+            if (!IsInitialized) return defaultValue;
+
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            return IsInitialized ? FirebaseRemoteConfigAdapter.GetInt(key, defaultValue) : defaultValue;
-#else
-            return defaultValue;
+            if (s_config != null && s_config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+                return FirebaseRemoteConfigAdapter.GetInt(key, defaultValue);
 #endif
+            var strValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
+            return strValue != null && int.TryParse(strValue, out var r) ? r : defaultValue;
         }
 
-        /// <summary>Get Firebase Remote Config float value</summary>
-        public static float GetFirebaseRemoteConfigFloat(string key, float defaultValue = 0f)
+        /// <summary>
+        /// Get Remote Config float value. Checks Firebase first (if enabled), then GameAnalytics.
+        /// </summary>
+        public static float GetRemoteConfigFloat(string key, float defaultValue = 0f)
         {
+            if (!IsInitialized) return defaultValue;
+
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            return IsInitialized ? FirebaseRemoteConfigAdapter.GetFloat(key, defaultValue) : defaultValue;
-#else
-            return defaultValue;
+            if (s_config != null && s_config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+                return FirebaseRemoteConfigAdapter.GetFloat(key, defaultValue);
 #endif
+            var strValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
+            return strValue != null && float.TryParse(strValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var r) 
+                ? r : defaultValue;
         }
 
-        /// <summary>Get Firebase Remote Config bool value</summary>
-        public static bool GetFirebaseRemoteConfigBool(string key, bool defaultValue = false)
+        /// <summary>
+        /// Get Remote Config bool value. Checks Firebase first (if enabled), then GameAnalytics.
+        /// </summary>
+        public static bool GetRemoteConfigBool(string key, bool defaultValue = false)
         {
+            if (!IsInitialized) return defaultValue;
+
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            return IsInitialized ? FirebaseRemoteConfigAdapter.GetBool(key, defaultValue) : defaultValue;
-#else
-            return defaultValue;
+            if (s_config != null && s_config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+                return FirebaseRemoteConfigAdapter.GetBool(key, defaultValue);
 #endif
+            var strValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
+            return strValue != null && bool.TryParse(strValue, out var r) ? r : defaultValue;
         }
 
         #endregion

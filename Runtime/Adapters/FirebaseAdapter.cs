@@ -1,8 +1,6 @@
 #if FIREBASE_ANALYTICS_INSTALLED
 using System.Collections.Generic;
-using Firebase;
 using Firebase.Analytics;
-using Firebase.Extensions;
 using UnityEngine;
 
 namespace Sorolla.Adapters
@@ -13,7 +11,7 @@ namespace Sorolla.Adapters
     public static class FirebaseAdapter
     {
         private const string Tag = "[Sorolla:Firebase]";
-        private static bool s_init;
+        private static bool s_initRequested;
         private static bool s_ready;
         private static readonly Queue<System.Action> s_pendingEvents = new();
 
@@ -21,15 +19,12 @@ namespace Sorolla.Adapters
 
         public static void Initialize()
         {
-            if (s_init) return;
-            s_init = true;
+            if (s_initRequested) return;
+            s_initRequested = true;
 
-            Debug.Log($"{Tag} Checking dependencies...");
-
-            FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task =>
+            FirebaseCoreManager.Initialize(available =>
             {
-                var status = task.Result;
-                if (status == DependencyStatus.Available)
+                if (available)
                 {
                     Debug.Log($"{Tag} Initialized");
                     s_ready = true;
@@ -37,7 +32,7 @@ namespace Sorolla.Adapters
                 }
                 else
                 {
-                    Debug.LogError($"{Tag} Could not resolve dependencies: {status}");
+                    Debug.LogError($"{Tag} Firebase not available");
                 }
             });
         }
