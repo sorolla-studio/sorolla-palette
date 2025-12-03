@@ -24,8 +24,9 @@ A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration ini
 ### Via Git URL
 
 1. Open Unity Package Manager
-2. Click `+` → `Add package from git URL`
-3. Enter: `https://github.com/LaCreArthur/sorolla-palette-upm.git`
+2. Click `+` → `Add package from git URL` → Enter:
+   
+   `https://github.com/LaCreArthur/sorolla-palette-upm.git`
 
 **That's it!** The package automatically installs dependencies.
 
