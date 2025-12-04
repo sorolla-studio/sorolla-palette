@@ -177,9 +177,9 @@ The Facebook SDK Unity package automatically adds required manifest entries. If 
 
 ### What You Need:
 - ✅ **Facebook App ID** (from Facebook Developer Dashboard → Settings → Basic)
-- ✅ **Client Token** (from Settings → Advanced → Security) **[CRITICAL]**
-- ✅ **Debug Key Hash** (generated from your debug keystore)
-- ✅ **Release Key Hash** (generated from your release keystore) **[CRITICAL for production]**
+- ✅ **Client Token** (from Facebook Developer Dashboard → Settings → Advanced → Security) **[CRITICAL]**
+- ✅ **Debug Key Hash** (generated from your debug keystore using keytool command)
+- ✅ **Release Key Hash** (generated from your release keystore using keytool command) **[CRITICAL for production]**
 
 ---
 
@@ -321,6 +321,8 @@ For tracking campaign performance:
 ---
 
 ## 5. Quick Reference
+
+**Note**: Facebook configuration is the same for both modes and is listed in each table for completeness.
 
 ### Prototype Mode Checklist
 
