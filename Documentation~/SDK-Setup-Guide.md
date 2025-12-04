@@ -140,7 +140,7 @@ AppLovin MAX is the mediation platform for ad monetization in production.
 ### Step 2: Get Your SDK Key
 
 1. Once logged in to the AppLovin dashboard
-2. Navigate to **Account** → **Keys** (top right corner, click your profile)
+2. Navigate to **Account** → **Keys** (top right corner, click your profile icon/dropdown)
 3. Copy your **SDK Key**
    - It's a long alphanumeric string (e.g., `abcdefghijklmnopqrstuvwxyz123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ`)
 4. **Keep this key secure** - it's your main AppLovin identifier
@@ -229,7 +229,7 @@ After creating the app:
    - It's a 12-character alphanumeric string (e.g., `abc123def456`)
 3. You can also find it under **All Settings** → **App Token**
 
-**Note:** If you have both iOS and Android versions, you'll have separate app tokens for each platform. You can configure both in Unity.
+**Note:** If you have both iOS and Android versions, you'll typically have separate app tokens for each platform in Adjust.
 
 ### Step 4: Configure Attribution Links (Optional)
 
@@ -246,7 +246,11 @@ For tracking campaign performance:
    - **Adjust App Token**: Your app token from Step 3
 3. Click **"Save"**
 
-**Note:** If you have separate iOS and Android apps in Adjust, you may need to configure platform-specific tokens. The Sorolla SDK will handle platform detection automatically.
+**Platform-Specific Configuration:**
+- The Sorolla SDK handles platform detection automatically at runtime
+- If you have separate iOS and Android apps in Adjust, enter the token for your primary build target
+- For multi-platform projects, the token is read from the configuration at build time for the target platform
+- You can maintain separate Unity configurations or use conditional compilation if needed
 
 ### What You Need:
 - ✅ **Adjust App Token** (from Adjust Dashboard → App Settings)
