@@ -124,48 +124,6 @@ keytool -exportcert -alias YOUR_ALIAS -keystore YOUR_KEYSTORE | openssl sha1 -bi
 
 ---
 
-## 3. AppLovin MAX Setup (Optional)
-
-Optional for prototype testing. Required for Full Mode.
-
-### Create Account
-
-1. Go to [https://dash.applovin.com/signup](https://dash.applovin.com/signup)
-2. Complete registration and verify email
-3. Log in to dashboard
-
-### Get SDK Key
-
-1. Navigate to **Account** → **Keys** (top right profile dropdown)
-2. Copy your **SDK Key** (long alphanumeric string)
-
-### Create Ad Units
-
-#### Rewarded Ad Unit:
-1. Go to **Monetize** → **Manage** → **Ad Units**
-2. Click **"Create Ad Unit"**
-3. Select your app (create if needed)
-4. Choose **"Rewarded"** type
-5. Enter **Ad Unit Name** (e.g., "Rewarded Video")
-6. Click **"Create"** and copy **Ad Unit ID**
-
-#### Interstitial Ad Unit:
-1. Click **"Create Ad Unit"** again
-2. Select **"Interstitial"** type
-3. Enter **Ad Unit Name** (e.g., "Interstitial Ad")
-4. Click **"Create"** and copy **Ad Unit ID**
-
-### Configure in Unity
-
-1. Open **Sorolla Configuration** window (Sorolla → Configuration)
-2. Under **SDK Keys**, enter:
-   - **SDK Key**
-   - **Rewarded Ad Unit ID**
-   - **Interstitial Ad Unit ID**
-3. Click **"Save"**
-
----
-
 ## Prototype Mode Checklist
 
 **Before launching UA campaigns, verify:**
@@ -177,7 +135,6 @@ Optional for prototype testing. Required for Full Mode.
 - [ ] Facebook SDK: Debug Key Hash added
 - [ ] Facebook SDK: Release Key Hash added
 - [ ] Facebook SDK: Sorolla Ad Account (`1130531078835118`) authorized
-- [ ] AppLovin MAX: SDK Key, Rewarded, and Interstitial IDs configured (if using ads)
 
 ---
 
@@ -187,7 +144,6 @@ Optional for prototype testing. Required for Full Mode.
 |-----|---------------|------------------|
 | **GameAnalytics** | Game Key<br>Secret Key<br>Add Admin | [gameanalytics.com](https://gameanalytics.com) → Settings → Game Settings<br>→ Add studio@sorolla.io as Admin |
 | **Facebook SDK** | App ID<br>Client Token <br>Debug Key Hash<br>Release Key Hash <br>Ad Account ID ⚠️ | [developers.facebook.com](https://developers.facebook.com)<br>→ Settings → Basic (App ID)<br>→ Settings → Advanced (Client Token)<br>→ Settings → Advanced (Ad Account)<br>→ Key Hashes via keytool |
-| **AppLovin MAX**<br>(Optional) | SDK Key<br>Rewarded ID<br>Interstitial ID | [dash.applovin.com](https://dash.applovin.com)<br>→ Account → Keys<br>→ Monetize → Ad Units |
 
 ---
 
@@ -201,4 +157,3 @@ Optional for prototype testing. Required for Full Mode.
 
 - **GameAnalytics**: [docs.gameanalytics.com](https://docs.gameanalytics.com)
 - **Facebook SDK**: [developers.facebook.com/docs](https://developers.facebook.com/docs)
-- **AppLovin MAX**: [dash.applovin.com/documentation](https://dash.applovin.com/documentation)
