@@ -3,12 +3,12 @@
 This guide will walk you through obtaining and configuring all the necessary API keys for the Sorolla SDK. The process differs slightly depending on which mode you choose:
 
 - **Prototype Mode**: GameAnalytics + Facebook SDK + AppLovin MAX (optional) (for rapid UA testing)
-- **Full Mode**: GameAnalytics + AppLovin MAX (required) + Adjust (for production)
+- **Full Mode**: GameAnalytics + AppLovin MAX (required) + Adjust (for production - NO Facebook SDK)
 
 ## Table of Contents
 
 1. [GameAnalytics Setup (Required for Both Modes)](#1-gameanalytics-setup-required-for-both-modes)
-2. [Facebook SDK Setup (Prototype Mode & Full Mode)](#2-facebook-sdk-setup-prototype-mode--full-mode)
+2. [Facebook SDK Setup (Prototype Mode Only)](#2-facebook-sdk-setup-prototype-mode-only)
 3. [AppLovin MAX Setup](#3-applovin-max-setup)
 4. [Adjust Setup (Full Mode)](#4-adjust-setup-full-mode)
 5. [Quick Reference](#5-quick-reference)
@@ -61,9 +61,11 @@ After creating the game, you'll be taken to the game dashboard.
 
 ---
 
-## 2. Facebook SDK Setup (Prototype Mode & Full Mode)
+## 2. Facebook SDK Setup (Prototype Mode Only)
 
-Facebook SDK enables user acquisition testing and event tracking. **This is the most common point of failure** - the Unity "Edit Settings" menu alone is not enough for proper configuration.
+Facebook SDK enables user acquisition testing and event tracking during the prototype phase. **This is the most common point of failure** - the Unity "Edit Settings" menu alone is not enough for proper configuration.
+
+**⚠️ Important**: Facebook SDK is ONLY used in Prototype Mode. Full Mode uses Adjust for attribution instead.
 
 ### Step 1: Create a Facebook Developer Account
 
@@ -322,8 +324,6 @@ For tracking campaign performance:
 
 ## 5. Quick Reference
 
-**Note**: Facebook configuration is the same for both modes and is listed in each table for completeness.
-
 ### Prototype Mode Checklist
 
 | SDK | What You Need | Where to Find It |
@@ -334,10 +334,11 @@ For tracking campaign performance:
 
 ### Full Mode Checklist
 
+**Note**: Full Mode does NOT use Facebook SDK - it uses Adjust for attribution instead.
+
 | SDK | What You Need | Where to Find It |
 |-----|---------------|------------------|
 | **GameAnalytics**<br>(Required) | Game Key<br>Secret Key | [gameanalytics.com](https://gameanalytics.com) → Settings → Game Settings |
-| **Facebook**<br>(Required) | App ID<br>**Client Token** ⚠️<br>Debug Key Hash<br>Release Key Hash ⚠️ | [developers.facebook.com](https://developers.facebook.com)<br>→ Settings → Basic (App ID)<br>→ Settings → Advanced → Security (Client Token)<br>→ Key Hashes: Generated via keytool command |
 | **AppLovin MAX**<br>(Required) | SDK Key<br>Rewarded Ad Unit ID<br>Interstitial Ad Unit ID | [dash.applovin.com](https://dash.applovin.com) → Account → Keys<br>Monetize → Manage → Ad Units |
 | **Adjust**<br>(Required) | App Token | [adjust.com](https://www.adjust.com) → Apps → All Settings |
 
