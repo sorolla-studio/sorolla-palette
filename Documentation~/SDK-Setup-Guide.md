@@ -2,14 +2,14 @@
 
 This guide will walk you through obtaining and configuring all the necessary API keys for the Sorolla SDK. The process differs slightly depending on which mode you choose:
 
-- **Prototype Mode**: GameAnalytics + Facebook SDK (for rapid UA testing)
-- **Full Mode**: GameAnalytics + AppLovin MAX + Adjust (for production)
+- **Prototype Mode**: GameAnalytics + Facebook SDK + AppLovin MAX (optional) (for rapid UA testing)
+- **Full Mode**: GameAnalytics + AppLovin MAX (required) + Adjust (for production)
 
 ## Table of Contents
 
 1. [GameAnalytics Setup (Required for Both Modes)](#1-gameanalytics-setup-required-for-both-modes)
-2. [Facebook SDK Setup (Prototype Mode)](#2-facebook-sdk-setup-prototype-mode)
-3. [AppLovin MAX Setup (Full Mode)](#3-applovin-max-setup-full-mode)
+2. [Facebook SDK Setup (Prototype Mode & Full Mode)](#2-facebook-sdk-setup-prototype-mode--full-mode)
+3. [AppLovin MAX Setup](#3-applovin-max-setup)
 4. [Adjust Setup (Full Mode)](#4-adjust-setup-full-mode)
 5. [Quick Reference](#5-quick-reference)
 
@@ -61,9 +61,9 @@ After creating the game, you'll be taken to the game dashboard.
 
 ---
 
-## 2. Facebook SDK Setup (Prototype Mode)
+## 2. Facebook SDK Setup (Prototype Mode & Full Mode)
 
-Facebook SDK enables user acquisition testing and event tracking during the prototype phase.
+Facebook SDK enables user acquisition testing and event tracking. **This is the most common point of failure** - the Unity "Edit Settings" menu alone is not enough for proper configuration.
 
 ### Step 1: Create a Facebook Developer Account
 
@@ -84,7 +84,7 @@ Facebook SDK enables user acquisition testing and event tracking during the prot
    - **App Contact Email**: Your email
 5. Click **"Create App"**
 
-### Step 3: Get Your App ID
+### Step 3: Get Your App ID and Client Token
 
 After creating the app:
 
@@ -92,6 +92,16 @@ After creating the app:
 2. Your **App ID** is displayed prominently at the top of the dashboard
    - It's a numeric string (e.g., `1234567890123456`)
 3. You can also find it under **Settings** → **Basic** in the left sidebar
+
+#### Get Client Token (CRITICAL)
+
+**⚠️ CRITICAL**: Without the Client Token, your app will crash on launch (required for Graph API v13+)
+
+1. Go to **Settings** → **Advanced**
+2. Scroll down to the **Security** section
+3. Copy your **Client Token**
+   - It's an alphanumeric string (e.g., `a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6`)
+4. **Keep this token secure** - you'll need it in Unity
 
 ### Step 4: Configure iOS and Android
 
@@ -107,28 +117,79 @@ For mobile games, you need to add platform configurations:
 #### For Android:
 1. Click **"+ Add Platform"** again
 2. Select **"Android"**
-3. Enter your **Package Name** (e.g., `com.yourcompany.yourgame`)
-4. You may need to provide your **Key Hash** later for testing
+3. Enter your **Package Name**: Must match Unity Bundle ID exactly (e.g., `com.yourcompany.yourgame`)
+4. Enter your **Class Name**: `com.unity3d.player.UnityPlayerActivity`
 5. Click **"Save Changes"**
+
+#### Configure Key Hashes (CRITICAL for Android)
+
+**⚠️ CRITICAL**: Without proper key hashes, Facebook Login will fail in your app.
+
+##### Debug Key Hash (for development):
+1. On your development machine, open a terminal/command prompt
+2. Run this command (replace paths as needed):
+   ```bash
+   keytool -exportcert -alias androiddebugkey -keystore ~/.android/debug.keystore | openssl sha1 -binary | openssl base64
+   ```
+   - Default password is usually `android`
+3. Copy the generated hash and paste it in the **Key Hashes** field on Facebook dashboard
+
+##### Release Key Hash (CRITICAL for production):
+1. Locate your release keystore file (the .keystore file used to sign production builds)
+2. Run this command (replace YOUR_ALIAS and YOUR_KEYSTORE with your values):
+   ```bash
+   keytool -exportcert -alias YOUR_ALIAS -keystore YOUR_KEYSTORE | openssl sha1 -binary | openssl base64
+   ```
+   - Enter your keystore password when prompted
+3. Copy the generated hash
+4. In Facebook dashboard, add this hash to **Key Hashes** field (you can have multiple hashes)
+
+**⚠️ Important**: If the release key hash is missing, Facebook Login will work in debug builds but fail in your live app!
 
 ### Step 5: Configure in Unity
 
 1. In Unity, open **Facebook** → **Edit Settings**
-2. Paste your **App ID** into the field
-3. The SDK will automatically detect and configure it for iOS and Android
+2. Enter the following:
+   - **App ID**: Your Facebook App ID
+   - **Client Token**: Your Client Token from Settings → Advanced → Security
+3. The SDK will automatically configure it for iOS and Android
 
 **Alternative Method:**
 - The Sorolla Configuration window has an **"Open Settings"** button for Facebook
 - This takes you directly to the Facebook Settings asset
 
+### Step 6: Verify Android Configuration
+
+The Sorolla SDK automatically handles most AndroidManifest.xml entries for Facebook. However, verify these settings:
+
+#### Unity Project Settings (Android)
+1. Go to **Edit** → **Project Settings** → **Player** → **Android tab**
+2. Ensure your **Package Name** matches exactly what you entered in Facebook dashboard
+3. Under **Publishing Settings**, verify your keystore is configured for release builds
+
+#### AndroidManifest.xml (Auto-handled by SDK)
+The Facebook SDK Unity package automatically adds required manifest entries. If you need to manually verify or customize, the manifest should include:
+- Facebook App ID as meta-data
+- Facebook ContentProvider
+- Facebook Activity declarations
+
+**Note**: The Sorolla SDK and Facebook Unity SDK handle manifest patching automatically during build. You typically don't need to manually edit AndroidManifest.xml.
+
 ### What You Need:
 - ✅ **Facebook App ID** (from Facebook Developer Dashboard → Settings → Basic)
+- ✅ **Client Token** (from Settings → Advanced → Security) **[CRITICAL]**
+- ✅ **Debug Key Hash** (generated from your debug keystore)
+- ✅ **Release Key Hash** (generated from your release keystore) **[CRITICAL for production]**
 
 ---
 
-## 3. AppLovin MAX Setup (Full Mode)
+## 3. AppLovin MAX Setup
 
-AppLovin MAX is the mediation platform for ad monetization in production.
+AppLovin MAX is the mediation platform for ad monetization.
+
+**Mode Requirements:**
+- **Prototype Mode**: Optional (for testing ads during development)
+- **Full Mode**: Required (for production monetization)
 
 ### Step 1: Create an AppLovin Account
 
@@ -265,16 +326,18 @@ For tracking campaign performance:
 
 | SDK | What You Need | Where to Find It |
 |-----|---------------|------------------|
-| **GameAnalytics** | Game Key<br>Secret Key | [gameanalytics.com](https://gameanalytics.com) → Settings → Game Settings |
-| **Facebook** | App ID | [developers.facebook.com](https://developers.facebook.com) → My Apps → Settings → Basic |
+| **GameAnalytics**<br>(Required) | Game Key<br>Secret Key | [gameanalytics.com](https://gameanalytics.com) → Settings → Game Settings |
+| **Facebook**<br>(Required) | App ID<br>**Client Token** ⚠️<br>Debug Key Hash<br>Release Key Hash ⚠️ | [developers.facebook.com](https://developers.facebook.com)<br>→ Settings → Basic (App ID)<br>→ Settings → Advanced → Security (Client Token)<br>→ Key Hashes: Generated via keytool command |
+| **AppLovin MAX**<br>(Optional) | SDK Key<br>Rewarded Ad Unit ID<br>Interstitial Ad Unit ID | [dash.applovin.com](https://dash.applovin.com) → Account → Keys<br>Monetize → Manage → Ad Units |
 
 ### Full Mode Checklist
 
 | SDK | What You Need | Where to Find It |
 |-----|---------------|------------------|
-| **GameAnalytics** | Game Key<br>Secret Key | [gameanalytics.com](https://gameanalytics.com) → Settings → Game Settings |
-| **AppLovin MAX** | SDK Key<br>Rewarded Ad Unit ID<br>Interstitial Ad Unit ID | [dash.applovin.com](https://dash.applovin.com) → Account → Keys<br>Monetize → Manage → Ad Units |
-| **Adjust** | App Token | [adjust.com](https://www.adjust.com) → Apps → All Settings |
+| **GameAnalytics**<br>(Required) | Game Key<br>Secret Key | [gameanalytics.com](https://gameanalytics.com) → Settings → Game Settings |
+| **Facebook**<br>(Required) | App ID<br>**Client Token** ⚠️<br>Debug Key Hash<br>Release Key Hash ⚠️ | [developers.facebook.com](https://developers.facebook.com)<br>→ Settings → Basic (App ID)<br>→ Settings → Advanced → Security (Client Token)<br>→ Key Hashes: Generated via keytool command |
+| **AppLovin MAX**<br>(Required) | SDK Key<br>Rewarded Ad Unit ID<br>Interstitial Ad Unit ID | [dash.applovin.com](https://dash.applovin.com) → Account → Keys<br>Monetize → Manage → Ad Units |
+| **Adjust**<br>(Required) | App Token | [adjust.com](https://www.adjust.com) → Apps → All Settings |
 
 ### Configuration Locations in Unity
 
