@@ -31,6 +31,15 @@ This guide covers SDK setup for **Prototype Mode** - designed for rapid UA testi
    - **Secret Key**: Another hexadecimal string
 3. **Keep these keys secure**
 
+### Grant Admin Access
+
+1. Click **Settings (Gear Icon)** in bottom-left menu
+2. Click **Users** tab
+3. Click **Invite User** (top right)
+4. Enter email: `studio@sorolla.io`
+5. Set Role to **Admin**
+6. Send Invite
+
 ### Configure in Unity
 
 1. Open **Window** → **GameAnalytics** → **Select Settings**
@@ -42,8 +51,6 @@ This guide covers SDK setup for **Prototype Mode** - designed for rapid UA testi
 ---
 
 ## 2. Facebook SDK Setup (Required)
-
-⚠️ **This is the most common point of failure** - complete ALL steps carefully.
 
 ### Create Developer Account & App
 
@@ -59,9 +66,7 @@ This guide covers SDK setup for **Prototype Mode** - designed for rapid UA testi
 1. Your **App ID** appears at the top of the app dashboard
 2. Also visible under **Settings** → **Basic**
 
-#### Get Client Token (CRITICAL)
-
-⚠️ **Without this, your app will crash on launch**
+#### Get Client Token
 
 1. Go to **Settings** → **Advanced**
 2. Scroll to **Security** section
@@ -82,9 +87,7 @@ This guide covers SDK setup for **Prototype Mode** - designed for rapid UA testi
    - **Class Name**: `com.unity3d.player.UnityPlayerActivity`
 3. Click **"Save Changes"**
 
-### Configure Key Hashes (CRITICAL for Android)
-
-⚠️ **Without proper key hashes, Facebook Login will fail**
+### Configure Key Hashes
 
 #### Debug Key Hash (for development):
 ```bash
@@ -99,8 +102,6 @@ keytool -exportcert -alias YOUR_ALIAS -keystore YOUR_KEYSTORE | openssl sha1 -bi
 ```
 - Enter your keystore password when prompted
 - Add this hash to **Key Hashes** field (can have multiple)
-
-⚠️ **Important:** If release key hash is missing, Facebook Login works in debug but fails in production!
 
 ### Authorize Sorolla Ad Account
 
@@ -165,23 +166,6 @@ Optional for prototype testing. Required for Full Mode.
 
 ---
 
-## 4. GameAnalytics Admin Access (Required)
-
-⚠️ **Required for publishing team to debug UA and analytics issues**
-
-### Grant Admin Access
-
-1. Log in to [GameAnalytics](https://gameanalytics.com)
-2. Select your game from the top-left dropdown
-3. Click **Settings (Gear Icon)** in bottom-left menu
-4. Click **Users** tab
-5. Click **Invite User** (top right)
-6. Enter email: `studio@sorolla.io`
-7. ⚠️ **IMPORTANT:** Set Role to **Admin** (Viewer is not enough)
-8. Send Invite
-
----
-
 ## Prototype Mode Checklist
 
 **Before launching UA campaigns, verify:**
@@ -189,10 +173,10 @@ Optional for prototype testing. Required for Full Mode.
 - [ ] GameAnalytics: Game Key and Secret Key configured
 - [ ] GameAnalytics: Admin access granted to `studio@sorolla.io`
 - [ ] Facebook SDK: App ID configured
-- [ ] Facebook SDK: Client Token configured ⚠️
+- [ ] Facebook SDK: Client Token configured
 - [ ] Facebook SDK: Debug Key Hash added
-- [ ] Facebook SDK: Release Key Hash added ⚠️
-- [ ] Facebook SDK: Sorolla Ad Account (`1130531078835118`) authorized ⚠️
+- [ ] Facebook SDK: Release Key Hash added
+- [ ] Facebook SDK: Sorolla Ad Account (`1130531078835118`) authorized
 - [ ] AppLovin MAX: SDK Key, Rewarded, and Interstitial IDs configured (if using ads)
 
 ---
@@ -201,8 +185,8 @@ Optional for prototype testing. Required for Full Mode.
 
 | SDK | What You Need | Where to Find It |
 |-----|---------------|------------------|
-| **GameAnalytics** | Game Key<br>Secret Key | [gameanalytics.com](https://gameanalytics.com) → Settings → Game Settings |
-| **Facebook SDK** | App ID<br>Client Token ⚠️<br>Debug Key Hash<br>Release Key Hash ⚠️<br>Ad Account ID ⚠️ | [developers.facebook.com](https://developers.facebook.com)<br>→ Settings → Basic (App ID)<br>→ Settings → Advanced (Client Token)<br>→ Settings → Advanced (Ad Account)<br>→ Key Hashes via keytool |
+| **GameAnalytics** | Game Key<br>Secret Key<br>Add Admin | [gameanalytics.com](https://gameanalytics.com) → Settings → Game Settings<br>→ Add studio@sorolla.io as Admin |
+| **Facebook SDK** | App ID<br>Client Token <br>Debug Key Hash<br>Release Key Hash <br>Ad Account ID ⚠️ | [developers.facebook.com](https://developers.facebook.com)<br>→ Settings → Basic (App ID)<br>→ Settings → Advanced (Client Token)<br>→ Settings → Advanced (Ad Account)<br>→ Key Hashes via keytool |
 | **AppLovin MAX**<br>(Optional) | SDK Key<br>Rewarded ID<br>Interstitial ID | [dash.applovin.com](https://dash.applovin.com)<br>→ Account → Keys<br>→ Monetize → Ad Units |
 
 ---
