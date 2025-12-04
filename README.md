@@ -17,7 +17,7 @@ A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration ini
 | Mode | SDKs | Use Case |
 |------|------|----------|
 | **Prototype** | GameAnalytics + Facebook + MAX (optional) | Rapid UA testing |
-| **Full** | GameAnalytics + Facebook + MAX + Adjust | Production |
+| **Full** | GameAnalytics + MAX + Adjust | Production |
 
 ## Installation
 
@@ -83,7 +83,7 @@ For detailed step-by-step instructions on obtaining and configuring all API keys
 2. Create game → Copy Game Key & Secret Key
 3. In Unity: `GameAnalytics > Setup Wizard`
 
-#### Facebook (Both Modes)
+#### Facebook (Prototype Mode Only)
 1. Create app at [developers.facebook.com](https://developers.facebook.com/apps/)
 2. Copy App ID + **Client Token** (Settings → Advanced → Security) ⚠️
 3. Generate Key Hashes (debug & release) ⚠️
