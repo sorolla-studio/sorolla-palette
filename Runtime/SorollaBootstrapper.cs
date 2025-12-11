@@ -1,4 +1,5 @@
 using System.Collections;
+using Sorolla.ATT;
 using UnityEngine;
 #if UNITY_IOS && UNITY_IOS_SUPPORT_INSTALLED
 using Unity.Advertisement.IosSupport;
@@ -10,16 +11,17 @@ namespace Sorolla
     ///     Entry point for Sorolla SDK.
     ///     Auto-initializes at startup - NO MANUAL SETUP REQUIRED.
     ///     Handles iOS ATT before initializing SDKs.
+    ///     In Editor, shows fake dialogs for testing.
     /// </summary>
     public class SorollaBootstrapper : MonoBehaviour
     {
-        private const string ContextScreenPath = "ContextScreen";
-        private const float PollInterval = 0.5f;
+        const string ContextScreenPath = "ContextScreen";
+        const float PollInterval = 0.5f;
 
-        private static SorollaBootstrapper s_instance;
+        static SorollaBootstrapper s_instance;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void AutoInit()
+        static void AutoInit()
         {
             if (s_instance != null) return;
 
@@ -30,12 +32,9 @@ namespace Sorolla
             s_instance = go.AddComponent<SorollaBootstrapper>();
         }
 
-        private void Start()
-        {
-            StartCoroutine(Initialize());
-        }
+        void Start() => StartCoroutine(Initialize());
 
-        private IEnumerator Initialize()
+        IEnumerator Initialize()
         {
 #if UNITY_IOS && UNITY_IOS_SUPPORT_INSTALLED
             var status = ATTrackingStatusBinding.GetAuthorizationTrackingStatus();
@@ -48,6 +47,9 @@ namespace Sorolla
             {
                 Sorolla.Initialize(status == ATTrackingStatusBinding.AuthorizationTrackingStatus.AUTHORIZED);
             }
+#elif UNITY_EDITOR
+            // Editor: show PreATT → FakeATT flow for testing
+            yield return ShowContextAndRequestEditor();
 #else
             // Android or other - initialize with consent
             Sorolla.Initialize(true);
@@ -55,9 +57,9 @@ namespace Sorolla
 #endif
         }
 
-        private IEnumerator ShowContextAndRequest()
-        {
 #if UNITY_IOS && UNITY_IOS_SUPPORT_INSTALLED
+        IEnumerator ShowContextAndRequest()
+        {
             GameObject contextScreen = null;
             var prefab = Resources.Load<GameObject>(ContextScreenPath);
 
@@ -87,15 +89,51 @@ namespace Sorolla
 
             Debug.Log($"[Sorolla] ATT decision: {status}");
             Sorolla.Initialize(status == ATTrackingStatusBinding.AuthorizationTrackingStatus.AUTHORIZED);
-#else
-            yield break;
-#endif
         }
+#endif
 
-        private void OnDestroy()
+#if UNITY_EDITOR
+        IEnumerator ShowContextAndRequestEditor()
+        {
+            var prefab = Resources.Load<GameObject>(ContextScreenPath);
+
+            if (prefab == null)
+            {
+                Debug.LogWarning("[Sorolla] ContextScreen prefab not found. Run Sorolla > ATT > Create PreATT Popup Prefab");
+                Sorolla.Initialize(true);
+                yield break;
+            }
+
+            GameObject contextScreen = Instantiate(prefab);
+            var canvas = contextScreen.GetComponent<Canvas>();
+            if (canvas) canvas.sortingOrder = 999;
+            Debug.Log("[Sorolla] Context screen displayed (Editor).");
+
+            // Wait for ContextScreenView to trigger FakeATTDialog
+            var view = contextScreen.GetComponent<ContextScreenView>();
+            bool completed = false;
+
+            view.SentTrackingAuthorizationRequest += () =>
+            {
+                Destroy(contextScreen);
+                completed = true;
+            };
+
+            // Wait for completion (FakeATTDialog handles the decision)
+            while (!completed)
+                yield return null;
+
+            // In Editor, we just assume consent for simplicity
+            Debug.Log("[Sorolla] ATT flow complete (Editor).");
+            Sorolla.Initialize(true);
+        }
+#endif
+
+        void OnDestroy()
         {
             if (s_instance == this)
                 s_instance = null;
         }
     }
 }
+
