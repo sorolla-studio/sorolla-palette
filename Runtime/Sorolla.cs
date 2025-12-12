@@ -32,6 +32,7 @@ namespace Sorolla
         Sink
     }
 
+
     /// <summary>
     ///     Main API for Sorolla SDK.
     ///     Provides unified interface for analytics, ads, and attribution.
@@ -52,6 +53,13 @@ namespace Sorolla
 
         /// <summary>Current configuration (may be null)</summary>
         public static SorollaConfig Config => s_config;
+
+        /// <summary>Whether a rewarded ad is ready to show</summary>
+        public static bool IsRewardedAdReady => IsInitialized && MaxAdapter.IsRewardedAdReady;
+
+        /// <summary>Whether an interstitial ad is ready to show</summary>
+        public static bool IsInterstitialAdReady => IsInitialized && MaxAdapter.IsInterstitialAdReady;
+
 
         #region Initialization
 
@@ -82,16 +90,15 @@ namespace Sorolla
                 FacebookAdapter.Initialize(consent);
 #endif
 
-            // MAX (if available)
+            // MAX (if available) - Adjust will be initialized in MAX callback
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
             InitializeMax();
-#endif
-
-            // Adjust (Full mode)
-#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+#elif SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+            // No MAX, initialize Adjust directly (Full mode only)
             if (!isPrototype && s_config != null)
                 InitializeAdjust();
 #endif
+
 
             // Firebase Analytics (optional)
 #if FIREBASE_ANALYTICS_INSTALLED
@@ -366,9 +373,40 @@ namespace Sorolla
             }
 
             Debug.Log($"{Tag} Initializing AppLovin MAX...");
+            
+            // Subscribe to ad loading state changes for loading overlay
+            MaxAdapter.OnAdLoadingStateChanged += OnMaxAdLoadingStateChanged;
+            
+            // Subscribe to SDK initialized event to init Adjust (per MAX docs)
+            MaxAdapter.OnSdkInitialized += OnMaxSdkInitialized;
+            
             MaxAdapter.Initialize(s_config.maxSdkKey, s_config.maxRewardedAdUnitId,
                 s_config.maxInterstitialAdUnitId, s_config.maxBannerAdUnitId);
         }
+        
+        private static void OnMaxSdkInitialized()
+        {
+            // Per MAX SDK docs: Initialize other SDKs (like Adjust) INSIDE the MAX callback
+            // to ensure proper consent flow handling
+#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+            var isPrototype = s_config == null || s_config.isPrototypeMode;
+            if (!isPrototype && s_config != null)
+            {
+                InitializeAdjust();
+            }
+#endif
+        }
+
+
+        private static void OnMaxAdLoadingStateChanged(AdType adType, bool isLoading)
+        {
+            if (isLoading)
+                SorollaLoadingOverlay.Show($"Loading {adType} ad...");
+            else
+                SorollaLoadingOverlay.Hide();
+        }
+
+
 #endif
 
         /// <summary>Show rewarded ad</summary>
@@ -406,9 +444,14 @@ namespace Sorolla
                 return;
             }
 
-            Debug.Log($"{Tag} Initializing Adjust...");
-            AdjustAdapter.Initialize(s_config.adjustAppToken, AdjustEnvironment.Production);
+            var environment = s_config.adjustSandboxMode 
+                ? AdjustEnvironment.Sandbox 
+                : AdjustEnvironment.Production;
+
+            Debug.Log($"{Tag} Initializing Adjust ({environment})...");
+            AdjustAdapter.Initialize(s_config.adjustAppToken, environment);
         }
+
 #endif
 
         #endregion

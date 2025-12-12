@@ -25,10 +25,22 @@
             "define": "APPLOVIN_MAX_INSTALLED"
         },
         {
+            "name": "com.applovin.mediation.ads",
+            "expression": "",
+            "define": "SOROLLA_MAX_ENABLED"
+        },
+
+        {
             "name": "com.adjust.sdk",
             "expression": "",
             "define": "ADJUST_SDK_INSTALLED"
         },
+        {
+            "name": "com.adjust.sdk",
+            "expression": "",
+            "define": "SOROLLA_ADJUST_ENABLED"
+        },
+
         {
             "name": "com.unity.ads.ios-support",
             "expression": "",

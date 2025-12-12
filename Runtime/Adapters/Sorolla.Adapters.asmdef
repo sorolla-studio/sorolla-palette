@@ -5,8 +5,11 @@
         "Firebase.App",
         "Firebase.Analytics",
         "Firebase.Crashlytics",
-        "Firebase.RemoteConfig"
+        "Firebase.RemoteConfig",
+        "AdjustSdk.Scripts",
+        "MaxSdk.Scripts"
     ],
+
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -35,6 +38,12 @@
             "expression": "",
             "define": "SOROLLA_ADJUST_ENABLED"
         },
+        {
+            "name": "com.adjust.sdk",
+            "expression": "",
+            "define": "ADJUST_SDK_INSTALLED"
+        },
+
         {
             "name": "com.google.firebase.analytics",
             "expression": "",
