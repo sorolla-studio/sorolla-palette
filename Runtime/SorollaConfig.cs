@@ -31,6 +31,10 @@ namespace Sorolla
         [Tooltip("Adjust App Token")]
         public string adjustAppToken;
 
+        [Tooltip("Use Sandbox environment for testing (disable for production builds)")]
+        public bool adjustSandboxMode = true;
+
+
         [Header("Firebase Analytics (Optional)")]
         [Tooltip("Enable Firebase Analytics (requires google-services.json / GoogleService-Info.plist)")]
         public bool enableFirebaseAnalytics;
