@@ -113,8 +113,11 @@ namespace Sorolla.Adapters
 {
     internal static class FacebookAdapter
     {
+        #pragma warning disable CS0067 // Event is never used (stub for API compatibility)
         public static event System.Action<bool> OnGameVisibilityChanged;
+        #pragma warning restore CS0067
         public static void Initialize(bool consent) => UnityEngine.Debug.LogWarning("[Sorolla:FB] Not installed");
+
         public static void TrackEvent(string e, float? v = null, System.Collections.Generic.Dictionary<string, object> p = null) { }
         public static void TrackPurchase(float a, string c = "USD", System.Collections.Generic.Dictionary<string, object> p = null) { }
         public static void TrackLevelAchieved(int l) { }

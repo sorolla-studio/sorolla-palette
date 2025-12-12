@@ -26,7 +26,7 @@ namespace Sorolla.Editor
 
             Debug.Log($"[Sorolla] Installing {info.Name}...");
 
-            // Add registry if needed (for MAX)
+            // Add registry if needed (for MAX - uses its own registry, not OpenUPM)
             if (id == SdkId.AppLovinMAX)
             {
                 ManifestManager.AddOrUpdateRegistry(
@@ -35,9 +35,8 @@ namespace Sorolla.Editor
                     new[] { "com.applovin" }
                 );
             }
-
-            // Add scope to OpenUPM if needed
-            if (!string.IsNullOrEmpty(info.Scope))
+            // Add scope to OpenUPM if needed (but not for MAX)
+            else if (!string.IsNullOrEmpty(info.Scope))
             {
                 ManifestManager.AddOrUpdateRegistry(
                     "package.openupm.com",
@@ -45,6 +44,7 @@ namespace Sorolla.Editor
                     new[] { info.Scope }
                 );
             }
+
 
             // Add dependency to manifest
             ManifestManager.AddDependencies(new Dictionary<string, string>
@@ -76,22 +76,28 @@ namespace Sorolla.Editor
         /// </summary>
         public static void InstallRequiredSdks(bool isPrototype)
         {
+            Debug.Log($"[Sorolla] Installing required SDKs for {(isPrototype ? "Prototype" : "Full")} mode...");
+            
             var scopes = new List<string>();
             var dependencies = new Dictionary<string, string>();
 
             foreach (var sdk in SdkRegistry.GetRequired(isPrototype))
             {
-                if (SdkDetector.IsInstalled(sdk))
+                var isInstalled = SdkDetector.IsInstalled(sdk);
+                Debug.Log($"[Sorolla] Checking {sdk.Name}: {(isInstalled ? "already installed" : "needs install")}");
+                
+                if (isInstalled)
                     continue;
 
-                Debug.Log($"[Sorolla] Will install: {sdk.Name}");
+                Debug.Log($"[Sorolla] Will install: {sdk.Name} ({sdk.PackageId})");
 
-                if (!string.IsNullOrEmpty(sdk.Scope))
+                // Add scope to OpenUPM - but NOT for MAX (it uses its own registry)
+                if (!string.IsNullOrEmpty(sdk.Scope) && sdk.Id != SdkId.AppLovinMAX)
                     scopes.Add(sdk.Scope);
 
                 dependencies[sdk.PackageId] = sdk.DependencyValue;
 
-                // Special handling for MAX registry
+                // Special handling for MAX - uses its own registry, not OpenUPM
                 if (sdk.Id == SdkId.AppLovinMAX)
                 {
                     ManifestManager.AddOrUpdateRegistry(
@@ -101,6 +107,7 @@ namespace Sorolla.Editor
                     );
                 }
             }
+
 
             // Add OpenUPM scopes if any
             if (scopes.Count > 0)
@@ -118,7 +125,12 @@ namespace Sorolla.Editor
                 ManifestManager.AddDependencies(dependencies);
                 Debug.Log($"[Sorolla] Added {dependencies.Count} package(s) to manifest.");
             }
+            else
+            {
+                Debug.Log("[Sorolla] All required SDKs already installed.");
+            }
         }
+
 
         /// <summary>
         ///     Uninstall SDKs not needed for a mode
