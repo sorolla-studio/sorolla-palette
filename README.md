@@ -11,6 +11,7 @@ A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration ini
 - 📱 **iOS ATT Support**: Automatic App Tracking Transparency handling
 - 📊 **Unified Analytics API**: Single interface for all analytics providers
 - 🔥 **Firebase Suite**: Analytics, Crashlytics, and Remote Config
+- 🛠️ **Debug UI**: In-game overlay for testing Ads, Analytics, and Privacy flows
 - 💰 **Monetization Ready**: AppLovin MAX with Adjust attribution
 
 ### Two Modes
@@ -89,6 +90,19 @@ Sorolla.ShowRewardedAd(
     onFailed: () => Debug.Log("Ad not available")
 );
 ```
+
+### 4. Verify with Debug UI
+
+The SDK includes a built-in Debug UI to verify your integration on-device without needing logs.
+
+1. **Enable Debug UI**: In Unity, go to `Sorolla > Create Debug UI EventSystem`.
+2. **Launch App**: Build to device or play in Editor.
+3. **Open UI**: Defined gesture (default: 3-finger tap or shake) opens the panel.
+4. **features**:
+    - Check "Identity" for Advertising IDs (GAID/IDFA)
+    - Test Ad loading/showing (MAX)
+    - Verify Adjust/GA initialization status
+    - Reset/Test Consent flows
 
 ## SDK Configuration
 

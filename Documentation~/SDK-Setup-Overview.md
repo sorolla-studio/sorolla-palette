@@ -44,6 +44,19 @@ The Sorolla SDK supports two operational modes, each with different SDK requirem
 
 ---
 
+### 🔥 [Firebase Add-on Setup](FirebaseSetup.md)
+
+**Compatible with:** Both Prototype and Full Mode
+
+**Includes:**
+- Google Analytics for Firebase
+- Firebase Crashlytics
+- Firebase Remote Config
+
+[→ Follow Firebase Setup Guide](FirebaseSetup.md)
+
+---
+
 ## Quick Comparison
 
 | Feature | Prototype Mode | Full Mode |
@@ -52,6 +65,7 @@ The Sorolla SDK supports two operational modes, each with different SDK requirem
 | **Facebook SDK** | ✅ Required | ❌ Not used |
 | **AppLovin MAX** | ⚪ Optional | ✅ Required |
 | **Adjust** | ❌ Not used | ✅ Required |
+| **Firebase** | ⚪ Optional | ⚪ Optional |
 | **Best For** | Early UA testing | Production launch |
 | **Attribution** | Facebook | Adjust |
 
