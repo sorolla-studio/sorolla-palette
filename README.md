@@ -95,10 +95,11 @@ Sorolla.ShowRewardedAd(
 
 The SDK includes a built-in Debug UI to verify your integration on-device without needing logs.
 
-1. **Enable Debug UI**: In Unity, go to `Sorolla > Create Debug UI EventSystem`.
-2. **Launch App**: Build to device or play in Editor.
-3. **Open UI**: Defined gesture (default: 3-finger tap or shake) opens the panel.
-4. **features**:
+1. **Install Sample**: Open Package Manager > Sort by "In Project" > Select "Sorolla SDK" > Samples > Import "Debug UI".
+2. **Setup**: Drag the `Debug UI` scene into your project or copy the `DebugPanelManager` prefab (once created) into your scene.
+3. **Launch App**: Build to device (iOS/Android) or play in Editor.
+4. **Open UI**: Triple-tap anywhere on the screen (Mobile) or press "Back Quote" key (PC/Mac) to toggle.
+5. **features**:
     - Check "Identity" for Advertising IDs (GAID/IDFA)
     - Test Ad loading/showing (MAX)
     - Verify Adjust/GA initialization status
