@@ -1,0 +1,55 @@
+{
+    "name": "Sorolla.DebugUI",
+    "rootNamespace": "Sorolla.DebugUI",
+    "references": [
+        "Sorolla.Runtime",
+        "Sorolla.Adapters",
+        "Unity.TextMeshPro",
+        "AdjustSdk.Scripts"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.adjust.sdk",
+            "expression": "",
+            "define": "SOROLLA_ADJUST_ENABLED"
+        },
+        {
+            "name": "com.adjust.sdk",
+            "expression": "",
+            "define": "ADJUST_SDK_INSTALLED"
+        },
+        {
+            "name": "com.applovin.mediation.ads",
+            "expression": "",
+            "define": "SOROLLA_MAX_ENABLED"
+        },
+        {
+            "name": "com.applovin.mediation.ads",
+            "expression": "",
+            "define": "MAX_INSTALLED"
+        },
+        {
+            "name": "com.google.firebase.analytics",
+            "expression": "",
+            "define": "FIREBASE_ANALYTICS_INSTALLED"
+        },
+        {
+            "name": "com.google.firebase.crashlytics",
+            "expression": "",
+            "define": "FIREBASE_CRASHLYTICS_INSTALLED"
+        },
+        {
+            "name": "com.google.firebase.remote-config",
+            "expression": "",
+            "define": "FIREBASE_REMOTE_CONFIG_INSTALLED"
+        }
+    ],
+    "noEngineReferences": false
+}

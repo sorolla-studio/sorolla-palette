@@ -59,7 +59,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -149,7 +149,7 @@ MonoBehaviour:
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 4.5
+  m_PixelsPerUnitMultiplier: 4.2
 --- !u!1 &5962998812734752111
 GameObject:
   m_ObjectHideFlags: 0
@@ -202,6 +202,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Sorolla.DebugUI.ToggleSwitch
   trackImage: {fileID: 2893187250073843883}
   knobImage: {fileID: 2421093746951564999}
-  toggleId: 
+  toggleType: 0
   isOn: 0
   animationDuration: 0.15

@@ -1,3 +1,4 @@
+using Sorolla.Adapters;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -24,17 +25,36 @@ namespace Sorolla.DebugUI
         [SerializeField] TextMeshProUGUI labelText;
         [SerializeField] TextMeshProUGUI valueText;
         [SerializeField] Button copyButton;
+        [SerializeField] Button refreshButton;
+        [SerializeField] bool showRefreshButton;
         [SerializeField] IdentityType identityType = IdentityType.Custom;
         [SerializeField] string customLabel;
 
         string _value;
 
-        void Awake() => copyButton.onClick.AddListener(CopyToClipboard);
+        void Awake()
+        {
+            copyButton.onClick.AddListener(CopyToClipboard);
+            refreshButton.onClick.AddListener(Refresh);
+        }
 
-        void OnDestroy() => copyButton.onClick.RemoveListener(CopyToClipboard);
+        void OnDestroy()
+        {
+            copyButton.onClick.RemoveListener(CopyToClipboard);
+            refreshButton.onClick.RemoveListener(Refresh);
+        }
+
+        void Refresh()
+        {
+            valueText.text = "Fetching...";
+            AutoPopulate();
+            SorollaDebugEvents.RaiseShowToast("Refreshed", ToastType.Info);
+        }
 
         void Start()
         {
+            refreshButton.gameObject.SetActive(showRefreshButton);
+            
             if (identityType != IdentityType.Custom)
             {
                 AutoPopulate();
@@ -67,12 +87,14 @@ namespace Sorolla.DebugUI
                     break;
                 case IdentityType.IDFA:
                     label = "IDFA";
-                    value = GetAdvertisingId();
-                    break;
+                    Setup(label, "Fetching...");
+                    FetchAdvertisingId();
+                    return;
                 case IdentityType.AdjustId:
                     label = "Adjust ID";
-                    value = GetAdjustId();
-                    break;
+                    Setup(label, "Fetching...");
+                    FetchAdjustId();
+                    return; // Exit early - async will call Setup
                 default:
                     label = customLabel;
                     value = "—";
@@ -82,20 +104,38 @@ namespace Sorolla.DebugUI
             Setup(label, value);
         }
 
-        string GetAdvertisingId()
+        void FetchAdvertisingId()
         {
-#if UNITY_IOS
-            return UnityEngine.iOS.Device.advertisingIdentifier;
-#elif UNITY_ANDROID
-            // Android requires async call - show placeholder
-            return "Tap to fetch...";
+            var msg = "FetchAdvertisingId called";
+            Debug.Log(msg);
+            DebugPanelManager.Instance?.Log(msg);
+
+#if UNITY_ANDROID
+            AdjustAdapter.GetGoogleAdId(id => Setup("IDFA", id));
+#elif UNITY_IOS
+            AdjustAdapter.GetIdfa(id => Setup("IDFA", id));
 #else
-            return "Not available";
+            Setup("IDFA", "Not available (Editor/Other)");
 #endif
         }
 
-        // This would need Adjust SDK integration
-        string GetAdjustId() => "N/A";
+        // Kept for existing Adjust calls if needed
+        void FetchAdjustId()
+        {
+            StartCoroutine(FetchAdjustIdRoutine());
+        }
+
+        System.Collections.IEnumerator FetchAdjustIdRoutine()
+        {
+            // Allow native SDK a moment to catch up
+            yield return new WaitForSeconds(0.5f);
+
+            Setup("Adjust ID", "Fetching...");
+            AdjustAdapter.GetAdid(adid =>
+            {
+                Setup("Adjust ID", string.IsNullOrEmpty(adid) ? "N/A" : adid);
+            });
+        }
 
         public void Setup(string label, string value)
         {

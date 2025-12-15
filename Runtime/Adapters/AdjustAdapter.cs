@@ -75,6 +75,18 @@ namespace Sorolla.Adapters
             if (!s_init) return;
             AdjustSdk.Adjust.GetAdid(callback);
         }
+
+        public static void GetGoogleAdId(Action<string> callback)
+        {
+            if (!s_init) return;
+            AdjustSdk.Adjust.GetGoogleAdId(callback);
+        }
+
+        public static void GetIdfa(Action<string> callback)
+        {
+            if (!s_init) return;
+            AdjustSdk.Adjust.GetIdfa(callback);
+        }
     }
 }
 #else
@@ -89,6 +101,8 @@ namespace Sorolla.Adapters
         public static void SetUserId(string u) { }
         public static void GetAttribution(System.Action<object> c) { }
         public static void GetAdid(System.Action<string> c) { }
+        public static void GetGoogleAdId(System.Action<string> c) { }
+        public static void GetIdfa(System.Action<string> c) { }
     }
 }
 #endif

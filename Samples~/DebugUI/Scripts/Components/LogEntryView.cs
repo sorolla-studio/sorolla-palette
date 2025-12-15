@@ -24,6 +24,8 @@ namespace Sorolla.DebugUI
             sourceBadgeLabel.text = data.source.ToString().ToUpper();
             messageLabel.text = data.message;
             messageLabel.color = GetMessageColor(data.level);
+            LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)sourceBadgeLabel.transform);
+            
         }
 
         Color GetMessageColor(LogLevel level) => level switch
