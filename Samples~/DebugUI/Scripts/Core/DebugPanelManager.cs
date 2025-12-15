@@ -35,7 +35,20 @@ namespace Sorolla.DebugUI
             DontDestroyOnLoad(gameObject);
         }
 
-        void Start() => SetVisible(showOnStart);
+        void Start()
+        {
+            SetVisible(showOnStart);
+            EnsureEventSystem();
+        }
+
+        void EnsureEventSystem()
+        {
+            if (UnityEngine.EventSystems.EventSystem.current == null && Object.FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)
+            {
+                var eventSystem = new GameObject("EventSystem", typeof(UnityEngine.EventSystems.EventSystem), typeof(UnityEngine.EventSystems.StandaloneInputModule));
+                DontDestroyOnLoad(eventSystem);
+            }
+        }
 
         void Update()
         {
