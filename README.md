@@ -17,7 +17,7 @@ A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration ini
 
 | Mode | SDKs | Use Case |
 |------|------|----------|
-| **Prototype** | GameAnalytics + Facebook | Rapid UA testing |
+| **Prototype** | GameAnalytics + Facebook + MAX (optional) | Rapid UA testing |
 | **Full** | GameAnalytics + MAX + Adjust | Production |
 
 ### Optional Add-ons
@@ -33,8 +33,9 @@ A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration ini
 ### Via Git URL
 
 1. Open Unity Package Manager
-2. Click `+` → `Add package from git URL`
-3. Enter: `https://github.com/LaCreArthur/sorolla-palette-upm.git`
+2. Click `+` → `Add package from git URL` → Enter:
+   
+   `https://github.com/LaCreArthur/sorolla-palette-upm.git`
 
 **That's it!** The package automatically installs dependencies.
 
@@ -91,23 +92,30 @@ Sorolla.ShowRewardedAd(
 
 ## SDK Configuration
 
-### GameAnalytics
+📖 **[Complete SDK Setup Guide for External Developers →](Documentation~/SDK-Setup-Guide.md)**
+
+For detailed step-by-step instructions on obtaining and configuring all API keys, including screenshots and dashboard navigation guides, see the full setup documentation.
+
+### Quick Overview
+
+#### GameAnalytics (Required)
 1. Create account at [gameanalytics.com](https://gameanalytics.com/)
 2. Create game → Copy Game Key & Secret Key
 3. In Unity: `GameAnalytics > Setup Wizard`
 
-### Facebook (Prototype Mode)
+#### Facebook (Prototype Mode Only)
 1. Create app at [developers.facebook.com](https://developers.facebook.com/apps/)
-2. Copy App ID
-3. In Unity: `Facebook > Edit Settings`
+2. Copy App ID + **Client Token** (Settings → Advanced → Security) ⚠️
+3. Generate Key Hashes (debug & release) ⚠️
+4. In Unity: `Facebook > Edit Settings`
 
-### AppLovin MAX
+#### AppLovin MAX (Optional in Prototype, Required in Full)
 1. Create account at [dash.applovin.com](https://dash.applovin.com/)
 2. Get SDK Key from Account → Keys
 3. Create Ad Units (Rewarded, Interstitial)
 4. Enter keys in Sorolla Configuration window
 
-### Adjust (Full Mode)
+#### Adjust (Full Mode)
 1. Create account at [adjust.com](https://www.adjust.com/)
 2. Create app → Copy App Token
 3. Enter token in Sorolla Configuration window
