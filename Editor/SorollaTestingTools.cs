@@ -1,6 +1,8 @@
-using UnityEngine;
-using UnityEditor;
+using System;
+using System.Collections.Generic;
 using System.IO;
+using UnityEditor;
+using UnityEngine;
 
 namespace Sorolla.Editor
 {
@@ -9,30 +11,30 @@ namespace Sorolla.Editor
     /// </summary>
     public static class SorollaTestingTools
     {
-        [MenuItem("Sorolla/Testing/Reset Package State")]
+        [MenuItem("SorollaSDK/Testing/Reset Package State")]
         public static void ResetPackageState()
         {
-            var hash = Application.dataPath.GetHashCode();
+            int hash = Application.dataPath.GetHashCode();
             EditorPrefs.DeleteKey($"Sorolla_Setup_v3_{hash}");
             EditorPrefs.DeleteKey($"Sorolla_Mode_{hash}");
-            Debug.Log("[Sorolla Testing] Package state reset.");
+            Debug.Log("[SorollaSDK Testing] Package state reset.");
         }
 
-        [MenuItem("Sorolla/Testing/Clear Manifest Changes")]
+        [MenuItem("SorollaSDK/Testing/Clear Manifest Changes")]
         public static void ClearManifestChanges()
         {
             string manifestPath = Path.Combine(Application.dataPath, "..", "Packages", "manifest.json");
 
             if (!File.Exists(manifestPath))
             {
-                Debug.LogError("[Sorolla Testing] manifest.json not found!");
+                Debug.LogError("[SorollaSDK Testing] manifest.json not found!");
                 return;
             }
 
             bool shouldClear = EditorUtility.DisplayDialog(
                 "Clear Manifest Changes",
                 "This will remove:\n" +
-                "- Sorolla registries\n" +
+                "- SorollaSDK registries\n" +
                 "- GameAnalytics SDK\n" +
                 "- External Dependency Manager\n" +
                 "- AppLovin MAX SDK\n\n" +
@@ -47,11 +49,11 @@ namespace Sorolla.Editor
             try
             {
                 string jsonContent = File.ReadAllText(manifestPath);
-                var manifest = MiniJson.Deserialize(jsonContent) as System.Collections.Generic.Dictionary<string, object>;
+                var manifest = MiniJson.Deserialize(jsonContent) as Dictionary<string, object>;
 
                 if (manifest == null)
                 {
-                    Debug.LogError("[Sorolla Testing] Failed to parse manifest.json");
+                    Debug.LogError("[SorollaSDK Testing] Failed to parse manifest.json");
                     return;
                 }
 
@@ -60,12 +62,12 @@ namespace Sorolla.Editor
                 // Remove scoped registries
                 if (manifest.ContainsKey("scopedRegistries"))
                 {
-                    var scopedRegistries = manifest["scopedRegistries"] as System.Collections.Generic.List<object>;
+                    var scopedRegistries = manifest["scopedRegistries"] as List<object>;
                     if (scopedRegistries != null)
                     {
                         scopedRegistries.RemoveAll(reg =>
                         {
-                            var registry = reg as System.Collections.Generic.Dictionary<string, object>;
+                            var registry = reg as Dictionary<string, object>;
                             if (registry != null && registry.ContainsKey("url"))
                             {
                                 string url = registry["url"].ToString();
@@ -86,21 +88,22 @@ namespace Sorolla.Editor
                 // Remove dependencies
                 if (manifest.ContainsKey("dependencies"))
                 {
-                    var dependencies = manifest["dependencies"] as System.Collections.Generic.Dictionary<string, object>;
+                    var dependencies = manifest["dependencies"] as Dictionary<string, object>;
                     if (dependencies != null)
                     {
-                        var toRemove = new[] {
+                        string[] toRemove =
+                        {
                             "com.gameanalytics.sdk",
                             "com.google.external-dependency-manager",
-                            "com.applovin.mediation.ads"
+                            "com.applovin.mediation.ads",
                         };
 
-                        foreach (var dep in toRemove)
+                        foreach (string dep in toRemove)
                         {
                             if (dependencies.Remove(dep))
                             {
                                 modified = true;
-                                Debug.Log($"[Sorolla Testing] Removed {dep}");
+                                Debug.Log($"[SorollaSDK Testing] Removed {dep}");
                             }
                         }
                     }
@@ -108,29 +111,29 @@ namespace Sorolla.Editor
 
                 if (modified)
                 {
-                    string updatedJson = MiniJson.Serialize(manifest, prettyPrint: true);
+                    string updatedJson = MiniJson.Serialize(manifest, true);
                     File.WriteAllText(manifestPath, updatedJson);
 
-                    Debug.Log("[Sorolla Testing] Manifest cleaned. Refreshing...");
+                    Debug.Log("[SorollaSDK Testing] Manifest cleaned. Refreshing...");
                     AssetDatabase.Refresh();
 
                     EditorUtility.DisplayDialog("Manifest Cleared", "Manifest changes removed.", "OK");
                 }
                 else
                 {
-                    Debug.Log("[Sorolla Testing] No Sorolla entries found in manifest.");
+                    Debug.Log("[SorollaSDK Testing] No SorollaSDK entries found in manifest.");
                 }
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
-                Debug.LogError($"[Sorolla Testing] Error: {e.Message}");
+                Debug.LogError($"[SorollaSDK Testing] Error: {e.Message}");
             }
         }
 
-        [MenuItem("Sorolla/Testing/Full Reset & Rerun")]
+        [MenuItem("SorollaSDK/Testing/Full Reset & Rerun")]
         public static void FullResetAndRerun()
         {
-            Debug.Log("[Sorolla Testing] Starting full reset...");
+            Debug.Log("[SorollaSDK Testing] Starting full reset...");
             ClearManifestChanges();
 
             EditorApplication.delayCall += () =>
@@ -138,19 +141,19 @@ namespace Sorolla.Editor
                 ResetPackageState();
                 EditorApplication.delayCall += () =>
                 {
-                    Debug.Log("[Sorolla Testing] Forcing setup rerun...");
+                    Debug.Log("[SorollaSDK Testing] Forcing setup rerun...");
                     SorollaSetup.ForceRunSetup();
                 };
             };
         }
 
-        [MenuItem("Sorolla/Testing/Show State")]
+        [MenuItem("SorollaSDK/Testing/Show State")]
         public static void ShowSessionState()
         {
-            var mode = SorollaSettings.Mode;
+            SorollaMode mode = SorollaSettings.Mode;
 
             EditorUtility.DisplayDialog(
-                "Sorolla State",
+                "SorollaSDK State",
                 $"Mode: {mode}\n" +
                 $"Is Configured: {SorollaSettings.IsConfigured}\n\n" +
                 "(Stored in EditorPrefs)",
@@ -158,14 +161,14 @@ namespace Sorolla.Editor
             );
         }
 
-        [MenuItem("Sorolla/Testing/Open Manifest")]
+        [MenuItem("SorollaSDK/Testing/Open Manifest")]
         public static void OpenManifest()
         {
             string manifestPath = Path.Combine(Application.dataPath, "..", "Packages", "manifest.json");
             if (File.Exists(manifestPath))
                 EditorUtility.RevealInFinder(manifestPath);
             else
-                Debug.LogError("[Sorolla Testing] manifest.json not found!");
+                Debug.LogError("[SorollaSDK Testing] manifest.json not found!");
         }
     }
 }

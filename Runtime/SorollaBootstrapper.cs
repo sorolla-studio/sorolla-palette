@@ -8,7 +8,7 @@ using Unity.Advertisement.IosSupport;
 namespace Sorolla
 {
     /// <summary>
-    ///     Entry point for Sorolla SDK.
+    ///     Entry point for SorollaSDK SDK.
     ///     Auto-initializes at startup - NO MANUAL SETUP REQUIRED.
     ///     Handles iOS ATT before initializing SDKs.
     ///     In Editor, shows fake dialogs for testing.
@@ -20,19 +20,25 @@ namespace Sorolla
 
         static SorollaBootstrapper s_instance;
 
+        void OnDestroy()
+        {
+            if (s_instance == this)
+                s_instance = null;
+        }
+
+        void Start() => StartCoroutine(Initialize());
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void AutoInit()
         {
             if (s_instance != null) return;
 
-            Debug.Log("[Sorolla] Auto-initializing...");
+            Debug.Log("[SorollaSDK] Auto-initializing...");
 
-            var go = new GameObject("[Sorolla SDK]");
+            var go = new GameObject("[SorollaSDK SDK]");
             DontDestroyOnLoad(go);
             s_instance = go.AddComponent<SorollaBootstrapper>();
         }
-
-        void Start() => StartCoroutine(Initialize());
 
         IEnumerator Initialize()
         {
@@ -47,11 +53,11 @@ namespace Sorolla
             }
             else
             {
-                Sorolla.Initialize(status == ATTrackingStatusBinding.AuthorizationTrackingStatus.AUTHORIZED);
+                SorollaSDK.Initialize(status == ATTrackingStatusBinding.AuthorizationTrackingStatus.AUTHORIZED);
             }
 #else
             // Android or other - initialize with consent
-            Sorolla.Initialize(true);
+            SorollaSDK.Initialize(true);
             yield break;
 #endif
         }
@@ -67,16 +73,16 @@ namespace Sorolla
                 contextScreen = Instantiate(prefab);
                 var canvas = contextScreen.GetComponent<Canvas>();
                 if (canvas) canvas.sortingOrder = 999;
-                Debug.Log("[Sorolla] Context screen displayed.");
+                Debug.Log("[SorollaSDK] Context screen displayed.");
             }
             else
             {
-                Debug.LogWarning($"[Sorolla] ContextScreen prefab not found. Triggering ATT directly.");
+                Debug.LogWarning("[SorollaSDK] ContextScreen prefab not found. Triggering ATT directly.");
                 ATTrackingStatusBinding.RequestAuthorizationTracking();
             }
 
             // Wait for user decision
-            var status = ATTrackingStatusBinding.GetAuthorizationTrackingStatus();
+            ATTrackingStatusBinding.AuthorizationTrackingStatus status = ATTrackingStatusBinding.GetAuthorizationTrackingStatus();
             while (status == ATTrackingStatusBinding.AuthorizationTrackingStatus.NOT_DETERMINED)
             {
                 yield return new WaitForSeconds(PollInterval);
@@ -86,8 +92,8 @@ namespace Sorolla
             if (contextScreen != null)
                 Destroy(contextScreen);
 
-            Debug.Log($"[Sorolla] ATT decision: {status}");
-            Sorolla.Initialize(status == ATTrackingStatusBinding.AuthorizationTrackingStatus.AUTHORIZED);
+            Debug.Log($"[SorollaSDK] ATT decision: {status}");
+            SorollaSDK.Initialize(status == ATTrackingStatusBinding.AuthorizationTrackingStatus.AUTHORIZED);
         }
 #endif
 
@@ -98,15 +104,15 @@ namespace Sorolla
 
             if (prefab == null)
             {
-                Debug.LogWarning("[Sorolla] ContextScreen prefab not found. Run Sorolla > ATT > Create PreATT Popup Prefab");
-                Sorolla.Initialize(true);
+                Debug.LogWarning("[SorollaSDK] ContextScreen prefab not found. Run SorollaSDK > ATT > Create PreATT Popup Prefab");
+                SorollaSDK.Initialize(true);
                 yield break;
             }
 
             GameObject contextScreen = Instantiate(prefab);
             var canvas = contextScreen.GetComponent<Canvas>();
             if (canvas) canvas.sortingOrder = 999;
-            Debug.Log("[Sorolla] Context screen displayed (Editor).");
+            Debug.Log("[SorollaSDK] Context screen displayed (Editor).");
 
             // Wait for ContextScreenView to trigger FakeATTDialog
             var view = contextScreen.GetComponent<ContextScreenView>();
@@ -125,15 +131,9 @@ namespace Sorolla
             }
 
             // In Editor, we just assume consent for simplicity
-            Debug.Log("[Sorolla] ATT flow complete (Editor).");
-            Sorolla.Initialize(true);
+            Debug.Log("[SorollaSDK] ATT flow complete (Editor).");
+            SorollaSDK.Initialize(true);
         }
 #endif
-
-        void OnDestroy()
-        {
-            if (s_instance == this)
-                s_instance = null;
-        }
     }
 }

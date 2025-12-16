@@ -12,33 +12,33 @@ namespace Sorolla.Editor
     [InitializeOnLoad]
     public static class SorollaSetup
     {
-        private const string SetupVersion = "v4";
-        private static string SetupKey => $"Sorolla_Setup_{SetupVersion}_{Application.dataPath.GetHashCode()}";
+        const string SetupVersion = "v4";
 
         static SorollaSetup()
         {
             EditorApplication.delayCall += RunSetup;
         }
+        static string SetupKey => $"Sorolla_Setup_{SetupVersion}_{Application.dataPath.GetHashCode()}";
 
-        [MenuItem("Sorolla/Run Setup (Force)")]
+        [MenuItem("SorollaSDK/Run Setup (Force)")]
         public static void ForceRunSetup()
         {
             EditorPrefs.DeleteKey(SetupKey);
             RunSetup();
         }
 
-        private static void RunSetup()
+        static void RunSetup()
         {
             if (EditorPrefs.GetBool(SetupKey, false))
                 return;
 
-            Debug.Log("[Sorolla] Running initial setup...");
+            Debug.Log("[SorollaSDK] Running initial setup...");
 
             // Collect all scopes needed for OpenUPM
             var openUpmScopes = new List<string>();
             var dependencies = new Dictionary<string, string>();
 
-            foreach (var sdk in SdkRegistry.All.Values)
+            foreach (SdkInfo sdk in SdkRegistry.All.Values)
             {
                 if (sdk.Requirement != SdkRequirement.Core)
                     continue;
@@ -65,8 +65,8 @@ namespace Sorolla.Editor
             ManifestManager.AddDependencies(dependencies);
 
             EditorPrefs.SetBool(SetupKey, true);
-            Debug.Log("[Sorolla] Setup complete. Package Manager will resolve dependencies.");
-            Debug.Log("[Sorolla] Open Sorolla > Configuration to select a mode.");
+            Debug.Log("[SorollaSDK] Setup complete. Package Manager will resolve dependencies.");
+            Debug.Log("[SorollaSDK] Open SorollaSDK > Configuration to select a mode.");
         }
     }
 }

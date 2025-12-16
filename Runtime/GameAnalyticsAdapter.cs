@@ -8,12 +8,12 @@ namespace Sorolla
 {
     /// <summary>
     ///     Internal adapter for GameAnalytics SDK.
-    ///     Use Sorolla API instead of calling this directly.
+    ///     Use SorollaSDK API instead of calling this directly.
     /// </summary>
     internal static class GameAnalyticsAdapter
     {
-        private const string Tag = "[Sorolla:GA]";
-        private static bool s_init;
+        const string Tag = "[SorollaSDK:GA]";
+        static bool s_init;
 
         public static void Initialize()
         {
@@ -37,7 +37,7 @@ namespace Sorolla
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool EnsureInit()
+        static bool EnsureInit()
         {
             if (s_init) return true;
             Debug.LogWarning($"{Tag} Not initialized");
@@ -64,9 +64,8 @@ namespace Sorolla
             else if (string.IsNullOrEmpty(p3))
                 if (score > 0) GameAnalytics.NewProgressionEvent(status, p1, p2, score);
                 else GameAnalytics.NewProgressionEvent(status, p1, p2);
-            else
-                if (score > 0) GameAnalytics.NewProgressionEvent(status, p1, p2, p3, score);
-                else GameAnalytics.NewProgressionEvent(status, p1, p2, p3);
+            else if (score > 0) GameAnalytics.NewProgressionEvent(status, p1, p2, p3, score);
+            else GameAnalytics.NewProgressionEvent(status, p1, p2, p3);
         }
 
         public static void TrackDesignEvent(string eventName, float value = 0)
@@ -92,4 +91,3 @@ namespace Sorolla
 #endif
     }
 }
-

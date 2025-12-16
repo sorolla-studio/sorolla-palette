@@ -4,15 +4,15 @@ using UnityEngine;
 namespace Sorolla.Editor
 {
     /// <summary>
-    ///     Central settings for Sorolla SDK.
+    ///     Central settings for SorollaSDK SDK.
     /// </summary>
     public static class SorollaSettings
     {
-        private static string ModeKey => $"Sorolla_Mode_{Application.dataPath.GetHashCode()}";
 
         // Scripting define symbols
         public const string DefinePrototype = "SOROLLA_PROTOTYPE";
         public const string DefineFull = "SOROLLA_FULL";
+        static string ModeKey => $"Sorolla_Mode_{Application.dataPath.GetHashCode()}";
 
         /// <summary>
         ///     Current SDK mode
@@ -40,11 +40,11 @@ namespace Sorolla.Editor
         {
             if (mode == SorollaMode.None)
             {
-                Debug.LogWarning("[Sorolla] Cannot set mode to None");
+                Debug.LogWarning("[SorollaSDK] Cannot set mode to None");
                 return;
             }
 
-            Debug.Log($"[Sorolla] Setting mode to: {mode}");
+            Debug.Log($"[SorollaSDK] Setting mode to: {mode}");
 
             Mode = mode;
 
@@ -58,7 +58,7 @@ namespace Sorolla.Editor
             SdkInstaller.UninstallUnnecessarySdks(mode == SorollaMode.Prototype);
 
             AssetDatabase.Refresh();
-            Debug.Log($"[Sorolla] Mode switch complete.");
+            Debug.Log("[SorollaSDK] Mode switch complete.");
         }
 
         /// <summary>

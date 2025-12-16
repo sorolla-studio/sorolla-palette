@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEditor;
-using UnityEditor.PackageManager;
 using UnityEngine;
 
 namespace Sorolla.Editor
@@ -18,13 +17,13 @@ namespace Sorolla.Editor
         /// </summary>
         public static void Install(SdkId id)
         {
-            if (!SdkRegistry.All.TryGetValue(id, out var info))
+            if (!SdkRegistry.All.TryGetValue(id, out SdkInfo info))
             {
-                Debug.LogError($"[Sorolla] Unknown SDK: {id}");
+                Debug.LogError($"[SorollaSDK] Unknown SDK: {id}");
                 return;
             }
 
-            Debug.Log($"[Sorolla] Installing {info.Name}...");
+            Debug.Log($"[SorollaSDK] Installing {info.Name}...");
 
             // Add registry if needed (for MAX - uses its own registry, not OpenUPM)
             if (id == SdkId.AppLovinMAX)
@@ -49,10 +48,10 @@ namespace Sorolla.Editor
             // Add dependency to manifest
             ManifestManager.AddDependencies(new Dictionary<string, string>
             {
-                { info.PackageId, info.DependencyValue }
+                { info.PackageId, info.DependencyValue },
             });
 
-            Debug.Log($"[Sorolla] {info.Name} added to manifest. Package Manager will resolve.");
+            Debug.Log($"[SorollaSDK] {info.Name} added to manifest. Package Manager will resolve.");
         }
 
         /// <summary>
@@ -60,15 +59,15 @@ namespace Sorolla.Editor
         /// </summary>
         public static void Uninstall(SdkId id)
         {
-            if (!SdkRegistry.All.TryGetValue(id, out var info))
+            if (!SdkRegistry.All.TryGetValue(id, out SdkInfo info))
             {
-                Debug.LogError($"[Sorolla] Unknown SDK: {id}");
+                Debug.LogError($"[SorollaSDK] Unknown SDK: {id}");
                 return;
             }
 
-            Debug.Log($"[Sorolla] Uninstalling {info.Name}...");
+            Debug.Log($"[SorollaSDK] Uninstalling {info.Name}...");
             ManifestManager.RemoveDependencies(new[] { info.PackageId });
-            Debug.Log($"[Sorolla] {info.Name} removed from manifest.");
+            Debug.Log($"[SorollaSDK] {info.Name} removed from manifest.");
         }
 
         /// <summary>
@@ -76,20 +75,20 @@ namespace Sorolla.Editor
         /// </summary>
         public static void InstallRequiredSdks(bool isPrototype)
         {
-            Debug.Log($"[Sorolla] Installing required SDKs for {(isPrototype ? "Prototype" : "Full")} mode...");
-            
+            Debug.Log($"[SorollaSDK] Installing required SDKs for {(isPrototype ? "Prototype" : "Full")} mode...");
+
             var scopes = new List<string>();
             var dependencies = new Dictionary<string, string>();
 
-            foreach (var sdk in SdkRegistry.GetRequired(isPrototype))
+            foreach (SdkInfo sdk in SdkRegistry.GetRequired(isPrototype))
             {
-                var isInstalled = SdkDetector.IsInstalled(sdk);
-                Debug.Log($"[Sorolla] Checking {sdk.Name}: {(isInstalled ? "already installed" : "needs install")}");
-                
+                bool isInstalled = SdkDetector.IsInstalled(sdk);
+                Debug.Log($"[SorollaSDK] Checking {sdk.Name}: {(isInstalled ? "already installed" : "needs install")}");
+
                 if (isInstalled)
                     continue;
 
-                Debug.Log($"[Sorolla] Will install: {sdk.Name} ({sdk.PackageId})");
+                Debug.Log($"[SorollaSDK] Will install: {sdk.Name} ({sdk.PackageId})");
 
                 // Add scope to OpenUPM - but NOT for MAX (it uses its own registry)
                 if (!string.IsNullOrEmpty(sdk.Scope) && sdk.Id != SdkId.AppLovinMAX)
@@ -123,11 +122,11 @@ namespace Sorolla.Editor
             if (dependencies.Count > 0)
             {
                 ManifestManager.AddDependencies(dependencies);
-                Debug.Log($"[Sorolla] Added {dependencies.Count} package(s) to manifest.");
+                Debug.Log($"[SorollaSDK] Added {dependencies.Count} package(s) to manifest.");
             }
             else
             {
-                Debug.Log("[Sorolla] All required SDKs already installed.");
+                Debug.Log("[SorollaSDK] All required SDKs already installed.");
             }
         }
 
@@ -139,11 +138,11 @@ namespace Sorolla.Editor
         {
             var toRemove = new List<string>();
 
-            foreach (var sdk in SdkRegistry.GetToUninstall(isPrototype))
+            foreach (SdkInfo sdk in SdkRegistry.GetToUninstall(isPrototype))
             {
                 if (SdkDetector.IsInstalled(sdk))
                 {
-                    Debug.Log($"[Sorolla] Will uninstall: {sdk.Name}");
+                    Debug.Log($"[SorollaSDK] Will uninstall: {sdk.Name}");
                     toRemove.Add(sdk.PackageId);
                 }
             }
@@ -151,7 +150,7 @@ namespace Sorolla.Editor
             if (toRemove.Count > 0)
             {
                 ManifestManager.RemoveDependencies(toRemove);
-                Debug.Log($"[Sorolla] Removed {toRemove.Count} package(s) from manifest.");
+                Debug.Log($"[SorollaSDK] Removed {toRemove.Count} package(s) from manifest.");
             }
         }
 
@@ -163,16 +162,16 @@ namespace Sorolla.Editor
             try
             {
                 var resolverType = Type.GetType("Google.JarResolver.PlayServicesResolver, Google.JarResolver");
-                var resolveMethod = resolverType?.GetMethod("Resolve", BindingFlags.Public | BindingFlags.Static);
+                MethodInfo resolveMethod = resolverType?.GetMethod("Resolve", BindingFlags.Public | BindingFlags.Static);
                 if (resolveMethod != null)
                 {
-                    Debug.Log("[Sorolla] Triggering EDM resolution...");
+                    Debug.Log("[SorollaSDK] Triggering EDM resolution...");
                     resolveMethod.Invoke(null, new object[] { null, null, true });
                 }
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[Sorolla] Could not auto-resolve dependencies: {e.Message}");
+                Debug.LogWarning($"[SorollaSDK] Could not auto-resolve dependencies: {e.Message}");
             }
         }
 
@@ -182,25 +181,25 @@ namespace Sorolla.Editor
         /// </summary>
         public static void InstallFirebase()
         {
-            var appInfo = SdkRegistry.All[SdkId.FirebaseApp];
-            var analyticsInfo = SdkRegistry.All[SdkId.FirebaseAnalytics];
-            var crashlyticsInfo = SdkRegistry.All[SdkId.FirebaseCrashlytics];
-            var remoteConfigInfo = SdkRegistry.All[SdkId.FirebaseRemoteConfig];
+            SdkInfo appInfo = SdkRegistry.All[SdkId.FirebaseApp];
+            SdkInfo analyticsInfo = SdkRegistry.All[SdkId.FirebaseAnalytics];
+            SdkInfo crashlyticsInfo = SdkRegistry.All[SdkId.FirebaseCrashlytics];
+            SdkInfo remoteConfigInfo = SdkRegistry.All[SdkId.FirebaseRemoteConfig];
 
-            Debug.Log("[Sorolla] Installing Firebase (App + Analytics + Crashlytics + Remote Config)...");
+            Debug.Log("[SorollaSDK] Installing Firebase (App + Analytics + Crashlytics + Remote Config)...");
 
             ManifestManager.AddDependencies(new Dictionary<string, string>
             {
                 { appInfo.PackageId, appInfo.DependencyValue },
                 { analyticsInfo.PackageId, analyticsInfo.DependencyValue },
                 { crashlyticsInfo.PackageId, crashlyticsInfo.DependencyValue },
-                { remoteConfigInfo.PackageId, remoteConfigInfo.DependencyValue }
+                { remoteConfigInfo.PackageId, remoteConfigInfo.DependencyValue },
             });
 
             // Auto-enable Firebase modules in config
             EnableFirebaseInConfig(true);
 
-            Debug.Log("[Sorolla] Firebase added to manifest. Package Manager will resolve.");
+            Debug.Log("[SorollaSDK] Firebase added to manifest. Package Manager will resolve.");
         }
 
         /// <summary>
@@ -209,45 +208,45 @@ namespace Sorolla.Editor
         /// </summary>
         public static void UninstallFirebase()
         {
-            var appInfo = SdkRegistry.All[SdkId.FirebaseApp];
-            var analyticsInfo = SdkRegistry.All[SdkId.FirebaseAnalytics];
-            var crashlyticsInfo = SdkRegistry.All[SdkId.FirebaseCrashlytics];
-            var remoteConfigInfo = SdkRegistry.All[SdkId.FirebaseRemoteConfig];
+            SdkInfo appInfo = SdkRegistry.All[SdkId.FirebaseApp];
+            SdkInfo analyticsInfo = SdkRegistry.All[SdkId.FirebaseAnalytics];
+            SdkInfo crashlyticsInfo = SdkRegistry.All[SdkId.FirebaseCrashlytics];
+            SdkInfo remoteConfigInfo = SdkRegistry.All[SdkId.FirebaseRemoteConfig];
 
-            Debug.Log("[Sorolla] Uninstalling Firebase...");
+            Debug.Log("[SorollaSDK] Uninstalling Firebase...");
 
             ManifestManager.RemoveDependencies(new[]
             {
                 appInfo.PackageId,
                 analyticsInfo.PackageId,
                 crashlyticsInfo.PackageId,
-                remoteConfigInfo.PackageId
+                remoteConfigInfo.PackageId,
             });
 
             // Auto-disable Firebase modules in config
             EnableFirebaseInConfig(false);
 
-            Debug.Log("[Sorolla] Firebase removed from manifest.");
+            Debug.Log("[SorollaSDK] Firebase removed from manifest.");
         }
 
         /// <summary>
         ///     Enable or disable all Firebase modules in SorollaConfig
         /// </summary>
-        private static void EnableFirebaseInConfig(bool enable)
+        static void EnableFirebaseInConfig(bool enable)
         {
-            var guids = AssetDatabase.FindAssets("t:SorollaConfig");
+            string[] guids = AssetDatabase.FindAssets("t:SorollaConfig");
             if (guids.Length == 0)
             {
-                Debug.LogWarning("[Sorolla] No SorollaConfig found to update Firebase settings.");
+                Debug.LogWarning("[SorollaSDK] No SorollaConfig found to update Firebase settings.");
                 return;
             }
 
-            var configPath = AssetDatabase.GUIDToAssetPath(guids[0]);
+            string configPath = AssetDatabase.GUIDToAssetPath(guids[0]);
             var config = AssetDatabase.LoadAssetAtPath<SorollaConfig>(configPath);
-            
+
             if (config == null)
             {
-                Debug.LogWarning("[Sorolla] Could not load SorollaConfig.");
+                Debug.LogWarning("[SorollaSDK] Could not load SorollaConfig.");
                 return;
             }
 
@@ -258,7 +257,7 @@ namespace Sorolla.Editor
             EditorUtility.SetDirty(config);
             AssetDatabase.SaveAssets();
 
-            Debug.Log($"[Sorolla] Firebase modules {(enable ? "enabled" : "disabled")} in config.");
+            Debug.Log($"[SorollaSDK] Firebase modules {(enable ? "enabled" : "disabled")} in config.");
         }
     }
 }

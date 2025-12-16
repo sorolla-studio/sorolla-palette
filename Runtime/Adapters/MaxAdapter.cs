@@ -11,7 +11,7 @@ namespace Sorolla.Adapters
     {
         Rewarded,
         Interstitial,
-        Banner
+        Banner,
     }
 
     /// <summary>
@@ -20,53 +20,60 @@ namespace Sorolla.Adapters
     public static class MaxAdapter
     {
 
-        private static bool s_init;
-        private static string s_rewardedId;
-        private static string s_interstitialId;
-        private static string s_bannerId;
+        static bool s_init;
+        static string s_rewardedId;
+        static string s_interstitialId;
+        static string s_bannerId;
 
-        private static Action s_onRewardComplete;
-        private static Action s_onRewardFailed;
-        private static Action s_onInterstitialComplete;
+        static Action s_onRewardComplete;
+        static Action s_onRewardFailed;
+        static Action s_onInterstitialComplete;
 
-        private static bool s_rewardedReady;
-        private static bool s_interstitialReady;
+        static bool s_rewardedReady;
+        static bool s_interstitialReady;
+
+        /// <summary>Whether a rewarded ad is ready to show</summary>
+        public static bool IsRewardedAdReady => s_init && s_rewardedReady && MaxSdk.IsRewardedAdReady(s_rewardedId);
+
+        /// <summary>Whether an interstitial ad is ready to show</summary>
+        public static bool IsInterstitialAdReady => s_init && s_interstitialReady && MaxSdk.IsInterstitialReady(s_interstitialId);
 
         /// <summary>Event fired when ad loading state changes. (adType, isLoading)</summary>
         public static event Action<AdType, bool> OnAdLoadingStateChanged;
 
         /// <summary>Event fired when MAX SDK is initialized. Use this to initialize other SDKs like Adjust.</summary>
         public static event Action OnSdkInitialized;
-        
-        /// <summary>Whether a rewarded ad is ready to show</summary>
-        public static bool IsRewardedAdReady => s_init && s_rewardedReady && MaxSdk.IsRewardedAdReady(s_rewardedId);
-        
-        /// <summary>Whether an interstitial ad is ready to show</summary>
-        public static bool IsInterstitialAdReady => s_init && s_interstitialReady && MaxSdk.IsInterstitialReady(s_interstitialId);
 
+        static bool s_consent;
 
-        public static void Initialize(string sdkKey, string rewardedId, string interstitialId, string bannerId)
+        public static void Initialize(string sdkKey, string rewardedId, string interstitialId, string bannerId, bool consent)
         {
             if (s_init) return;
 
             s_rewardedId = rewardedId;
             s_interstitialId = interstitialId;
             s_bannerId = bannerId;
+            s_consent = consent;
 
             Debug.Log("[Sorolla:MAX] Initializing...");
             MaxSdkCallbacks.OnSdkInitializedEvent += OnSdkInit;
-            
+
             MaxSdk.InitializeSdk();
         }
 
-        private static void OnSdkInit(MaxSdkBase.SdkConfiguration config)
+        static void OnSdkInit(MaxSdkBase.SdkConfiguration config)
         {
             Debug.Log("[Sorolla:MAX] Initialized");
 
             s_init = true;
+
+            // Set consent status (passed during Initialize)
+            MaxSdk.SetHasUserConsent(s_consent);
+            Debug.Log($"[Sorolla:MAX] SetHasUserConsent({s_consent})");
+
             InitRewarded();
             InitInterstitial();
-            
+
             // Fire event so other SDKs (like Adjust) can initialize in this callback
             OnSdkInitialized?.Invoke();
         }
@@ -75,23 +82,27 @@ namespace Sorolla.Adapters
 
         #region Rewarded
 
-        private static void InitRewarded()
+        static void InitRewarded()
         {
             if (string.IsNullOrEmpty(s_rewardedId)) return;
 
-            MaxSdkCallbacks.Rewarded.OnAdLoadedEvent += (_, __) => 
-            { 
-                s_rewardedReady = true; 
+            MaxSdkCallbacks.Rewarded.OnAdLoadedEvent += (_, __) =>
+            {
+                s_rewardedReady = true;
                 OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, false);
             };
-            MaxSdkCallbacks.Rewarded.OnAdLoadFailedEvent += (_, __) => 
-            { 
-                s_rewardedReady = false; 
+            MaxSdkCallbacks.Rewarded.OnAdLoadFailedEvent += (_, __) =>
+            {
+                s_rewardedReady = false;
                 OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, false);
 
-                LoadRewarded(); 
+                LoadRewarded();
             };
-            MaxSdkCallbacks.Rewarded.OnAdHiddenEvent += (_, __) => { s_rewardedReady = false; LoadRewarded(); };
+            MaxSdkCallbacks.Rewarded.OnAdHiddenEvent += (_, __) =>
+            {
+                s_rewardedReady = false;
+                LoadRewarded();
+            };
             MaxSdkCallbacks.Rewarded.OnAdDisplayFailedEvent += (_, __, ___) =>
             {
                 s_rewardedReady = false;
@@ -116,7 +127,7 @@ namespace Sorolla.Adapters
             LoadRewarded();
         }
 
-        private static void LoadRewarded()
+        static void LoadRewarded()
         {
             OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, true);
             MaxSdk.LoadRewardedAd(s_rewardedId);
@@ -126,7 +137,11 @@ namespace Sorolla.Adapters
 
         public static void ShowRewardedAd(Action onComplete, Action onFailed)
         {
-            if (!s_init) { onFailed?.Invoke(); return; }
+            if (!s_init)
+            {
+                onFailed?.Invoke();
+                return;
+            }
 
             if (!s_rewardedReady || !MaxSdk.IsRewardedAdReady(s_rewardedId))
             {
@@ -142,26 +157,25 @@ namespace Sorolla.Adapters
             MaxSdk.ShowRewardedAd(s_rewardedId);
         }
 
-
         #endregion
 
         #region Interstitial
 
-        private static void InitInterstitial()
+        static void InitInterstitial()
         {
             if (string.IsNullOrEmpty(s_interstitialId)) return;
 
-            MaxSdkCallbacks.Interstitial.OnAdLoadedEvent += (_, __) => 
-            { 
-                s_interstitialReady = true; 
+            MaxSdkCallbacks.Interstitial.OnAdLoadedEvent += (_, __) =>
+            {
+                s_interstitialReady = true;
                 OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, false);
             };
-            MaxSdkCallbacks.Interstitial.OnAdLoadFailedEvent += (_, __) => 
-            { 
-                s_interstitialReady = false; 
+            MaxSdkCallbacks.Interstitial.OnAdLoadFailedEvent += (_, __) =>
+            {
+                s_interstitialReady = false;
                 OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, false);
-                LoadInterstitial(); 
- 
+                LoadInterstitial();
+
             };
             MaxSdkCallbacks.Interstitial.OnAdHiddenEvent += (_, __) =>
             {
@@ -187,7 +201,7 @@ namespace Sorolla.Adapters
             LoadInterstitial();
         }
 
-        private static void LoadInterstitial()
+        static void LoadInterstitial()
         {
             OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, true);
             MaxSdk.LoadInterstitial(s_interstitialId);
@@ -234,10 +248,9 @@ namespace Sorolla.Adapters
         public static bool IsInterstitialAdReady => false;
 
 
-        public static void Initialize(string k, string r, string i, string b) => UnityEngine.Debug.LogWarning("[Sorolla:MAX] Not installed");
+        public static void Initialize(string k, string r, string i, string b, bool c) => UnityEngine.Debug.LogWarning("[Sorolla:MAX] Not installed");
         public static void ShowRewardedAd(System.Action c, System.Action f) => f?.Invoke();
         public static void ShowInterstitialAd(System.Action c) => c?.Invoke();
     }
 }
 #endif
-

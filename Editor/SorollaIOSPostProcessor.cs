@@ -1,8 +1,8 @@
 #if UNITY_IOS
+using System.IO;
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEditor.iOS.Xcode;
-using System.IO;
 using UnityEngine;
 
 namespace Sorolla.Editor
@@ -15,7 +15,7 @@ namespace Sorolla.Editor
             if (buildTarget != BuildTarget.iOS) return;
 
             string plistPath = buildPath + "/Info.plist";
-            PlistDocument plist = new PlistDocument();
+            var plist = new PlistDocument();
             plist.ReadFromString(File.ReadAllText(plistPath));
             PlistElementDict rootDict = plist.root;
 
@@ -25,7 +25,7 @@ namespace Sorolla.Editor
             {
                 string trackingDesc = "Your data will be used to provide a better and personalized ad experience.";
                 rootDict.SetString("NSUserTrackingUsageDescription", trackingDesc);
-                Debug.Log("[Sorolla] Added NSUserTrackingUsageDescription to Info.plist");
+                Debug.Log("[SorollaSDK] Added NSUserTrackingUsageDescription to Info.plist");
             }
 
             // 2. Add SKAdNetwork IDs
