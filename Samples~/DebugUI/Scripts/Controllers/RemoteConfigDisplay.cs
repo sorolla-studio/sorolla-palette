@@ -29,7 +29,7 @@ namespace Sorolla.DebugUI
         void Start()
         {
             container.gameObject.SetActive(false);
-            if (Sorolla.IsRemoteConfigReady())
+            if (SorollaSDK.IsRemoteConfigReady())
                 RefreshConfigDisplay();
         }
 
@@ -37,7 +37,7 @@ namespace Sorolla.DebugUI
         {
             fetchButton.interactable = false;
             DebugPanelManager.Instance?.Log("Fetching Remote Config...", LogSource.Firebase);
-            Sorolla.FetchRemoteConfig(OnFetchComplete);
+            SorollaSDK.FetchRemoteConfig(OnFetchComplete);
         }
 
         void OnFetchComplete(bool success)

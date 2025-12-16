@@ -5,7 +5,8 @@
         "Sorolla.Runtime",
         "Sorolla.Adapters",
         "Unity.TextMeshPro",
-        "AdjustSdk.Scripts"
+        "AdjustSdk.Scripts",
+        "Unity.Advertisement.IosSupport"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -49,6 +50,11 @@
             "name": "com.google.firebase.remote-config",
             "expression": "",
             "define": "FIREBASE_REMOTE_CONFIG_INSTALLED"
+        },
+        {
+            "name": "com.unity.ads.ios-support",
+            "expression": "",
+            "define": "UNITY_IOS_SUPPORT_INSTALLED"
         }
     ],
     "noEngineReferences": false

@@ -43,10 +43,10 @@ namespace Sorolla.DebugUI
 
         void EnsureEventSystem()
         {
-            if (UnityEngine.EventSystems.EventSystem.current == null && Object.FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)
+            if (UnityEngine.EventSystems.EventSystem.current == null && Object.FindAnyObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
             {
                 var eventSystem = new GameObject("EventSystem", typeof(UnityEngine.EventSystems.EventSystem), typeof(UnityEngine.EventSystems.StandaloneInputModule));
-                DontDestroyOnLoad(eventSystem);
+                DontDestroyOnLoad(eventSystem); 
             }
         }
 

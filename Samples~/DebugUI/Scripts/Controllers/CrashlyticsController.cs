@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace Sorolla.DebugUI
 {
     /// <summary>
-    ///     Controls the Crashlytics section in Tools tab. Self-sufficient - calls Sorolla API directly.
+    ///     Controls the Crashlytics section in Tools tab. Self-sufficient - calls SorollaSDK API directly.
     /// </summary>
     public class CrashlyticsController : UIComponentBase
     {
@@ -28,7 +28,7 @@ namespace Sorolla.DebugUI
         void HandleLogException()
         {
             var testException = new Exception("Test exception from Debug Panel");
-            Sorolla.LogException(testException);
+            SorollaSDK.LogException(testException);
 
             DebugPanelManager.Instance?.Log("Logged test exception to Crashlytics", LogSource.Firebase);
             SorollaDebugEvents.RaiseShowToast("Exception logged", ToastType.Warning);
@@ -36,7 +36,7 @@ namespace Sorolla.DebugUI
 
         void HandleForceCrash()
         {
-            Sorolla.LogCrashlytics("Forcing crash from Debug Panel");
+            SorollaSDK.LogCrashlytics("Forcing crash from Debug Panel");
 
             DebugPanelManager.Instance?.Log("Forcing crash...", LogSource.Firebase, LogLevel.Error);
             SorollaDebugEvents.RaiseShowToast("Forcing crash...", ToastType.Error);

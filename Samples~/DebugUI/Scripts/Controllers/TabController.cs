@@ -14,7 +14,7 @@ namespace Sorolla.DebugUI
         {
             if (tabPages.Count == 0)
             {
-                Debug.LogError("[Sorolla Debug UI] TabController has no tab pages assigned.");
+                Debug.LogError("[SorollaSDK Debug UI] TabController has no tab pages assigned.");
                 return;
             }
             if (defaultTabIndex < 0) defaultTabIndex = tabPages.Count;

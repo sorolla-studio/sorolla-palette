@@ -331,10 +331,10 @@ RectTransform:
   - {fileID: 5883702849829627258}
   m_Father: {fileID: 1293976898917873115}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 235, y: -25}
-  m_SizeDelta: {x: 80, y: 40}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1740059763865053613
 CanvasRenderer:
@@ -387,8 +387,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.HorizontalLayoutGroup
   m_Padding:
-    m_Left: 10
-    m_Right: 10
+    m_Left: 20
+    m_Right: 20
     m_Top: 10
     m_Bottom: 10
   m_ChildAlignment: 4
@@ -415,9 +415,9 @@ MonoBehaviour:
   m_IgnoreLayout: 0
   m_MinWidth: -1
   m_MinHeight: 40
-  m_PreferredWidth: -1
+  m_PreferredWidth: 80
   m_PreferredHeight: 40
-  m_FlexibleWidth: -1
+  m_FlexibleWidth: 0
   m_FlexibleHeight: 0
   m_LayoutPriority: 1
 --- !u!1 &3511135686563254766
@@ -453,10 +453,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1293976898917873115}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 2.5, y: -25}
-  m_SizeDelta: {x: 5, y: 50}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2369144750266520266
 CanvasRenderer:
@@ -549,10 +549,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1293976898917873115}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 100, y: -25}
-  m_SizeDelta: {x: 160, y: 50}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3086133623953847014
 CanvasRenderer:
@@ -711,7 +711,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 670, y: -25}
-  m_SizeDelta: {x: 760.00006, y: 33.52}
+  m_SizeDelta: {x: 760, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1903362394149238792
 CanvasRenderer:
@@ -741,7 +741,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Resource: +100 Coins (Source: Shop) Resource: +100  Coins'
+  m_text: Resource
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}

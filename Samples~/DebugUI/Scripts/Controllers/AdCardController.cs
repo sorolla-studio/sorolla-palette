@@ -4,7 +4,7 @@ using UnityEngine.UI;
 namespace Sorolla.DebugUI
 {
     /// <summary>
-    ///     Controls an individual ad card. Self-sufficient - calls Sorolla API directly.
+    ///     Controls an individual ad card. Self-sufficient - calls SorollaSDK API directly.
     /// </summary>
     public class AdCardController : UIComponentBase
     {
@@ -75,7 +75,7 @@ namespace Sorolla.DebugUI
             switch (adType)
             {
                 case AdType.Interstitial:
-                    Sorolla.ShowInterstitialAd(() =>
+                    SorollaSDK.ShowInterstitialAd(() =>
                     {
                         SetStatus(AdStatus.Idle);
                         SorollaDebugEvents.RaiseShowToast("Interstitial completed", ToastType.Success);
@@ -84,7 +84,7 @@ namespace Sorolla.DebugUI
                     break;
 
                 case AdType.Rewarded:
-                    Sorolla.ShowRewardedAd(
+                    SorollaSDK.ShowRewardedAd(
                         () =>
                         {
                             SetStatus(AdStatus.Idle);
@@ -135,16 +135,15 @@ namespace Sorolla.DebugUI
         {
             SetStatus(AdStatus.Loaded);
             SorollaDebugEvents.RaiseShowToast($"{adType} ready (mock)", ToastType.Info);
-            DebugPanelManager.Instance?.Log($"{adType} loaded (mock)", LogSource.Sorolla);
+            DebugPanelManager.Instance?.Log($"{adType} loaded (mock)", LogSource.SorollaSDK);
         }
 
         void MockAdComplete()
         {
             SetStatus(AdStatus.Idle);
             SorollaDebugEvents.RaiseShowToast($"{adType} completed (mock)", ToastType.Success);
-            DebugPanelManager.Instance?.Log($"{adType} completed (mock)", LogSource.Sorolla);
+            DebugPanelManager.Instance?.Log($"{adType} completed (mock)", LogSource.SorollaSDK);
         }
 #endif
     }
 }
-

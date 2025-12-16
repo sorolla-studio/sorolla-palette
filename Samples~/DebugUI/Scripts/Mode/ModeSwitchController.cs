@@ -11,7 +11,7 @@ namespace Sorolla.DebugUI
         Button _toggle;
         bool _isPrototype;
 
-        static bool IsPrototype => Sorolla.Config == null || Sorolla.Config.isPrototypeMode;
+        static bool IsPrototype => SorollaSDK.Config == null || SorollaSDK.Config.isPrototypeMode;
 
         void Awake()
         {
@@ -28,14 +28,14 @@ namespace Sorolla.DebugUI
         {
 #if UNITY_EDITOR
             // Actually change the config in Editor
-            if (Sorolla.Config != null)
+            if (SorollaSDK.Config != null)
             {
-                Sorolla.Config.isPrototypeMode = !Sorolla.Config.isPrototypeMode;
-                EditorUtility.SetDirty(Sorolla.Config);
+                SorollaSDK.Config.isPrototypeMode = !SorollaSDK.Config.isPrototypeMode;
+                EditorUtility.SetDirty(SorollaSDK.Config);
             }
 #else
             // Do not change SDK behavior in builds
-            UnityEngine.Debug.LogWarning("[Sorolla Debug UI] Mode switch called in build, but SDK behavior remains unchanged.");
+            UnityEngine.Debug.LogWarning("[SorollaSDK Debug UI] Mode switch called in build, but SDK behavior remains unchanged.");
 #endif
 
             // Notify UI to refresh

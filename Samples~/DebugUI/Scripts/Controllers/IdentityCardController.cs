@@ -57,8 +57,23 @@ namespace Sorolla.DebugUI
             
             if (identityType != IdentityType.Custom)
             {
-                AutoPopulate();
+                if (identityType == IdentityType.SorollaMode && !SorollaSDK.IsInitialized)
+                {
+                    // Wait for SDK init to get correct mode
+                    valueText.text = "Initializing...";
+                    SorollaSDK.OnInitialized += OnSorollaInitialized;
+                }
+                else
+                {
+                    AutoPopulate();
+                }
             }
+        }
+
+        void OnSorollaInitialized()
+        {
+            SorollaSDK.OnInitialized -= OnSorollaInitialized;
+            AutoPopulate();
         }
 
         void AutoPopulate()
@@ -82,7 +97,7 @@ namespace Sorolla.DebugUI
                     break;
                 case IdentityType.SorollaMode:
                     label = "SDK Mode";
-                    bool isPrototype = Sorolla.Config == null || Sorolla.Config.isPrototypeMode;
+                    bool isPrototype = SorollaSDK.Config == null || SorollaSDK.Config.isPrototypeMode;
                     value = isPrototype ? "Prototype" : "Full";
                     break;
                 case IdentityType.IDFA:

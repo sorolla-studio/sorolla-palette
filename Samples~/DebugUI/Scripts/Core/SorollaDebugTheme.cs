@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Sorolla.DebugUI
 {
-    [CreateAssetMenu(fileName = "SorollaDebugTheme", menuName = "Sorolla/Debug UI Theme")]
+    [CreateAssetMenu(fileName = "SorollaDebugTheme", menuName = "SorollaSDK/Debug UI Theme")]
     public class SorollaDebugTheme : ScriptableObject
     {
 
