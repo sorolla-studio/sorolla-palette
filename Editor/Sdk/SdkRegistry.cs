@@ -28,8 +28,10 @@ namespace Sorolla.Editor
         Core,
         /// <summary>Required only in Prototype mode</summary>
         PrototypeOnly,
-        /// <summary>Required only in Full mode</summary>
+        /// <summary>Required only in Full mode, uninstalled in Prototype</summary>
         FullOnly,
+        /// <summary>Required in Full mode, optional in Prototype (never uninstalled)</summary>
+        FullRequired,
         /// <summary>Optional in all modes</summary>
         Optional
     }
@@ -60,6 +62,7 @@ namespace Sorolla.Editor
             SdkRequirement.Core => true,
             SdkRequirement.PrototypeOnly => isPrototype,
             SdkRequirement.FullOnly => !isPrototype,
+            SdkRequirement.FullRequired => !isPrototype,
             _ => false
         };
 
@@ -67,6 +70,7 @@ namespace Sorolla.Editor
         {
             SdkRequirement.PrototypeOnly => !isPrototype,
             SdkRequirement.FullOnly => isPrototype,
+            // FullRequired: never uninstall (optional in Proto)
             _ => false
         };
     }
@@ -140,7 +144,7 @@ namespace Sorolla.Editor
                 Scope = "com.applovin",
                 DetectionAssemblies = new[] { "MaxSdk.Scripts", "applovin" },
                 DetectionTypes = new[] { "MaxSdk, MaxSdk.Scripts", "MaxSdkBase, MaxSdk.Scripts" },
-                Requirement = SdkRequirement.FullOnly
+                Requirement = SdkRequirement.FullRequired
             },
             [SdkId.Adjust] = new()
             {
