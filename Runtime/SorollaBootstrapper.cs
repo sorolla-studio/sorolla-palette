@@ -36,7 +36,9 @@ namespace Sorolla
 
         IEnumerator Initialize()
         {
-#if UNITY_IOS && UNITY_IOS_SUPPORT_INSTALLED
+#if UNITY_EDITOR
+            yield return ShowContextAndRequestEditor();
+#elif UNITY_IOS && UNITY_IOS_SUPPORT_INSTALLED
             var status = ATTrackingStatusBinding.GetAuthorizationTrackingStatus();
 
             if (status == ATTrackingStatusBinding.AuthorizationTrackingStatus.NOT_DETERMINED)

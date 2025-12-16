@@ -35,7 +35,7 @@ namespace Sorolla.ATT
         /// </summary>
         public void RequestAuthorizationTracking()
         {
-#if UNITY_IOS && UNITY_IOS_SUPPORT_INSTALLED
+#if UNITY_IOS && UNITY_IOS_SUPPORT_INSTALLED && !UNITY_EDITOR
             Debug.Log("[Sorolla:ATT] Requesting iOS ATT dialog.");
             ATTrackingStatusBinding.RequestAuthorizationTracking();
             SentTrackingAuthorizationRequest?.Invoke();
