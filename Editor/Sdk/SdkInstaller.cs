@@ -134,13 +134,12 @@ namespace Sorolla.Editor
         {
             var toRemove = new List<string>();
 
+            // Don't check assembly detection - always remove from manifest.
+            // ManifestManager.RemoveDependencies handles non-existent packages gracefully.
             foreach (SdkInfo sdk in SdkRegistry.GetToUninstall(isPrototype))
             {
-                if (SdkDetector.IsInstalled(sdk))
-                {
-                    Debug.Log($"[SorollaSDK] Will uninstall: {sdk.Name}");
-                    toRemove.Add(sdk.PackageId);
-                }
+                Debug.Log($"[SorollaSDK] Will uninstall: {sdk.Name}");
+                toRemove.Add(sdk.PackageId);
             }
 
             if (toRemove.Count > 0)
