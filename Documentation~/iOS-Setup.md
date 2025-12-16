@@ -131,3 +131,41 @@ Output:
   3. In Xcode > Signing & Capabilities: enabled "Automatically manage signing", selected Team.
   4. Added test iPhone to developer devices (Xcode prompts automatically when device connected).
 - **Result**: Build succeeded. App launched on device.
+
+### [2025-12-16 17:11] Facebook SDK Swift Compilation Error
+- **Observation**: Xcode build failed with `Value of type 'TournamentUpdater' has no member 'update'` in `FBSDKTournamentUpdater.swift:48`.
+- **Hypothesis**: The native iOS Facebook SDK (`FBSDKGamingServicesKit`) API changed in 18.0.2. The Unity SDK's Swift wrapper calls a deprecated/removed method.
+- **Action**: Cloned Facebook SDK fork to local `Packages/` folder for editing.
+  - `git clone https://github.com/LaCreArthur/facebook-unity-sdk-upm.git Packages/com.lacrearthur.facebook-sdk-for-unity`
+  - Updated `manifest.json` to use `file:com.lacrearthur.facebook-sdk-for-unity`.
+
+### [2025-12-16 18:10] Facebook SDK iOS Pods Version Fix
+- **Root Cause**: GitHub issue [#766](https://github.com/facebook/facebook-sdk-for-unity/issues/766) confirms `FBSDKGamingServicesKit 18.0.2` has breaking API changes to `TournamentUpdater`, `TournamentFetcher`, and `TournamentConfig`.
+- **Errors**:
+  - `Value of type 'TournamentUpdater' has no member 'update'`
+  - `Value of type 'TournamentFetcher' has no member 'fetchTournaments'`
+  - `'TournamentConfig' cannot be constructed because it has no accessible initializers`
+- **Solution**: Pin iOS pods to **exactly 18.0.1** (not `~> 18.0.1` which allows 18.0.2).
+- **File**: `Packages/com.lacrearthur.facebook-sdk-for-unity/Plugins/Editor/Dependencies.xml`
+- **Change**: `version="~> 18.0.1"` → `version="18.0.1"` for all pods.
+
+### [2025-12-16 18:20] FBAEMKit Dynamic Framework Not Embedded
+- **Error**: `Library not loaded: @rpath/FBAEMKit.framework/FBAEMKit` — app crashes on launch.
+- **Root Cause**: Facebook pods only added to `UnityFramework` target, not `Unity-iPhone`. Dynamic frameworks need to be embedded in the main app target.
+- **Solution**: Add `addToAllTargets="true"` to all Facebook pods in `Dependencies.xml`.
+- **File**: `Packages/com.lacrearthur.facebook-sdk-for-unity/Plugins/Editor/Dependencies.xml`
+
+### [2025-12-16 18:30] ✅ Prototype Mode iOS Build Success
+- **Result**: App builds and launches successfully on device.
+- **SDK Mode**: Prototype (Facebook SDK for UA testing)
+- **Key Fixes Applied**:
+  1. Pin Facebook iOS pods to exactly `18.0.1` (not `~> 18.0.1`) to avoid 18.0.2 TournamentUpdater API breakage.
+  2. Add `addToAllTargets="true"` to all Facebook pods to embed `FBAEMKit.framework` properly.
+- **Logs Confirm**:
+  - `[SorollaSDK] Auto-initializing...`
+  - `[SorollaSDK] Context screen displayed.`
+  - Facebook SDK loading (Graph API requests visible)
+  - Firebase initialized
+- **Minor Warnings** (non-blocking):
+  - `FacebookAdvertiserIDCollectionEnabled is currently set to FALSE` — expected until ATT consent obtained.
+  - `No active account` (ASDErrorDomain) — App Store account not logged in on device; normal for dev builds.

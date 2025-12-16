@@ -48,6 +48,9 @@ namespace Sorolla.Editor
 
             Mode = mode;
 
+            // Update runtime config asset
+            UpdateRuntimeConfig(mode == SorollaMode.Prototype);
+
             // Apply scripting defines
             DefineSymbols.Apply(mode == SorollaMode.Prototype);
 
@@ -59,6 +62,27 @@ namespace Sorolla.Editor
 
             AssetDatabase.Refresh();
             Debug.Log("[SorollaSDK] Mode switch complete.");
+        }
+
+        /// <summary>
+        ///     Update runtime config asset to match current mode
+        /// </summary>
+        static void UpdateRuntimeConfig(bool isPrototype)
+        {
+            var config = Resources.Load<SorollaConfig>("SorollaConfig");
+            if (config == null)
+            {
+                Debug.LogWarning("[SorollaSDK] SorollaConfig not found in Resources. Runtime mode may be incorrect.");
+                return;
+            }
+
+            if (config.isPrototypeMode != isPrototype)
+            {
+                config.isPrototypeMode = isPrototype;
+                EditorUtility.SetDirty(config);
+                AssetDatabase.SaveAssets();
+                Debug.Log($"[SorollaSDK] Updated SorollaConfig.isPrototypeMode = {isPrototype}");
+            }
         }
 
         /// <summary>
