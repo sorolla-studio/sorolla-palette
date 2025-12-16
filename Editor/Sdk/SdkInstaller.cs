@@ -82,12 +82,8 @@ namespace Sorolla.Editor
 
             foreach (SdkInfo sdk in SdkRegistry.GetRequired(isPrototype))
             {
-                bool isInstalled = SdkDetector.IsInstalled(sdk);
-                Debug.Log($"[SorollaSDK] Checking {sdk.Name}: {(isInstalled ? "already installed" : "needs install")}");
-
-                if (isInstalled)
-                    continue;
-
+                // Don't skip based on assembly detection - it's unreliable during mode switches.
+                // ManifestManager.AddDependencies handles idempotency via manifest.json check.
                 Debug.Log($"[SorollaSDK] Will install: {sdk.Name} ({sdk.PackageId})");
 
                 // Add scope to OpenUPM - but NOT for MAX (it uses its own registry)
