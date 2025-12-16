@@ -135,14 +135,14 @@ namespace Sorolla.DebugUI
         {
             SetStatus(AdStatus.Loaded);
             SorollaDebugEvents.RaiseShowToast($"{adType} ready (mock)", ToastType.Info);
-            DebugPanelManager.Instance?.Log($"{adType} loaded (mock)", LogSource.SorollaSDK);
+            DebugPanelManager.Instance?.Log($"{adType} loaded (mock)", LogSource.Sorolla);
         }
 
         void MockAdComplete()
         {
             SetStatus(AdStatus.Idle);
             SorollaDebugEvents.RaiseShowToast($"{adType} completed (mock)", ToastType.Success);
-            DebugPanelManager.Instance?.Log($"{adType} completed (mock)", LogSource.SorollaSDK);
+            DebugPanelManager.Instance?.Log($"{adType} completed (mock)", LogSource.Sorolla);
         }
 #endif
     }
