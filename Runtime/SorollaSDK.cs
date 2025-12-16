@@ -18,7 +18,7 @@ namespace Sorolla
     {
         Start,
         Complete,
-        Fail
+        Fail,
     }
 
     /// <summary>
@@ -29,30 +29,27 @@ namespace Sorolla
         /// <summary>Player gained resources</summary>
         Source,
         /// <summary>Player spent resources</summary>
-        Sink
+        Sink,
     }
 
 
     /// <summary>
-    ///     Main API for Sorolla SDK.
+    ///     Main API for SorollaSDK SDK.
     ///     Provides unified interface for analytics, ads, and attribution.
     ///     Auto-initialized - no manual setup required.
     /// </summary>
-    public static class Sorolla
+    public static class SorollaSDK
     {
-        private const string Tag = "[Sorolla]";
-
-        private static SorollaConfig s_config;
-        private static bool s_consent;
+        const string Tag = "[SorollaSDK]";
 
         /// <summary>Whether the SDK is initialized</summary>
         public static bool IsInitialized { get; private set; }
 
         /// <summary>Current user consent status</summary>
-        public static bool HasConsent => s_consent;
+        public static bool HasConsent { get; private set; }
 
         /// <summary>Current configuration (may be null)</summary>
-        public static SorollaConfig Config => s_config;
+        public static SorollaConfig Config { get; private set; }
 
         /// <summary>Whether a rewarded ad is ready to show</summary>
         public static bool IsRewardedAdReady => IsInitialized && MaxAdapter.IsRewardedAdReady;
@@ -60,98 +57,8 @@ namespace Sorolla
         /// <summary>Whether an interstitial ad is ready to show</summary>
         public static bool IsInterstitialAdReady => IsInitialized && MaxAdapter.IsInterstitialAdReady;
 
-
-        #region Initialization
-
-        /// <summary>
-        ///     Initialize Sorolla SDK. Called automatically by SorollaBootstrapper.
-        ///     Do NOT call directly.
-        /// </summary>
-        public static void Initialize(bool consent)
-        {
-            if (IsInitialized)
-            {
-                Debug.LogWarning($"{Tag} Already initialized.");
-                return;
-            }
-
-            s_consent = consent;
-            s_config = Resources.Load<SorollaConfig>("SorollaConfig");
-
-            var isPrototype = s_config == null || s_config.isPrototypeMode;
-            Debug.Log($"{Tag} Initializing ({(isPrototype ? "Prototype" : "Full")} mode, consent: {consent})...");
-
-            // GameAnalytics (always)
-            GameAnalyticsAdapter.Initialize();
-
-            // Facebook (Prototype mode)
-#if SOROLLA_FACEBOOK_ENABLED
-            if (isPrototype)
-                FacebookAdapter.Initialize(consent);
-#endif
-
-            // MAX (if available) - Adjust will be initialized in MAX callback
-#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-            InitializeMax();
-#elif SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
-            // No MAX, initialize Adjust directly (Full mode only)
-            if (!isPrototype && s_config != null)
-                InitializeAdjust();
-#endif
-
-
-            // Firebase Analytics (optional)
-#if FIREBASE_ANALYTICS_INSTALLED
-            if (s_config != null && s_config.enableFirebaseAnalytics)
-            {
-                Debug.Log($"{Tag} Initializing Firebase Analytics...");
-                FirebaseAdapter.Initialize();
-            }
-            else
-            {
-                Debug.Log($"{Tag} Firebase Analytics disabled (config: {s_config != null}, enabled: {s_config?.enableFirebaseAnalytics})");
-            }
-#endif
-
-            // Firebase Crashlytics (optional)
-#if FIREBASE_CRASHLYTICS_INSTALLED
-            if (s_config != null && s_config.enableCrashlytics)
-            {
-                Debug.Log($"{Tag} Initializing Firebase Crashlytics...");
-                FirebaseCrashlyticsAdapter.Initialize(captureUncaughtExceptions: true);
-            }
-            else
-            {
-                Debug.Log($"{Tag} Firebase Crashlytics disabled (config: {s_config != null}, enabled: {s_config?.enableCrashlytics})");
-            }
-#endif
-
-            // Firebase Remote Config (optional)
-#if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (s_config != null && s_config.enableRemoteConfig)
-            {
-                Debug.Log($"{Tag} Initializing Firebase Remote Config...");
-                FirebaseRemoteConfigAdapter.Initialize(autoFetch: true);
-            }
-            else
-            {
-                Debug.Log($"{Tag} Firebase Remote Config disabled (config: {s_config != null}, enabled: {s_config?.enableRemoteConfig})");
-            }
-#endif
-
-            IsInitialized = true;
-            Debug.Log($"{Tag} Ready!");
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool EnsureInit()
-        {
-            if (IsInitialized) return true;
-            Debug.LogWarning($"{Tag} Not initialized. Events may be lost.");
-            return false;
-        }
-
-        #endregion
+        /// <summary>Event fired when SDK initialization completes</summary>
+        public static event Action OnInitialized;
 
         #region Analytics - Progression
 
@@ -164,14 +71,14 @@ namespace Sorolla
             if (!EnsureInit()) return;
 
 #if GAMEANALYTICS_INSTALLED
-            var gaStatus = ToGA(status);
+            GAProgressionStatus gaStatus = ToGA(status);
             GameAnalyticsAdapter.TrackProgressionEvent(gaStatus, progression01, progression02, progression03, score);
 #else
             GameAnalyticsAdapter.TrackProgressionEvent(status.ToString().ToLower(), progression01, progression02, progression03, score);
 #endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
-            if (s_config != null && s_config.enableFirebaseAnalytics)
+            if (Config != null && Config.enableFirebaseAnalytics)
                 FirebaseAdapter.TrackProgressionEvent(status.ToString().ToLower(), progression01, progression02, progression03, score);
 #endif
         }
@@ -196,7 +103,7 @@ namespace Sorolla
 #endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
-            if (s_config != null && s_config.enableFirebaseAnalytics)
+            if (Config != null && Config.enableFirebaseAnalytics)
                 FirebaseAdapter.TrackDesignEvent(eventName, value);
 #endif
         }
@@ -214,16 +121,133 @@ namespace Sorolla
             if (!EnsureInit()) return;
 
 #if GAMEANALYTICS_INSTALLED
-            var gaFlow = ToGA(flowType);
+            GAResourceFlowType gaFlow = ToGA(flowType);
             GameAnalyticsAdapter.TrackResourceEvent(gaFlow, currency, amount, itemType, itemId);
 #else
             GameAnalyticsAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId);
 #endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
-            if (s_config != null && s_config.enableFirebaseAnalytics)
+            if (Config != null && Config.enableFirebaseAnalytics)
                 FirebaseAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId);
 #endif
+        }
+
+        #endregion
+
+        #region Attribution
+
+#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+        static void InitializeAdjust()
+        {
+            if (string.IsNullOrEmpty(Config.adjustAppToken))
+            {
+                Debug.LogError($"{Tag} Adjust App Token not configured.");
+                return;
+            }
+
+            AdjustEnvironment environment = Config.adjustSandboxMode
+                ? AdjustEnvironment.Sandbox
+                : AdjustEnvironment.Production;
+
+            Debug.Log($"{Tag} Initializing Adjust ({environment})...");
+            AdjustAdapter.Initialize(Config.adjustAppToken, environment);
+        }
+
+#endif
+
+        #endregion
+
+
+        #region Initialization
+
+        /// <summary>
+        ///     Initialize SorollaSDK SDK. Called automatically by SorollaBootstrapper.
+        ///     Do NOT call directly.
+        /// </summary>
+        public static void Initialize(bool consent)
+        {
+            if (IsInitialized)
+            {
+                Debug.LogWarning($"{Tag} Already initialized.");
+                return;
+            }
+
+            HasConsent = consent;
+            Config = Resources.Load<SorollaConfig>("SorollaConfig");
+
+            bool isPrototype = Config == null || Config.isPrototypeMode;
+            Debug.Log($"{Tag} Initializing ({(isPrototype ? "Prototype" : "Full")} mode, consent: {consent})...");
+
+            // GameAnalytics (always)
+            GameAnalyticsAdapter.Initialize();
+
+            // Facebook (Prototype mode)
+#if SOROLLA_FACEBOOK_ENABLED
+            if (isPrototype)
+                FacebookAdapter.Initialize(consent);
+#endif
+
+            // MAX (if available) - Adjust will be initialized in MAX callback
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            InitializeMax();
+#elif SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+            // No MAX, initialize Adjust directly (Full mode only)
+            if (!isPrototype && s_config != null)
+                InitializeAdjust();
+#endif
+
+
+            // Firebase Analytics (optional)
+#if FIREBASE_ANALYTICS_INSTALLED
+            if (Config != null && Config.enableFirebaseAnalytics)
+            {
+                Debug.Log($"{Tag} Initializing Firebase Analytics...");
+                FirebaseAdapter.Initialize();
+            }
+            else
+            {
+                Debug.Log($"{Tag} Firebase Analytics disabled (config: {Config != null}, enabled: {Config?.enableFirebaseAnalytics})");
+            }
+#endif
+
+            // Firebase Crashlytics (optional)
+#if FIREBASE_CRASHLYTICS_INSTALLED
+            if (Config != null && Config.enableCrashlytics)
+            {
+                Debug.Log($"{Tag} Initializing Firebase Crashlytics...");
+                FirebaseCrashlyticsAdapter.Initialize(captureUncaughtExceptions: true);
+            }
+            else
+            {
+                Debug.Log($"{Tag} Firebase Crashlytics disabled (config: {Config != null}, enabled: {Config?.enableCrashlytics})");
+            }
+#endif
+
+            // Firebase Remote Config (optional)
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+            if (Config != null && Config.enableRemoteConfig)
+            {
+                Debug.Log($"{Tag} Initializing Firebase Remote Config...");
+                FirebaseRemoteConfigAdapter.Initialize(autoFetch: true);
+            }
+            else
+            {
+                Debug.Log($"{Tag} Firebase Remote Config disabled (config: {Config != null}, enabled: {Config?.enableRemoteConfig})");
+            }
+#endif
+
+            IsInitialized = true;
+            OnInitialized?.Invoke();
+            Debug.Log($"{Tag} Ready!");
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static bool EnsureInit()
+        {
+            if (IsInitialized) return true;
+            Debug.LogWarning($"{Tag} Not initialized. Events may be lost.");
+            return false;
         }
 
         #endregion
@@ -231,26 +255,26 @@ namespace Sorolla
         #region Remote Config
 
         /// <summary>
-        /// Check if Remote Config is ready (Firebase if enabled, otherwise GameAnalytics)
+        ///     Check if Remote Config is ready (Firebase if enabled, otherwise GameAnalytics)
         /// </summary>
         public static bool IsRemoteConfigReady()
         {
             if (!IsInitialized) return false;
-            
+
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (s_config != null && s_config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+            if (Config != null && Config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
                 return true;
 #endif
             return GameAnalyticsAdapter.IsRemoteConfigReady();
         }
 
         /// <summary>
-        /// Fetch Remote Config values. Fetches from Firebase if enabled, GameAnalytics is always ready.
+        ///     Fetch Remote Config values. Fetches from Firebase if enabled, GameAnalytics is always ready.
         /// </summary>
         public static void FetchRemoteConfig(Action<bool> onComplete = null)
         {
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (s_config != null && s_config.enableRemoteConfig)
+            if (Config != null && Config.enableRemoteConfig)
             {
                 FirebaseRemoteConfigAdapter.FetchAndActivate(onComplete);
                 return;
@@ -261,68 +285,68 @@ namespace Sorolla
         }
 
         /// <summary>
-        /// Get Remote Config string value. Checks Firebase first (if enabled), then GameAnalytics.
+        ///     Get Remote Config string value. Checks Firebase first (if enabled), then GameAnalytics.
         /// </summary>
         public static string GetRemoteConfig(string key, string defaultValue = "")
         {
             if (!IsInitialized) return defaultValue;
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (s_config != null && s_config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+            if (Config != null && Config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
             {
-                var value = FirebaseRemoteConfigAdapter.GetString(key, null);
+                string value = FirebaseRemoteConfigAdapter.GetString(key, null);
                 if (value != null) return value;
             }
 #endif
             // Fallback to GameAnalytics
-            var gaValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
+            string gaValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
             return gaValue ?? defaultValue;
         }
 
         /// <summary>
-        /// Get Remote Config int value. Checks Firebase first (if enabled), then GameAnalytics.
+        ///     Get Remote Config int value. Checks Firebase first (if enabled), then GameAnalytics.
         /// </summary>
         public static int GetRemoteConfigInt(string key, int defaultValue = 0)
         {
             if (!IsInitialized) return defaultValue;
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (s_config != null && s_config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+            if (Config != null && Config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
                 return FirebaseRemoteConfigAdapter.GetInt(key, defaultValue);
 #endif
-            var strValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
-            return strValue != null && int.TryParse(strValue, out var r) ? r : defaultValue;
+            string strValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
+            return strValue != null && int.TryParse(strValue, out int r) ? r : defaultValue;
         }
 
         /// <summary>
-        /// Get Remote Config float value. Checks Firebase first (if enabled), then GameAnalytics.
+        ///     Get Remote Config float value. Checks Firebase first (if enabled), then GameAnalytics.
         /// </summary>
         public static float GetRemoteConfigFloat(string key, float defaultValue = 0f)
         {
             if (!IsInitialized) return defaultValue;
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (s_config != null && s_config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+            if (Config != null && Config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
                 return FirebaseRemoteConfigAdapter.GetFloat(key, defaultValue);
 #endif
-            var strValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
-            return strValue != null && float.TryParse(strValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var r) 
+            string strValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
+            return strValue != null && float.TryParse(strValue, NumberStyles.Float, CultureInfo.InvariantCulture, out float r)
                 ? r : defaultValue;
         }
 
         /// <summary>
-        /// Get Remote Config bool value. Checks Firebase first (if enabled), then GameAnalytics.
+        ///     Get Remote Config bool value. Checks Firebase first (if enabled), then GameAnalytics.
         /// </summary>
         public static bool GetRemoteConfigBool(string key, bool defaultValue = false)
         {
             if (!IsInitialized) return defaultValue;
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (s_config != null && s_config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+            if (Config != null && Config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
                 return FirebaseRemoteConfigAdapter.GetBool(key, defaultValue);
 #endif
-            var strValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
-            return strValue != null && bool.TryParse(strValue, out var r) ? r : defaultValue;
+            string strValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
+            return strValue != null && bool.TryParse(strValue, out bool r) ? r : defaultValue;
         }
 
         #endregion
@@ -334,7 +358,7 @@ namespace Sorolla
         {
 #if FIREBASE_CRASHLYTICS_INSTALLED
             if (!EnsureInit()) return;
-            if (s_config != null && s_config.enableCrashlytics)
+            if (Config != null && Config.enableCrashlytics)
                 FirebaseCrashlyticsAdapter.LogException(exception);
 #endif
         }
@@ -344,7 +368,7 @@ namespace Sorolla
         {
 #if FIREBASE_CRASHLYTICS_INSTALLED
             if (!EnsureInit()) return;
-            if (s_config != null && s_config.enableCrashlytics)
+            if (Config != null && Config.enableCrashlytics)
                 FirebaseCrashlyticsAdapter.Log(message);
 #endif
         }
@@ -354,7 +378,7 @@ namespace Sorolla
         {
 #if FIREBASE_CRASHLYTICS_INSTALLED
             if (!EnsureInit()) return;
-            if (s_config != null && s_config.enableCrashlytics)
+            if (Config != null && Config.enableCrashlytics)
                 FirebaseCrashlyticsAdapter.SetCustomKey(key, value);
 #endif
         }
@@ -364,33 +388,33 @@ namespace Sorolla
         #region Ads
 
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-        private static void InitializeMax()
+        static void InitializeMax()
         {
-            if (s_config == null || string.IsNullOrEmpty(s_config.maxSdkKey))
+            if (Config == null || string.IsNullOrEmpty(Config.maxSdkKey))
             {
                 Debug.LogWarning($"{Tag} MAX SDK Key not configured.");
                 return;
             }
 
             Debug.Log($"{Tag} Initializing AppLovin MAX...");
-            
+
             // Subscribe to ad loading state changes for loading overlay
             MaxAdapter.OnAdLoadingStateChanged += OnMaxAdLoadingStateChanged;
-            
+
             // Subscribe to SDK initialized event to init Adjust (per MAX docs)
             MaxAdapter.OnSdkInitialized += OnMaxSdkInitialized;
-            
-            MaxAdapter.Initialize(s_config.maxSdkKey, s_config.maxRewardedAdUnitId,
-                s_config.maxInterstitialAdUnitId, s_config.maxBannerAdUnitId);
+
+            MaxAdapter.Initialize(Config.maxSdkKey, Config.maxRewardedAdUnitId,
+                Config.maxInterstitialAdUnitId, Config.maxBannerAdUnitId, HasConsent);
         }
-        
-        private static void OnMaxSdkInitialized()
+
+        static void OnMaxSdkInitialized()
         {
             // Per MAX SDK docs: Initialize other SDKs (like Adjust) INSIDE the MAX callback
             // to ensure proper consent flow handling
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
-            var isPrototype = s_config == null || s_config.isPrototypeMode;
-            if (!isPrototype && s_config != null)
+            bool isPrototype = Config == null || Config.isPrototypeMode;
+            if (!isPrototype && Config != null)
             {
                 InitializeAdjust();
             }
@@ -398,7 +422,7 @@ namespace Sorolla
         }
 
 
-        private static void OnMaxAdLoadingStateChanged(AdType adType, bool isLoading)
+        static void OnMaxAdLoadingStateChanged(AdType adType, bool isLoading)
         {
             if (isLoading)
                 SorollaLoadingOverlay.Show($"Loading {adType} ad...");
@@ -433,51 +457,27 @@ namespace Sorolla
 
         #endregion
 
-        #region Attribution
-
-#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
-        private static void InitializeAdjust()
-        {
-            if (string.IsNullOrEmpty(s_config.adjustAppToken))
-            {
-                Debug.LogError($"{Tag} Adjust App Token not configured.");
-                return;
-            }
-
-            var environment = s_config.adjustSandboxMode 
-                ? AdjustEnvironment.Sandbox 
-                : AdjustEnvironment.Production;
-
-            Debug.Log($"{Tag} Initializing Adjust ({environment})...");
-            AdjustAdapter.Initialize(s_config.adjustAppToken, environment);
-        }
-
-#endif
-
-        #endregion
-
         #region Internal
 
 #if GAMEANALYTICS_INSTALLED
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static GAProgressionStatus ToGA(ProgressionStatus s) => s switch
+        static GAProgressionStatus ToGA(ProgressionStatus s) => s switch
         {
             ProgressionStatus.Start => GAProgressionStatus.Start,
             ProgressionStatus.Complete => GAProgressionStatus.Complete,
             ProgressionStatus.Fail => GAProgressionStatus.Fail,
-            _ => GAProgressionStatus.Start
+            _ => GAProgressionStatus.Start,
         };
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static GAResourceFlowType ToGA(ResourceFlowType f) => f switch
+        static GAResourceFlowType ToGA(ResourceFlowType f) => f switch
         {
             ResourceFlowType.Source => GAResourceFlowType.Source,
             ResourceFlowType.Sink => GAResourceFlowType.Sink,
-            _ => GAResourceFlowType.Source
+            _ => GAResourceFlowType.Source,
         };
 #endif
 
         #endregion
     }
 }
-

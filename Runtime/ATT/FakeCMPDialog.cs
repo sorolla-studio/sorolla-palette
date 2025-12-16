@@ -30,7 +30,7 @@ namespace Sorolla.ATT
 
         void HandleDecision(bool accepted)
         {
-            Debug.Log($"[Sorolla:CMP] Fake CMP decision: {(accepted ? "Accepted" : "Rejected")}");
+            Debug.Log($"[SorollaSDK:CMP] Fake CMP decision: {(accepted ? "Accepted" : "Rejected")}");
             OnDecision?.Invoke(accepted);
             Destroy(gameObject);
         }
@@ -43,12 +43,12 @@ namespace Sorolla.ATT
             var prefab = Resources.Load<GameObject>("FakeCMPDialog");
             if (prefab == null)
             {
-                Debug.LogWarning("[Sorolla:CMP] FakeCMPDialog prefab not found. Run Sorolla > ATT > Create Fake CMP Popup Prefab");
+                Debug.LogWarning("[SorollaSDK:CMP] FakeCMPDialog prefab not found. Run SorollaSDK > ATT > Create Fake CMP Popup Prefab");
                 onDecision?.Invoke(true); // Default to accepted
                 return;
             }
 
-            var instance = Instantiate(prefab);
+            GameObject instance = Instantiate(prefab);
             var dialog = instance.GetComponent<FakeCMPDialog>();
             dialog.OnDecision += onDecision;
         }

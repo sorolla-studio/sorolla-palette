@@ -30,7 +30,7 @@ namespace Sorolla.ATT
 
         void HandleDecision(bool allowed)
         {
-            Debug.Log($"[Sorolla:ATT] Fake ATT decision: {(allowed ? "Allowed" : "Denied")}");
+            Debug.Log($"[SorollaSDK:ATT] Fake ATT decision: {(allowed ? "Allowed" : "Denied")}");
             OnDecision?.Invoke(allowed);
             Destroy(gameObject);
         }
@@ -43,12 +43,12 @@ namespace Sorolla.ATT
             var prefab = Resources.Load<GameObject>("FakeATTDialog");
             if (prefab == null)
             {
-                Debug.LogWarning("[Sorolla:ATT] FakeATTDialog prefab not found. Run Sorolla > ATT > Create Fake ATT Popup Prefab");
+                Debug.LogWarning("[SorollaSDK:ATT] FakeATTDialog prefab not found. Run SorollaSDK > ATT > Create Fake ATT Popup Prefab");
                 onDecision?.Invoke(true); // Default to allowed
                 return;
             }
 
-            var instance = Instantiate(prefab);
+            GameObject instance = Instantiate(prefab);
             var dialog = instance.GetComponent<FakeATTDialog>();
             dialog.OnDecision += onDecision;
         }

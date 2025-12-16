@@ -3,11 +3,11 @@ using UnityEngine;
 namespace Sorolla
 {
     /// <summary>
-    ///     Configuration asset for Sorolla SDK.
-    ///     Create via: Assets > Create > Sorolla > Config
+    ///     Configuration asset for SorollaSDK SDK.
+    ///     Create via: Assets > Create > SorollaSDK > Config
     ///     Save to: Assets/Resources/SorollaConfig.asset
     /// </summary>
-    [CreateAssetMenu(fileName = "SorollaConfig", menuName = "Sorolla/Config", order = 1)]
+    [CreateAssetMenu(fileName = "SorollaConfig", menuName = "SorollaSDK/Config", order = 1)]
     public class SorollaConfig : ScriptableObject
     {
         [Header("Mode")]
@@ -58,13 +58,13 @@ namespace Sorolla
             // Full mode requires MAX and Adjust
             if (string.IsNullOrEmpty(maxSdkKey))
             {
-                Debug.LogError("[Sorolla] MAX SDK Key required in Full Mode");
+                Debug.LogError("[SorollaSDK] MAX SDK Key required in Full Mode");
                 return false;
             }
 
             if (string.IsNullOrEmpty(adjustAppToken))
             {
-                Debug.LogError("[Sorolla] Adjust App Token required in Full Mode");
+                Debug.LogError("[SorollaSDK] Adjust App Token required in Full Mode");
                 return false;
             }
 

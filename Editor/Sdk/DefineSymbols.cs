@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Sorolla.Editor
 {
     /// <summary>
-    ///     Manages scripting define symbols for Sorolla SDK.
+    ///     Manages scripting define symbols for SorollaSDK SDK.
     /// </summary>
     public static class DefineSymbols
     {
@@ -39,7 +39,7 @@ namespace Sorolla.Editor
                 .Distinct()
                 .ToList();
 
-            var hasDefine = defines.Contains(define);
+            bool hasDefine = defines.Contains(define);
 
             if (enabled && !hasDefine)
             {
@@ -54,9 +54,9 @@ namespace Sorolla.Editor
                 return; // No change needed
             }
 
-            var newSymbols = string.Join(";", defines);
+            string newSymbols = string.Join(";", defines);
             PlayerSettings.SetScriptingDefineSymbols(target, newSymbols);
-            Debug.Log($"[Sorolla] Defines for {target}: {newSymbols}");
+            Debug.Log($"[SorollaSDK] Defines for {target}: {newSymbols}");
         }
     }
 }
