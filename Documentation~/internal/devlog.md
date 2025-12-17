@@ -25,6 +25,57 @@
 
 ---
 
+## 2025-12-17: Public/Internal Documentation Split
+
+**Changes**:
+- Split documentation into public and internal sections
+- Created `internal/` directory for SDK development docs
+- Added competitive analysis (VoodooSauce, Homa Belly)
+- Added market research (developer pain points, trends)
+- Added product roadmap (v2.2-v3.1 planning)
+- Moved ai-agents.md, plan.md, devlog.md, architecture.md to internal/
+- Created contributing.md for public contributor guide
+
+**New Structure**:
+```
+Documentation~/
+├── getting-started.md       ← Public: Quick start
+├── prototype-setup.md       ← Public: Prototype mode
+├── full-setup.md            ← Public: Full mode
+├── firebase.md              ← Public: Firebase add-on
+├── api-reference.md         ← Public: API docs
+├── troubleshooting.md       ← Public: Issues/fixes
+├── contributing.md          ← Public: How to contribute
+└── internal/
+    ├── README.md            ← Internal index
+    ├── ai-agents.md         ← AI agent guide
+    ├── architecture.md      ← Technical deep-dive
+    ├── plan.md              ← Sprint/backlog
+    ├── devlog.md            ← Change history
+    ├── competitive-analysis.md  ← Competition research
+    ├── market-research.md   ← Developer needs
+    └── product-roadmap.md   ← Feature planning
+```
+
+**Learnings**:
+- Public docs should focus on "how to use"
+- Internal docs should focus on "how to develop" and "why decisions"
+- Competitive analysis valuable for product decisions
+- Developer pain points inform feature prioritization
+
+**Hindsight Insights**:
+- For product decisions: competitive-analysis.md → product-roadmap.md
+- For feature requests: market-research.md → plan.md
+- Public docs: ../getting-started.md (relative from internal/)
+- Internal docs contain sensitive competitive intelligence
+
+**Metrics**:
+- Public docs: 7 files (~3,500 tokens)
+- Internal docs: 8 files (~5,000 tokens)
+- Total: 15 files covering both audiences
+
+---
+
 ## 2025-12-17: Documentation Reorganization (Developer-First)
 
 **Changes**:
