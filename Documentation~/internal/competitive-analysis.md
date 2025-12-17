@@ -1,7 +1,7 @@
 # Competitive Analysis
 
 > **Last Updated**: 2025-12-17
-> **Status**: Active research
+> **Status**: Active research (expanded)
 
 Analysis of competing mobile game publishing SDKs and market positioning.
 
@@ -9,9 +9,11 @@ Analysis of competing mobile game publishing SDKs and market positioning.
 
 ## Executive Summary
 
-Sorolla SDK competes in the mobile game publishing SDK market alongside established players like VoodooSauce and Homa Belly. Our differentiation lies in **zero-config simplicity** and **publisher-agnostic** design.
+Sorolla SDK competes in the mobile game publishing SDK market alongside established players like VoodooSauce, Homa Belly, CrazyLabs CLIK, and ByteBrew. Our differentiation lies in **zero-config simplicity** and **publisher-agnostic** design.
 
 **Current Position**: Solid "80% solution" - covers core needs well but lacks advanced features.
+
+**Key Insight**: The market is bifurcating between publisher-locked SDKs (Voodoo, Homa, CrazyLabs) and independent all-in-one platforms (ByteBrew). Sorolla occupies a unique middle ground: publisher-agnostic but not all-in-one.
 
 ---
 
@@ -80,49 +82,218 @@ Sorolla SDK competes in the mobile game publishing SDK market alongside establis
 
 ---
 
-### Other Players
+### CrazyLabs CLIK
 
-#### Supersonic (Unity)
-- Part of Unity/ironSource ecosystem
-- Focus on hyper-casual publishing
-- Strong UA and monetization optimization
+**Company**: CrazyLabs - #3 mobile game publisher globally
+**Scale**: 6.5+ billion downloads, 250+ million MAU
 
-#### GameAnalytics (Standalone)
-- Free analytics platform
-- D1-D30 retention, cohort analysis
-- Remote config capabilities
-- Widely used as foundation
+**SDK Features (CLIK Plugin)**:
+- 10-minute integration promise
+- Seamless attribution, analytics, ads, IAP, A/B testing
+- Privacy compliance built-in
+- Cloud-based build system (connects to Git, builds remotely)
+- Comprehensive testing: iOS, Google Play, Facebook, TikTok, Google Ads, SDK networks
 
-#### Adjust (MMP)
-- Attribution tracking leader
-- Fraud prevention
-- Deep linking
-- Often paired with other SDKs
+**Unique Offerings**:
+- **Publishing For All (PFA)**: Developers profit from games even if they fail to scale
+- Access to 300+ gaming professionals (product, design, data analytics)
+- Metrics beyond CPI: Day 1 retention, 24-hour playtime, CVR, CTR
+
+**Strengths**:
+- Robust testing infrastructure
+- Developer-friendly revenue sharing
+- Cloud build system
+
+**Weaknesses**:
+- Publisher partnership still required
+- Less documentation publicly available
+
+**Source**: [CrazyLabs Technology](https://www.crazylabs.com/technology/)
+
+---
+
+### ByteBrew (Independent All-in-One)
+
+**Company**: ByteBrew - Free all-in-one platform
+**Model**: No publisher lock-in, free to use
+
+**SDK Features**:
+- Real-time analytics (DAU, session length, retention)
+- Monetization tracking (IAP + ad revenue)
+- Attribution (integrated with top ad networks + SKAdNetwork)
+- Remote configs (single values + grouped/rotating configs)
+- A/B testing
+- Push notifications (one-line integration)
+- ATT handling built-in
+
+**Technical Details**:
+- Android 5.1+, iOS 9.0+
+- Server-side purchase validation (fraud prevention)
+- Impression-level ad tracking
+- Creative-level campaign attribution
+
+**Unique Features**:
+- "Incredibly lightweight" - claims no other 3rd party SDK needed
+- Rotating shop items via grouped configs
+- Custom dashboard builders
+
+**Strengths**:
+- Completely free
+- All-in-one (no additional SDKs)
+- Publisher-independent
+
+**Weaknesses**:
+- Less established brand
+- Smaller data network than publishers
+- No dedicated publishing support
+
+**Source**: [ByteBrew SDK](https://bytebrew.io/)
+
+---
+
+### LevelPlay/ironSource (Unity)
+
+**Company**: Unity (acquired ironSource 2022)
+**Scale**: Merged ecosystem, one of largest monetization platforms
+
+**SDK Features**:
+- Ad mediation across multiple networks
+- Waterfall and bidding optimization
+- Real-time analytics and reporting
+- All ad formats (rewarded, interstitial, banner, offerwall)
+- A/B testing capabilities
+
+**Technical Details**:
+- Deep Unity integration
+- Supersonic Studios publishing arm
+- Self-serve publishing platform
+
+**Strengths**:
+- Native Unity integration
+- Massive scale
+- Self-serve options available
+
+**Weaknesses**:
+- Complex ecosystem post-merger
+- Primarily monetization-focused
+
+---
+
+### GameAnalytics (Foundation Layer)
+
+**Company**: GameAnalytics - Free analytics platform
+**Model**: Free core, premium features available
+
+**SDK Features**:
+- D1-D30 retention tracking
+- Cohort analysis
+- Remote configs with A/B testing
+- Custom event tracking
+- Level progression analytics
+
+**A/B Testing API**:
+```csharp
+GameAnalytics.GetABTestingId();
+GameAnalytics.GetABTestingVariantId();
+GameAnalytics.IsRemoteConfigsReady();
+GameAnalytics.OnRemoteConfigsUpdatedEvent += handler;
+```
+
+**Key Insight**: GA's remote config is available when `IsRemoteConfigsReady()` returns true. A/B test IDs depend on remote config readiness.
+
+**Strengths**:
+- Free and widely adopted
+- Strong retention analytics
+- Good remote config system
+
+**Weaknesses**:
+- No monetization features
+- No attribution
+- Must be paired with other SDKs
+
+**Source**: [GameAnalytics Docs](https://docs.gameanalytics.com/)
+
+---
+
+### Attribution SDK Landscape
+
+#### AppsFlyer (Market Leader)
+- **Android**: 48% integration reach (Sep 2024)
+- **iOS**: Leading position
+- **Gaming**: 40% of gaming apps
+- Features: Attribution, deep linking, fraud prevention
+
+#### Adjust
+- **Android**: ~30% market share
+- **iOS**: 19% market share
+- Features: Attribution, deep linking (LinkMe), reattribution, SKAN support
+- SDK v5: Spoofing protection built-in
+
+#### Branch Metrics
+- **iOS**: 28% market share (higher than Adjust on iOS)
+- Focus: Deep linking specialist
+
+#### AppMetrica (Yandex)
+- ~24% of apps use it
+- Popular in certain regions
+
+**Sorolla uses Adjust** - solid choice at #2 market position with strong features.
 
 ---
 
 ## Feature Comparison Matrix
 
-| Feature | VoodooSauce | Homa Belly | Sorolla SDK |
-|---------|-------------|------------|-------------|
+### Publisher SDKs vs Sorolla
+
+| Feature | VoodooSauce | Homa Belly | CrazyLabs CLIK | Sorolla SDK |
+|---------|-------------|------------|----------------|-------------|
+| **Zero-Config Init** | ❌ | ❌ | ❌ | ✅ Best-in-class |
+| **Analytics** | ✅ | ✅ | ✅ | ✅ |
+| **Rewarded Ads** | ✅ | ✅ | ✅ | ✅ |
+| **Interstitial Ads** | ✅ | ✅ | ✅ | ✅ |
+| **Banner Ads** | ✅ | ✅ | ✅ | ⚠️ Partial |
+| **App Open Ads** | ✅ | ✅ | ✅ | ❌ |
+| **Attribution** | ✅ | ✅ | ✅ | ✅ |
+| **Remote Config** | ✅ | ✅ | ✅ | ✅ |
+| **A/B Testing UI** | ✅ | ✅ (N-testing) | ✅ | ❌ |
+| **Cross-Promotion** | ✅ | ✅ | ✅ | ❌ |
+| **User Segmentation** | ✅ | ✅ | ✅ | ❌ |
+| **LTV Prediction** | ✅ | ✅ | ✅ | ❌ |
+| **GDPR/UMP Consent** | ✅ | ✅ | ✅ | ⚠️ ATT only |
+| **IAP Tracking** | ✅ | ✅ | ✅ | ❌ |
+| **Deep Linking** | ✅ | ✅ | ✅ | ❌ |
+| **Cloud Build** | ❌ | ❌ | ✅ | ❌ |
+| **Publisher-Agnostic** | ❌ | ❌ | ❌ | ✅ |
+| **Open Source** | ❌ | ❌ | ❌ | ✅ |
+
+### Independent SDKs vs Sorolla
+
+| Feature | ByteBrew | GameAnalytics | Sorolla SDK |
+|---------|----------|---------------|-------------|
 | **Zero-Config Init** | ❌ | ❌ | ✅ Best-in-class |
 | **Analytics** | ✅ | ✅ | ✅ |
-| **Rewarded Ads** | ✅ | ✅ | ✅ |
-| **Interstitial Ads** | ✅ | ✅ | ✅ |
-| **Banner Ads** | ✅ | ✅ | ⚠️ Partial |
-| **App Open Ads** | ✅ | ✅ | ❌ |
-| **Attribution** | ✅ | ✅ | ✅ |
-| **Remote Config** | ✅ | ✅ | ✅ |
-| **A/B Testing UI** | ✅ | ✅ | ❌ |
-| **Cross-Promotion** | ✅ | ✅ | ❌ |
-| **User Segmentation** | ✅ | ✅ | ❌ |
-| **LTV Prediction** | ✅ | ✅ | ❌ |
-| **GDPR/UMP Consent** | ✅ | ✅ | ⚠️ ATT only |
-| **IAP Tracking** | ✅ | ✅ | ❌ |
-| **Deep Linking** | ✅ | ✅ | ❌ |
-| **No-Code Config** | ⚠️ | ✅ | ⚠️ Partial |
-| **Publisher-Agnostic** | ❌ | ❌ | ✅ |
+| **Ads Integration** | ❌ (tracking only) | ❌ | ✅ |
+| **Attribution** | ✅ | ❌ | ✅ |
+| **Remote Config** | ✅ (grouped configs) | ✅ | ✅ |
+| **A/B Testing** | ✅ | ✅ | ❌ |
+| **IAP Tracking** | ✅ (with validation) | ❌ | ❌ |
+| **Push Notifications** | ✅ | ❌ | ❌ |
+| **Crashlytics** | ❌ | ❌ | ✅ (Firebase) |
+| **Free** | ✅ | ✅ | ✅ |
+| **Publisher-Agnostic** | ✅ | ✅ | ✅ |
 | **Open Source** | ❌ | ❌ | ✅ |
+
+### Technical Requirements Comparison
+
+| Requirement | Homa Belly | Sorolla SDK | Notes |
+|-------------|------------|-------------|-------|
+| Unity Version | 2022.3 LTS+ | 2022.3 LTS+ | Same |
+| Android Min | API 24 | API 21 | Sorolla more permissive |
+| Android Target | API 34+ | API 34+ | Same |
+| iOS Min | 13.0+ | 12.0+ | Sorolla more permissive |
+| Scripting Backend | IL2CPP only | Mono or IL2CPP | Sorolla more flexible |
+| Stripping Level | Low or below | Any | Sorolla more flexible |
+| CocoaPods | Required | Required | Same |
 
 ---
 
@@ -211,16 +382,64 @@ Sorolla SDK competes in the mobile game publishing SDK market alongside establis
 
 ---
 
+## Market Statistics (2024)
+
+### Publisher Scale
+| Publisher | Downloads | MAU | Games |
+|-----------|-----------|-----|-------|
+| Voodoo | 7B+ | - | 100+ |
+| CrazyLabs | 6.5B+ | 250M+ | - |
+| Homa Games | 2B+ | - | 80+ |
+
+### Market Share (Hyper-Casual)
+- Hyper-casual games: ~33% of all mobile game downloads (2024)
+- **Rollic** leading hybrid-casual transition
+- **Abi Game, Boombit, Lion, Voodoo** following
+- **Tapnation, Supersonic, Supercent, Kwalee** holding ad revenue positions
+
+### SDK Market Share (Analytics)
+| SDK | Android Gaming | Notes |
+|-----|----------------|-------|
+| Facebook Analytics | 25% | 1 in 4 gaming apps |
+| GameAnalytics | 11% | Gaming-focused |
+| Flurry | <1% Android, 19% iOS | Platform variance |
+| Others | <3% each | Fragmented |
+
+### Monetization Trends
+- **Hybrid monetization** (ads + IAP + subscriptions) growing
+- **eCPM increasing** due to hybrid-casual games
+- **In-app bidding** now dominant over waterfall
+
+---
+
 ## Monitoring
 
 ### Competitors to Watch
 - [ ] VoodooSauce new features (monthly check)
 - [ ] Homa SDK changelog (monthly check)
+- [ ] CrazyLabs CLIK updates (monthly check)
+- [ ] ByteBrew new features (monthly check)
 - [ ] Unity Gaming Services changes
 - [ ] AppLovin MAX SDK updates
 
 ### Industry Trends
 - [ ] Privacy regulations (GDPR, CCPA, DMA)
 - [ ] Apple ATT changes
-- [ ] Google Privacy Sandbox
+- [ ] Google Privacy Sandbox for Android
 - [ ] Ad mediation consolidation
+- [ ] Hybrid-casual game growth
+- [ ] AI integration in SDKs
+
+---
+
+## Sources
+
+- [Voodoo Publishing](https://voodoo.io/publishing)
+- [Homa SDK Documentation](https://sdk.homagames.com/docs/main/main.html)
+- [CrazyLabs Technology](https://www.crazylabs.com/technology/)
+- [ByteBrew SDK](https://bytebrew.io/)
+- [AppLovin MAX Unity](https://support.axon.ai/en/max/unity/overview/integration/)
+- [GameAnalytics Docs](https://docs.gameanalytics.com/)
+- [Adjust Developer Hub](https://dev.adjust.com/en/sdk/unity/)
+- [Mobio Group SDK Analysis 2024](https://mobiogroup.com/android-and-ios-sdks-the-leaders-of-2024-mobio-group/)
+- [Gamigion Top Publishers 2024](https://www.gamigion.com/2024-top-hypercasual-mobile-game-publishers/)

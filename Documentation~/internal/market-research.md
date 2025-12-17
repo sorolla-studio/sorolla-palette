@@ -1,7 +1,7 @@
 # Market Research
 
 > **Last Updated**: 2025-12-17
-> **Status**: Active research
+> **Status**: Active research (expanded)
 
 Developer pain points, industry trends, and best practices for mobile game publishing SDKs.
 
@@ -196,7 +196,7 @@ Developer pain points, industry trends, and best practices for mobile game publi
 ### Developer Experience Expectations
 
 **Integration Time**:
-- Prototype: < 1 hour
+- Prototype: < 1 hour (industry benchmark: 10 minutes)
 - Full setup: < 1 day
 - Updates: < 30 minutes
 
@@ -211,6 +211,185 @@ Developer pain points, industry trends, and best practices for mobile game publi
 - GitHub issues
 - Stack Overflow tags
 - Response time < 24 hours
+
+---
+
+## SDK Documentation Best Practices
+
+### Core Principles (Industry Research)
+
+> "Thorough and well-structured documentation is the cornerstone of a user-friendly SDK."
+> — Foresight Mobile
+
+> "Ideally, you want your users to be able to integrate your SDK in less than 10 minutes."
+> — Mike Smales, SDK Best Practices
+
+### Documentation Requirements
+
+1. **Installation** - Clear package manager or manual import steps
+2. **Configuration** - All settings explained with defaults
+3. **API Usage** - Every public method documented
+4. **Troubleshooting** - Common issues with solutions
+
+### DevEx Differentiation
+
+> "The Developer Experience (DevEx) may make the difference between choosing your service or that of your competitor's."
+> — Luciq AI
+
+**Key DevEx Factors**:
+- Intuitive, idiomatic experience
+- Seamless integration with minimal code
+- Platform conventions respected
+- Cross-platform consistency
+
+### SDK Design Principles
+
+1. **Simple Initialization**: Should not take more than one line
+2. **Platform Conventions**: Variable names, methods, design patterns should be consistent with what developers are familiar with
+3. **Cross-Platform Consistency**: If Android has `getUser()`, iOS should too
+4. **Sample Code**: Clear examples that demonstrate common use cases
+5. **Error Handling**: Clear messages that explain cause and offer solutions
+
+### Common Developer Frustrations
+
+> "Common pain points include: having to sift through poorly organized or overly verbose documentation, being overwhelmed with options, and encountering inconsistencies in guides."
+> — Foresight Mobile
+
+**Anti-Patterns to Avoid**:
+- Outdated documentation
+- Missing examples
+- Inconsistent naming across platforms
+- No error message documentation
+- Verbose setup procedures
+
+### Privacy Documentation (Google Play Requirement)
+
+> "If your SDK uses Personal and Sensitive user data, then you must ensure that you have made this clear in your public documentation."
+> — Google Play SDK Best Practices
+
+**Required Disclosures**:
+- What user data the SDK collects
+- Reason for data collection
+- How apps should disclose to end users
+
+---
+
+## AppLovin MAX Best Practices (Detailed)
+
+### Initialization
+
+```csharp
+// Recommended: Attach handler before init
+MaxSdkCallbacks.OnSdkInitializedEvent += (MaxSdk.SdkConfiguration config) => {
+    // SDK ready, start loading ads
+};
+MaxSdk.InitializeSdk();
+```
+
+**Key Rules**:
+- Always initialize on startup (give networks time to cache)
+- Call all MAX APIs on main thread
+- Especially important for video ads
+
+### Ad Format Specifics
+
+**Banner Ads**:
+- Minimum refresh interval: 10 seconds
+- Maximum refresh interval: 120 seconds
+- Set mute state BEFORE loading ads
+
+**App Open Ads**:
+- Implement frequency cap outside AppLovin
+- Add cooldown based on user behavior
+
+**Rewarded/Interstitial**:
+- Retry with exponential backoff (up to 64 seconds)
+- Pre-cache ads for instant availability
+
+### Privacy Compliance
+
+- MAX automates Google UMP integration
+- SKAdNetwork: Plugin auto-updates Info.plist
+- ATT: Notify App Store Connect reviewer that ATT is enabled for iOS 14.5+
+
+### Technical Requirements
+
+| Requirement | Details |
+|-------------|---------|
+| Unity | 2019.4 or later |
+| Android | Jetifier enabled, Gradle 4.2.0+, compileSdkVersion 34+ |
+| iOS | CocoaPods required, no bitcode (deprecated Xcode 14) |
+
+---
+
+## Firebase Best Practices (Detailed)
+
+### Initialization
+
+```csharp
+// Use Firebase.Extensions for simpler callback handling
+Firebase.FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task => {
+    if (task.Result == Firebase.DependencyStatus.Available) {
+        // Firebase ready
+    }
+});
+```
+
+### Crashlytics Setup
+
+- Enable Google Analytics for breadcrumb logs
+- iOS: Do NOT disable method swizzling
+- Symbol upload required for native crash symbolication
+
+**Symbol Upload**:
+```bash
+firebase crashlytics:symbols:upload --app=<FIREBASE_APP_ID> <PATH/TO/SYMBOLS>
+```
+
+### Remote Config
+
+- Use `SetDefaultsAsync` for fallback values
+- Call `FetchAndActivateAsync` explicitly
+- Test with minimum fetch interval during development
+
+### File Placement
+
+- `google-services.json` → anywhere in Assets/
+- `GoogleService-Info.plist` → anywhere in Assets/
+- File names must be exact
+
+---
+
+## Adjust SDK Best Practices (Detailed)
+
+### Deep Linking Setup
+
+**iOS Universal Links**:
+- Configure in Adjust dashboard
+- Set up Associated Domains in Apple Developer Portal
+- Add to Adjust prefab (remove protocol from URL)
+
+**Android**:
+- Add URI scheme to Adjust prefab
+
+### Reattribution
+
+```csharp
+var deeplink = new AdjustDeeplink(url);
+Adjust.ProcessDeeplink(deeplink);
+```
+
+### LinkMe (Deferred Deep Linking, iOS 15+)
+
+- Reads deep link from pasteboard
+- User sees permission dialog
+- Enable via `IsLinkMeEnabled = true`
+
+### SDK v5 Features
+
+- Spoofing protection built-in
+- `GetAttributionWithTimeout` method
+- Android App Links support via prefab
 
 ---
 
@@ -241,11 +420,35 @@ Developer pain points, industry trends, and best practices for mobile game publi
 
 ## Research Sources
 
-- [AppLovin MAX Best Practices](https://support.axon.ai/en/max/unity/overview/integration/)
+### SDK Documentation & Best Practices
+- [Foresight Mobile - SDK Best Practices](https://foresightmobile.com/blog/mobile-sdk-best-practices-for-developers)
+- [Mike Smales - Building World Class SDKs](https://www.mikesmales.com/blog/best-practices-for-building-a-world-class-mobile-sdk)
+- [Luciq AI - Mobile SDK Development](https://www.luciq.ai/blog/best-practices-for-developing-a-mobile-sdk)
+- [Auth0 - Guiding Principles for SDKs](https://auth0.com/blog/guiding-principles-for-building-sdks/)
+- [Google Play - SDK Best Practices](https://developer.android.com/guide/practices/sdk-best-practices)
+
+### SDK Integration Guides
+- [AppLovin MAX Unity Integration](https://support.axon.ai/en/max/unity/overview/integration/)
+- [Firebase Crashlytics Unity](https://firebase.google.com/docs/crashlytics/unity/get-started)
+- [Firebase Remote Config Codelab](https://firebase.google.com/codelabs/instrument-your-game-with-firebase-remote-config)
+- [Adjust SDK Unity Guide](https://dev.adjust.com/en/sdk/unity/)
+- [GameAnalytics Unity A/B Testing](https://docs.gameanalytics.com/integrations/sdk/unity/ab-testing/)
+
+### Market Analysis
+- [Mobio Group - SDK Leaders 2024](https://mobiogroup.com/android-and-ios-sdks-the-leaders-of-2024-mobio-group/)
+- [Tenjin Ad Monetization Report 2025](https://tenjin.com/blog/ad-mon-gaming-2025/)
+- [Statista - Attribution SDKs 2024](https://www.statista.com/statistics/1036027/leading-mobile-app-attribution-sdks-android/)
+- [Appfigures - Top Monetization SDKs](https://appfigures.com/top-sdks/ads/games)
+
+### Developer Pain Points
+- [Embrace - Unity Developer Pain Points 2024](https://embrace.io/resources/unity-developer-pain-points/)
+- [Embrace Blog - Understanding Unity Developer Pain Points](https://embrace.io/blog/qa-understanding-pain-points-unity-developers/)
+
+### Industry Insights
 - [Firebase A/B Testing](https://firebase.google.com/docs/ab-testing/abtest-config)
-- [GameAnalytics Mobile](https://www.gameanalytics.com/use-cases/mobile)
+- [GameAnalytics Mobile Use Cases](https://www.gameanalytics.com/use-cases/mobile)
 - [Adjust ATT Insights](https://www.adjust.com/blog/learning-from-hyper-casual-games-high-att-opt-in-rate/)
-- [ThinkingData Analytics Tools](https://thinkingdata.io/blog/7-best-mobile-game-analytics-tools-for-data-driven-growth-in-2025/)
-- [Mobile Game A/B Testing Strategies](https://docs.getjoystick.com/knowledge-mobile-game-ab-testing-strategies/)
+- [CrazyLabs 2024 Mobile Gaming Trends](https://www.crazylabs.com/blog/gaming-experts-reveal-mobile-gaming-trends/)
 - [Homa SDK Documentation](https://sdk.homagames.com/docs/main/main.html)
 - [Voodoo Publishing](https://voodoo.io/publishing)
+- [ByteBrew Platform](https://bytebrew.io/)
