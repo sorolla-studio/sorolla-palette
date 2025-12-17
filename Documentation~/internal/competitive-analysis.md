@@ -115,7 +115,10 @@ Sorolla SDK competes in the mobile game publishing SDK market alongside establis
 ### ByteBrew (Independent All-in-One)
 
 **Company**: ByteBrew - Free all-in-one platform
-**Model**: No publisher lock-in, free to use
+**Founded**: 2019, San Diego by Kian & Cameron Hozouri (former game developers)
+**Funding**: $4M Seed (October 2022)
+**Investors**: Konvoy Ventures (lead), Valhalla Ventures, Node Ventures
+**Scale**: 10,000+ game developers
 
 **SDK Features**:
 - Real-time analytics (DAU, session length, retention)
@@ -137,17 +140,38 @@ Sorolla SDK competes in the mobile game publishing SDK market alongside establis
 - Rotating shop items via grouped configs
 - Custom dashboard builders
 
+**Business Model (Land & Expand)**:
+
+*Current State*: 100% free, all features permanently free
+> "ByteBrew was founded by previous game developers that experienced firsthand the struggle of having to both pay and integrate for multiple platforms."
+
+*Future State*: Paid products coming
+> "In the future we will be building new product lines that will be paid solutions, but none of our current platform technology will ever be charged for or restricted."
+
+*Likely Future Paid Products*:
+- User acquisition tools (ad buying/campaign management)
+- Advanced attribution (deeper SKAN/privacy solutions)
+- Predictive analytics (LTV prediction, churn modeling)
+- Enterprise SLAs and custom dashboards
+
+*Strategy*: Classic VC-backed "Slack/Figma playbook" - give away core product, become indispensable, monetize through expansion or acquisition.
+
 **Strengths**:
-- Completely free
+- Completely free (for now)
 - All-in-one (no additional SDKs)
 - Publisher-independent
 
 **Weaknesses**:
+- VC-funded = eventual monetization pressure
 - Less established brand
 - Smaller data network than publishers
 - No dedicated publishing support
+- **Data ownership concern**: ByteBrew controls your analytics data layer
 
-**Source**: [ByteBrew SDK](https://bytebrew.io/)
+**Competitive Insight for Sorolla**:
+ByteBrew validates "free SDK" as viable market position. Key differentiator: Sorolla wraps *your* accounts (GameAnalytics, MAX, Adjust) - you own the data and vendor relationships. ByteBrew owns the data layer, creating future lock-in risk.
+
+**Source**: [ByteBrew SDK](https://bytebrew.io/), [ByteBrew Docs](https://docs.bytebrew.io/)
 
 ---
 

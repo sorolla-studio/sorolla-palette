@@ -25,6 +25,33 @@
 
 ---
 
+## 2025-12-17: ByteBrew Business Model Deep-Dive
+
+**Changes**:
+- Added ByteBrew funding details ($4M Seed, Konvoy Ventures)
+- Documented "Land & Expand" business model strategy
+- Added future monetization plans (paid UA tools, enterprise SLAs)
+- Identified key competitive insight: data ownership differentiator
+
+**Learnings**:
+- ByteBrew is VC-funded ($4M from gaming-focused VCs)
+- "100% free" is growth strategy, not sustainable business model
+- Future paid products will be additive, not restrictive
+- Their model: Slack/Figma playbook (free → indispensable → monetize/exit)
+
+**Hindsight Insights**:
+- **Sorolla's key differentiator vs ByteBrew**: You own your data
+  - Sorolla wraps YOUR accounts (GA, MAX, Adjust)
+  - ByteBrew owns the data layer = future lock-in risk
+- ByteBrew validates free SDK market, but different trust model
+- For positioning: emphasize "your accounts, your data, no middleman"
+
+**Sources**:
+- [ByteBrew Crunchbase](https://www.crunchbase.com/organization/bytebrew)
+- [ByteBrew Docs](https://docs.bytebrew.io/startup/home)
+
+---
+
 ## 2025-12-17: Expanded Competitive Research
 
 **Changes**:
