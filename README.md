@@ -152,6 +152,30 @@ Firebase provides Analytics, Crashlytics, and Remote Config.
 
 **Note**: All Firebase features work in parallel with GameAnalytics — no code changes required!
 
+## Documentation
+
+### For Developers
+- [SDK Setup Guide](Documentation~/SDK-Setup-Guide.md) - Complete external SDK configuration
+- [Firebase Setup](Documentation~/FirebaseSetup.md) - Firebase configuration guide
+- [iOS Setup](Documentation~/iOS-Setup.md) - iOS-specific requirements
+- [Architecture Deep-Dive](Documentation~/ARCHITECTURE.md) - Technical implementation details
+
+### For AI Agents
+- [AI Agent Quick Start](Documentation~/AI_AGENT_README.md) - Rapid codebase orientation
+- [Architecture Summary](Documentation~/ARCHITECTURE_SUMMARY.md) - High-level overview (~400 tokens)
+- [Plan & Tasks](Documentation~/plan.md) - Current sprint, backlog, ADRs
+- [Development Log](Documentation~/devlog.md) - Change history with hindsight insights
+
+### Module Documentation
+| Module | Description | RAG Query |
+|--------|-------------|-----------|
+| [SorollaSDK](Documentation~/modules/SorollaSDK.md) | Public API reference | `analytics ads events` |
+| [Adapters](Documentation~/modules/Adapters.md) | Third-party SDK integration | `MAX Adjust Firebase` |
+| [ATT & Privacy](Documentation~/modules/ATT.md) | iOS App Tracking Transparency | `ATT consent IDFA` |
+| [Editor Tools](Documentation~/modules/Editor.md) | Configuration window & SDK management | `editor installation` |
+| [Debug UI](Documentation~/modules/DebugUI.md) | In-game debug panel | `debug testing` |
+| [Configuration](Documentation~/modules/Configuration.md) | SorollaConfig & SDK keys | `config keys setup` |
+
 ## Support
 
 - [GitHub Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
