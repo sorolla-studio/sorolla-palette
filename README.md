@@ -107,9 +107,11 @@ The SDK includes a built-in Debug UI to verify your integration on-device withou
 
 ## SDK Configuration
 
-📖 **[Complete SDK Setup Guide for External Developers →](Documentation~/SDK-Setup-Guide.md)**
+📖 **[Getting Started Guide →](Documentation~/getting-started.md)**
 
-For detailed step-by-step instructions on obtaining and configuring all API keys, including screenshots and dashboard navigation guides, see the full setup documentation.
+For step-by-step setup instructions, see the guides for your mode:
+- [Prototype Mode](Documentation~/prototype-setup.md) - GameAnalytics + Facebook
+- [Full Mode](Documentation~/full-setup.md) - GameAnalytics + MAX + Adjust
 
 ### Quick Overview
 
@@ -148,9 +150,33 @@ Firebase provides Analytics, Crashlytics, and Remote Config.
 4. In Unity: `Sorolla > Configuration` → Click "Install" under Firebase
 5. Enable modules (Analytics, Crashlytics, Remote Config)
 
-📖 **[Firebase Setup Guide](Documentation~/FirebaseSetup.md)** | **[Quick Start Guide](Documentation~/QuickStart.md)**
+📖 **[Firebase Setup Guide](Documentation~/firebase.md)**
 
 **Note**: All Firebase features work in parallel with GameAnalytics — no code changes required!
+
+## Documentation
+
+### Setup Guides
+| Guide | Description |
+|-------|-------------|
+| [Getting Started](Documentation~/getting-started.md) | Quick start in 10 minutes |
+| [Prototype Mode](Documentation~/prototype-setup.md) | GameAnalytics + Facebook setup |
+| [Full Mode](Documentation~/full-setup.md) | GameAnalytics + MAX + Adjust setup |
+| [Firebase](Documentation~/firebase.md) | Analytics, Crashlytics, Remote Config |
+
+### Reference
+| Document | Description |
+|----------|-------------|
+| [API Reference](Documentation~/api-reference.md) | Complete API documentation |
+| [Troubleshooting](Documentation~/troubleshooting.md) | Common issues and fixes |
+| [Architecture](Documentation~/architecture.md) | Technical deep-dive for contributors |
+
+### For AI Agents
+| Document | Description |
+|----------|-------------|
+| [AI Quick Reference](Documentation~/ai-agents.md) | RAG-optimized codebase guide |
+| [Plan & Tasks](Documentation~/plan.md) | Current sprint, backlog, ADRs |
+| [Development Log](Documentation~/devlog.md) | Change history with insights |
 
 ## Support
 
