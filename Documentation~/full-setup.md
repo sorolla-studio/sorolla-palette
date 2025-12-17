@@ -196,12 +196,12 @@ For tracking campaign performance:
 
 ## Need Help?
 
-- 📖 [Documentation Index](index.md)
+- 📖 [Getting Started](getting-started.md) | [Troubleshooting](troubleshooting.md)
 - 🐙 [GitHub Repository](https://github.com/LaCreArthur/sorolla-palette-upm)
 - 🐛 [Report Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
 
-### Support Resources
+### Related Guides
 
-- **GameAnalytics**: [docs.gameanalytics.com](https://docs.gameanalytics.com)
-- **AppLovin MAX**: [dash.applovin.com/documentation](https://dash.applovin.com/documentation)
-- **Adjust**: [help.adjust.com](https://help.adjust.com)
+- [Prototype Mode Setup](prototype-setup.md) - Quick UA testing setup
+- [Firebase Setup](firebase.md) - Add Analytics, Crashlytics, Remote Config
+- [API Reference](api-reference.md) - Complete API documentation

@@ -149,11 +149,12 @@ keytool -exportcert -alias YOUR_ALIAS -keystore YOUR_KEYSTORE | openssl sha1 -bi
 
 ## Need Help?
 
-- 📖 [Documentation Index](index.md)
+- 📖 [Getting Started](getting-started.md) | [Troubleshooting](troubleshooting.md)
 - 🐙 [GitHub Repository](https://github.com/LaCreArthur/sorolla-palette-upm)
 - 🐛 [Report Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
 
-### Support Resources
+### Related Guides
 
-- **GameAnalytics**: [docs.gameanalytics.com](https://docs.gameanalytics.com)
-- **Facebook SDK**: [developers.facebook.com/docs](https://developers.facebook.com/docs)
+- [Full Mode Setup](full-setup.md) - Production setup with MAX + Adjust
+- [Firebase Setup](firebase.md) - Add Analytics, Crashlytics, Remote Config
+- [API Reference](api-reference.md) - Complete API documentation

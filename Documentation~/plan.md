@@ -40,10 +40,13 @@
 - [ ] Add timeout handling for Firebase init
 
 ### Documentation
+- [x] Reorganize docs for developer UX (2025-12-17)
+- [x] Create troubleshooting guide
+- [x] Consolidate API reference
 - [ ] Migration guide from v1.x to v2.x
-- [ ] Troubleshooting FAQ
 - [ ] Performance best practices
 - [ ] Ad placement guidelines
+- [ ] Video tutorials
 
 ---
 

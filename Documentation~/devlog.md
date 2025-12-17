@@ -25,30 +25,46 @@
 
 ---
 
-## 2025-12-17: Documentation System Created
+## 2025-12-17: Documentation Reorganization (Developer-First)
 
 **Changes**:
-- Created modular documentation in `Documentation~/modules/`
-- Added ARCHITECTURE_SUMMARY.md for quick orientation
-- Added plan.md for task tracking
-- Added devlog.md for hindsight logging
-- Token-optimized all files (<500 tokens each)
+- Reorganized 21 docs → 10 focused files
+- Consolidated redundant guides (index.md, SDK-Setup-Overview.md, QuickStart.md)
+- Merged ARCHITECTURE.md + ARCHITECTURE_SUMMARY.md → architecture.md
+- Created unified api-reference.md and troubleshooting.md
+- Renamed setup files to lowercase (prototype-setup.md, full-setup.md, firebase.md)
+- Removed modules/ folder, consolidated into architecture.md
+
+**New Structure**:
+```
+Documentation~/
+├── getting-started.md   ← Quick start for developers
+├── prototype-setup.md   ← GameAnalytics + Facebook
+├── full-setup.md        ← GameAnalytics + MAX + Adjust
+├── firebase.md          ← Firebase add-on
+├── api-reference.md     ← Unified API docs
+├── troubleshooting.md   ← iOS + common issues
+├── architecture.md      ← Contributors & AI agents
+├── ai-agents.md         ← RAG optimization
+├── plan.md              ← Task tracking
+└── devlog.md            ← Change history
+```
 
 **Learnings**:
-- Codebase has 59 C# scripts across 4 namespaces
-- Adapter pattern used consistently for SDK integration
-- Conditional compilation guards all optional features
+- Developers want task-focused navigation (setup, api, troubleshooting)
+- AI agents need quick reference section in architecture.md
+- Modular files were too granular for human UX
 
 **Hindsight Insights**:
-- For API questions: Start with `modules/SorollaSDK.md`
-- For SDK integration: Load `modules/Adapters.md`
-- For debugging: Load `modules/DebugUI.md`
-- Architecture uses static classes - no DI container
+- For API: Start with `api-reference.md`
+- For setup: Load `prototype-setup.md` or `full-setup.md`
+- For issues: Load `troubleshooting.md`
+- For code changes: Load `architecture.md` (includes AI quick reference)
 
 **Metrics**:
-- Total documentation: ~3,000 tokens
-- Per-module average: ~400 tokens
-- RAG retrieval optimized with query hints
+- Reduced from 21 to 10 documentation files
+- Total: ~4,500 tokens (compressed from ~8,000)
+- Developer navigation: 3 clicks max to any content
 
 ---
 
