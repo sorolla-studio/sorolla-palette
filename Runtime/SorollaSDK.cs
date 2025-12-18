@@ -45,11 +45,90 @@ namespace Sorolla
         /// <summary>Whether the SDK is initialized</summary>
         public static bool IsInitialized { get; private set; }
 
-        /// <summary>Current user consent status</summary>
+        /// <summary>Current user consent status (legacy - use ConsentStatus for GDPR compliance)</summary>
         public static bool HasConsent { get; private set; }
 
         /// <summary>Current configuration (may be null)</summary>
         public static SorollaConfig Config { get; private set; }
+
+        #region GDPR/Privacy Consent
+
+        /// <summary>
+        ///     Current consent status from MAX's UMP integration.
+        ///     Use this to determine ad loading/showing in GDPR regions.
+        /// </summary>
+        /// <remarks>
+        ///     Values: Unknown, NotApplicable, Required, Obtained, Denied.
+        ///     See <see cref="Sorolla.Adapters.ConsentStatus"/> for details.
+        /// </remarks>
+        public static Adapters.ConsentStatus ConsentStatus => MaxAdapter.ConsentStatus;
+
+        /// <summary>
+        ///     Whether ads can be requested (consent obtained or not required).
+        ///     Use this to gate ad loading/showing in GDPR regions.
+        /// </summary>
+        /// <example>
+        ///     if (SorollaSDK.CanRequestAds)
+        ///         SorollaSDK.ShowRewardedAd(onComplete, onFailed);
+        ///     else
+        ///         Debug.Log("Consent required");
+        /// </example>
+        public static bool CanRequestAds => MaxAdapter.CanRequestAds;
+
+        /// <summary>
+        ///     Whether a privacy options button should be shown in settings.
+        ///     Only true if MAX CMP is available and user is in a consent region.
+        /// </summary>
+        /// <example>
+        ///     privacyButton.gameObject.SetActive(SorollaSDK.PrivacyOptionsRequired);
+        /// </example>
+        public static bool PrivacyOptionsRequired => MaxAdapter.IsPrivacyOptionsRequired;
+
+        /// <summary>
+        ///     Event fired when consent status changes.
+        ///     Subscribe to update UI or behavior based on consent.
+        /// </summary>
+        public static event Action<Adapters.ConsentStatus> OnConsentStatusChanged
+        {
+            add => MaxAdapter.OnConsentStatusChanged += value;
+            remove => MaxAdapter.OnConsentStatusChanged -= value;
+        }
+
+        /// <summary>
+        ///     Show privacy options form (UMP consent form) for users to update their consent.
+        ///     Call this from your settings screen when PrivacyOptionsRequired is true.
+        /// </summary>
+        /// <param name="onComplete">Optional callback when form is dismissed</param>
+        /// <example>
+        ///     // In your settings UI
+        ///     if (SorollaSDK.PrivacyOptionsRequired)
+        ///     {
+        ///         privacyButton.onClick.AddListener(() =>
+        ///             SorollaSDK.ShowPrivacyOptions());
+        ///     }
+        /// </example>
+        public static void ShowPrivacyOptions(Action onComplete = null)
+        {
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            MaxAdapter.ShowPrivacyOptions(onComplete);
+#else
+            Debug.LogWarning($"{Tag} MAX not available - privacy options require MAX SDK.");
+            onComplete?.Invoke();
+#endif
+        }
+
+        /// <summary>
+        ///     Refresh consent status from MAX SDK.
+        ///     Call this if consent may have changed externally.
+        /// </summary>
+        public static void RefreshConsentStatus()
+        {
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            MaxAdapter.RefreshConsentStatus();
+#endif
+        }
+
+        #endregion
 
         /// <summary>Whether a rewarded ad is ready to show</summary>
         public static bool IsRewardedAdReady => IsInitialized && MaxAdapter.IsRewardedAdReady;
