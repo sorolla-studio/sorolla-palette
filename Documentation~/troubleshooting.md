@@ -13,6 +13,29 @@ Common issues and solutions for Sorolla SDK integration.
 | Ads not loading | Check MAX SDK Key and Ad Unit IDs |
 | Remote config returns defaults | Ensure values are **published** in console |
 | Firebase errors | Verify config files match bundle ID |
+| Build failing | Check **Build Health** section in Configuration window |
+| Runtime crash on Android | Run `SorollaSDK > Tools > Sanitize Android Manifest` |
+
+---
+
+## Build Health
+
+The Configuration window includes a **Build Health** section that validates your SDK setup before building. It runs 6 technical checks:
+
+| Check | What it validates |
+|-------|-------------------|
+| SDK Versions | Installed versions meet minimum requirements |
+| Mode Consistency | Installed SDKs match current mode (Prototype/Full) |
+| Scoped Registries | UPM registries are properly configured |
+| Firebase Coherence | Firebase modules have FirebaseApp installed |
+| Config Sync | SorollaConfig matches installed packages |
+| Android Manifest | No orphaned SDK entries that cause crashes |
+
+**Note**: SDK installation status is shown in the **SDK Overview** section above Build Health.
+
+**Auto-fix**: The validator automatically fixes AndroidManifest issues when the window opens or before builds.
+
+**Pre-build validation**: Errors block builds automatically via `IPreprocessBuildWithReport`.
 
 ---
 
@@ -152,6 +175,22 @@ pod --version
 ---
 
 ## Android-Specific Issues
+
+### Build Health - AndroidManifest Errors
+
+**Error**: `ClassNotFoundException` at runtime (e.g., `com.facebook.FacebookContentProvider`)
+
+**Cause**: AndroidManifest.xml has entries for SDKs that are no longer installed.
+
+**How it happens**: Switching modes (Prototype ↔ Full) can leave orphaned entries.
+
+**Fix**:
+1. Open `SorollaSDK > Configuration` window
+2. Check the **Build Health** section
+3. If "Android Manifest" shows an error, it will be auto-fixed on next validation
+4. Or manually run: `SorollaSDK > Tools > Sanitize Android Manifest`
+
+The Build Health validator automatically detects and removes orphaned manifest entries before builds.
 
 ### Gradle Version Mismatch
 

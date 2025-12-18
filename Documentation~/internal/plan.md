@@ -126,61 +126,54 @@ Unity 2021 uses a different asset serialization format, making backwards compati
 
 ---
 
-### Pain Point #6: GDPR/ATT Consent Complexity ⚠️ CRITICAL GAP
+### Pain Point #6: GDPR/ATT Consent Complexity ✅ IMPLEMENTED
 **Impact**: Legal compliance risk - Limited Ads in EU/UK since Jan 2024
-**Current State**: ❌ INCOMPLETE
+**Current State**: ✅ COMPLETE (API implemented, requires configuration)
 **What We Have**:
 - iOS ATT handling (`ContextScreenView.cs`, `FakeATTDialog.cs`)
 - Basic consent flag (`HasConsent`)
 - `FakeCMPDialog.cs` for editor testing
+- **NEW**: Full UMP consent API via MAX integration
 
-**What's Missing**:
-- Google UMP integration for GDPR consent
-- TCF 2.0 (Transparency and Consent Framework) support
-- Privacy options entry point for settings screen
+**Implementation Complete** (v2.2.0):
+- [x] `ConsentStatus` enum: Unknown, NotApplicable, Required, Obtained, Denied
+- [x] `SorollaSDK.ConsentStatus` - Current consent state from MAX
+- [x] `SorollaSDK.CanRequestAds` - Whether ads can be shown
+- [x] `SorollaSDK.PrivacyOptionsRequired` - Whether to show privacy button
+- [x] `SorollaSDK.ShowPrivacyOptions()` - Opens UMP privacy form
+- [x] `OnConsentStatusChanged` event for UI updates
 
-**Research Finding - KEY INSIGHT**:
-> "AppLovin MAX SDK (v12.0.0+) automates the integration of Google UMP. You do not need to manually integrate Google UMP."
-
-**Recommended Approach**: Leverage MAX's built-in UMP automation
-- MAX handles: Regional detection → UMP display → TCF v2 strings → Mediated network consent
-- No separate `UmpAdapter.cs` needed
-- Just expose consent status via Sorolla API
-
-**Implementation Plan** (v2.2.0):
+**Configuration Required** (Developer Setup):
 ```
-Phase 1: Enable MAX UMP Automation
-├── MAX 8.5.0 already supports UMP (wraps native 13.x) - no update required
-├── Enable "MAX Terms and Privacy Policy Flow" in AppLovin Integration Manager
-├── Set Privacy Policy URL and User Tracking Usage Description
-├── Configure consent form in AdMob dashboard
-└── Test regional flow (MAX auto-detects GDPR regions)
-
-Phase 2: Sorolla API Integration
-├── Expose MAX consent status: SorollaSDK.ConsentStatus
-├── Add SorollaSDK.CanRequestAds property
-├── Add SorollaSDK.ShowPrivacyOptions() for settings screen
-└── Update SorollaBootstrapper to wait for consent before ads
-
-Phase 3: Documentation
-├── Document AdMob consent form setup
-├── Add EEA/UK testing guide (debug geography)
-└── Update troubleshooting for consent issues
+1. Enable "MAX Terms and Privacy Policy Flow" in AppLovin Integration Manager
+2. Set Privacy Policy URL and User Tracking Usage Description
+3. Configure consent form in Google AdMob dashboard
+4. Test regional flow (MAX auto-detects GDPR regions)
 ```
 
-**API Design** (simplified - leverages MAX):
+**API Design** (implemented):
 ```csharp
 // Consent status (read from MAX)
-SorollaSDK.ConsentStatus { get; } // Required, NotRequired, Obtained, Unknown
+SorollaSDK.ConsentStatus { get; } // Unknown, NotApplicable, Required, Obtained, Denied
 SorollaSDK.CanRequestAds { get; } // True if consent obtained or not required
 
 // Privacy options (for settings screen)
-SorollaSDK.ShowPrivacyOptions(); // Shows UMP privacy options form
+SorollaSDK.ShowPrivacyOptions(Action onComplete = null); // Shows UMP privacy form
 SorollaSDK.PrivacyOptionsRequired { get; } // Whether to show button
+
+// Event
+SorollaSDK.OnConsentStatusChanged += (status) => { /* update UI */ };
 ```
 
-**Files to Modify**: `Runtime/SorollaSDK.cs`, `Runtime/Adapters/MaxAdapter.cs`, `Runtime/SorollaBootstrapper.cs`
-**No new adapter needed** - MAX handles UMP internally
+**Files Modified**:
+- `Runtime/Adapters/MaxAdapter.cs` - Added consent status tracking, ShowPrivacyOptions()
+- `Runtime/SorollaSDK.cs` - Exposed consent API
+
+**Documentation**:
+- [x] Created `gdpr-consent-setup.md` - Complete setup guide with verification checklist
+- [x] AdMob consent form setup documented
+- [x] EEA/UK testing guide (debug geography) included
+- [x] Troubleshooting section added
 
 **Source**: [AppLovin MAX UMP Automation](https://developers.axon.ai/en/max/unity/overview/terms-and-privacy-policy-flow/)
 
@@ -264,17 +257,23 @@ Phase 2: Optimization (v2.3.0)
 ## Current Sprint (Updated 2025-12-18)
 
 ### Priority: Critical (v2.2.0)
-- [ ] **UMP Integration** - Unblock EU/UK ad revenue
+- [x] **UMP Integration** - Unblock EU/UK ad revenue ✅ COMPLETE
   - [x] MAX 8.5.0 already supports UMP (wraps native 13.x) ✓
-  - [ ] Enable "MAX Terms and Privacy Policy Flow" in Integration Manager
-  - [ ] Configure AdMob consent form in Google AdMob dashboard
-  - [ ] Expose consent status via SorollaSDK API
-  - [ ] Add SorollaSDK.ShowPrivacyOptions() for settings screen
-- [ ] **Build Validator** - Must work out-of-box for every studio
-  - [ ] Create `Editor/BuildValidator.cs`
-  - [ ] Detect common conflicts (duplicate deps, version mismatches)
-  - [ ] Add "SorollaSDK > Tools > Validate Build" menu
-  - [ ] Clear error messages in Console
+  - [x] Expose consent status via SorollaSDK API ✓
+  - [x] Add SorollaSDK.ShowPrivacyOptions() for settings screen ✓
+  - [x] Add SorollaSDK.CanRequestAds property ✓
+  - [x] Add SorollaSDK.PrivacyOptionsRequired property ✓
+  - [x] Add OnConsentStatusChanged event ✓
+  - [ ] Enable "MAX Terms and Privacy Policy Flow" in Integration Manager (user setup)
+  - [ ] Configure AdMob consent form in Google AdMob dashboard (user setup)
+- [x] **Build Validator** - Must work out-of-box for every studio ✅ COMPLETE
+  - [x] Create `Editor/BuildValidator.cs` with 7 validation checks ✓
+  - [x] Create `Editor/AndroidManifestSanitizer.cs` for auto-fixing manifest issues ✓
+  - [x] Integrated into main SorollaWindow as "Build Health" section ✓
+  - [x] Auto-runs on window open and after mode switch ✓
+  - [x] Auto-fixes orphaned AndroidManifest entries (e.g., Facebook SDK entries in Full mode) ✓
+  - [x] Pre-build validation via IPreprocessBuildWithReport ✓
+  - [x] Menu item "SorollaSDK > Tools > Validate Build" opens main window ✓
 
 ### Priority: High (v2.2.0)
 - [ ] **Banner Ads** - Easy win (rarely used but simple to add)
@@ -296,6 +295,9 @@ Phase 2: Optimization (v2.3.0)
 ### ✅ Completed
 - [x] **Unity 6 Support** - Validated on Unity 6.3 LTS
 - [x] **Documentation Reorganization** - Public/internal split complete
+- [x] **UMP Consent Integration** - GDPR/ATT consent API via MAX (2025-12-18)
+- [x] **Build Validator** - Pre-build validation with 6 checks + auto-fix (2025-12-18)
+- [x] **UI Consolidation** - Merged Setup Checklist + SDK Status into SDK Overview (2025-12-18)
 
 ---
 
@@ -371,8 +373,8 @@ Phase 2: Optimization (v2.3.0)
 
 ### v2.2.0 (Next)
 - Banner ads support
-- UMP consent integration
-- Unity 6 official support
+- ~~UMP consent integration~~ ✅ Complete
+- ~~Unity 6 official support~~ ✅ Complete
 
 ### v2.3.0
 - AdMob alternative adapter

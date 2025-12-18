@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0] - 2025-12-18
+
+### Added
+- **SDK Overview Section**: Unified view combining install status + config status per SDK
+  - Shows all SDKs with: ✓/✗/○ install icon, config status, single action button
+  - Firebase shows nested module status (Analytics, Crashlytics, Remote Config)
+  - Replaces previous "Setup Checklist" and "SDK Status" sections
+- **Build Health Validator**: Pre-build validation integrated into Configuration window
+  - 6 validation checks: SDK Versions, Mode Consistency, Scoped Registries, Firebase Coherence, Config Sync, Android Manifest
+  - Visual display of all checks with status icons (✓/⚠/✗)
+  - Auto-runs on window open and after mode switch
+  - Pre-build hook via `IPreprocessBuildWithReport` - errors block builds
+- **AndroidManifest Sanitizer**: Auto-detects and removes orphaned SDK entries
+  - Fixes `ClassNotFoundException` crashes when switching modes
+  - Creates backup before modifying manifest
+  - Menu item: `SorollaSDK > Tools > Sanitize Android Manifest`
+- **UMP Consent Integration**: GDPR/ATT consent API via MAX (see `gdpr-consent-setup.md`)
+  - `SorollaSDK.ConsentStatus` - Current consent state
+  - `SorollaSDK.CanRequestAds` - Whether ads can be shown
+  - `SorollaSDK.ShowPrivacyOptions()` - Opens UMP privacy form
+  - `OnConsentStatusChanged` event for UI updates
+
+### Changed
+- **UI Consolidation**: Merged 3 sections into 2 for cleaner, less redundant interface
+  - SDK Overview: per-SDK install + config status (was: Setup Checklist + SDK Status)
+  - Build Health: technical validation checks (removed "Required SDKs" - now in SDK Overview)
+- Version mismatch warnings only trigger for outdated versions (newer is OK)
+
+### Fixed
+- Fixed runtime crash when switching from Prototype to Full mode due to orphaned Facebook SDK entries in AndroidManifest.xml
+
 ## [2.1.0] - 2025-12-01
 
 ### Added
