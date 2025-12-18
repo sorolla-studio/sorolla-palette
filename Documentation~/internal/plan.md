@@ -18,12 +18,16 @@ Based on market research, these are the critical issues facing mobile game SDK d
 - EDM (External Dependency Manager) handles native dependencies
 
 **Validation**:
-| SDK | Sorolla Version | Latest Available | Status |
-|-----|-----------------|------------------|--------|
-| GameAnalytics | 7.10.6 | 7.10.6 | ✅ Current |
-| AppLovin MAX | 8.5.0 | 12.x+ | ⚠️ **UPDATE REQUIRED** for UMP |
-| Firebase | 12.10.1 | 13.6.0 | ⚠️ See note below |
-| Adjust | Git (latest) | v5.5.0 | ✅ Auto-updated |
+| SDK | Sorolla Version | Latest Unity Plugin | Native SDK | Status |
+|-----|-----------------|---------------------|------------|--------|
+| GameAnalytics | 7.10.6 | 7.10.6 | - | ✅ Current |
+| AppLovin MAX | 8.5.0 | 8.5.1 | 13.3.1 | ✅ UMP ready (minor bump available) |
+| Firebase | 12.10.1 | 13.6.0 (.unitypackage) | - | ⚠️ See note below |
+| Adjust | Git (latest) | v5.5.0 | - | ✅ Auto-updated |
+
+**MAX Version Note**:
+Unity plugin version (8.5.x) ≠ native SDK version (13.x). The Unity plugin wraps the native SDK.
+MAX 8.5.0 already includes UMP automation via native SDK 13.x - just needs to be enabled.
 
 **Firebase Note**:
 Google doesn't properly maintain Firebase Unity SDK for UPM. Official releases are `.unitypackage` only.
@@ -32,7 +36,8 @@ Upgrading to 13.x requires manual conversion - evaluate only if critical feature
 
 **Action Items**:
 - [x] GameAnalytics - current
-- [ ] **MAX SDK Update to 12.x** - Required for UMP automation
+- [x] MAX SDK 8.5.0 - UMP ready (wraps native 13.x)
+- [ ] MAX 8.5.0 → 8.5.1 - minor bump, optional
 - [ ] Firebase 13.x - evaluate only if needed (manual maintenance burden)
 - [ ] Document version compatibility matrix
 
@@ -145,8 +150,9 @@ Unity 2021 uses a different asset serialization format, making backwards compati
 **Implementation Plan** (v2.2.0):
 ```
 Phase 1: Enable MAX UMP Automation
-├── Ensure MAX SDK is v12.0.0+ (currently 8.5.0 - NEEDS UPDATE)
-├── Enable Google UMP in MAX settings
+├── MAX 8.5.0 already supports UMP (wraps native 13.x) - no update required
+├── Enable "MAX Terms and Privacy Policy Flow" in AppLovin Integration Manager
+├── Set Privacy Policy URL and User Tracking Usage Description
 ├── Configure consent form in AdMob dashboard
 └── Test regional flow (MAX auto-detects GDPR regions)
 
@@ -259,10 +265,11 @@ Phase 2: Optimization (v2.3.0)
 
 ### Priority: Critical (v2.2.0)
 - [ ] **UMP Integration** - Unblock EU/UK ad revenue
-  - [ ] Update MAX SDK from 8.5.0 → 12.x (required for UMP automation)
-  - [ ] Enable MAX UMP automation
+  - [x] MAX 8.5.0 already supports UMP (wraps native 13.x) ✓
+  - [ ] Enable "MAX Terms and Privacy Policy Flow" in Integration Manager
+  - [ ] Configure AdMob consent form in Google AdMob dashboard
   - [ ] Expose consent status via SorollaSDK API
-  - [ ] Document AdMob consent form setup
+  - [ ] Add SorollaSDK.ShowPrivacyOptions() for settings screen
 - [ ] **Build Validator** - Must work out-of-box for every studio
   - [ ] Create `Editor/BuildValidator.cs`
   - [ ] Detect common conflicts (duplicate deps, version mismatches)
