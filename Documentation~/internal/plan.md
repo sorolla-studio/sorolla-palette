@@ -21,13 +21,19 @@ Based on market research, these are the critical issues facing mobile game SDK d
 | SDK | Sorolla Version | Latest Available | Status |
 |-----|-----------------|------------------|--------|
 | GameAnalytics | 7.10.6 | 7.10.6 | ✅ Current |
-| AppLovin MAX | 8.5.0 | ~8.x (13.2.0 native) | ⚠️ Check update |
-| Firebase | 12.10.1 | 13.6.0 | ⚠️ Major update available |
+| AppLovin MAX | 8.5.0 | 12.x+ | ⚠️ **UPDATE REQUIRED** for UMP |
+| Firebase | 12.10.1 | 13.6.0 | ⚠️ See note below |
 | Adjust | Git (latest) | v5.5.0 | ✅ Auto-updated |
 
+**Firebase Note**:
+Google doesn't properly maintain Firebase Unity SDK for UPM. Official releases are `.unitypackage` only.
+Current UPM version (12.10.1) is manually maintained on GitHub by project maintainer.
+Upgrading to 13.x requires manual conversion - evaluate only if critical features needed.
+
 **Action Items**:
-- [ ] Evaluate Firebase 13.x migration (breaking changes?)
-- [ ] Test MAX plugin against latest native SDKs
+- [x] GameAnalytics - current
+- [ ] **MAX SDK Update to 12.x** - Required for UMP automation
+- [ ] Firebase 13.x - evaluate only if needed (manual maintenance burden)
 - [ ] Document version compatibility matrix
 
 ---
@@ -97,25 +103,26 @@ Phase 2: Resolution
 
 ### Pain Point #5: Unity Version Compatibility
 **Impact**: Upgrade blocking
-**Current State**: ⚠️ NEEDS VALIDATION
-**Current Support**: Unity 2022.3 LTS+
+**Current State**: ✅ VALIDATED
+**Supported Versions**: Unity 2022.3 LTS → Unity 6.3 LTS
 
-**Validation Needed**:
-- [ ] **Unity 6 LTS (6000.0.x)**: Test full integration
-- [ ] **Unity 6.1**: Test bleeding edge compatibility
-- [ ] Document minimum/recommended versions
+**Why not Unity 2021?**
+Unity 2021 uses a different asset serialization format, making backwards compatibility maintenance burdensome. 2022.3 LTS is the minimum supported version.
 
-**Research Findings**:
-- GameAnalytics: Requires Unity 2019.4+
-- AppLovin MAX: Requires Unity 2019.4+
-- Firebase: Requires Unity 2021 LTS+ (2020 deprecated)
+**Validation Status**:
+- [x] **Unity 2022.3 LTS**: Fully tested
+- [x] **Unity 6.3 LTS**: Fully tested and working
+- [ ] Document version requirements in getting-started.md
 
-**Action**: Firebase requirement (2021+) is stricter than our stated 2022.3. We're safe.
+**SDK Requirements** (all satisfied by 2022.3+):
+- GameAnalytics: Unity 2019.4+
+- AppLovin MAX: Unity 2019.4+
+- Firebase: Unity 2021 LTS+ (we exceed this)
 
 ---
 
 ### Pain Point #6: GDPR/ATT Consent Complexity ⚠️ CRITICAL GAP
-**Impact**: Legal compliance risk
+**Impact**: Legal compliance risk - Limited Ads in EU/UK since Jan 2024
 **Current State**: ❌ INCOMPLETE
 **What We Have**:
 - iOS ATT handling (`ContextScreenView.cs`, `FakeATTDialog.cs`)
@@ -123,48 +130,53 @@ Phase 2: Resolution
 - `FakeCMPDialog.cs` for editor testing
 
 **What's Missing**:
-- Google UMP (User Messaging Platform) integration
+- Google UMP integration for GDPR consent
 - TCF 2.0 (Transparency and Consent Framework) support
-- GDPR consent storage
-- Consent revocation UI
+- Privacy options entry point for settings screen
 
-**Research Findings** (Google Docs):
-> "Failure to adopt a Google-certified CMP by January 16, 2024, will limit eligible ad serving to only Limited Ads for EEA and UK traffic."
+**Research Finding - KEY INSIGHT**:
+> "AppLovin MAX SDK (v12.0.0+) automates the integration of Google UMP. You do not need to manually integrate Google UMP."
 
-**Implementation Plan**:
+**Recommended Approach**: Leverage MAX's built-in UMP automation
+- MAX handles: Regional detection → UMP display → TCF v2 strings → Mediated network consent
+- No separate `UmpAdapter.cs` needed
+- Just expose consent status via Sorolla API
+
+**Implementation Plan** (v2.2.0):
 ```
-Phase 1: UMP Integration (v2.2.0) - HIGH PRIORITY
-├── Add Google UMP SDK dependency
-├── Create UmpAdapter.cs
-├── Add SorollaSDK.ShowConsentDialog()
-├── Add SorollaSDK.HasConsentForAds property
-├── Add SorollaSDK.HasConsentForAnalytics property
-└── Update SorollaConfig with consent options
+Phase 1: Enable MAX UMP Automation
+├── Ensure MAX SDK is v12.0.0+ (currently 8.5.0 - NEEDS UPDATE)
+├── Enable Google UMP in MAX settings
+├── Configure consent form in AdMob dashboard
+└── Test regional flow (MAX auto-detects GDPR regions)
 
-Phase 2: Consent Flow (v2.2.0)
-├── Call UMP Update() on every app launch
-├── Check CanRequestAds() before loading ads
-├── Implement privacy options entry point
-└── Add consent revocation support
+Phase 2: Sorolla API Integration
+├── Expose MAX consent status: SorollaSDK.ConsentStatus
+├── Add SorollaSDK.CanRequestAds property
+├── Add SorollaSDK.ShowPrivacyOptions() for settings screen
+└── Update SorollaBootstrapper to wait for consent before ads
 
-Phase 3: Testing (v2.2.0)
-├── Add debug geography simulation
-├── Update FakeCMPDialog for UMP flow
-└── Document EEA/UK testing process
+Phase 3: Documentation
+├── Document AdMob consent form setup
+├── Add EEA/UK testing guide (debug geography)
+└── Update troubleshooting for consent issues
 ```
 
-**API Design**:
+**API Design** (simplified - leverages MAX):
 ```csharp
-// New APIs for v2.2.0
-SorollaSDK.RequestConsentUpdate(Action<ConsentStatus> callback);
-SorollaSDK.ShowConsentFormIfRequired(Action onComplete);
-SorollaSDK.ShowPrivacyOptions(); // For settings screen
-SorollaSDK.CanRequestAds { get; }
+// Consent status (read from MAX)
 SorollaSDK.ConsentStatus { get; } // Required, NotRequired, Obtained, Unknown
+SorollaSDK.CanRequestAds { get; } // True if consent obtained or not required
+
+// Privacy options (for settings screen)
+SorollaSDK.ShowPrivacyOptions(); // Shows UMP privacy options form
+SorollaSDK.PrivacyOptionsRequired { get; } // Whether to show button
 ```
 
-**Files to Create**: `Runtime/Adapters/UmpAdapter.cs`, `Runtime/ConsentStatus.cs`
-**Files to Modify**: `Runtime/SorollaSDK.cs`, `Runtime/SorollaConfig.cs`, `Runtime/SorollaBootstrapper.cs`
+**Files to Modify**: `Runtime/SorollaSDK.cs`, `Runtime/Adapters/MaxAdapter.cs`, `Runtime/SorollaBootstrapper.cs`
+**No new adapter needed** - MAX handles UMP internally
+
+**Source**: [AppLovin MAX UMP Automation](https://developers.axon.ai/en/max/unity/overview/terms-and-privacy-policy-flow/)
 
 ---
 
@@ -176,30 +188,24 @@ SorollaSDK.ConsentStatus { get; } // Required, NotRequired, Obtained, Unknown
 - `FakeCMPDialog.cs` - Editor CMP simulation
 - `SorollaTestingTools.cs` - Reset/debug utilities
 
-**What's Missing**:
-- Mock ad responses in Editor
-- Simulated ad revenue events
-- Test mode for analytics (prevent polluting real data)
-- Network failure simulation
+**Reality Check**:
+Most ad networks provide test ads when registering a test device (IDFA/GAID). Full mock implementation is low ROI.
 
-**Implementation Plan**:
+**Recommended Approach** (v2.3.0):
 ```
-Phase 1: Mock Ads (v2.3.0)
-├── Add EditorMockAds.cs
-├── Simulate rewarded ad flow (load → show → reward)
+Phase 1: Minimal Mock Ads in Debug UI
+├── Add simple mock ad buttons to existing Debug Panel
+├── Simulate rewarded flow (shows placeholder → callback)
 ├── Simulate interstitial flow
-├── Fire OnAdRevenuePaidEvent with mock data
-└── Add "Test Mode" toggle in SorollaConfig
+└── Log events to Console
 
-Phase 2: Analytics Sandbox (v2.3.0)
-├── GA already has development mode (we enable it)
-├── Add visual indicator for test mode
-├── Log all events to Console in test mode
-└── Prevent production data pollution
+Phase 2: Test Device Documentation
+├── Document how to register test devices per network
+├── Document MAX test mode settings
+└── Add troubleshooting for "no fill" issues
 ```
 
-**Files to Create**: `Editor/MockAds/EditorMockAdProvider.cs`
-**Files to Modify**: `Runtime/Adapters/MaxAdapter.cs`, `Runtime/SorollaConfig.cs`
+**Files to Modify**: `Runtime/DebugUI/` (existing debug panel)
 
 ---
 
@@ -249,25 +255,40 @@ Phase 2: Optimization (v2.3.0)
 
 ---
 
-## Current Sprint (Updated)
+## Current Sprint (Updated 2025-12-18)
 
-### Priority: Critical
-- [ ] **GDPR/UMP Consent**: Implement Google UMP integration (Pain Point #6)
-- [ ] **Banner Ads**: Complete MAX banner implementation
+### Priority: Critical (v2.2.0)
+- [ ] **UMP Integration** - Unblock EU/UK ad revenue
+  - [ ] Update MAX SDK from 8.5.0 → 12.x (required for UMP automation)
+  - [ ] Enable MAX UMP automation
+  - [ ] Expose consent status via SorollaSDK API
+  - [ ] Document AdMob consent form setup
+- [ ] **Build Validator** - Must work out-of-box for every studio
+  - [ ] Create `Editor/BuildValidator.cs`
+  - [ ] Detect common conflicts (duplicate deps, version mismatches)
+  - [ ] Add "SorollaSDK > Tools > Validate Build" menu
+  - [ ] Clear error messages in Console
 
-### Priority: High
-- [ ] **Unity 6 Support**: Validate package compatibility (Pain Point #5)
-- [ ] **Firebase 13.x**: Evaluate migration path
-- [ ] **Build Validation**: Add pre-build conflict detection (Pain Point #2)
+### Priority: High (v2.2.0)
+- [ ] **Banner Ads** - Easy win (rarely used but simple to add)
+  - [ ] Implement ShowBanner/HideBanner in MaxAdapter
+  - [ ] Add position option (top/bottom)
 
-### Priority: Medium
-- [ ] **Mock Ads**: Editor ad simulation (Pain Point #7)
-- [ ] **Size Documentation**: Document build size impact (Pain Point #8)
-- [ ] **Video Tutorials**: Create getting started video (Pain Point #4)
+### Priority: Medium (v2.3.0)
+- [ ] **Mock Ads in Debug UI** - Minimal implementation
+  - [ ] Add test buttons to existing debug panel
+  - [ ] Document test device registration per network
+- [ ] **Size Documentation** - Document build size impact
+- [ ] **Video Tutorials** - Create getting started video
 
-### Priority: Low
-- [ ] **Update Notifications**: SDK update checker (Pain Point #9)
-- [ ] **Sample Game**: Demo integration project
+### Priority: Low (Backlog)
+- [ ] **Update Notifications** - SDK update checker
+- [ ] **Sample Game** - Demo integration project
+- [ ] **Firebase 13.x** - Only if critical features needed (manual maintenance)
+
+### ✅ Completed
+- [x] **Unity 6 Support** - Validated on Unity 6.3 LTS
+- [x] **Documentation Reorganization** - Public/internal split complete
 
 ---
 
