@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -12,7 +14,16 @@ namespace Sorolla.Editor
         SorollaConfig _config;
         Vector2 _scrollPos;
 
-        void OnEnable() => LoadOrCreateConfig();
+        // Build health state
+        List<BuildValidator.ValidationResult> _validationResults = new();
+        List<string> _autoFixLog = new();
+        bool _validationRan;
+
+        void OnEnable()
+        {
+            LoadOrCreateConfig();
+            RunBuildValidation();
+        }
 
         void OnGUI()
         {
@@ -79,9 +90,9 @@ namespace Sorolla.Editor
         {
             DrawModeSection();
             EditorGUILayout.Space(10);
-            DrawSetupChecklist();
+            DrawSdkOverviewSection();
             EditorGUILayout.Space(10);
-            DrawSdkStatusSection();
+            DrawBuildHealthSection();
             EditorGUILayout.Space(10);
             DrawConfigSection();
             EditorGUILayout.Space(10);
@@ -90,148 +101,243 @@ namespace Sorolla.Editor
             DrawLinksSection();
         }
 
-        void DrawSetupChecklist()
+        #region SDK Overview
+
+        void DrawSdkOverviewSection()
         {
             bool isPrototype = SorollaSettings.IsPrototype;
 
-            // Calculate overall status
-            SdkConfigDetector.ConfigStatus gaStatus = SdkConfigDetector.GetGameAnalyticsStatus();
-            SdkConfigDetector.ConfigStatus fbStatus = SdkConfigDetector.GetFacebookStatus();
-            SdkConfigDetector.ConfigStatus maxStatus = SdkConfigDetector.GetMaxStatus(_config);
-            SdkConfigDetector.ConfigStatus adjustStatus = SdkConfigDetector.GetAdjustStatus(_config);
-            SdkConfigDetector.ConfigStatus firebaseStatus = SdkConfigDetector.GetFirebaseStatus(_config);
+            // Calculate overall readiness
+            var gaStatus = SdkConfigDetector.GetGameAnalyticsStatus();
+            var fbStatus = SdkConfigDetector.GetFacebookStatus();
+            var maxStatus = SdkConfigDetector.GetMaxStatus(_config);
+            var adjustStatus = SdkConfigDetector.GetAdjustStatus(_config);
 
-            // Determine if fully configured (Firebase is optional, so not included in "ready" check)
-            bool isFullyConfigured = gaStatus == SdkConfigDetector.ConfigStatus.Configured &&
-                                     (isPrototype
-                                         ? fbStatus == SdkConfigDetector.ConfigStatus.Configured
-                                         : maxStatus == SdkConfigDetector.ConfigStatus.Configured &&
-                                           adjustStatus == SdkConfigDetector.ConfigStatus.Configured);
+            bool isReady = gaStatus == SdkConfigDetector.ConfigStatus.Configured &&
+                           (isPrototype
+                               ? fbStatus == SdkConfigDetector.ConfigStatus.Configured
+                               : maxStatus == SdkConfigDetector.ConfigStatus.Configured &&
+                                 adjustStatus == SdkConfigDetector.ConfigStatus.Configured);
 
-            // Header with overall status
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
+            // Header
             EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Setup Checklist", EditorStyles.boldLabel);
-
+            GUILayout.Label("SDK Overview", EditorStyles.boldLabel);
             GUILayout.FlexibleSpace();
-            var statusStyle = new GUIStyle(EditorStyles.boldLabel);
-            if (isFullyConfigured)
-            {
-                statusStyle.normal.textColor = new Color(0.2f, 0.8f, 0.2f);
-                GUILayout.Label("✓ Ready", statusStyle);
-            }
-            else
-            {
-                statusStyle.normal.textColor = new Color(1f, 0.7f, 0.2f);
-                GUILayout.Label("⚠ Setup Required", statusStyle);
-            }
 
+            var statusStyle = new GUIStyle(EditorStyles.boldLabel);
+            statusStyle.normal.textColor = isReady ? new Color(0.2f, 0.8f, 0.2f) : new Color(1f, 0.7f, 0.2f);
+            GUILayout.Label(isReady ? "✓ Ready" : "⚠ Setup Required", statusStyle);
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.Space(5);
 
             // GameAnalytics (always required)
-            DrawChecklistItem("GameAnalytics", gaStatus,
-                "Configure your game keys", SdkConfigDetector.OpenGameAnalyticsSettings);
+            DrawSdkOverviewItem(
+                SdkRegistry.All[SdkId.GameAnalytics],
+                gaStatus,
+                "Configure game keys",
+                SdkConfigDetector.OpenGameAnalyticsSettings,
+                isRequired: true
+            );
 
             if (isPrototype)
             {
-                // Facebook (prototype mode)
-                DrawChecklistItem("Facebook SDK", fbStatus,
-                    "Set your App ID", SdkConfigDetector.OpenFacebookSettings);
+                // Facebook (required in Prototype)
+                DrawSdkOverviewItem(
+                    SdkRegistry.All[SdkId.Facebook],
+                    fbStatus,
+                    "Set App ID",
+                    SdkConfigDetector.OpenFacebookSettings,
+                    isRequired: true
+                );
 
-                // MAX optional in prototype
-                if (SdkDetector.IsInstalled(SdkId.AppLovinMAX))
-                {
-                    EditorGUILayout.Space(3);
-                    GUILayout.Label("Optional:", EditorStyles.miniLabel);
-                    DrawChecklistItem("AppLovin MAX", maxStatus,
-                        "Enter SDK key below", SdkConfigDetector.OpenMaxSettings, true);
-                }
+                // MAX (optional in Prototype)
+                DrawSdkOverviewItem(
+                    SdkRegistry.All[SdkId.AppLovinMAX],
+                    maxStatus,
+                    "Enter SDK key below",
+                    SdkConfigDetector.OpenMaxSettings,
+                    isRequired: false
+                );
             }
             else
             {
-                // Full mode: MAX + Adjust
-                DrawChecklistItem("AppLovin MAX", maxStatus,
-                    "Enter SDK key below", SdkConfigDetector.OpenMaxSettings);
-                DrawChecklistItem("Adjust", adjustStatus,
-                    "Enter app token below", null);
+                // Full mode: MAX + Adjust required
+                DrawSdkOverviewItem(
+                    SdkRegistry.All[SdkId.AppLovinMAX],
+                    maxStatus,
+                    "Enter SDK key below",
+                    SdkConfigDetector.OpenMaxSettings,
+                    isRequired: true
+                );
+
+                DrawSdkOverviewItem(
+                    SdkRegistry.All[SdkId.Adjust],
+                    adjustStatus,
+                    "Enter app token below",
+                    null,
+                    isRequired: true
+                );
             }
 
-            // Firebase (optional, shown when installed)
-            if (SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
-            {
-                EditorGUILayout.Space(3);
-                if (!SdkDetector.IsInstalled(SdkId.AppLovinMAX) || !isPrototype)
-                    GUILayout.Label("Optional:", EditorStyles.miniLabel);
-                DrawChecklistItem("Firebase", firebaseStatus,
-                    "Add config files", OpenFirebaseConsole, true);
-            }
+            // Firebase (always optional)
+            DrawFirebaseOverviewItem();
 
             EditorGUILayout.EndVertical();
         }
 
-        static void OpenFirebaseConsole() => Application.OpenURL("https://console.firebase.google.com/");
-
-        void DrawChecklistItem(string name, SdkConfigDetector.ConfigStatus status,
-            string hint, Action openSettings, bool isOptional = false)
+        void DrawSdkOverviewItem(SdkInfo sdk, SdkConfigDetector.ConfigStatus configStatus,
+            string configHint, Action openSettings, bool isRequired)
         {
+            bool isInstalled = SdkDetector.IsInstalled(sdk);
+
             EditorGUILayout.BeginHorizontal();
 
-            // Status icon
+            // Install status icon
             var iconStyle = new GUIStyle(EditorStyles.label) { fixedWidth = 20 };
-            switch (status)
+            if (isInstalled)
             {
-                case SdkConfigDetector.ConfigStatus.NotInstalled:
-                    iconStyle.normal.textColor = Color.gray;
-                    GUILayout.Label("○", iconStyle);
-                    break;
-                case SdkConfigDetector.ConfigStatus.NotConfigured:
-                    iconStyle.normal.textColor = isOptional ? Color.yellow : new Color(1f, 0.5f, 0.2f);
-                    GUILayout.Label("○", iconStyle);
-                    break;
-                case SdkConfigDetector.ConfigStatus.Configured:
-                    iconStyle.normal.textColor = new Color(0.2f, 0.8f, 0.2f);
-                    GUILayout.Label("✓", iconStyle);
-                    break;
+                iconStyle.normal.textColor = new Color(0.2f, 0.8f, 0.2f);
+                GUILayout.Label("✓", iconStyle);
+            }
+            else
+            {
+                iconStyle.normal.textColor = isRequired ? new Color(1f, 0.4f, 0.4f) : Color.gray;
+                GUILayout.Label(isRequired ? "✗" : "○", iconStyle);
             }
 
-            // Name
-            GUILayout.Label(name, GUILayout.Width(120));
+            // SDK name
+            var nameLabel = isRequired ? sdk.Name : $"{sdk.Name} (optional)";
+            GUILayout.Label(nameLabel, GUILayout.Width(140));
 
-            // Status text
-            string statusText = status switch
+            // Config status
+            var configStyle = new GUIStyle(EditorStyles.miniLabel);
+            string configText;
+
+            if (!isInstalled)
             {
-                SdkConfigDetector.ConfigStatus.NotInstalled => "Not installed",
-                SdkConfigDetector.ConfigStatus.NotConfigured => hint,
-                SdkConfigDetector.ConfigStatus.Configured => "Configured",
-                _ => "",
-            };
+                configStyle.normal.textColor = Color.gray;
+                configText = "—";
+            }
+            else if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
+            {
+                configStyle.normal.textColor = new Color(0.5f, 0.8f, 0.5f);
+                configText = "✓ Configured";
+            }
+            else
+            {
+                configStyle.normal.textColor = new Color(1f, 0.7f, 0.2f);
+                configText = configHint;
+            }
 
-            var textStyle = new GUIStyle(EditorStyles.miniLabel);
-            if (status == SdkConfigDetector.ConfigStatus.Configured)
-                textStyle.normal.textColor = new Color(0.5f, 0.8f, 0.5f);
-            GUILayout.Label(statusText, textStyle, GUILayout.Width(140));
+            GUILayout.Label(configText, configStyle, GUILayout.Width(120));
 
             GUILayout.FlexibleSpace();
 
-            // Open Settings button
-            if (status != SdkConfigDetector.ConfigStatus.NotInstalled &&
-                status != SdkConfigDetector.ConfigStatus.Configured &&
-                openSettings != null)
+            // Action button
+            if (!isInstalled)
             {
-                if (GUILayout.Button("Open Settings", GUILayout.Width(100), GUILayout.Height(20)))
+                if (GUILayout.Button("Install", GUILayout.Width(70)))
+                    SdkInstaller.Install(sdk.Id);
+            }
+            else if (configStatus == SdkConfigDetector.ConfigStatus.NotConfigured && openSettings != null)
+            {
+                if (GUILayout.Button("Configure", GUILayout.Width(70)))
                     openSettings();
             }
-            else if (status == SdkConfigDetector.ConfigStatus.Configured && openSettings != null)
+            else if (configStatus == SdkConfigDetector.ConfigStatus.Configured && openSettings != null)
             {
-                if (GUILayout.Button("Edit", GUILayout.Width(60), GUILayout.Height(20)))
+                if (GUILayout.Button("Edit", GUILayout.Width(50)))
                     openSettings();
             }
 
             EditorGUILayout.EndHorizontal();
         }
+
+        void DrawFirebaseOverviewItem()
+        {
+            bool isInstalled = SdkDetector.IsInstalled(SdkId.FirebaseAnalytics);
+            var configStatus = SdkConfigDetector.GetFirebaseStatus(_config);
+
+            EditorGUILayout.BeginHorizontal();
+
+            // Install status icon
+            var iconStyle = new GUIStyle(EditorStyles.label) { fixedWidth = 20 };
+            iconStyle.normal.textColor = isInstalled ? new Color(0.2f, 0.8f, 0.2f) : Color.gray;
+            GUILayout.Label(isInstalled ? "✓" : "○", iconStyle);
+
+            // Name
+            GUILayout.Label("Firebase (optional)", GUILayout.Width(140));
+
+            // Config status
+            var configStyle = new GUIStyle(EditorStyles.miniLabel);
+            string configText;
+
+            if (!isInstalled)
+            {
+                configStyle.normal.textColor = Color.gray;
+                configText = "—";
+            }
+            else if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
+            {
+                configStyle.normal.textColor = new Color(0.5f, 0.8f, 0.5f);
+                configText = "✓ Configured";
+            }
+            else
+            {
+                configStyle.normal.textColor = new Color(1f, 0.7f, 0.2f);
+                configText = "Add config files";
+            }
+
+            GUILayout.Label(configText, configStyle, GUILayout.Width(120));
+
+            GUILayout.FlexibleSpace();
+
+            // Action button
+            if (!isInstalled)
+            {
+                if (GUILayout.Button("Install", GUILayout.Width(70)))
+                    SdkInstaller.InstallFirebase();
+            }
+            else if (configStatus == SdkConfigDetector.ConfigStatus.NotConfigured)
+            {
+                if (GUILayout.Button("Console", GUILayout.Width(70)))
+                    OpenFirebaseConsole();
+            }
+            else
+            {
+                if (GUILayout.Button("Uninstall", GUILayout.Width(70)))
+                    SdkInstaller.UninstallFirebase();
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            // Show Firebase modules when installed
+            if (isInstalled)
+            {
+                var moduleStyle = new GUIStyle(EditorStyles.miniLabel);
+                moduleStyle.normal.textColor = new Color(0.6f, 0.8f, 0.6f);
+
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Space(25);
+                GUILayout.Label("├ Analytics", moduleStyle, GUILayout.Width(100));
+                GUILayout.Label(SdkDetector.IsInstalled(SdkId.FirebaseAnalytics) ? "✓" : "○",
+                    moduleStyle, GUILayout.Width(20));
+                GUILayout.Label("├ Crashlytics", moduleStyle, GUILayout.Width(100));
+                GUILayout.Label(SdkDetector.IsInstalled(SdkId.FirebaseCrashlytics) ? "✓" : "○",
+                    moduleStyle, GUILayout.Width(20));
+                GUILayout.Label("└ Remote Config", moduleStyle, GUILayout.Width(100));
+                GUILayout.Label(SdkDetector.IsInstalled(SdkId.FirebaseRemoteConfig) ? "✓" : "○",
+                    moduleStyle, GUILayout.Width(20));
+                EditorGUILayout.EndHorizontal();
+            }
+        }
+
+        static void OpenFirebaseConsole() => Application.OpenURL("https://console.firebase.google.com/");
+
+        #endregion
 
         void DrawModeSection()
         {
@@ -254,111 +360,13 @@ namespace Sorolla.Editor
             if (GUILayout.Button($"Switch to {otherMode}", GUILayout.Width(130)))
                 if (EditorUtility.DisplayDialog($"Switch to {otherMode} Mode?",
                     "This will install/uninstall SDKs as needed.", "Switch", "Cancel"))
+                {
                     SorollaSettings.SetMode(otherMode);
+                    // Re-run validation after mode switch
+                    EditorApplication.delayCall += RunBuildValidation;
+                }
             EditorGUILayout.EndHorizontal();
             EditorGUILayout.EndVertical();
-        }
-
-        void DrawSdkStatusSection()
-        {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            GUILayout.Label("SDK Status", EditorStyles.boldLabel);
-
-            bool isPrototype = SorollaSettings.IsPrototype;
-
-            // Show required SDKs for current mode
-            foreach (SdkInfo sdk in SdkRegistry.GetRequired(isPrototype))
-                DrawSdkStatus(sdk);
-
-            // Show optional MAX in prototype mode
-            if (isPrototype)
-                DrawSdkStatus(SdkRegistry.All[SdkId.AppLovinMAX], true);
-
-            // Show optional Firebase Analytics
-            DrawFirebaseSdkStatus();
-
-            EditorGUILayout.EndVertical();
-        }
-
-        void DrawFirebaseSdkStatus()
-        {
-            bool isInstalled = SdkDetector.IsInstalled(SdkId.FirebaseAnalytics);
-
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Firebase (optional)", GUILayout.Width(180));
-
-            var style = new GUIStyle(EditorStyles.label);
-            if (isInstalled)
-            {
-                style.normal.textColor = Color.green;
-                GUILayout.Label("✓ Installed", style);
-
-                if (GUILayout.Button("Uninstall", GUILayout.Width(70)))
-                    SdkInstaller.UninstallFirebase();
-            }
-            else
-            {
-                style.normal.textColor = Color.yellow;
-                GUILayout.Label("○ Not installed", style);
-
-                if (GUILayout.Button("Install", GUILayout.Width(60)))
-                    SdkInstaller.InstallFirebase();
-            }
-
-            EditorGUILayout.EndHorizontal();
-
-            // Show installed Firebase modules when installed
-            if (isInstalled)
-            {
-                EditorGUI.indentLevel++;
-                var miniStyle = new GUIStyle(EditorStyles.miniLabel) { fixedWidth = 170 };
-
-                EditorGUILayout.BeginHorizontal();
-                GUILayout.Space(20);
-                miniStyle.normal.textColor = new Color(0.6f, 0.8f, 0.6f);
-                GUILayout.Label("├ Analytics", miniStyle);
-                GUILayout.Label(SdkDetector.IsInstalled(SdkId.FirebaseAnalytics) ? "✓" : "○", GUILayout.Width(20));
-                EditorGUILayout.EndHorizontal();
-
-                EditorGUILayout.BeginHorizontal();
-                GUILayout.Space(20);
-                GUILayout.Label("├ Crashlytics", miniStyle);
-                GUILayout.Label(SdkDetector.IsInstalled(SdkId.FirebaseCrashlytics) ? "✓" : "○", GUILayout.Width(20));
-                EditorGUILayout.EndHorizontal();
-
-                EditorGUILayout.BeginHorizontal();
-                GUILayout.Space(20);
-                GUILayout.Label("└ Remote Config", miniStyle);
-                GUILayout.Label(SdkDetector.IsInstalled(SdkId.FirebaseRemoteConfig) ? "✓" : "○", GUILayout.Width(20));
-                EditorGUILayout.EndHorizontal();
-
-                EditorGUI.indentLevel--;
-            }
-        }
-
-        void DrawSdkStatus(SdkInfo sdk, bool isOptional = false)
-        {
-            bool isInstalled = SdkDetector.IsInstalled(sdk);
-
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label(sdk.Name + (isOptional ? " (optional)" : ""), GUILayout.Width(180));
-
-            var style = new GUIStyle(EditorStyles.label);
-            if (isInstalled)
-            {
-                style.normal.textColor = Color.green;
-                GUILayout.Label("✓ Installed", style);
-            }
-            else
-            {
-                style.normal.textColor = isOptional ? Color.yellow : Color.red;
-                GUILayout.Label(isOptional ? "○ Not installed" : "✗ Missing", style);
-
-                if (GUILayout.Button("Install", GUILayout.Width(60)))
-                    SdkInstaller.Install(sdk.Id);
-            }
-
-            EditorGUILayout.EndHorizontal();
         }
 
         void DrawConfigSection()
@@ -553,22 +561,163 @@ namespace Sorolla.Editor
                 hover = { textColor = new Color(0.6f, 0.85f, 1f) },
             };
 
-            if (GUILayout.Button("📖 Documentation", linkStyle))
+            if (GUILayout.Button("Documentation", linkStyle))
                 Application.OpenURL("https://github.com/LaCreArthur/sorolla-palette-upm#readme");
 
             GUILayout.Label("|", EditorStyles.linkLabel);
 
-            if (GUILayout.Button("🐙 GitHub", linkStyle))
+            if (GUILayout.Button("GitHub", linkStyle))
                 Application.OpenURL("https://github.com/LaCreArthur/sorolla-palette-upm");
 
             GUILayout.Label("|", EditorStyles.linkLabel);
 
-            if (GUILayout.Button("🐛 Report Issue", linkStyle))
+            if (GUILayout.Button("Report Issue", linkStyle))
                 Application.OpenURL("https://github.com/LaCreArthur/sorolla-palette-upm/issues");
 
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
         }
+
+        #region Build Health
+
+        void RunBuildValidation()
+        {
+            _autoFixLog.Clear();
+            _validationRan = true;
+
+            // Auto-fix: Sanitize AndroidManifest before validation
+            var orphanedEntries = AndroidManifestSanitizer.DetectOrphanedEntries();
+            if (orphanedEntries.Count > 0)
+            {
+                foreach (var (sdkId, _) in orphanedEntries)
+                {
+                    var sdkName = SdkRegistry.All[sdkId].Name;
+                    _autoFixLog.Add($"Removed {sdkName} entries from AndroidManifest.xml");
+                }
+                AndroidManifestSanitizer.Sanitize();
+            }
+
+            // Run validation checks
+            _validationResults = BuildValidator.RunAllChecks();
+            Repaint();
+        }
+
+        void DrawBuildHealthSection()
+        {
+            var errors = _validationResults.Count(r => r.Status == BuildValidator.ValidationStatus.Error);
+            var warnings = _validationResults.Count(r => r.Status == BuildValidator.ValidationStatus.Warning);
+            var isHealthy = errors == 0;
+
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+            // Header with status
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Build Health", EditorStyles.boldLabel);
+            GUILayout.FlexibleSpace();
+
+            var statusStyle = new GUIStyle(EditorStyles.boldLabel);
+            if (isHealthy)
+            {
+                statusStyle.normal.textColor = new Color(0.2f, 0.8f, 0.2f);
+                GUILayout.Label("Ready to Build", statusStyle);
+            }
+            else
+            {
+                statusStyle.normal.textColor = new Color(0.9f, 0.4f, 0.4f);
+                GUILayout.Label($"{errors} Issue(s)", statusStyle);
+            }
+
+            if (GUILayout.Button("Refresh", GUILayout.Width(60)))
+                RunBuildValidation();
+
+            EditorGUILayout.EndHorizontal();
+
+            // Auto-fixed items
+            if (_autoFixLog.Count > 0)
+            {
+                EditorGUILayout.Space(5);
+                foreach (var fix in _autoFixLog)
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    var fixStyle = new GUIStyle(EditorStyles.miniLabel);
+                    fixStyle.normal.textColor = new Color(0.4f, 0.8f, 0.4f);
+                    GUILayout.Label("AUTO-FIXED", fixStyle, GUILayout.Width(70));
+                    GUILayout.Label(fix, EditorStyles.miniLabel);
+                    EditorGUILayout.EndHorizontal();
+                }
+            }
+
+            EditorGUILayout.Space(5);
+
+            // Show all 7 checks with their status
+            foreach (BuildValidator.CheckCategory category in Enum.GetValues(typeof(BuildValidator.CheckCategory)))
+            {
+                var checkName = BuildValidator.CheckNames[category];
+                var categoryResults = _validationResults.Where(r => r.Category == category).ToList();
+
+                // Determine status for this category
+                var hasError = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Error);
+                var hasWarning = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Warning);
+                var validResult = categoryResults.FirstOrDefault(r => r.Status == BuildValidator.ValidationStatus.Valid);
+
+                EditorGUILayout.BeginHorizontal();
+
+                // Status icon
+                var iconStyle = new GUIStyle(EditorStyles.label) { fixedWidth = 20 };
+                if (hasError)
+                {
+                    iconStyle.normal.textColor = new Color(1f, 0.4f, 0.4f);
+                    GUILayout.Label("✗", iconStyle);
+                }
+                else if (hasWarning)
+                {
+                    iconStyle.normal.textColor = new Color(1f, 0.8f, 0.2f);
+                    GUILayout.Label("⚠", iconStyle);
+                }
+                else
+                {
+                    iconStyle.normal.textColor = new Color(0.2f, 0.8f, 0.2f);
+                    GUILayout.Label("✓", iconStyle);
+                }
+
+                // Check name
+                GUILayout.Label(checkName, GUILayout.Width(120));
+
+                // Status text
+                var textStyle = new GUIStyle(EditorStyles.miniLabel);
+                string statusText;
+                if (hasError)
+                {
+                    textStyle.normal.textColor = new Color(1f, 0.5f, 0.5f);
+                    var firstError = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Error);
+                    statusText = firstError.Message.Split('\n')[0];
+                }
+                else if (hasWarning)
+                {
+                    textStyle.normal.textColor = new Color(1f, 0.85f, 0.5f);
+                    var firstWarning = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Warning);
+                    statusText = firstWarning.Message.Split('\n')[0];
+                }
+                else if (validResult != null)
+                {
+                    textStyle.normal.textColor = new Color(0.5f, 0.8f, 0.5f);
+                    statusText = validResult.Message;
+                }
+                else
+                {
+                    textStyle.normal.textColor = Color.gray;
+                    statusText = "Not checked";
+                }
+
+                GUILayout.Label(statusText, textStyle);
+
+                EditorGUILayout.EndHorizontal();
+            }
+
+            EditorGUILayout.EndVertical();
+        }
+
+        #endregion
 
         void LoadOrCreateConfig()
         {
