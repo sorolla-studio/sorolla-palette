@@ -18,12 +18,14 @@ Optimized for RAG retrieval and minimal token usage.
 
 | Task | Primary File | Secondary |
 |------|-------------|-----------|
-| API usage | `getting-started.md` | `api-reference.md` |
-| SDK setup | `prototype-setup.md` or `full-setup.md` | - |
-| Firebase | `firebase.md` | - |
-| Debug issue | `troubleshooting.md` | - |
+| API usage | `../getting-started.md` | `../api-reference.md` |
+| SDK setup | `../prototype-setup.md` or `../full-setup.md` | - |
+| Firebase | `../firebase.md` | - |
+| Debug issue | `../troubleshooting.md` | - |
 | Code changes | `architecture.md` | - |
 | Task status | `plan.md` | `devlog.md` |
+| Competitive intel | `competitive-analysis.md` | `market-research.md` |
+| Product planning | `product-roadmap.md` | `plan.md` |
 
 ### By Code Area
 
@@ -81,14 +83,17 @@ SorollaSDK.GetRemoteConfig() → Firebase (if ready) → GA (fallback) → defau
 ## Common RAG Queries
 
 ```
-"TrackProgression API"        → api-reference.md, SorollaSDK.cs
-"MAX ad not loading"          → troubleshooting.md
-"Facebook SDK setup"          → prototype-setup.md
-"Adjust attribution"          → full-setup.md, AdjustAdapter.cs
-"Firebase crashlytics"        → firebase.md
-"iOS ATT consent"             → troubleshooting.md
+"TrackProgression API"        → ../api-reference.md, SorollaSDK.cs
+"MAX ad not loading"          → ../troubleshooting.md
+"Facebook SDK setup"          → ../prototype-setup.md
+"Adjust attribution"          → ../full-setup.md, AdjustAdapter.cs
+"Firebase crashlytics"        → ../firebase.md
+"iOS ATT consent"             → ../troubleshooting.md
 "mode switching"              → architecture.md
 "SDK versions"                → SdkRegistry.cs
+"competitor features"         → competitive-analysis.md
+"roadmap priorities"          → product-roadmap.md
+"developer pain points"       → market-research.md
 ```
 
 ---
@@ -99,6 +104,9 @@ SorollaSDK.GetRemoteConfig() → Firebase (if ready) → GA (fallback) → defau
 |------|---------|
 | `plan.md` | Current tasks, backlog, ADRs |
 | `devlog.md` | Change history, learnings, hindsight |
+| `competitive-analysis.md` | Competitor features, market position |
+| `market-research.md` | Developer pain points, trends |
+| `product-roadmap.md` | Feature prioritization, version plans |
 
 ---
 

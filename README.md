@@ -169,14 +169,7 @@ Firebase provides Analytics, Crashlytics, and Remote Config.
 |----------|-------------|
 | [API Reference](Documentation~/api-reference.md) | Complete API documentation |
 | [Troubleshooting](Documentation~/troubleshooting.md) | Common issues and fixes |
-| [Architecture](Documentation~/architecture.md) | Technical deep-dive for contributors |
-
-### For AI Agents
-| Document | Description |
-|----------|-------------|
-| [AI Quick Reference](Documentation~/ai-agents.md) | RAG-optimized codebase guide |
-| [Plan & Tasks](Documentation~/plan.md) | Current sprint, backlog, ADRs |
-| [Development Log](Documentation~/devlog.md) | Change history with insights |
+| [Contributing](Documentation~/contributing.md) | How to contribute to the SDK |
 
 ## Support
 

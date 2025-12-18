@@ -25,6 +25,125 @@
 
 ---
 
+## 2025-12-17: ByteBrew Business Model Deep-Dive
+
+**Changes**:
+- Added ByteBrew funding details ($4M Seed, Konvoy Ventures)
+- Documented "Land & Expand" business model strategy
+- Added future monetization plans (paid UA tools, enterprise SLAs)
+- Identified key competitive insight: data ownership differentiator
+
+**Learnings**:
+- ByteBrew is VC-funded ($4M from gaming-focused VCs)
+- "100% free" is growth strategy, not sustainable business model
+- Future paid products will be additive, not restrictive
+- Their model: Slack/Figma playbook (free → indispensable → monetize/exit)
+
+**Hindsight Insights**:
+- **Sorolla's key differentiator vs ByteBrew**: You own your data
+  - Sorolla wraps YOUR accounts (GA, MAX, Adjust)
+  - ByteBrew owns the data layer = future lock-in risk
+- ByteBrew validates free SDK market, but different trust model
+- For positioning: emphasize "your accounts, your data, no middleman"
+
+**Sources**:
+- [ByteBrew Crunchbase](https://www.crunchbase.com/organization/bytebrew)
+- [ByteBrew Docs](https://docs.bytebrew.io/startup/home)
+
+---
+
+## 2025-12-17: Expanded Competitive Research
+
+**Changes**:
+- Added CrazyLabs CLIK platform analysis
+- Added ByteBrew SDK as independent alternative
+- Expanded LevelPlay/ironSource profile
+- Added GameAnalytics A/B testing API details
+- Added Attribution SDK landscape (AppsFlyer, Adjust, Branch, AppMetrica)
+- Created technical requirements comparison table
+- Added market statistics (publisher scale, SDK market share)
+- Added detailed SDK best practices section to market-research.md
+- Added AppLovin MAX, Firebase, Adjust detailed best practices
+
+**New Competitors Analyzed**:
+| Competitor | Type | Key Insight |
+|------------|------|-------------|
+| CrazyLabs CLIK | Publisher SDK | Cloud build system, PFA program |
+| ByteBrew | Independent | Free all-in-one, closest competitor model |
+| LevelPlay | Unity/ironSource | Native Unity integration post-merger |
+
+**Learnings**:
+- ByteBrew is closest competitor to Sorolla's positioning (free, independent, all-in-one)
+- AppsFlyer leads attribution (48% Android), Adjust at 30% is solid choice
+- "10-minute integration" is industry benchmark for SDK setup
+- GameAnalytics A/B testing requires remote config readiness check
+- Hybrid-casual games driving eCPM increases
+
+**Hindsight Insights**:
+- For competitor comparison: competitive-analysis.md now has 3 comparison matrices
+- For SDK best practices: market-research.md has detailed code examples
+- ByteBrew feature parity analysis useful for roadmap prioritization
+- Consider IAP validation feature (ByteBrew has server-side validation)
+
+**Research Sources Added**:
+- Foresight Mobile, Mike Smales, Luciq AI (SDK best practices)
+- Embrace Unity Pain Points Report 2024
+- Mobio Group SDK Leaders 2024
+- Tenjin Ad Monetization Report 2025
+
+---
+
+## 2025-12-17: Public/Internal Documentation Split
+
+**Changes**:
+- Split documentation into public and internal sections
+- Created `internal/` directory for SDK development docs
+- Added competitive analysis (VoodooSauce, Homa Belly)
+- Added market research (developer pain points, trends)
+- Added product roadmap (v2.2-v3.1 planning)
+- Moved ai-agents.md, plan.md, devlog.md, architecture.md to internal/
+- Created contributing.md for public contributor guide
+
+**New Structure**:
+```
+Documentation~/
+├── getting-started.md       ← Public: Quick start
+├── prototype-setup.md       ← Public: Prototype mode
+├── full-setup.md            ← Public: Full mode
+├── firebase.md              ← Public: Firebase add-on
+├── api-reference.md         ← Public: API docs
+├── troubleshooting.md       ← Public: Issues/fixes
+├── contributing.md          ← Public: How to contribute
+└── internal/
+    ├── README.md            ← Internal index
+    ├── ai-agents.md         ← AI agent guide
+    ├── architecture.md      ← Technical deep-dive
+    ├── plan.md              ← Sprint/backlog
+    ├── devlog.md            ← Change history
+    ├── competitive-analysis.md  ← Competition research
+    ├── market-research.md   ← Developer needs
+    └── product-roadmap.md   ← Feature planning
+```
+
+**Learnings**:
+- Public docs should focus on "how to use"
+- Internal docs should focus on "how to develop" and "why decisions"
+- Competitive analysis valuable for product decisions
+- Developer pain points inform feature prioritization
+
+**Hindsight Insights**:
+- For product decisions: competitive-analysis.md → product-roadmap.md
+- For feature requests: market-research.md → plan.md
+- Public docs: ../getting-started.md (relative from internal/)
+- Internal docs contain sensitive competitive intelligence
+
+**Metrics**:
+- Public docs: 7 files (~3,500 tokens)
+- Internal docs: 8 files (~5,000 tokens)
+- Total: 15 files covering both audiences
+
+---
+
 ## 2025-12-17: Documentation Reorganization (Developer-First)
 
 **Changes**:
