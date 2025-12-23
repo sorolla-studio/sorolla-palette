@@ -61,7 +61,11 @@ namespace Sorolla
         ///     Values: Unknown, NotApplicable, Required, Obtained, Denied.
         ///     See <see cref="Sorolla.Adapters.ConsentStatus"/> for details.
         /// </remarks>
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
         public static Adapters.ConsentStatus ConsentStatus => MaxAdapter.ConsentStatus;
+#else
+        public static Adapters.ConsentStatus ConsentStatus => Adapters.ConsentStatus.NotApplicable;
+#endif
 
         /// <summary>
         ///     Whether ads can be requested (consent obtained or not required).
@@ -73,7 +77,11 @@ namespace Sorolla
         ///     else
         ///         Debug.Log("Consent required");
         /// </example>
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
         public static bool CanRequestAds => MaxAdapter.CanRequestAds;
+#else
+        public static bool CanRequestAds => false;
+#endif
 
         /// <summary>
         ///     Whether a privacy options button should be shown in settings.
@@ -82,7 +90,15 @@ namespace Sorolla
         /// <example>
         ///     privacyButton.gameObject.SetActive(SorollaSDK.PrivacyOptionsRequired);
         /// </example>
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
         public static bool PrivacyOptionsRequired => MaxAdapter.IsPrivacyOptionsRequired;
+#else
+        public static bool PrivacyOptionsRequired => false;
+#endif
+
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+        static event Action<Adapters.ConsentStatus> s_consentStatusChanged;
+#endif
 
         /// <summary>
         ///     Event fired when consent status changes.
@@ -90,8 +106,13 @@ namespace Sorolla
         /// </summary>
         public static event Action<Adapters.ConsentStatus> OnConsentStatusChanged
         {
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
             add => MaxAdapter.OnConsentStatusChanged += value;
             remove => MaxAdapter.OnConsentStatusChanged -= value;
+#else
+            add { } // No-op when MAX not available
+            remove { } // No-op when MAX not available
+#endif
         }
 
         /// <summary>
@@ -131,10 +152,18 @@ namespace Sorolla
         #endregion
 
         /// <summary>Whether a rewarded ad is ready to show</summary>
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
         public static bool IsRewardedAdReady => IsInitialized && MaxAdapter.IsRewardedAdReady;
+#else
+        public static bool IsRewardedAdReady => false;
+#endif
 
         /// <summary>Whether an interstitial ad is ready to show</summary>
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
         public static bool IsInterstitialAdReady => IsInitialized && MaxAdapter.IsInterstitialAdReady;
+#else
+        public static bool IsInterstitialAdReady => false;
+#endif
 
         /// <summary>Event fired when SDK initialization completes</summary>
         public static event Action OnInitialized;
