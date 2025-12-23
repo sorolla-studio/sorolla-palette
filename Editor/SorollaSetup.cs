@@ -17,6 +17,24 @@ namespace Sorolla.Editor
         static SorollaSetup()
         {
             EditorApplication.delayCall += RunSetup;
+            EditorApplication.delayCall += FixDuplicateRegistryScopes;
+        }
+
+        /// <summary>
+        ///     One-time fix for duplicate com.applovin scope in OpenUPM registry.
+        ///     This scope should only exist in the AppLovin MAX registry.
+        /// </summary>
+        static void FixDuplicateRegistryScopes()
+        {
+            const string fixKey = "Sorolla_FixDuplicateScopes_v1";
+            if (EditorPrefs.GetBool(fixKey, false))
+                return;
+
+            // Remove com.applovin from OpenUPM if it exists there
+            // (it should only be in the AppLovin MAX registry)
+            ManifestManager.RemoveScopeFromRegistry("https://package.openupm.com", "com.applovin");
+
+            EditorPrefs.SetBool(fixKey, true);
         }
         static string SetupKey => $"Sorolla_Setup_{SetupVersion}_{Application.dataPath.GetHashCode()}";
 

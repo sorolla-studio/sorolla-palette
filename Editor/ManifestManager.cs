@@ -121,6 +121,30 @@ namespace Sorolla.Editor
         }
 
         /// <summary>
+        ///     Remove a scope from a specific registry (used to fix duplicate scope issues)
+        /// </summary>
+        public static bool RemoveScopeFromRegistry(string registryUrl, string scopeToRemove)
+        {
+            return ModifyManifest((manifest, scopedRegistries) =>
+            {
+                foreach (var reg in scopedRegistries)
+                {
+                    if (reg is Dictionary<string, object> r &&
+                        r.ContainsKey("url") && r["url"].ToString() == registryUrl &&
+                        r.TryGetValue("scopes", out var value) && value is List<object> scopes)
+                    {
+                        if (scopes.Remove(scopeToRemove))
+                        {
+                            Debug.Log($"[ManifestManager] Removed scope '{scopeToRemove}' from registry '{registryUrl}'");
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            });
+        }
+
+        /// <summary>
         ///     Internal registry management logic
         /// </summary>
         private static bool AddOrUpdateRegistryInternal(List<object> scopedRegistries, string name, string url,

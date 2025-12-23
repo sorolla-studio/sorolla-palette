@@ -28,6 +28,9 @@ namespace Sorolla.Editor
             // Add registry if needed (for MAX - uses its own registry, not OpenUPM)
             if (id == SdkId.AppLovinMAX)
             {
+                // Remove com.applovin from OpenUPM if it exists (fixes duplicate scope error)
+                ManifestManager.RemoveScopeFromRegistry("https://package.openupm.com", "com.applovin");
+
                 ManifestManager.AddOrUpdateRegistry(
                     "AppLovin MAX",
                     "https://unity.packages.applovin.com/",
@@ -95,6 +98,9 @@ namespace Sorolla.Editor
                 // Special handling for MAX - uses its own registry, not OpenUPM
                 if (sdk.Id == SdkId.AppLovinMAX)
                 {
+                    // Remove com.applovin from OpenUPM if it exists (fixes duplicate scope error)
+                    ManifestManager.RemoveScopeFromRegistry("https://package.openupm.com", "com.applovin");
+
                     ManifestManager.AddOrUpdateRegistry(
                         "AppLovin MAX",
                         "https://unity.packages.applovin.com/",
