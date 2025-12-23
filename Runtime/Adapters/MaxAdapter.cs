@@ -113,6 +113,7 @@ namespace Sorolla.Adapters
             Debug.Log("[Sorolla:MAX] Initializing...");
             MaxSdkCallbacks.OnSdkInitializedEvent += OnSdkInit;
 
+            MaxSdk.SetSdkKey(sdkKey);
             MaxSdk.InitializeSdk();
         }
 
