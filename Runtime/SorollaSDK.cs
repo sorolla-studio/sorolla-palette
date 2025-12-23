@@ -272,7 +272,7 @@ namespace Sorolla
             InitializeMax();
 #elif SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
             // No MAX, initialize Adjust directly (Full mode only)
-            if (!isPrototype && s_config != null)
+            if (!isPrototype && Config != null)
                 InitializeAdjust();
 #endif
 
