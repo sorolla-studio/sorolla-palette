@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.1] - 2025-12-23
+
+### Fixed
+- **MAX SDK Initialization**: Added missing `MaxSdk.SetSdkKey()` call - SDK key was passed but never used
+- **Duplicate Registry Scope**: Fixed "com.applovin defined in multiple registries" error
+  - Added `RemoveScopeFromRegistry()` to clean up duplicate scopes
+  - **Manual fix required**: Remove `com.applovin` from OpenUPM scopes in `Packages/manifest.json` before opening Unity
+  - Future installs now prevent `com.applovin` from being added to OpenUPM (should only be in AppLovin registry)
+- **SorollaSDK.cs**: Fixed `s_config` typo → `Config` on line 275
+
 ## [2.2.0] - 2025-12-18
 
 ### Added
