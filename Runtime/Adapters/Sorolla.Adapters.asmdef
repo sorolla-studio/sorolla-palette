@@ -1,15 +1,7 @@
 {
     "name": "Sorolla.Adapters",
     "rootNamespace": "Sorolla.Adapters",
-    "references": [
-        "Firebase.App",
-        "Firebase.Analytics",
-        "Firebase.Crashlytics",
-        "Firebase.RemoteConfig",
-        "AdjustSdk.Scripts",
-        "MaxSdk.Scripts"
-    ],
-
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -43,7 +35,6 @@
             "expression": "",
             "define": "ADJUST_SDK_INSTALLED"
         },
-
         {
             "name": "com.google.firebase.analytics",
             "expression": "",

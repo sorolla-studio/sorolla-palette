@@ -1,0 +1,25 @@
+{
+    "name": "Sorolla.Adapters.Adjust",
+    "rootNamespace": "Sorolla.Adapters",
+    "references": [
+        "AdjustSdk.Scripts",
+        "Sorolla.Adapters"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "SOROLLA_ADJUST_ENABLED"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.applovin.mediation.ads",
+            "expression": "",
+            "define": "APPLOVIN_MAX_INSTALLED"
+        }
+    ],
+    "noEngineReferences": false
+}

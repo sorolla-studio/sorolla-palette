@@ -25,6 +25,59 @@
 
 ---
 
+## 2025-12-24: Adapter Architecture Overhaul (v2.3.0)
+
+**Changes**:
+- Refactored all optional SDK adapters (Firebase, MAX, Adjust) to Stub + Implementation pattern
+- Created separate assemblies with `defineConstraints` for each SDK
+- Stubs always compile, implementations only compile when SDK installed
+- Runtime registration via `RuntimeInitializeOnLoadMethod`
+
+**Problem Solved**:
+Unity resolves assembly references BEFORE evaluating `#if` preprocessor blocks. Previous approach:
+```csharp
+#if FIREBASE_INSTALLED
+using Firebase;  // ← Unity tries to resolve this even if FIREBASE_INSTALLED is false!
+#endif
+```
+This caused "Firebase assembly not found" errors in Prototype mode.
+
+**Solution**:
+- `Sorolla.Adapters.asmdef` - no external references (always compiles)
+- `Sorolla.Adapters.Firebase.asmdef` - `defineConstraints: ["FIREBASE_*_INSTALLED"]`
+- If constraint not met, Unity skips the entire assembly (no reference resolution)
+
+**New Structure**:
+```
+Adapters/
+├── MaxAdapter.cs (stub)
+├── MAX/
+│   ├── Sorolla.Adapters.MAX.asmdef
+│   └── MaxAdapterImpl.cs
+```
+
+**Learnings**:
+- `defineConstraints` are evaluated BEFORE assembly reference resolution
+- `versionDefines` set project-wide symbols when packages detected
+- `RuntimeInitializeOnLoadMethod(BeforeSceneLoad)` runs before any scene loads
+- Cross-assembly type references need shared types (created `AdRevenueInfo` struct)
+
+**Hindsight Insights**:
+- For future SDKs: use Stub + Impl pattern from the start
+- `defineConstraints` can use `||` for OR logic: `"A || B || C"`
+- Interface must be `internal` so users only see the public static class
+- Events need to be forwarded from impl to stub (subscribe in RegisterImpl)
+
+**Files Modified**:
+- `Adapters/Sorolla.Adapters.asmdef` - removed all external refs
+- `Adapters/MaxAdapter.cs` - converted to stub
+- `Adapters/AdjustAdapter.cs` - converted to stub + added AdRevenueInfo
+- `Adapters/MAX/` - new folder with impl
+- `Adapters/Adjust/` - new folder with impl
+- `Adapters/Firebase/` - new folder (created in earlier session)
+
+---
+
 ## 2025-12-18: Developer Pain Points Analysis & Implementation Plan
 
 **Changes**:

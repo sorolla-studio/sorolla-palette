@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.0] - 2025-12-24
+
+### Changed
+- **Adapter Architecture Overhaul**: Refactored all optional SDK adapters to use Interface + Registration pattern
+  - Stubs always compile (no external dependencies)
+  - Implementations in separate assemblies with `defineConstraints`
+  - Runtime registration via `RuntimeInitializeOnLoadMethod`
+- **Assembly Structure**: Split adapters into isolated assemblies
+  - `Sorolla.Adapters` - Core stubs (always compiles)
+  - `Sorolla.Adapters.Firebase` - Firebase implementations (compiles only when Firebase installed)
+  - `Sorolla.Adapters.MAX` - MAX implementation (compiles only when MAX installed)
+  - `Sorolla.Adapters.Adjust` - Adjust implementation (compiles only when Adjust installed)
+
+### Added
+- `AdRevenueInfo` struct for cross-SDK ad revenue tracking
+- `IMaxAdapter`, `IAdjustAdapter`, `IFirebaseAdapter` internal interfaces
+
+### Fixed
+- **Prototype Mode Compilation**: SDK now compiles cleanly without Firebase/MAX/Adjust installed
+  - Root cause: Unity resolves assembly references BEFORE evaluating `#if` preprocessor blocks
+  - Solution: `defineConstraints` in child asmdefs prevent assembly compilation entirely when SDKs missing
+- Removed unused `s_consentStatusChanged` field in SorollaSDK.cs
+
+### Technical Details
+The previous approach used `#if/#else` blocks with assembly references in a single asmdef. This failed because Unity's assembly resolution happens before C# compilation, causing "assembly not found" errors even for code inside `#if false` blocks.
+
+New pattern:
+```
+Adapters/
+├── Sorolla.Adapters.asmdef      (no external refs)
+├── MaxAdapter.cs                 (stub → delegates to impl)
+├── Firebase/
+│   ├── Sorolla.Adapters.Firebase.asmdef  (defineConstraints: FIREBASE_*_INSTALLED)
+│   └── FirebaseAdapterImpl.cs            (registers at runtime)
+├── MAX/
+│   └── ...
+└── Adjust/
+    └── ...
+```
+
 ## [2.2.1] - 2025-12-23
 
 ### Fixed

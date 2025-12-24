@@ -1,0 +1,27 @@
+{
+    "name": "Sorolla.Adapters.MAX",
+    "rootNamespace": "Sorolla.Adapters",
+    "references": [
+        "MaxSdk.Scripts",
+        "Sorolla.Adapters",
+        "Sorolla.Adapters.Adjust"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "SOROLLA_MAX_ENABLED",
+        "APPLOVIN_MAX_INSTALLED"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.adjust.sdk",
+            "expression": "",
+            "define": "SOROLLA_ADJUST_ENABLED"
+        }
+    ],
+    "noEngineReferences": false
+}

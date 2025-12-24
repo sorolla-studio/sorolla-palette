@@ -1,0 +1,22 @@
+{
+    "name": "Sorolla.Adapters.Firebase",
+    "rootNamespace": "Sorolla.Adapters",
+    "references": [
+        "Firebase.App",
+        "Firebase.Analytics",
+        "Firebase.Crashlytics",
+        "Firebase.RemoteConfig",
+        "Sorolla.Adapters"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "FIREBASE_ANALYTICS_INSTALLED || FIREBASE_CRASHLYTICS_INSTALLED || FIREBASE_REMOTE_CONFIG_INSTALLED"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -29,13 +29,26 @@ Runtime/
 ├── SorollaLoadingOverlay.cs   ← Ad loading UI helper
 ├── GameAnalyticsAdapter.cs    ← GA wrapper (always included)
 ├── Adapters/
-│   ├── MaxAdapter.cs          ← AppLovin MAX (#if SOROLLA_MAX_ENABLED)
-│   ├── AdjustAdapter.cs       ← Adjust (#if SOROLLA_ADJUST_ENABLED)
-│   ├── FacebookAdapter.cs     ← Facebook (#if SOROLLA_FACEBOOK_ENABLED)
-│   ├── FirebaseAdapter.cs     ← Firebase Analytics
-│   ├── FirebaseCrashlyticsAdapter.cs
-│   ├── FirebaseRemoteConfigAdapter.cs
-│   └── FirebaseCoreManager.cs ← Firebase init coordinator
+│   ├── Sorolla.Adapters.asmdef     ← Core stubs (no external refs)
+│   ├── MaxAdapter.cs               ← Stub (delegates to impl)
+│   ├── AdjustAdapter.cs            ← Stub (delegates to impl)
+│   ├── FacebookAdapter.cs          ← Facebook (#if SOROLLA_FACEBOOK_ENABLED)
+│   ├── FirebaseAdapter.cs          ← Stub (delegates to impl)
+│   ├── FirebaseCrashlyticsAdapter.cs  ← Stub
+│   ├── FirebaseRemoteConfigAdapter.cs ← Stub
+│   ├── FirebaseCoreManager.cs      ← Stub
+│   ├── Firebase/                   ← Separate assembly (defineConstraints)
+│   │   ├── Sorolla.Adapters.Firebase.asmdef
+│   │   ├── FirebaseAdapterImpl.cs
+│   │   ├── FirebaseCoreManagerImpl.cs
+│   │   ├── FirebaseCrashlyticsAdapterImpl.cs
+│   │   └── FirebaseRemoteConfigAdapterImpl.cs
+│   ├── MAX/                        ← Separate assembly (defineConstraints)
+│   │   ├── Sorolla.Adapters.MAX.asmdef
+│   │   └── MaxAdapterImpl.cs
+│   └── Adjust/                     ← Separate assembly (defineConstraints)
+│       ├── Sorolla.Adapters.Adjust.asmdef
+│       └── AdjustAdapterImpl.cs
 └── ATT/
     ├── ContextScreenView.cs   ← Pre-ATT explanation screen
     └── FakeATTDialog.cs       ← Editor testing
@@ -82,39 +95,76 @@ IsInitialized = true
 
 ## Adapter Pattern
 
-All adapters follow this structure:
+Optional SDK adapters use a **Stub + Implementation** pattern with separate assemblies:
 
+### Why This Pattern?
+Unity resolves assembly references **before** evaluating `#if` preprocessor blocks. This means `#if SDK_DEFINE` guards don't prevent "assembly not found" errors when the SDK isn't installed. The solution is to use `defineConstraints` in separate asmdefs.
+
+### Structure
+
+**Stub (always compiles)** - `Adapters/XxxAdapter.cs`:
 ```csharp
-#if SDK_DEFINE
-using ThirdPartySDK;
-#endif
-
 namespace Sorolla.Adapters
 {
+    internal interface IXxxAdapter
+    {
+        void Initialize();
+        void DoSomething();
+    }
+
     public static class XxxAdapter
     {
-        private static bool s_initialized;
+        private static IXxxAdapter s_impl;
+
+        internal static void RegisterImpl(IXxxAdapter impl)
+        {
+            s_impl = impl;
+        }
 
         public static void Initialize()
         {
-            if (s_initialized) return;
-#if SDK_DEFINE
-            ThirdPartySDK.Init();
-            s_initialized = true;
-#else
-            Debug.LogWarning("[Sorolla] SDK not installed");
-#endif
+            if (s_impl != null) s_impl.Initialize();
+            else Debug.LogWarning("[Sorolla] SDK not installed");
         }
 
-        public static void DoSomething()
-        {
-#if SDK_DEFINE
-            ThirdPartySDK.DoSomething();
-#endif
-        }
+        public static void DoSomething() => s_impl?.DoSomething();
     }
 }
 ```
+
+**Implementation (defineConstraints)** - `Adapters/Xxx/XxxAdapterImpl.cs`:
+```csharp
+using ThirdPartySDK;
+
+namespace Sorolla.Adapters
+{
+    internal class XxxAdapterImpl : IXxxAdapter
+    {
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void Register()
+        {
+            XxxAdapter.RegisterImpl(new XxxAdapterImpl());
+        }
+
+        public void Initialize() { ThirdPartySDK.Init(); }
+        public void DoSomething() { ThirdPartySDK.DoSomething(); }
+    }
+}
+```
+
+**Assembly Definition** - `Adapters/Xxx/Sorolla.Adapters.Xxx.asmdef`:
+```json
+{
+    "name": "Sorolla.Adapters.Xxx",
+    "references": ["ThirdPartySDK", "Sorolla.Adapters"],
+    "defineConstraints": ["SDK_DEFINE"]
+}
+```
+
+### How It Works
+1. If SDK not installed → `defineConstraints` not met → Impl assembly skipped entirely
+2. If SDK installed → Impl compiles → Registers itself at runtime via `RuntimeInitializeOnLoadMethod`
+3. Stub delegates to impl if registered, otherwise gracefully handles missing SDK
 
 ### Scripting Defines
 
