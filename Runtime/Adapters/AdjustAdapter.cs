@@ -1,113 +1,101 @@
-#if SOROLLA_ADJUST_ENABLED
 using System;
-using AdjustSdk;
-using UnityEngine;
-
-namespace Sorolla.Adapters
-{
-    /// <summary>
-    ///     Adjust SDK adapter. Use Sorolla API instead.
-    /// </summary>
-    public static class AdjustAdapter
-    {
-        private static bool s_init;
-
-        public static void Initialize(string appToken, AdjustEnvironment environment)
-        {
-            if (s_init) return;
-
-            Debug.Log($"[Sorolla:Adjust] Initializing ({environment})...");
-
-            var config = new AdjustConfig(appToken, environment == AdjustEnvironment.Production
-                ? AdjustSdk.AdjustEnvironment.Production
-                : AdjustSdk.AdjustEnvironment.Sandbox);
-
-            AdjustSdk.Adjust.InitSdk(config);
-            s_init = true;
-            Debug.Log("[Sorolla:Adjust] Initialized");
-        }
-
-        public static void TrackEvent(string eventToken)
-        {
-            if (!s_init) return;
-            AdjustSdk.Adjust.TrackEvent(new AdjustEvent(eventToken));
-        }
-
-        public static void TrackRevenue(string eventToken, double amount, string currency = "USD")
-        {
-            if (!s_init) return;
-            var e = new AdjustEvent(eventToken);
-            e.SetRevenue(amount, currency);
-            AdjustSdk.Adjust.TrackEvent(e);
-        }
-
-#if APPLOVIN_MAX_INSTALLED
-        public static void TrackAdRevenue(MaxSdkBase.AdInfo adInfo)
-        {
-            if (!s_init) return;
-            // Adjust SDK v5 uses string literals for sources and property setters
-            var adRevenue = new AdjustAdRevenue("applovin_max_sdk");
-            adRevenue.SetRevenue(adInfo.Revenue, "USD");
-            adRevenue.AdRevenueNetwork = adInfo.NetworkName;
-            adRevenue.AdRevenueUnit = adInfo.AdUnitIdentifier;
-            adRevenue.AdRevenuePlacement = adInfo.Placement;
-            AdjustSdk.Adjust.TrackAdRevenue(adRevenue);
-        }
-
-#else
-        public static void TrackAdRevenue(object adInfo) { }
-#endif
-
-        public static void SetUserId(string userId)
-        {
-            if (!s_init) return;
-            AdjustSdk.Adjust.AddGlobalPartnerParameter("user_id", userId);
-        }
-
-        public static void GetAttribution(Action<AdjustAttribution> callback)
-        {
-            if (!s_init) return;
-            AdjustSdk.Adjust.GetAttribution(callback);
-        }
-
-        public static void GetAdid(Action<string> callback)
-        {
-            if (!s_init) return;
-            AdjustSdk.Adjust.GetAdid(callback);
-        }
-
-        public static void GetGoogleAdId(Action<string> callback)
-        {
-            if (!s_init) return;
-            AdjustSdk.Adjust.GetGoogleAdId(callback);
-        }
-
-        public static void GetIdfa(Action<string> callback)
-        {
-            if (!s_init) return;
-            AdjustSdk.Adjust.GetIdfa(callback);
-        }
-    }
-}
-#else
-namespace Sorolla.Adapters
-{
-    public static class AdjustAdapter
-    {
-        public static void Initialize(string t, AdjustEnvironment e) => UnityEngine.Debug.LogWarning("[Sorolla:Adjust] Not installed");
-        public static void TrackEvent(string t) { }
-        public static void TrackRevenue(string t, double a, string c = "USD") { }
-        public static void TrackAdRevenue(object i) { }
-        public static void SetUserId(string u) { }
-        public static void GetAttribution(System.Action<object> c) { }
-        public static void GetAdid(System.Action<string> c) { }
-        public static void GetGoogleAdId(System.Action<string> c) { }
-        public static void GetIdfa(System.Action<string> c) { }
-    }
-}
-#endif
 
 namespace Sorolla.Adapters
 {
     public enum AdjustEnvironment { Sandbox, Production }
+
+    /// <summary>
+    ///     Ad revenue info for cross-SDK tracking.
+    /// </summary>
+    public struct AdRevenueInfo
+    {
+        public string Source;
+        public double Revenue;
+        public string Currency;
+        public string Network;
+        public string AdUnit;
+        public string Placement;
+    }
+
+    /// <summary>
+    ///     Interface for Adjust adapter implementation.
+    /// </summary>
+    internal interface IAdjustAdapter
+    {
+        void Initialize(string appToken, AdjustEnvironment environment);
+        void TrackEvent(string eventToken);
+        void TrackRevenue(string eventToken, double amount, string currency);
+        void TrackAdRevenue(AdRevenueInfo info);
+        void SetUserId(string userId);
+        void GetAttribution(Action<object> callback);
+        void GetAdid(Action<string> callback);
+        void GetGoogleAdId(Action<string> callback);
+        void GetIdfa(Action<string> callback);
+    }
+
+    /// <summary>
+    ///     Adjust SDK adapter. Delegates to implementation when available.
+    /// </summary>
+    public static class AdjustAdapter
+    {
+        private static IAdjustAdapter s_impl;
+
+        internal static void RegisterImpl(IAdjustAdapter impl)
+        {
+            s_impl = impl;
+            UnityEngine.Debug.Log("[Sorolla:Adjust] Implementation registered");
+        }
+
+        public static void Initialize(string appToken, AdjustEnvironment environment)
+        {
+            if (s_impl != null)
+                s_impl.Initialize(appToken, environment);
+            else
+                UnityEngine.Debug.LogWarning("[Sorolla:Adjust] Not installed");
+        }
+
+        public static void TrackEvent(string eventToken)
+        {
+            s_impl?.TrackEvent(eventToken);
+        }
+
+        public static void TrackRevenue(string eventToken, double amount, string currency = "USD")
+        {
+            s_impl?.TrackRevenue(eventToken, amount, currency);
+        }
+
+        public static void TrackAdRevenue(AdRevenueInfo info)
+        {
+            s_impl?.TrackAdRevenue(info);
+        }
+
+        public static void SetUserId(string userId)
+        {
+            s_impl?.SetUserId(userId);
+        }
+
+        public static void GetAttribution(Action<object> callback)
+        {
+            if (s_impl != null)
+                s_impl.GetAttribution(callback);
+        }
+
+        public static void GetAdid(Action<string> callback)
+        {
+            if (s_impl != null)
+                s_impl.GetAdid(callback);
+        }
+
+        public static void GetGoogleAdId(Action<string> callback)
+        {
+            if (s_impl != null)
+                s_impl.GetGoogleAdId(callback);
+        }
+
+        public static void GetIdfa(Action<string> callback)
+        {
+            if (s_impl != null)
+                s_impl.GetIdfa(callback);
+        }
+    }
 }

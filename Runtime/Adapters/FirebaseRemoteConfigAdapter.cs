@@ -1,289 +1,63 @@
-#if FIREBASE_REMOTE_CONFIG_INSTALLED
 using System;
 using System.Collections.Generic;
-using Firebase.Extensions;
-using Firebase.RemoteConfig;
-using UnityEngine;
 
 namespace Sorolla.Adapters
 {
     /// <summary>
-    ///     Firebase Remote Config adapter. Use Sorolla API instead.
+    ///     Interface for Firebase Remote Config adapter implementation.
+    /// </summary>
+    internal interface IFirebaseRemoteConfigAdapter
+    {
+        bool IsReady { get; }
+        void Initialize(Dictionary<string, object> defaults, bool autoFetch);
+        void FetchAndActivate(Action<bool> onComplete);
+        string GetString(string key, string defaultValue);
+        bool GetBool(string key, bool defaultValue);
+        long GetLong(string key, long defaultValue);
+        int GetInt(string key, int defaultValue);
+        double GetDouble(string key, double defaultValue);
+        float GetFloat(string key, float defaultValue);
+        IEnumerable<string> GetKeys();
+    }
+
+    /// <summary>
+    ///     Firebase Remote Config adapter. Delegates to implementation when available.
     /// </summary>
     public static class FirebaseRemoteConfigAdapter
     {
-        const string Tag = "[Sorolla:RemoteConfig]";
-        static bool s_initRequested;
-        static bool s_init;
-        static bool s_fetching;
-        static Dictionary<string, object> s_pendingDefaults;
-        static bool s_pendingAutoFetch;
-        static Action<bool> s_pendingFetchCallback;
+        private static IFirebaseRemoteConfigAdapter s_impl;
 
-        /// <summary>Whether Remote Config is initialized and has fetched values</summary>
-        public static bool IsReady { get; private set; }
+        internal static void RegisterImpl(IFirebaseRemoteConfigAdapter impl)
+        {
+            s_impl = impl;
+            UnityEngine.Debug.Log("[Sorolla:RemoteConfig] Implementation registered");
+        }
 
+        public static bool IsReady => s_impl?.IsReady ?? false;
 
-        /// <summary>
-        ///     Initialize Remote Config with optional defaults.
-        ///     Will wait for Firebase core to be ready first.
-        /// </summary>
-        /// <param name="defaults">Default values to use before fetch completes</param>
-        /// <param name="autoFetch">Whether to automatically fetch on init</param>
         public static void Initialize(Dictionary<string, object> defaults = null, bool autoFetch = true)
         {
-            if (s_initRequested)
-                return;
-            s_initRequested = true;
-            s_pendingDefaults = defaults;
-            s_pendingAutoFetch = autoFetch;
-
-            FirebaseCoreManager.Initialize(available =>
-            {
-                if (available)
-                {
-                    InitializeInternal();
-                }
-                else
-                {
-                    Debug.LogError($"{Tag} Firebase not available");
-                    // Still invoke pending callback with failure
-                    if (s_pendingFetchCallback != null)
-                    {
-                        var callback = s_pendingFetchCallback;
-                        s_pendingFetchCallback = null;
-                        callback.Invoke(false);
-                    }
-                }
-            });
-        }
-
-        static void InitializeInternal()
-        {
-            if (s_init) return;
-            s_init = true;
-
-#if UNITY_EDITOR
-            // Disable cache in Editor for faster iteration
-            ConfigSettings settings = FirebaseRemoteConfig.DefaultInstance.ConfigSettings;
-            settings.MinimumFetchIntervalInMilliseconds = 0;
-            FirebaseRemoteConfig.DefaultInstance.SetConfigSettingsAsync(settings);
-#endif
-
-            // Set defaults if provided
-            if (s_pendingDefaults != null && s_pendingDefaults.Count > 0)
-            {
-                FirebaseRemoteConfig.DefaultInstance.SetDefaultsAsync(s_pendingDefaults).ContinueWithOnMainThread(task =>
-                {
-                    if (task.IsFaulted)
-                        Debug.LogError($"{Tag} Failed to set defaults: {task.Exception}");
-                    else
-                        Debug.Log($"{Tag} Defaults set ({s_pendingDefaults.Count} values)");
-
-                    s_pendingDefaults = null;
-                });
-            }
-
-            // Execute pending fetch callback or auto-fetch
-            if (s_pendingFetchCallback != null)
-            {
-                var callback = s_pendingFetchCallback;
-                s_pendingFetchCallback = null;
-                FetchAndActivate(callback);
-            }
-            else if (s_pendingAutoFetch)
-            {
-                FetchAndActivate();
-            }
+            if (s_impl != null)
+                s_impl.Initialize(defaults, autoFetch);
             else
-            {
-                IsReady = true;
-            }
+                UnityEngine.Debug.LogWarning("[Sorolla:RemoteConfig] Not installed");
         }
 
-        /// <summary>
-        ///     Fetch remote config values and activate them.
-        /// </summary>
-        /// <param name="onComplete">Callback when fetch completes (success/failure)</param>
         public static void FetchAndActivate(Action<bool> onComplete = null)
         {
-            if (!s_init)
-            {
-                // Queue fetch if initialization in progress
-                if (s_initRequested)
-                {
-                    s_pendingFetchCallback = onComplete;
-                    return;
-                }
-
-                Debug.LogWarning($"{Tag} Not initialized");
+            if (s_impl != null)
+                s_impl.FetchAndActivate(onComplete);
+            else
                 onComplete?.Invoke(false);
-                return;
-            }
-
-            if (s_fetching)
-                return;
-
-            s_fetching = true;
-
-            FirebaseRemoteConfig.DefaultInstance.FetchAndActivateAsync().ContinueWithOnMainThread(task =>
-            {
-                s_fetching = false;
-                IsReady = true;
-
-                if (task.IsFaulted)
-                {
-                    Debug.LogError($"{Tag} Fetch failed: {task.Exception?.Message}");
-                    onComplete?.Invoke(false);
-                    return;
-                }
-
-                Debug.Log($"{Tag} Fetch complete (activated: {task.Result})");
-                onComplete?.Invoke(true);
-            });
         }
 
-        /// <summary>
-        ///     Get a string value from Remote Config.
-        /// </summary>
-        public static string GetString(string key, string defaultValue = "")
-        {
-            if (!s_init)
-            {
-                Debug.LogWarning($"{Tag} Not initialized, returning default for '{key}'");
-                return defaultValue;
-            }
-
-            try
-            {
-                string value = FirebaseRemoteConfig.DefaultInstance.GetValue(key).StringValue;
-                return string.IsNullOrEmpty(value) ? defaultValue : value;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"{Tag} Error getting '{key}': {ex.Message}");
-                return defaultValue;
-            }
-        }
-
-        /// <summary>
-        ///     Get a boolean value from Remote Config.
-        /// </summary>
-        public static bool GetBool(string key, bool defaultValue = false)
-        {
-            if (!s_init)
-            {
-                Debug.LogWarning($"{Tag} Not initialized, returning default for '{key}'");
-                return defaultValue;
-            }
-
-            try
-            {
-                ConfigValue configValue = FirebaseRemoteConfig.DefaultInstance.GetValue(key);
-                // If the key doesn't exist (StaticValue with empty string), return default
-                if (configValue.Source == ValueSource.StaticValue && string.IsNullOrEmpty(configValue.StringValue))
-                    return defaultValue;
-                return configValue.BooleanValue;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"{Tag} Error getting '{key}': {ex.Message}");
-                return defaultValue;
-            }
-        }
-
-        /// <summary>
-        ///     Get a long (int64) value from Remote Config.
-        /// </summary>
-        public static long GetLong(string key, long defaultValue = 0)
-        {
-            if (!s_init)
-            {
-                Debug.LogWarning($"{Tag} Not initialized, returning default for '{key}'");
-                return defaultValue;
-            }
-
-            try
-            {
-                ConfigValue configValue = FirebaseRemoteConfig.DefaultInstance.GetValue(key);
-                if (configValue.Source == ValueSource.StaticValue && string.IsNullOrEmpty(configValue.StringValue))
-                    return defaultValue;
-                return configValue.LongValue;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"{Tag} Error getting '{key}': {ex.Message}");
-                return defaultValue;
-            }
-        }
-
-        /// <summary>
-        ///     Get an int value from Remote Config.
-        /// </summary>
-        public static int GetInt(string key, int defaultValue = 0) => (int)GetLong(key, defaultValue);
-
-        /// <summary>
-        ///     Get a double value from Remote Config.
-        /// </summary>
-        public static double GetDouble(string key, double defaultValue = 0.0)
-        {
-            if (!s_init)
-            {
-                Debug.LogWarning($"{Tag} Not initialized, returning default for '{key}'");
-                return defaultValue;
-            }
-
-            try
-            {
-                ConfigValue configValue = FirebaseRemoteConfig.DefaultInstance.GetValue(key);
-                if (configValue.Source == ValueSource.StaticValue && string.IsNullOrEmpty(configValue.StringValue))
-                    return defaultValue;
-                return configValue.DoubleValue;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"{Tag} Error getting '{key}': {ex.Message}");
-                return defaultValue;
-            }
-        }
-
-        /// <summary>
-        ///     Get a float value from Remote Config.
-        /// </summary>
-        public static float GetFloat(string key, float defaultValue = 0f) => (float)GetDouble(key, defaultValue);
-
-        /// <summary>
-        ///     Get all keys from Remote Config.
-        /// </summary>
-        public static IEnumerable<string> GetKeys()
-        {
-            if (!s_init) return Array.Empty<string>();
-            return FirebaseRemoteConfig.DefaultInstance.Keys;
-        }
-    }
-}
-#else
-using System;
-using System.Collections.Generic;
-
-namespace Sorolla.Adapters
-{
-    /// <summary>
-    ///     Firebase Remote Config adapter stub (SDK not installed).
-    /// </summary>
-    public static class FirebaseRemoteConfigAdapter
-    {
-        public static bool IsReady => false;
-        public static void Initialize(Dictionary<string, object> defaults = null, bool autoFetch = true) => UnityEngine.Debug.LogWarning("[Sorolla:RemoteConfig] Not installed");
-        public static void FetchAndActivate(Action<bool> onComplete = null) => onComplete?.Invoke(false);
-        public static string GetString(string key, string defaultValue = "") => defaultValue;
-        public static bool GetBool(string key, bool defaultValue = false) => defaultValue;
-        public static long GetLong(string key, long defaultValue = 0) => defaultValue;
-        public static int GetInt(string key, int defaultValue = 0) => defaultValue;
-        public static double GetDouble(string key, double defaultValue = 0.0) => defaultValue;
-        public static float GetFloat(string key, float defaultValue = 0f) => defaultValue;
-        public static IEnumerable<string> GetKeys() => Array.Empty<string>();
+        public static string GetString(string key, string defaultValue = "") => s_impl?.GetString(key, defaultValue) ?? defaultValue;
+        public static bool GetBool(string key, bool defaultValue = false) => s_impl?.GetBool(key, defaultValue) ?? defaultValue;
+        public static long GetLong(string key, long defaultValue = 0) => s_impl?.GetLong(key, defaultValue) ?? defaultValue;
+        public static int GetInt(string key, int defaultValue = 0) => s_impl?.GetInt(key, defaultValue) ?? defaultValue;
+        public static double GetDouble(string key, double defaultValue = 0.0) => s_impl?.GetDouble(key, defaultValue) ?? defaultValue;
+        public static float GetFloat(string key, float defaultValue = 0f) => s_impl?.GetFloat(key, defaultValue) ?? defaultValue;
+        public static IEnumerable<string> GetKeys() => s_impl?.GetKeys() ?? Array.Empty<string>();
         public static DateTime LastFetchTime => DateTime.MinValue;
     }
 }
-#endif

@@ -2,9 +2,7 @@ using System;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using UnityEngine;
-#if SOROLLA_MAX_ENABLED || SOROLLA_ADJUST_ENABLED || SOROLLA_FACEBOOK_ENABLED || FIREBASE_ANALYTICS_INSTALLED || FIREBASE_CRASHLYTICS_INSTALLED || FIREBASE_REMOTE_CONFIG_INSTALLED
 using Sorolla.Adapters;
-#endif
 #if GAMEANALYTICS_INSTALLED
 using GameAnalyticsSDK;
 #endif
@@ -94,10 +92,6 @@ namespace Sorolla
         public static bool PrivacyOptionsRequired => MaxAdapter.IsPrivacyOptionsRequired;
 #else
         public static bool PrivacyOptionsRequired => false;
-#endif
-
-#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-        static event Action<Adapters.ConsentStatus> s_consentStatusChanged;
 #endif
 
         /// <summary>
