@@ -440,6 +440,71 @@ namespace Sorolla.Editor
         }
 
         /// <summary>
+        ///     Auto-fix config sync issues by disabling Firebase flags when SDK is not installed.
+        ///     Returns true if any fixes were applied.
+        /// </summary>
+        public static bool FixConfigSync()
+        {
+            var config = Resources.Load<SorollaConfig>("SorollaConfig");
+            if (config == null)
+                return false;
+
+            var manifest = ReadManifest();
+            if (manifest == null)
+                return false;
+
+            var dependencies = manifest.TryGetValue("dependencies", out var deps)
+                ? deps as Dictionary<string, object>
+                : new Dictionary<string, object>();
+
+            bool changed = false;
+
+            // Fix Firebase Analytics
+            var hasFirebaseAnalytics = dependencies.ContainsKey(SdkRegistry.All[SdkId.FirebaseAnalytics].PackageId);
+            if (config.enableFirebaseAnalytics && !hasFirebaseAnalytics)
+            {
+                config.enableFirebaseAnalytics = false;
+                changed = true;
+                Debug.Log($"{Tag} Auto-fixed: Disabled Firebase Analytics in config (SDK not installed)");
+            }
+
+            // Fix Firebase Crashlytics
+            var hasCrashlytics = dependencies.ContainsKey(SdkRegistry.All[SdkId.FirebaseCrashlytics].PackageId);
+            if (config.enableCrashlytics && !hasCrashlytics)
+            {
+                config.enableCrashlytics = false;
+                changed = true;
+                Debug.Log($"{Tag} Auto-fixed: Disabled Firebase Crashlytics in config (SDK not installed)");
+            }
+
+            // Fix Firebase Remote Config
+            var hasRemoteConfig = dependencies.ContainsKey(SdkRegistry.All[SdkId.FirebaseRemoteConfig].PackageId);
+            if (config.enableRemoteConfig && !hasRemoteConfig)
+            {
+                config.enableRemoteConfig = false;
+                changed = true;
+                Debug.Log($"{Tag} Auto-fixed: Disabled Firebase Remote Config in config (SDK not installed)");
+            }
+
+            // Fix mode sync
+            if (SorollaSettings.IsConfigured && config.isPrototypeMode != SorollaSettings.IsPrototype)
+            {
+                config.isPrototypeMode = SorollaSettings.IsPrototype;
+                changed = true;
+                Debug.Log($"{Tag} Auto-fixed: Synced config.isPrototypeMode to {SorollaSettings.IsPrototype}");
+            }
+
+            if (changed)
+            {
+                EditorUtility.SetDirty(config);
+                AssetDatabase.SaveAssets();
+                Debug.Log($"{Tag} Config sync issues auto-fixed");
+            }
+
+            return changed;
+        }
+
+        /// <summary>
         ///     Check AndroidManifest.xml for orphaned SDK entries that will cause runtime crashes
         /// </summary>
         private static List<ValidationResult> CheckAndroidManifest()

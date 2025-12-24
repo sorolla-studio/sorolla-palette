@@ -209,12 +209,16 @@ namespace Sorolla.Editor
         /// </summary>
         public static void UninstallFirebase()
         {
+            Debug.Log("[SorollaSDK] Uninstalling Firebase...");
+
+            // IMPORTANT: Disable config FIRST, before removing packages.
+            // Package removal triggers domain reload which interrupts asset saves.
+            EnableFirebaseInConfig(false);
+
             SdkInfo appInfo = SdkRegistry.All[SdkId.FirebaseApp];
             SdkInfo analyticsInfo = SdkRegistry.All[SdkId.FirebaseAnalytics];
             SdkInfo crashlyticsInfo = SdkRegistry.All[SdkId.FirebaseCrashlytics];
             SdkInfo remoteConfigInfo = SdkRegistry.All[SdkId.FirebaseRemoteConfig];
-
-            Debug.Log("[SorollaSDK] Uninstalling Firebase...");
 
             ManifestManager.RemoveDependencies(new[]
             {
@@ -223,9 +227,6 @@ namespace Sorolla.Editor
                 crashlyticsInfo.PackageId,
                 remoteConfigInfo.PackageId,
             });
-
-            // Auto-disable Firebase modules in config
-            EnableFirebaseInConfig(false);
 
             Debug.Log("[SorollaSDK] Firebase removed from manifest.");
         }

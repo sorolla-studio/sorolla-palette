@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.1] - 2025-12-24
+
+### Fixed
+- **Firebase Uninstall Config Sync**: Config flags now disabled **before** package removal to prevent domain reload interruption
+- **Build Health Auto-Fix**: Refresh button now auto-fixes config sync issues (Firebase flags, mode mismatch)
+  - Shows "AUTO-FIXED: Synced SorollaConfig with installed SDKs" when fixes applied
+
+### Added
+- `BuildValidator.FixConfigSync()` method for programmatic config repair
+
 ## [2.3.0] - 2025-12-24
 
 ### Changed

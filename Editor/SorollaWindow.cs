@@ -585,6 +585,12 @@ namespace Sorolla.Editor
             _autoFixLog.Clear();
             _validationRan = true;
 
+            // Auto-fix: Sync config with installed SDKs before validation
+            if (BuildValidator.FixConfigSync())
+            {
+                _autoFixLog.Add("Synced SorollaConfig with installed SDKs");
+            }
+
             // Auto-fix: Sanitize AndroidManifest before validation
             var orphanedEntries = AndroidManifestSanitizer.DetectOrphanedEntries();
             if (orphanedEntries.Count > 0)
