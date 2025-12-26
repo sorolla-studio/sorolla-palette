@@ -14,9 +14,23 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": [
-        "FIREBASE_ANALYTICS_INSTALLED || FIREBASE_CRASHLYTICS_INSTALLED || FIREBASE_REMOTE_CONFIG_INSTALLED"
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.google.firebase.analytics",
+            "expression": "",
+            "define": "FIREBASE_ANALYTICS_INSTALLED"
+        },
+        {
+            "name": "com.google.firebase.crashlytics",
+            "expression": "",
+            "define": "FIREBASE_CRASHLYTICS_INSTALLED"
+        },
+        {
+            "name": "com.google.firebase.remote-config",
+            "expression": "",
+            "define": "FIREBASE_REMOTE_CONFIG_INSTALLED"
+        }
     ],
-    "versionDefines": [],
     "noEngineReferences": false
 }

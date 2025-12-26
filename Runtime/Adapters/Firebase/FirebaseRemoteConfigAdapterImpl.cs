@@ -85,7 +85,7 @@ namespace Sorolla.Adapters
             }
             else if (_pendingAutoFetch)
             {
-                FetchAndActivate();
+                FetchAndActivate(null);
             }
             else
             {

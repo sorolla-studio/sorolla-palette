@@ -1,12 +1,14 @@
 using System.Collections.Generic;
 using Firebase.Analytics;
 using UnityEngine;
+using UnityEngine.Scripting;
 
 namespace Sorolla.Adapters
 {
     /// <summary>
     ///     Firebase Analytics adapter implementation. Registered at runtime.
     /// </summary>
+    [Preserve]
     internal class FirebaseAdapterImpl : IFirebaseAdapter
     {
         private const string Tag = "[Sorolla:Firebase]";
@@ -15,8 +17,10 @@ namespace Sorolla.Adapters
         private readonly Queue<System.Action> _pendingEvents = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [Preserve]
         private static void Register()
         {
+            Debug.Log($"{Tag} Register() called - assembly is loaded!");
             FirebaseAdapter.RegisterImpl(new FirebaseAdapterImpl());
         }
 

@@ -11,10 +11,13 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": [
-        "SOROLLA_ADJUST_ENABLED"
-    ],
+    "defineConstraints": [],
     "versionDefines": [
+        {
+            "name": "com.adjust.sdk",
+            "expression": "",
+            "define": "SOROLLA_ADJUST_ENABLED"
+        },
         {
             "name": "com.applovin.mediation.ads",
             "expression": "",

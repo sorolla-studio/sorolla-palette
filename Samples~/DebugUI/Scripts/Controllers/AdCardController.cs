@@ -46,15 +46,64 @@ namespace Sorolla.DebugUI
 
         void HandleLoadClicked()
         {
-            SetStatus(AdStatus.Loading);
-            DebugPanelManager.Instance?.Log($"Loading {adType}...", LogSource.Sorolla);
+            DebugPanelManager.Instance?.Log($"Checking {adType} status...", LogSource.Sorolla);
 
-#if !MAX_INSTALLED
+#if MAX_INSTALLED
+            // Check if ad is already ready (MAX auto-loads)
+            bool isReady = adType == AdType.Rewarded
+                ? SorollaSDK.IsRewardedAdReady
+                : SorollaSDK.IsInterstitialAdReady;
+
+            if (isReady)
+            {
+                SetStatus(AdStatus.Loaded);
+                SorollaDebugEvents.RaiseShowToast($"{adType} ready!", ToastType.Success);
+                DebugPanelManager.Instance?.Log($"{adType} is ready", LogSource.Sorolla);
+            }
+            else
+            {
+                SetStatus(AdStatus.Loading);
+                DebugPanelManager.Instance?.Log($"{adType} not ready yet, checking...", LogSource.Sorolla);
+                // Start polling for ad readiness
+                StartCoroutine(PollAdReadiness());
+            }
+#else
+            SetStatus(AdStatus.Loading);
             // Mock: simulate ad loaded after delay (no SDK available)
             Invoke(nameof(MockAdLoaded), 1f);
 #endif
-            // Real SDK auto-loads ads - this is just for UI feedback
         }
+
+#if MAX_INSTALLED
+        System.Collections.IEnumerator PollAdReadiness()
+        {
+            float timeout = 10f;
+            float elapsed = 0f;
+
+            while (elapsed < timeout)
+            {
+                yield return new WaitForSeconds(0.5f);
+                elapsed += 0.5f;
+
+                bool isReady = adType == AdType.Rewarded
+                    ? SorollaSDK.IsRewardedAdReady
+                    : SorollaSDK.IsInterstitialAdReady;
+
+                if (isReady)
+                {
+                    SetStatus(AdStatus.Loaded);
+                    SorollaDebugEvents.RaiseShowToast($"{adType} ready!", ToastType.Success);
+                    DebugPanelManager.Instance?.Log($"{adType} loaded", LogSource.Sorolla);
+                    yield break;
+                }
+            }
+
+            // Timeout - ad didn't load
+            SetStatus(AdStatus.Failed);
+            SorollaDebugEvents.RaiseShowToast($"{adType} load timeout", ToastType.Error);
+            DebugPanelManager.Instance?.Log($"{adType} failed to load within {timeout}s", LogSource.Sorolla, LogLevel.Error);
+        }
+#endif
 
         void HandleShowClicked()
         {

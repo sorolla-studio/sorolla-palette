@@ -1,19 +1,23 @@
 using System;
 using AdjustSdk;
 using UnityEngine;
+using UnityEngine.Scripting;
 
 namespace Sorolla.Adapters
 {
     /// <summary>
     ///     Adjust SDK adapter implementation. Registered at runtime.
     /// </summary>
+    [Preserve]
     internal class AdjustAdapterImpl : IAdjustAdapter
     {
         private bool _init;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [Preserve]
         private static void Register()
         {
+            Debug.Log("[Sorolla:Adjust] Register() called - assembly is loaded!");
             AdjustAdapter.RegisterImpl(new AdjustAdapterImpl());
         }
 

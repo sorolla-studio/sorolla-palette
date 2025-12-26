@@ -25,6 +25,196 @@
 
 ---
 
+## 2025-12-26: Auto-Copy link.xml to Assets/
+
+**Summary**:
+Added auto-copy of link.xml from package to Assets/ folder on setup, since Unity does NOT auto-include link.xml from UPM packages.
+
+**Changes**:
+- `Editor/SorollaSetup.cs`: Added `CopyLinkXmlToAssets()` method
+- Bumped SetupVersion to "v5" to trigger on existing installs
+- Copies to `Assets/Sorolla.link.xml` (named to avoid conflicts)
+- Skips if file already exists (preserves user customizations)
+
+**Why**:
+Research confirmed that Unity only processes `link.xml` files from `Assets/` folder. While `[AlwaysLinkAssembly]` + `[Preserve]` should be sufficient, the link.xml provides fallback protection for:
+- High stripping level edge cases
+- Future Unity versions
+- Users who disabled attributes accidentally
+
+**Protection Strategy (3 layers)**:
+1. `[assembly: AlwaysLinkAssembly]` - Forces linker to process assembly
+2. `[Preserve]` attributes - Marks specific code as roots
+3. `link.xml` (auto-copied) - Fallback manual override
+
+**Files Modified**:
+- `Editor/SorollaSetup.cs` - Added CopyLinkXmlToAssets()
+- `Runtime/link.xml` - Updated documentation
+
+---
+
+## 2025-12-26: Unity 6 Best Practices & UMP Complete ✅
+
+**Summary**:
+Researched Unity 6.3 LTS best practices for IL2CPP stripping and code preservation. Implemented `[assembly: AlwaysLinkAssembly]` - the official Unity recommendation for packages using `[RuntimeInitializeOnLoadMethod]`. UMP integration confirmed working.
+
+**Changes**:
+- Added `AssemblyInfo.cs` with `[assembly: AlwaysLinkAssembly]` to each implementation assembly:
+  - `Runtime/Adapters/MAX/AssemblyInfo.cs`
+  - `Runtime/Adapters/Adjust/AssemblyInfo.cs`
+  - `Runtime/Adapters/Firebase/AssemblyInfo.cs`
+- Updated `Runtime/link.xml` with `ignoreIfMissing="1"` for optional adapter assemblies
+- Deleted duplicate `Assets/link.xml` (was confusing for external developers)
+
+**Research Findings**:
+
+1. **link.xml in UPM Packages Does NOT Auto-Include**
+   - Unity does NOT automatically pick up `link.xml` from UPM packages
+   - Must be in `Assets/` folder to be processed
+   - Source: [Unity Docs](https://docs.unity3d.com/6000.2/Documentation/Manual/managed-code-stripping-preserving.html)
+
+2. **AlwaysLinkAssembly is the Solution**
+   - Official Unity attribute for packages with `[RuntimeInitializeOnLoadMethod]`
+   - Forces linker to process assembly even if no types directly referenced
+   - Source: [Unity Scripting API](https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Scripting.AlwaysLinkAssemblyAttribute.html)
+
+3. **ignoreIfMissing for Optional Assemblies**
+   - Use `ignoreIfMissing="1"` in link.xml for assemblies that may not exist
+   - Prevents build errors when optional SDKs not installed
+   - Source: [Link XML Reference](https://docs.unity3d.com/6000.3/Documentation/Manual/managed-code-stripping-xml-formatting.html)
+
+**Code Preservation Strategy (Belt & Suspenders)**:
+```
+1. [assembly: AlwaysLinkAssembly]  → Forces linker to process assembly
+2. [Preserve] on class             → Marks class as root
+3. [Preserve] on Register()        → Marks method as root
+4. link.xml (fallback)             → Manual override if needed
+```
+
+**UMP/GDPR Status**: ✅ **COMPLETE**
+- Tested on Android builds - UMP popup appears correctly
+- MAX SDK handles UMP automatically via `CmpService`
+- Consent status properly detected and propagated
+
+**FakeCMPDialog/FakeATTDialog Clarification**:
+- These are **NOT deprecated** - they're essential for Editor testing
+- Real UMP/ATT only work in actual device builds
+- Used by `ContextScreenView.cs` and DebugUI sample
+
+**Hindsight Insights**:
+- **CRITICAL**: Use `[assembly: AlwaysLinkAssembly]` for all package assemblies with `[RuntimeInitializeOnLoadMethod]`
+- **CRITICAL**: Don't rely on `link.xml` in packages - it won't be auto-included
+- `[Preserve]` attribute alone may not be enough in High stripping mode
+- The `ignoreIfMissing` attribute prevents errors for optional assemblies
+- Keep Fake dialogs for Editor testing - they serve a real purpose
+
+**Files Modified**:
+- `Runtime/Adapters/MAX/AssemblyInfo.cs` - created
+- `Runtime/Adapters/Adjust/AssemblyInfo.cs` - created
+- `Runtime/Adapters/Firebase/AssemblyInfo.cs` - created
+- `Runtime/link.xml` - updated with ignoreIfMissing and documentation
+
+**Status**: ✅ Architecture is Unity 6 compliant and future-proof
+
+---
+
+## 2025-12-26: Adapter Architecture Fix Verified ✅
+
+**Summary**:
+Full Android build verification confirmed all SDK adapters (MAX, Adjust, Firebase) now register and initialize correctly.
+
+**Verified Behavior**:
+```
+[Sorolla:MAX] Register() called - assembly is loaded!
+[Sorolla:Adjust] Register() called - assembly is loaded!
+[Sorolla:Firebase] Register() called - assembly is loaded!
+[Sorolla:MAX] Initialized
+[Sorolla:MAX] ConsentStatus: Obtained (Geography: Gdpr)
+[Sorolla:Adjust] Initializing (Sandbox)...
+[Sorolla:Adjust] Initialized
+```
+
+**Architecture Confirmed**:
+The Stub + Implementation pattern now works correctly:
+1. **Stubs** (`MaxAdapter.cs`, etc.) - No external refs, always compile
+2. **Implementations** (`MaxAdapterImpl.cs`, etc.) - Reference SDK assemblies, compile only when SDK installed
+3. **Registration** - `[RuntimeInitializeOnLoadMethod]` auto-registers impl at runtime
+4. **Stripping Protection** - `[Preserve]` + `link.xml` prevent IL2CPP removal
+
+**Key Takeaway**:
+`defineConstraints` was the problem, not the solution. Assembly references provide natural conditional compilation - if the referenced assembly doesn't exist, Unity simply doesn't compile the dependent assembly.
+
+**Production Ready**: Yes - all adapters working in Android IL2CPP builds.
+
+---
+
+## 2025-12-26: defineConstraints Removed - Assembly References ARE the Constraint
+
+**Problem**:
+MAX/Firebase/Adjust adapters showed `[Sorolla:X] Not installed` in Android builds despite being installed.
+
+**Investigation Journey**:
+
+1. **Initial hypothesis (WRONG)**: `versionDefines` don't propagate between asmdefs
+
+2. **Second hypothesis (PARTIALLY CORRECT)**: `defineConstraints` check global scripting define symbols, not asmdef `versionDefines`
+   - Added `DefineSymbols.cs` to set global defines from packages
+   - Defines were added correctly ✓
+   - Still failed in Android builds ✗
+
+3. **Real Root Cause**: The build process was still not correctly evaluating `defineConstraints` at build time, even with global defines set.
+
+**Final Solution**: **Remove `defineConstraints` entirely!**
+
+The assembly references themselves act as the constraint:
+```json
+"references": [
+    "MaxSdk.Scripts",  // ← If this doesn't exist, assembly won't compile
+    "Sorolla.Adapters"
+]
+```
+
+If MAX SDK isn't installed, `MaxSdk.Scripts` doesn't exist → Unity **automatically excludes** the assembly. The `defineConstraints` was redundant and causing issues.
+
+**Changes**:
+- Removed `defineConstraints` from all adapter asmdefs:
+  - `Sorolla.Adapters.MAX.asmdef` → `"defineConstraints": []`
+  - `Sorolla.Adapters.Adjust.asmdef` → `"defineConstraints": []`
+  - `Sorolla.Adapters.Firebase.asmdef` → `"defineConstraints": []`
+- Added `[Preserve]` attributes to prevent IL2CPP stripping
+- Added debug logging in `Register()` methods for troubleshooting
+- Created `link.xml` for IL2CPP stripping protection (belt and suspenders)
+- `DefineSymbols.cs` still useful for `#if` blocks in user code
+
+**Learnings**:
+- `defineConstraints` check is unreliable for cross-assembly dependencies
+- Assembly references are a **natural constraint** - missing ref = no compile
+- The Stub+Impl pattern works WITHOUT `defineConstraints`:
+  - Stub always compiles (no external refs)
+  - Impl only compiles when SDK is installed (refs exist)
+  - `[RuntimeInitializeOnLoadMethod]` registers impl if it compiled
+- `[Preserve]` attribute prevents IL2CPP from stripping unused code
+
+**Hindsight Insights**:
+- **CRITICAL**: For Stub+Impl pattern, DON'T use `defineConstraints` - let assembly refs do the work
+- `versionDefines` are still useful for `#if` blocks within the assembly
+- `DefineSymbols.cs` is useful for global defines that user code might need
+- Always add `[Preserve]` to `RuntimeInitializeOnLoadMethod` methods
+
+**Files Modified**:
+- `Runtime/Adapters/MAX/Sorolla.Adapters.MAX.asmdef` - removed defineConstraints
+- `Runtime/Adapters/Adjust/Sorolla.Adapters.Adjust.asmdef` - removed defineConstraints
+- `Runtime/Adapters/Firebase/Sorolla.Adapters.Firebase.asmdef` - removed defineConstraints
+- `Runtime/Adapters/MAX/MaxAdapterImpl.cs` - added [Preserve]
+- `Runtime/Adapters/Adjust/AdjustAdapterImpl.cs` - added [Preserve]
+- `Runtime/Adapters/Firebase/FirebaseAdapterImpl.cs` - added [Preserve]
+- `Runtime/link.xml` - created for IL2CPP protection
+- `Editor/Sdk/DefineSymbols.cs` - SDK detection for global defines
+
+**Status**: ✅ VERIFIED WORKING - Android build shows MAX/Adjust initializing
+
+---
+
 ## 2025-12-24: Adapter Architecture Overhaul (v2.3.0)
 
 **Changes**:
@@ -58,7 +248,7 @@ Adapters/
 
 **Learnings**:
 - `defineConstraints` are evaluated BEFORE assembly reference resolution
-- `versionDefines` set project-wide symbols when packages detected
+- `versionDefines` set symbols **for that assembly only** (NOT project-wide - see 2025-12-26 fix)
 - `RuntimeInitializeOnLoadMethod(BeforeSceneLoad)` runs before any scene loads
 - Cross-assembly type references need shared types (created `AdRevenueInfo` struct)
 
