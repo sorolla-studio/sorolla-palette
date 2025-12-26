@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -12,7 +13,7 @@ namespace Sorolla.Editor
     [InitializeOnLoad]
     public static class SorollaSetup
     {
-        const string SetupVersion = "v4";
+        const string SetupVersion = "v5"; // Bumped for link.xml auto-copy
 
         static SorollaSetup()
         {
@@ -33,6 +34,9 @@ namespace Sorolla.Editor
                 return;
 
             Debug.Log("[SorollaSDK] Running initial setup...");
+
+            // Copy link.xml to Assets/ for IL2CPP stripping protection
+            CopyLinkXmlToAssets();
 
             // Collect all scopes needed for OpenUPM
             var openUpmScopes = new List<string>();
@@ -67,6 +71,40 @@ namespace Sorolla.Editor
             EditorPrefs.SetBool(SetupKey, true);
             Debug.Log("[SorollaSDK] Setup complete. Package Manager will resolve dependencies.");
             Debug.Log("[SorollaSDK] Open SorollaSDK > Configuration to select a mode.");
+        }
+
+        /// <summary>
+        ///     Copy link.xml from package to Assets/ for IL2CPP code stripping protection.
+        ///     Unity does NOT auto-include link.xml from UPM packages, so we must copy it.
+        /// </summary>
+        static void CopyLinkXmlToAssets()
+        {
+            const string sourcePath = "Packages/com.sorolla.sdk/Runtime/link.xml";
+            const string destPath = "Assets/Sorolla.link.xml";
+
+            // Skip if already exists (don't overwrite user modifications)
+            if (File.Exists(destPath))
+            {
+                Debug.Log("[SorollaSDK] link.xml already exists in Assets/, skipping copy.");
+                return;
+            }
+
+            if (!File.Exists(sourcePath))
+            {
+                Debug.LogWarning($"[SorollaSDK] Source link.xml not found at {sourcePath}");
+                return;
+            }
+
+            try
+            {
+                File.Copy(sourcePath, destPath);
+                AssetDatabase.Refresh();
+                Debug.Log($"[SorollaSDK] Copied link.xml to {destPath} for IL2CPP stripping protection.");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[SorollaSDK] Failed to copy link.xml: {e.Message}");
+            }
         }
     }
 }

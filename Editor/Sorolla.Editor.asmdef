@@ -2,7 +2,8 @@
     "name": "Sorolla.Editor",
     "rootNamespace": "Sorolla.Editor",
     "references": [
-        "Sorolla.Runtime"
+        "Sorolla.Runtime",
+        "Sorolla.Adapters"
     ],
     "includePlatforms": [
         "Editor"

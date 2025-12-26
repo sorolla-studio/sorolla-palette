@@ -12,11 +12,13 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": [
-        "SOROLLA_MAX_ENABLED",
-        "APPLOVIN_MAX_INSTALLED"
-    ],
+    "defineConstraints": [],
     "versionDefines": [
+        {
+            "name": "com.applovin.mediation.ads",
+            "expression": "",
+            "define": "APPLOVIN_MAX_INSTALLED"
+        },
         {
             "name": "com.adjust.sdk",
             "expression": "",

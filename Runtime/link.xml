@@ -1,0 +1,28 @@
+<linker>
+    <!--
+        Sorolla SDK - IL2CPP Code Stripping Protection
+
+        This file is AUTO-COPIED to Assets/Sorolla.link.xml on package setup.
+        Unity does NOT automatically include link.xml from UPM packages.
+
+        Protection layers (belt & suspenders):
+        1. [assembly: AlwaysLinkAssembly] - Forces linker to process assemblies
+        2. [Preserve] attributes - Marks code as roots
+        3. This link.xml - Fallback for edge cases
+
+        The optional adapter assemblies use ignoreIfMissing="1" since they
+        only compile when their respective SDKs are installed.
+
+        If you need to customize stripping behavior, edit Assets/Sorolla.link.xml
+        (not this file in the package).
+    -->
+
+    <!-- Core assemblies (always present) -->
+    <assembly fullname="Sorolla.Runtime" preserve="all"/>
+    <assembly fullname="Sorolla.Adapters" preserve="all"/>
+
+    <!-- Optional adapter assemblies - only exist when SDKs are installed -->
+    <assembly fullname="Sorolla.Adapters.MAX" preserve="all" ignoreIfMissing="1"/>
+    <assembly fullname="Sorolla.Adapters.Adjust" preserve="all" ignoreIfMissing="1"/>
+    <assembly fullname="Sorolla.Adapters.Firebase" preserve="all" ignoreIfMissing="1"/>
+</linker>

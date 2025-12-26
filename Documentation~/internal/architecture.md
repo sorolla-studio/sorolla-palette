@@ -98,7 +98,11 @@ IsInitialized = true
 Optional SDK adapters use a **Stub + Implementation** pattern with separate assemblies:
 
 ### Why This Pattern?
-Unity resolves assembly references **before** evaluating `#if` preprocessor blocks. This means `#if SDK_DEFINE` guards don't prevent "assembly not found" errors when the SDK isn't installed. The solution is to use `defineConstraints` in separate asmdefs.
+Unity resolves assembly references **before** evaluating `#if` preprocessor blocks. This means `#if SDK_DEFINE` guards don't prevent "assembly not found" errors when the SDK isn't installed.
+
+**Solution**: Use separate assembly definitions with direct SDK references. The assembly reference itself acts as the constraint - if the referenced SDK assembly doesn't exist, Unity silently skips compiling the dependent assembly.
+
+> **Note**: We intentionally do NOT use `defineConstraints`. See devlog entry "2025-12-26: defineConstraints Removed" for why - they were unreliable and caused build failures.
 
 ### Structure
 
@@ -132,15 +136,18 @@ namespace Sorolla.Adapters
 }
 ```
 
-**Implementation (defineConstraints)** - `Adapters/Xxx/XxxAdapterImpl.cs`:
+**Implementation (separate assembly)** - `Adapters/Xxx/XxxAdapterImpl.cs`:
 ```csharp
 using ThirdPartySDK;
+using UnityEngine.Scripting;
 
 namespace Sorolla.Adapters
 {
+    [Preserve]
     internal class XxxAdapterImpl : IXxxAdapter
     {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [Preserve]
         private static void Register()
         {
             XxxAdapter.RegisterImpl(new XxxAdapterImpl());
@@ -152,19 +159,41 @@ namespace Sorolla.Adapters
 }
 ```
 
+**Assembly Info** - `Adapters/Xxx/AssemblyInfo.cs`:
+```csharp
+using UnityEngine.Scripting;
+
+// Force linker to process this assembly for RuntimeInitializeOnLoadMethod
+[assembly: AlwaysLinkAssembly]
+```
+
 **Assembly Definition** - `Adapters/Xxx/Sorolla.Adapters.Xxx.asmdef`:
 ```json
 {
     "name": "Sorolla.Adapters.Xxx",
     "references": ["ThirdPartySDK", "Sorolla.Adapters"],
-    "defineConstraints": ["SDK_DEFINE"]
+    "defineConstraints": []
 }
 ```
 
 ### How It Works
-1. If SDK not installed → `defineConstraints` not met → Impl assembly skipped entirely
-2. If SDK installed → Impl compiles → Registers itself at runtime via `RuntimeInitializeOnLoadMethod`
-3. Stub delegates to impl if registered, otherwise gracefully handles missing SDK
+1. If SDK not installed → SDK assembly doesn't exist → Impl assembly skipped entirely by Unity
+2. If SDK installed → Impl compiles → `AlwaysLinkAssembly` forces linker to process it
+3. `[RuntimeInitializeOnLoadMethod]` auto-registers impl at runtime
+4. Stub delegates to impl if registered, otherwise gracefully handles missing SDK
+
+### IL2CPP Code Stripping Protection
+
+For IL2CPP builds, we use a belt-and-suspenders approach:
+
+| Mechanism | Purpose |
+|-----------|---------|
+| `[assembly: AlwaysLinkAssembly]` | Forces linker to process assembly (required for packages) |
+| `[Preserve]` on class | Marks class as root, prevents stripping |
+| `[Preserve]` on Register() | Marks method as root |
+| `link.xml` (fallback) | Manual override if users have issues |
+
+> **IMPORTANT**: Unity does NOT auto-include `link.xml` from UPM packages. The `AlwaysLinkAssembly` + `[Preserve]` approach is required for packages.
 
 ### Scripting Defines
 

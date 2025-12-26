@@ -1,11 +1,13 @@
 using System;
 using UnityEngine;
+using UnityEngine.Scripting;
 
 namespace Sorolla.Adapters
 {
     /// <summary>
     ///     AppLovin MAX adapter implementation. Registered at runtime.
     /// </summary>
+    [Preserve]
     internal class MaxAdapterImpl : IMaxAdapter
     {
         private bool _init;
@@ -24,8 +26,10 @@ namespace Sorolla.Adapters
         private MaxSdkBase.SdkConfiguration _sdkConfig;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [Preserve]
         private static void Register()
         {
+            Debug.Log("[Sorolla:MAX] Register() called - assembly is loaded!");
             MaxAdapter.RegisterImpl(new MaxAdapterImpl());
         }
 
