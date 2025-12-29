@@ -2,15 +2,7 @@
 
 This guide covers SDK setup for **Prototype Mode** - designed for rapid UA testing during development.
 
-## Required SDKs
-
-- **GameAnalytics** - Analytics & Remote Config (Required)
-- **Facebook SDK** - User Acquisition Testing (Required)
-- **AppLovin MAX** - Ad Monetization (Optional)
-
----
-
-## 1. GameAnalytics Setup (Required)
+## 1. GameAnalytics Setup
 
 ### Create Account & Game Project
 
@@ -23,13 +15,14 @@ This guide covers SDK setup for **Prototype Mode** - designed for rapid UA testi
    - **Engine**: Select Unity
 5. Click **"Create Game"**
 
-### Get API Keys
+### Set API Keys
 
 1. Navigate to **Settings** → **Game Settings** (gear icon)
-2. Copy both keys:
+2. Get both keys:
    - **Game Key**: Hexadecimal string (e.g., `a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4`)
    - **Secret Key**: Another hexadecimal string
-3. **Keep these keys secure**
+3. In Unity, open **Window** → **GameAnalytics** → **Select Settings**
+4. You can log in to your account, or paste **Game Key** and **Secret Key** manually
 
 ### Grant Admin Access
 
@@ -40,17 +33,9 @@ This guide covers SDK setup for **Prototype Mode** - designed for rapid UA testi
 5. Set Role to **Admin**
 6. Send Invite
 
-### Configure in Unity
-
-1. Open **Window** → **GameAnalytics** → **Select Settings**
-2. Paste **Game Key** and **Secret Key**
-3. Click **"Save"**
-
-**Alternative:** Use the **"Open Settings"** button in the Sorolla Configuration window.
-
 ---
 
-## 2. Facebook SDK Setup (Required)
+## 2. Facebook SDK Setup
 
 ### Create Developer Account & App
 
@@ -82,30 +67,10 @@ This guide covers SDK setup for **Prototype Mode** - designed for rapid UA testi
 
 #### Android Platform:
 1. Click **"+ Add Platform"** → Select **"Android"**
-2. Enter:
-   - **Package Name**: Must match Unity Bundle ID exactly
-   - **Class Name**: `com.unity3d.player.UnityPlayerActivity`
+2. Enter your **Package Name**: Must match Unity Bundle ID exactly
 3. Click **"Save Changes"**
 
-### Configure Key Hashes
-
-#### Debug Key Hash (for development):
-```bash
-keytool -exportcert -alias androiddebugkey -keystore ~/.android/debug.keystore | openssl sha1 -binary | openssl base64
-```
-- Default password: `android`
-- Copy hash and paste in **Key Hashes** field on Facebook dashboard
-
-#### Release Key Hash (CRITICAL for production):
-```bash
-keytool -exportcert -alias YOUR_ALIAS -keystore YOUR_KEYSTORE | openssl sha1 -binary | openssl base64
-```
-- Enter your keystore password when prompted
-- Add this hash to **Key Hashes** field (can have multiple)
-
 ### Authorize Sorolla Ad Account
-
-⚠️ **CRITICAL:** Without this step, UA campaigns cannot be launched.
 
 1. In **App Settings** → **Advanced**
 2. Scroll down to **Advertising Accounts** section
@@ -120,7 +85,43 @@ keytool -exportcert -alias YOUR_ALIAS -keystore YOUR_KEYSTORE | openssl sha1 -bi
    - **Client Token**: From Settings → Advanced → Security
 3. SDK will auto-configure for iOS and Android
 
-**Alternative:** Use the **"Open Settings"** button in Sorolla Configuration window.
+---
+
+## 3. Analytics
+
+### Track Your First Event
+
+The SDK initializes automatically. Add these events to your game logic:
+- The `TrackProgression` events are **mandatory**, others are optional
+
+> 💡 **Tip:** Zero-pad level numbers (`Level_001` not `Level_1`) for better dashboard sorting.
+
+```csharp
+using Sorolla;
+
+// Level tracking (⚠️ MANDATORY)
+string lvlStr = $"Level_{[YOUR_LEVEL]:D3}";  // "Level_001" - zero-pad for dashboard sorting
+
+// Start
+SorollaSDK.TrackProgression(ProgressionStatus.Start, lvlStr);
+
+// Completed (score is optional - use if your game has scores)
+SorollaSDK.TrackProgression(ProgressionStatus.Complete, lvlStr, score: 1500);
+
+// Failed
+SorollaSDK.TrackProgression(ProgressionStatus.Fail, lvlStr);
+
+
+// Custom events, track what you want
+SorollaSDK.TrackDesign("tutorial:completed");
+// Custom event with value
+SorollaSDK.TrackDesign("settings:opened", 1);
+
+
+// Economy tracking (if you have soft/hard currencies)
+SorollaSDK.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
+SorollaSDK.TrackResource(ResourceFlowType.Sink, "coins", 50, "shop", "speed_boost");
+```
 
 ---
 
@@ -132,18 +133,8 @@ keytool -exportcert -alias YOUR_ALIAS -keystore YOUR_KEYSTORE | openssl sha1 -bi
 - [ ] GameAnalytics: Admin access granted to `studio@sorolla.io`
 - [ ] Facebook SDK: App ID configured
 - [ ] Facebook SDK: Client Token configured
-- [ ] Facebook SDK: Debug Key Hash added
-- [ ] Facebook SDK: Release Key Hash added
 - [ ] Facebook SDK: Sorolla Ad Account (`1130531078835118`) authorized
-
----
-
-## Quick Reference
-
-| SDK | What You Need | Where to Find It |
-|-----|---------------|------------------|
-| **GameAnalytics** | Game Key<br>Secret Key<br>Add Admin | [gameanalytics.com](https://gameanalytics.com) → Settings → Game Settings<br>→ Add studio@sorolla.io as Admin |
-| **Facebook SDK** | App ID<br>Client Token <br>Debug Key Hash<br>Release Key Hash <br>Ad Account ID ⚠️ | [developers.facebook.com](https://developers.facebook.com)<br>→ Settings → Basic (App ID)<br>→ Settings → Advanced (Client Token)<br>→ Settings → Advanced (Ad Account)<br>→ Key Hashes via keytool |
+- [ ] Analytics: Add level progression events `SorollaSDK.TrackProgression`
 
 ---
 
@@ -155,6 +146,6 @@ keytool -exportcert -alias YOUR_ALIAS -keystore YOUR_KEYSTORE | openssl sha1 -bi
 
 ### Related Guides
 
-- [Full Mode Setup](full-setup.md) - Production setup with MAX + Adjust
+- [Ads Setup](ads-setup.md) - Add rewarded and interstitial ads (optional)
 - [Firebase Setup](firebase.md) - Add Analytics, Crashlytics, Remote Config
 - [API Reference](api-reference.md) - Complete API documentation

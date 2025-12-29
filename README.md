@@ -123,8 +123,7 @@ For step-by-step setup instructions, see the guides for your mode:
 #### Facebook (Prototype Mode Only)
 1. Create app at [developers.facebook.com](https://developers.facebook.com/apps/)
 2. Copy App ID + **Client Token** (Settings → Advanced → Security) ⚠️
-3. Generate Key Hashes (debug & release) ⚠️
-4. In Unity: `Facebook > Edit Settings`
+3. In Unity: `Facebook > Edit Settings`
 
 #### AppLovin MAX (Optional in Prototype, Required in Full)
 1. Create account at [dash.applovin.com](https://dash.applovin.com/)

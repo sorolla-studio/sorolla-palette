@@ -47,58 +47,7 @@ This guide covers SDK setup for **Full Mode** - designed for production apps wit
 
 AppLovin MAX provides ad mediation and monetization for production apps.
 
-### Create Account
-
-1. Go to [https://dash.applovin.com/signup](https://dash.applovin.com/signup)
-2. Complete registration and verify email
-3. Log in to dashboard
-
-### Get SDK Key
-
-1. Navigate to **Account** → **Keys** (top right profile dropdown)
-2. Copy your **SDK Key** (long alphanumeric string)
-3. **Keep this key secure**
-
-### Create Ad Units
-
-#### Rewarded Ad Unit:
-1. Go to **Monetize** → **Manage** → **Ad Units**
-2. Click **"Create Ad Unit"**
-3. Select your app (create if needed)
-4. Choose **"Rewarded"** type
-5. Enter **Ad Unit Name** (e.g., "Rewarded Video")
-6. Click **"Create"** and copy **Ad Unit ID**
-
-#### Interstitial Ad Unit:
-1. Click **"Create Ad Unit"** again
-2. Select **"Interstitial"** type
-3. Enter **Ad Unit Name** (e.g., "Interstitial Ad")
-4. Click **"Create"** and copy **Ad Unit ID**
-
-#### Banner Ad Unit (Optional):
-1. Click **"Create Ad Unit"**
-2. Select **"Banner"** type
-3. Enter **Ad Unit Name**
-4. Click **"Create"** and copy **Ad Unit ID**
-
-### Configure Mediation Networks (Recommended)
-
-For better fill rates and revenue:
-
-1. Go to **Monetize** → **Manage** → **Mediation**
-2. Enable ad networks: **AdMob**, **Meta Audience Network**, **Unity Ads**, etc.
-3. Each network requires its own API keys
-4. AppLovin automatically optimizes between networks
-
-### Configure in Unity
-
-1. Open **Sorolla Configuration** window (Sorolla → Configuration)
-2. Under **SDK Keys**, enter:
-   - **SDK Key**
-   - **Rewarded Ad Unit ID**
-   - **Interstitial Ad Unit ID**
-   - **Banner Ad Unit ID** (optional)
-3. Click **"Save"**
+**Follow the full guide:** [Ads Setup (AppLovin MAX)](ads-setup.md)
 
 ---
 
@@ -202,6 +151,7 @@ For tracking campaign performance:
 
 ### Related Guides
 
+- [Ads Setup](ads-setup.md) - AppLovin MAX configuration details
 - [Prototype Mode Setup](prototype-setup.md) - Quick UA testing setup
 - [Firebase Setup](firebase.md) - Add Analytics, Crashlytics, Remote Config
 - [API Reference](api-reference.md) - Complete API documentation
