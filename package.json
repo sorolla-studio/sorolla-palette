@@ -1,6 +1,6 @@
 {
   "name": "com.sorolla.sdk",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "displayName": "Sorolla SDK",
   "description": "Plug & Play Publisher SDK - GameAnalytics, AppLovin MAX, Facebook, Adjust, Firebase",
   "unity": "2022.3",

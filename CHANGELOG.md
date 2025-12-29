@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.2] - 2025-12-26
+
+### Fixed
+- **IL2CPP Stripping Protection**: Complete overhaul of code preservation strategy for Unity 6 compatibility
+  - Added `[assembly: AlwaysLinkAssembly]` to all implementation assemblies (MAX, Adjust, Firebase)
+  - Added `[Preserve]` attributes to Register() methods
+  - Auto-copies `link.xml` to Assets folder on setup (Unity doesn't process link.xml from packages)
+- **Removed defineConstraints**: Assembly references now serve as natural constraints
+  - If SDK not installed, implementation assembly simply doesn't compile
+  - Eliminated unreliable defineConstraints that caused "Not installed" errors in builds
+- **Loading Overlay**: Removed built-in Arial font dependency for cross-platform compatibility
+
+### Added
+- `SorollaSetup.CopyLinkXmlToAssets()` - Auto-copies stripping protection on package setup
+- Three-layer code preservation: AlwaysLinkAssembly → [Preserve] → link.xml fallback
+
+### Technical Details
+Previous approach used `defineConstraints` which proved unreliable across build configurations. New approach:
+```
+Assembly references ARE the constraint:
+- MaxSdk.Scripts not installed → Sorolla.Adapters.MAX won't compile
+- No defineConstraints needed
+- [AlwaysLinkAssembly] ensures linker processes the assembly
+```
+
 ## [2.3.1] - 2025-12-24
 
 ### Fixed
