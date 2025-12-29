@@ -108,7 +108,6 @@ namespace Sorolla
             textObj.transform.SetParent(_canvasObject.transform, false);
             _loadingText = textObj.AddComponent<Text>();
             _loadingText.text = "Loading Ad...";
-            _loadingText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
             _loadingText.fontSize = 30;
             _loadingText.color = Color.white;
             _loadingText.alignment = TextAnchor.MiddleCenter;
