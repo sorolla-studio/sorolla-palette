@@ -9,10 +9,10 @@ All notable changes to this project will be documented in this file.
   - v2.3.2 incorrectly removed constraints, causing CS0246 errors on fresh imports without SDKs
   - Unity compiles C# files before checking assembly references, so constraints are required
 - **EDM4U Gradle Java 17+ Compatibility**: Auto-configures EDM4U to use Unity's Gradle templates
-  - Fixes `java.lang.NoClassDefFoundError: Could not initialize class org.codehaus.groovy.vmplugin.v7.Java7` on Unity 6+
+  - Mitigates `java.lang.NoClassDefFoundError` on Unity 6+ (initial resolution may still show error)
   - EDM4U bundles Gradle 5.1.1 which is incompatible with Java 17+ (Unity 6 default JDK)
   - Automatically sets `PatchMainTemplateGradle`, `PatchPropertiesTemplateGradle`, `PatchSettingsTemplateGradle`
-  - Compatible with Unity 2022 LTS and Unity 6+
+  - Error is transient: re-resolving after mode selection works correctly
 
 ### Technical Details
 The v2.3.2 "assembly references as constraints" approach was wrong. Unity still attempts to compile C# files before checking if referenced assemblies exist.

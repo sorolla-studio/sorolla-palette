@@ -41,38 +41,38 @@ Both needed for [RuntimeInitializeOnLoadMethod] in packages
 ### EDM4U Gradle Compatibility (Unity 6+)
 ```
 EDM4U bundles Gradle 5.1.1 → incompatible with Java 17+ (Unity 6 default)
-Fix: Set PatchMainTemplateGradle, PatchPropertiesTemplateGradle, PatchSettingsTemplateGradle = true
-This tells EDM4U to use Unity's Gradle instead of its bundled one
+First resolution may fail, but works after selecting mode and re-resolving
+Auto-config runs too late to catch initial EDM4U resolution
 ```
 
 ---
 
-## 2025-12-29: EDM4U Gradle Java 17+ Fix
+## 2025-12-29: EDM4U Gradle Java 17+ (Partial Fix)
 
 **Summary**:
-Auto-configure EDM4U to use Unity's Gradle templates instead of its bundled Gradle 5.1.1.
+Auto-configure EDM4U to use Unity's Gradle templates. Note: Initial resolution may still fail.
 
 **The Problem**:
-On Unity 6+ (which uses Java 17+ by default), EDM4U's Android dependency resolution fails:
+On Unity 6+ (Java 17+ default), EDM4U's first Android resolution may fail:
 ```
 java.lang.NoClassDefFoundError: Could not initialize class org.codehaus.groovy.vmplugin.v7.Java7
 ```
 
 **Root Cause**:
-EDM4U bundles Gradle 5.1.1 which doesn't support Java 17+. Unity 6 ships with Java 17+.
+EDM4U bundles Gradle 5.1.1 which doesn't support Java 17+. EDM4U triggers resolution immediately on import, before our setup code runs.
 
-**The Solution**:
-Configure EDM4U to use Unity's Gradle via template patching:
+**Partial Solution**:
+Auto-configure EDM4U via reflection in `SorollaSetup.cs`:
 ```csharp
-// Via reflection to avoid hard dependency
 GooglePlayServices.SettingsDialog.PatchMainTemplateGradle = true;
 GooglePlayServices.SettingsDialog.PatchPropertiesTemplateGradle = true;
-GooglePlayServices.SettingsDialog.PatchSettingsTemplateGradle = true; // Unity 2022.2+
+GooglePlayServices.SettingsDialog.PatchSettingsTemplateGradle = true;
 ```
 
-**Implementation**: Auto-configured in `SorollaSetup.cs` via reflection (no hard EDM4U dependency).
-
-**Compatibility**: Works on Unity 2022 LTS and Unity 6+.
+**Actual Behavior**:
+1. First import → EDM4U resolves before setup → may fail with Java error
+2. User selects mode → triggers re-resolution → works (settings now applied)
+3. Acceptable UX - error is transient and self-resolves
 
 ---
 
