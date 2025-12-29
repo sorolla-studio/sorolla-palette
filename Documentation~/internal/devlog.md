@@ -38,6 +38,42 @@ Both needed for [RuntimeInitializeOnLoadMethod] in packages
 }
 ```
 
+### EDM4U Gradle Compatibility (Unity 6+)
+```
+EDM4U bundles Gradle 5.1.1 → incompatible with Java 17+ (Unity 6 default)
+Fix: Set PatchMainTemplateGradle, PatchPropertiesTemplateGradle, PatchSettingsTemplateGradle = true
+This tells EDM4U to use Unity's Gradle instead of its bundled one
+```
+
+---
+
+## 2025-12-29: EDM4U Gradle Java 17+ Fix
+
+**Summary**:
+Auto-configure EDM4U to use Unity's Gradle templates instead of its bundled Gradle 5.1.1.
+
+**The Problem**:
+On Unity 6+ (which uses Java 17+ by default), EDM4U's Android dependency resolution fails:
+```
+java.lang.NoClassDefFoundError: Could not initialize class org.codehaus.groovy.vmplugin.v7.Java7
+```
+
+**Root Cause**:
+EDM4U bundles Gradle 5.1.1 which doesn't support Java 17+. Unity 6 ships with Java 17+.
+
+**The Solution**:
+Configure EDM4U to use Unity's Gradle via template patching:
+```csharp
+// Via reflection to avoid hard dependency
+GooglePlayServices.SettingsDialog.PatchMainTemplateGradle = true;
+GooglePlayServices.SettingsDialog.PatchPropertiesTemplateGradle = true;
+GooglePlayServices.SettingsDialog.PatchSettingsTemplateGradle = true; // Unity 2022.2+
+```
+
+**Implementation**: Auto-configured in `SorollaSetup.cs` via reflection (no hard EDM4U dependency).
+
+**Compatibility**: Works on Unity 2022 LTS and Unity 6+.
+
 ---
 
 ## 2025-12-29: Assembly Definition Pattern Validated

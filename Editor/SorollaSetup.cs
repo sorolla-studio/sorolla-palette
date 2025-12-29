@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
@@ -13,7 +15,7 @@ namespace Sorolla.Editor
     [InitializeOnLoad]
     public static class SorollaSetup
     {
-        const string SetupVersion = "v5"; // Bumped for link.xml auto-copy
+        const string SetupVersion = "v6"; // Bumped for EDM4U Gradle fix
 
         static SorollaSetup()
         {
@@ -37,6 +39,9 @@ namespace Sorolla.Editor
 
             // Copy link.xml to Assets/ for IL2CPP stripping protection
             CopyLinkXmlToAssets();
+
+            // Configure EDM4U to use Unity's Gradle (fixes Java 17+ compatibility)
+            ConfigureEdm4uGradleSettings();
 
             // Collect all scopes needed for OpenUPM
             var openUpmScopes = new List<string>();
@@ -104,6 +109,69 @@ namespace Sorolla.Editor
             catch (System.Exception e)
             {
                 Debug.LogError($"[SorollaSDK] Failed to copy link.xml: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        ///     Configure EDM4U (External Dependency Manager) to use Unity's Gradle templates.
+        ///     This fixes Java 17+ compatibility issues in Unity 6+ while remaining compatible with Unity 2022 LTS.
+        ///     EDM4U bundles Gradle 5.1.1 which doesn't work with Java 17+.
+        ///     By enabling template patching, EDM4U uses Unity's Gradle instead.
+        /// </summary>
+        static void ConfigureEdm4uGradleSettings()
+        {
+            // Find EDM4U's SettingsDialog type via reflection (avoids hard dependency)
+            Type settingsType = null;
+            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                settingsType = assembly.GetType("GooglePlayServices.SettingsDialog");
+                if (settingsType != null)
+                    break;
+            }
+
+            if (settingsType == null)
+            {
+                // EDM4U not installed yet - will be configured on next setup run after EDM4U imports
+                return;
+            }
+
+            try
+            {
+                const BindingFlags staticFlags = BindingFlags.Public | BindingFlags.Static;
+                bool changed = false;
+
+                // PatchMainTemplateGradle - tells EDM4U to patch mainTemplate.gradle
+                var mainTemplateProp = settingsType.GetProperty("PatchMainTemplateGradle", staticFlags);
+                if (mainTemplateProp != null && !(bool)mainTemplateProp.GetValue(null))
+                {
+                    mainTemplateProp.SetValue(null, true);
+                    changed = true;
+                }
+
+                // PatchPropertiesTemplateGradle - tells EDM4U to patch gradleTemplate.properties
+                var propertiesProp = settingsType.GetProperty("PatchPropertiesTemplateGradle", staticFlags);
+                if (propertiesProp != null && !(bool)propertiesProp.GetValue(null))
+                {
+                    propertiesProp.SetValue(null, true);
+                    changed = true;
+                }
+
+                // PatchSettingsTemplateGradle - tells EDM4U to patch settingsTemplate.gradle (Unity 2022.2+)
+                var settingsProp = settingsType.GetProperty("PatchSettingsTemplateGradle", staticFlags);
+                if (settingsProp != null && !(bool)settingsProp.GetValue(null))
+                {
+                    settingsProp.SetValue(null, true);
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    Debug.Log("[SorollaSDK] Configured EDM4U to use Unity's Gradle templates (Java 17+ compatibility).");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[SorollaSDK] Could not configure EDM4U settings: {e.Message}");
             }
         }
     }
