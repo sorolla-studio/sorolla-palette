@@ -1,6 +1,6 @@
 # Prototype Mode Setup Guide
 
-This guide covers SDK setup for **Prototype Mode** - designed for rapid UA testing during development.
+This guide covers SDK setup for **Prototype Mode** - designed for CPI testing and soft launch.
 
 ## 1. GameAnalytics Setup
 
@@ -22,9 +22,9 @@ This guide covers SDK setup for **Prototype Mode** - designed for rapid UA testi
    - **Game Key**: Hexadecimal string (e.g., `a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4`)
    - **Secret Key**: Another hexadecimal string
 3. In Unity, open **Window** → **GameAnalytics** → **Select Settings**
-4. You can log in to your account, or paste **Game Key** and **Secret Key** manually
+4. Log in to your account, or paste keys manually
 
-### Grant Admin Access
+### Grant Admin Access to Sorolla
 
 1. Click **Settings (Gear Icon)** in bottom-left menu
 2. Click **Users** tab
@@ -49,13 +49,7 @@ This guide covers SDK setup for **Prototype Mode** - designed for rapid UA testi
 ### Get App ID and Client Token
 
 1. Your **App ID** appears at the top of the app dashboard
-2. Also visible under **Settings** → **Basic**
-
-#### Get Client Token
-
-1. Go to **Settings** → **Advanced**
-2. Scroll to **Security** section
-3. Copy your **Client Token** (e.g., `a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6`)
+2. For **Client Token**: Go to **Settings** → **Advanced** → **Security** section
 
 ### Configure Platforms
 
@@ -67,7 +61,7 @@ This guide covers SDK setup for **Prototype Mode** - designed for rapid UA testi
 
 #### Android Platform:
 1. Click **"+ Add Platform"** → Select **"Android"**
-2. Enter your **Package Name**: Must match Unity Bundle ID exactly
+2. Enter your **Package Name** (must match Unity Player Settings)
 3. Click **"Save Changes"**
 
 ### Authorize Sorolla Ad Account
@@ -87,7 +81,7 @@ This guide covers SDK setup for **Prototype Mode** - designed for rapid UA testi
 
 ---
 
-## 3. Analytics
+## 3. Track Events
 
 ### Track Your First Event
 
@@ -100,7 +94,8 @@ The SDK initializes automatically. Add these events to your game logic:
 using Sorolla;
 
 // Level tracking (⚠️ MANDATORY)
-string lvlStr = $"Level_{[YOUR_LEVEL]:D3}";  // "Level_001" - zero-pad for dashboard sorting
+int level = 1;
+string lvlStr = $"Level_{level:D3}";  // "Level_001" - zero-pad for dashboard sorting
 
 // Start
 SorollaSDK.TrackProgression(ProgressionStatus.Start, lvlStr);
@@ -112,13 +107,12 @@ SorollaSDK.TrackProgression(ProgressionStatus.Complete, lvlStr, score: 1500);
 SorollaSDK.TrackProgression(ProgressionStatus.Fail, lvlStr);
 
 
-// Custom events, track what you want
+// Custom design events (optional)
 SorollaSDK.TrackDesign("tutorial:completed");
-// Custom event with value
 SorollaSDK.TrackDesign("settings:opened", 1);
 
 
-// Economy tracking (if you have soft/hard currencies)
+// Economy tracking (if your game has currencies)
 SorollaSDK.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
 SorollaSDK.TrackResource(ResourceFlowType.Sink, "coins", 50, "shop", "speed_boost");
 ```
