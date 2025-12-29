@@ -100,9 +100,12 @@ Optional SDK adapters use a **Stub + Implementation** pattern with separate asse
 ### Why This Pattern?
 Unity resolves assembly references **before** evaluating `#if` preprocessor blocks. This means `#if SDK_DEFINE` guards don't prevent "assembly not found" errors when the SDK isn't installed.
 
-**Solution**: Use separate assembly definitions with direct SDK references. The assembly reference itself acts as the constraint - if the referenced SDK assembly doesn't exist, Unity silently skips compiling the dependent assembly.
+**Solution**: Use separate assembly definitions with `versionDefines` + `defineConstraints`:
 
-> **Note**: We intentionally do NOT use `defineConstraints`. See devlog entry "2025-12-26: defineConstraints Removed" for why - they were unreliable and caused build failures.
+1. **versionDefines** detect if SDK package is installed → sets a scripting symbol
+2. **defineConstraints** prevent compilation if symbol not set → assembly excluded entirely
+
+> **IMPORTANT**: `versionDefines` symbols are **per-assembly only** (not project-wide). Each implementation asmdef must define its own version defines AND use them in defineConstraints.
 
 ### Structure
 
@@ -172,15 +175,29 @@ using UnityEngine.Scripting;
 {
     "name": "Sorolla.Adapters.Xxx",
     "references": ["ThirdPartySDK", "Sorolla.Adapters"],
-    "defineConstraints": []
+    "defineConstraints": ["XXX_SDK_INSTALLED"],
+    "versionDefines": [
+        {
+            "name": "com.xxx.sdk",
+            "expression": "",
+            "define": "XXX_SDK_INSTALLED"
+        }
+    ]
 }
 ```
 
+> **Note**: Both `versionDefines` AND `defineConstraints` are required. The versionDefines sets the symbol when the package is detected, and defineConstraints prevents compilation when the symbol is not set.
+
 ### How It Works
-1. If SDK not installed → SDK assembly doesn't exist → Impl assembly skipped entirely by Unity
-2. If SDK installed → Impl compiles → `AlwaysLinkAssembly` forces linker to process it
-3. `[RuntimeInitializeOnLoadMethod]` auto-registers impl at runtime
-4. Stub delegates to impl if registered, otherwise gracefully handles missing SDK
+1. **SDK not installed**:
+   - `versionDefines` condition not met → symbol NOT defined
+   - `defineConstraints` not satisfied → Unity skips entire assembly (no compilation attempted)
+2. **SDK installed**:
+   - `versionDefines` detects package → defines symbol (e.g., `APPLOVIN_MAX_INSTALLED`)
+   - `defineConstraints` satisfied → assembly compiles
+   - `[AlwaysLinkAssembly]` forces IL2CPP linker to process it
+   - `[RuntimeInitializeOnLoadMethod]` auto-registers impl at runtime
+3. **At runtime**: Stub delegates to impl if registered, otherwise gracefully handles missing SDK
 
 ### IL2CPP Code Stripping Protection
 
@@ -188,12 +205,17 @@ For IL2CPP builds, we use a belt-and-suspenders approach:
 
 | Mechanism | Purpose |
 |-----------|---------|
-| `[assembly: AlwaysLinkAssembly]` | Forces linker to process assembly (required for packages) |
+| `[assembly: AlwaysLinkAssembly]` | Forces linker to **process** assembly (doesn't preserve by itself) |
 | `[Preserve]` on class | Marks class as root, prevents stripping |
 | `[Preserve]` on Register() | Marks method as root |
-| `link.xml` (fallback) | Manual override if users have issues |
+| `link.xml` (fallback) | Manual override - auto-copied to Assets/ on setup |
 
-> **IMPORTANT**: Unity does NOT auto-include `link.xml` from UPM packages. The `AlwaysLinkAssembly` + `[Preserve]` approach is required for packages.
+> **CRITICAL (Unity Documentation)**:
+> - `link.xml` files are **NOT auto-included from UPM packages** - must be in `Assets/` folder
+> - `[AlwaysLinkAssembly]` only forces linker to **process** the assembly, not preserve it
+> - Both `[AlwaysLinkAssembly]` AND `[Preserve]` are needed for packages with `[RuntimeInitializeOnLoadMethod]`
+>
+> Source: [Unity Docs - Preserving code](https://docs.unity3d.com/Manual/managed-code-stripping-preserving.html)
 
 ### Scripting Defines
 

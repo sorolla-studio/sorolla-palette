@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.3] - 2025-12-29
+
+### Fixed
+- **Fresh Import Compilation Errors**: Re-added `defineConstraints` to implementation assemblies
+  - v2.3.2 incorrectly removed constraints, causing CS0246 errors on fresh imports without SDKs
+  - Unity compiles C# files before checking assembly references, so constraints are required
+
+### Technical Details
+The v2.3.2 "assembly references as constraints" approach was wrong. Unity still attempts to compile C# files before checking if referenced assemblies exist.
+
+**Correct pattern (now implemented):**
+```
+versionDefines: SDK installed → sets DEFINE (e.g., APPLOVIN_MAX_INSTALLED)
+defineConstraints: ["DEFINE"] → assembly only compiles if DEFINE is set
+```
+
 ## [2.3.2] - 2025-12-26
 
 ### Fixed
@@ -9,23 +25,11 @@ All notable changes to this project will be documented in this file.
   - Added `[assembly: AlwaysLinkAssembly]` to all implementation assemblies (MAX, Adjust, Firebase)
   - Added `[Preserve]` attributes to Register() methods
   - Auto-copies `link.xml` to Assets folder on setup (Unity doesn't process link.xml from packages)
-- **Removed defineConstraints**: Assembly references now serve as natural constraints
-  - If SDK not installed, implementation assembly simply doesn't compile
-  - Eliminated unreliable defineConstraints that caused "Not installed" errors in builds
 - **Loading Overlay**: Removed built-in Arial font dependency for cross-platform compatibility
 
 ### Added
 - `SorollaSetup.CopyLinkXmlToAssets()` - Auto-copies stripping protection on package setup
 - Three-layer code preservation: AlwaysLinkAssembly → [Preserve] → link.xml fallback
-
-### Technical Details
-Previous approach used `defineConstraints` which proved unreliable across build configurations. New approach:
-```
-Assembly references ARE the constraint:
-- MaxSdk.Scripts not installed → Sorolla.Adapters.MAX won't compile
-- No defineConstraints needed
-- [AlwaysLinkAssembly] ensures linker processes the assembly
-```
 
 ## [2.3.1] - 2025-12-24
 
