@@ -54,17 +54,14 @@ namespace Sorolla.Palette.Editor
             // Apply scripting defines
             DefineSymbols.Apply(mode == SorollaMode.Prototype);
 
-            // Install required SDKs (auto-installs missing dependencies)
+            // Install required SDKs (auto-installs missing dependencies immediately)
             SdkInstaller.InstallRequiredSdks(mode == SorollaMode.Prototype);
 
             // Uninstall unnecessary SDKs
             SdkInstaller.UninstallUnnecessarySdks(mode == SorollaMode.Prototype);
 
-            // Reset dependency check flag to re-verify after mode switch
-            SorollaDependencyChecker.ResetCheckFlag();
-
             AssetDatabase.Refresh();
-            Debug.Log("[Palette] Mode switch complete. All required dependencies will be auto-installed.");
+            Debug.Log("[Palette] Mode switch complete. All required dependencies installed automatically.");
         }
 
         /// <summary>

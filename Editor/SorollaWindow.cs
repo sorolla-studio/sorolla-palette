@@ -48,12 +48,8 @@ namespace Sorolla.Palette.Editor
             window.Show();
         }
 
-        [InitializeOnLoadMethod]
-        static void AutoOpenOnLoad() => EditorApplication.delayCall += () =>
-        {
-            if (!SorollaSettings.IsConfigured && !Application.isPlaying)
-                ShowWindow();
-        };
+        // Window no longer auto-opens since Prototype mode is auto-selected on import
+        // Users can open manually via Palette > Configuration to switch modes
 
         void DrawHeader()
         {

@@ -307,8 +307,8 @@ namespace Sorolla.Palette
             // GameAnalytics (always required)
 #if !GAMEANALYTICS_INSTALLED
             Debug.LogError($"{Tag} GameAnalytics SDK not installed! " +
-                "The SDK will auto-install on next Editor restart. " +
-                "Or install manually via: https://github.com/GameAnalytics/GA-SDK-UNITY.git#v6.9.1");
+                "This should have been auto-installed. Check Unity Package Manager for import errors. " +
+                "Manual install: https://github.com/GameAnalytics/GA-SDK-UNITY.git#v6.9.1");
 #endif
             GameAnalyticsAdapter.Initialize();
 
@@ -323,8 +323,7 @@ namespace Sorolla.Palette
             if (isPrototype)
             {
                 Debug.LogWarning($"{Tag} Prototype mode: Facebook SDK not installed. " +
-                    "The SDK will auto-install on next Editor restart. " +
-                    "Or install manually via: https://github.com/LaCreArthur/facebook-sdk-for-unity.git?path=/Facebook.Unity");
+                    "This should have been auto-installed. Check Unity Package Manager for import errors.");
             }
 #endif
 
@@ -339,8 +338,7 @@ namespace Sorolla.Palette
             if (!isPrototype)
             {
                 Debug.LogWarning($"{Tag} Full mode: AppLovin MAX not installed. " +
-                    "The SDK will auto-install on next Editor restart. " +
-                    "Ads and monetization will not be available until then.");
+                    "This should have been auto-installed. Check Unity Package Manager or switch modes via Palette > Configuration.");
             }
 #endif
 
@@ -360,8 +358,7 @@ namespace Sorolla.Palette
             if (Config != null && Config.enableFirebaseAnalytics)
             {
                 Debug.LogWarning($"{Tag} Firebase Analytics enabled in config but SDK not installed. " +
-                    "The SDK will auto-install if Firebase is added via Palette > Configuration. " +
-                    "Or disable in config to remove this warning.");
+                    "Install Firebase via Palette > Configuration, or disable in config.");
             }
 #endif
 
@@ -380,8 +377,7 @@ namespace Sorolla.Palette
             if (Config != null && Config.enableCrashlytics)
             {
                 Debug.LogWarning($"{Tag} Firebase Crashlytics enabled in config but SDK not installed. " +
-                    "The SDK will auto-install if Firebase is added via Palette > Configuration. " +
-                    "Or disable in config to remove this warning.");
+                    "Install Firebase via Palette > Configuration, or disable in config.");
             }
 #endif
 
@@ -400,8 +396,7 @@ namespace Sorolla.Palette
             if (Config != null && Config.enableRemoteConfig)
             {
                 Debug.LogWarning($"{Tag} Firebase Remote Config enabled in config but SDK not installed. " +
-                    "The SDK will auto-install if Firebase is added via Palette > Configuration. " +
-                    "Or disable in config to remove this warning.");
+                    "Install Firebase via Palette > Configuration, or disable in config.");
             }
 #endif
 

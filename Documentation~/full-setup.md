@@ -6,10 +6,26 @@ This guide covers everything for a production-ready mobile game with full analyt
 
 ---
 
+## Switching from Prototype Mode
+
+**The SDK auto-installed in Prototype Mode.** To switch to Full Mode:
+
+1. Open Unity: `Palette > Configuration`
+2. Click **"🚀 Full Mode"** button
+3. The SDK will automatically:
+   - Install AppLovin MAX
+   - Install Adjust SDK
+   - Keep GameAnalytics (already installed)
+   - Remove Facebook SDK (replaced by Adjust)
+
+**All dependencies install automatically!** You just need to configure API keys below.
+
+---
+
 ## What You'll Set Up
 
 ### ✅ Required for Production
-- **GameAnalytics** - Analytics and event tracking
+- **GameAnalytics** - Analytics and event tracking (already installed)
 - **AppLovin MAX** - Ad monetization with mediation
 - **Adjust** - Full attribution tracking
 - **GDPR/ATT Consent** - EU compliance and iOS tracking
@@ -19,24 +35,9 @@ This guide covers everything for a production-ready mobile game with full analyt
 - **Firebase Remote Config** - A/B testing and feature flags
 - **Firebase Analytics** - Dual analytics backend
 
-**Estimated time:** 20-30 minutes for full setup
+**Estimated time:** 20-30 minutes for configuration
 
 ---
-
-## Step 1: GameAnalytics Setup
-
-### 1.1 Create Account & Game Project
-
-1. Go to [https://gameanalytics.com](https://gameanalytics.com)
-2. Click **"Sign Up"** and complete registration
-3. Click **"Add Game"** or **"Create Game"**
-4. Fill in game details:
-   - **Game Name**: Your game's name
-   - **Platform**: Select iOS and/or Android
-   - **Engine**: Select Unity
-5. Click **"Create Game"**
-
-### 1.2 Configure in Unity
 
 1. Get your API keys from [GameAnalytics](https://gameanalytics.com):
    - Navigate to **Settings** → **Game Settings** (gear icon)

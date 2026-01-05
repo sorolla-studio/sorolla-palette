@@ -38,38 +38,45 @@ A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration ini
    
    `https://github.com/LaCreArthur/sorolla-palette-upm.git`
 
-**That's it!** The package automatically installs dependencies.
+**That's it!** The package automatically:
+- Installs in **Prototype Mode** (perfect for most users)
+- Sets up GameAnalytics + Facebook SDK
+- Creates the config file
+- No manual configuration needed!
+
+**Want Full Mode instead?** Open `Palette > Configuration` to switch modes.
 
 ## Quick Start
 
-### Choose Your Path
+### Automatic Setup (Recommended)
 
-**New to the SDK?** → Start with [**Prototype Mode**](Documentation~/prototype-setup.md)  
-**Ready for production?** → Jump to [**Full Mode**](Documentation~/full-setup.md)
+The SDK **automatically installs in Prototype Mode** when you import it - no setup required!
+
+**Prototype Mode includes:**
+- ✅ GameAnalytics (analytics)
+- ✅ Facebook SDK (attribution for UA)
+- ⚡ Optional: AppLovin MAX (ads)
+
+**To switch to Full Mode:** Go to `Palette > Configuration` and select Full Mode.
+
+### Manual Mode Selection
+
+If you need to manually select or switch modes, open `Palette > Configuration`:
 
 | | **🚀 Prototype Mode** | **🏭 Full Mode** |
 |---|---|---|
 | **Best for** | Testing UA campaigns<br>Soft launch<br>Rapid iteration | Production launch<br>Live games<br>Full monetization |
-| **Setup time** | 10 minutes | 20-30 minutes |
+| **Auto-installed** | ✅ On package import | ⚡ Manual switch required |
 | **Analytics** | ✅ GameAnalytics | ✅ GameAnalytics |
 | **Attribution** | ✅ Facebook SDK | ✅ Adjust (full attribution) |
 | **Ads** | ⚡ Optional (MAX) | ✅ Required (MAX + mediation) |
 | **GDPR/ATT** | ⚡ Optional | ✅ Required for EU/production |
 | **Firebase** | ⚡ Optional add-on | ⚡ Recommended add-on |
-| **Team support** | Self-service | Assisted by Sorolla team |
 
-### Getting Started
+### Setup Guides
 
-1. **Install**: Add package from git URL in Unity Package Manager:
-   ```
-   https://github.com/LaCreArthur/sorolla-palette-upm.git
-   ```
-
-2. **Choose mode**: Configuration window opens automatically
-
-3. **Follow guide**: 
-   - 📖 [**Prototype Setup Guide**](Documentation~/prototype-setup.md) - Lightweight, autonomous setup
-   - 📖 [**Full Mode Setup Guide**](Documentation~/full-setup.md) - Complete production setup
+- 📖 [**Prototype Setup Guide**](Documentation~/prototype-setup.md) - You're already in Prototype mode!
+- 📖 [**Full Mode Setup Guide**](Documentation~/full-setup.md) - Switch to Full mode for production
 
 ## Usage
 

@@ -1,20 +1,31 @@
 # Prototype Mode Setup Guide
 
-**Complete setup for UA testing and soft launch in 10 minutes.**
+**You're already in Prototype Mode! The SDK auto-installed GameAnalytics and Facebook SDK.**
 
-This guide covers everything you need to start testing user acquisition campaigns with GameAnalytics and Facebook SDK.
+This guide covers account setup and configuration to complete your integration.
 
 ---
 
-## What You'll Set Up
+## ✅ Already Done Automatically
 
-✅ **GameAnalytics** - Analytics and event tracking  
-✅ **Facebook SDK** - Attribution for UA campaigns  
-⚡ **AppLovin MAX** - Optional: Add monetization early  
+When you imported the package, it automatically:
+- ✅ Selected **Prototype Mode**
+- ✅ Installed **GameAnalytics SDK**
+- ✅ Installed **Facebook SDK**
+- ✅ Created **SorollaConfig** asset
+- ✅ Set up the SDK for auto-initialization
+
+**All dependencies are ready!** Now you just need to configure your API keys.
+
+---
+
+## What You'll Configure
+
+✅ **GameAnalytics** - Add your Game Key and Secret  
+✅ **Facebook SDK** - Add your App ID and Client Token  
+⚡ **AppLovin MAX** - Optional: Add for early monetization testing
 
 **What's NOT included:** GDPR consent flows, Firebase, Adjust (→ use [Full Mode](full-setup.md) for production)
-
----
 
 ---
 
