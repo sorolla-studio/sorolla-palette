@@ -1,20 +1,31 @@
 # Full Mode Setup Guide
 
-This guide covers SDK setup for **Full Mode** - designed for production apps with full attribution and monetization.
+**Complete production setup with attribution, monetization, and compliance (20-30 minutes).**
 
-## Required SDKs
-
-- **GameAnalytics** - Analytics & Remote Config (Required)
-- **AppLovin MAX** - Ad Monetization (Required)
-- **Adjust** - Attribution Tracking (Required)
-
-**Note:** Full Mode does NOT use Facebook SDK - it uses Adjust for attribution instead.
+This guide covers everything for a production-ready mobile game with full analytics, attribution, ads, GDPR compliance, and crash reporting.
 
 ---
 
-## 1. GameAnalytics Setup (Required)
+## What You'll Set Up
 
-### Create Account & Game Project
+### ✅ Required for Production
+- **GameAnalytics** - Analytics and event tracking
+- **AppLovin MAX** - Ad monetization with mediation
+- **Adjust** - Full attribution tracking
+- **GDPR/ATT Consent** - EU compliance and iOS tracking
+
+### ⚡ Highly Recommended
+- **Firebase Crashlytics** - Crash reporting
+- **Firebase Remote Config** - A/B testing and feature flags
+- **Firebase Analytics** - Dual analytics backend
+
+**Estimated time:** 20-30 minutes for full setup
+
+---
+
+## Step 1: GameAnalytics Setup
+
+### 1.1 Create Account & Game Project
 
 1. Go to [https://gameanalytics.com](https://gameanalytics.com)
 2. Click **"Sign Up"** and complete registration
@@ -25,133 +36,301 @@ This guide covers SDK setup for **Full Mode** - designed for production apps wit
    - **Engine**: Select Unity
 5. Click **"Create Game"**
 
-### Get API Keys
+### 1.2 Configure in Unity
 
-1. Navigate to **Settings** → **Game Settings** (gear icon)
-2. Copy both keys:
-   - **Game Key**: Hexadecimal string (e.g., `a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4`)
-   - **Secret Key**: Another hexadecimal string
-3. **Keep these keys secure**
+1. Get your API keys from [GameAnalytics](https://gameanalytics.com):
+   - Navigate to **Settings** → **Game Settings** (gear icon)
+   - Copy **Game Key** and **Secret Key** (long hexadecimal strings)
+2. In Unity: **Window** → **GameAnalytics** → **Select Settings**
+3. Paste both keys and click **"Save"**
 
-### Configure in Unity
+### 1.3 Grant Admin Access (Required)
 
-1. Open **Window** → **GameAnalytics** → **Select Settings**
-2. Paste **Game Key** and **Secret Key**
+⚠️ **Required for Sorolla team to support your integration**
+
+1. In [GameAnalytics](https://gameanalytics.com), go to **Settings** → **Users**
+2. Click **Invite User** → Enter email: `studio@sorolla.io`
+3. Set Role to **Admin** (not Viewer)
+4. Send Invite
+
+---
+
+## Step 2: AppLovin MAX Setup
+
+MAX handles ad monetization with automatic mediation across multiple ad networks.
+
+### 2.1 Create Account & Get SDK Key
+
+1. Sign up at [dash.applovin.com](https://dash.applovin.com/signup)
+2. Navigate to **Account** → **Keys**
+3. Copy your **SDK Key**
+
+### 2.2 Create Ad Units
+
+1. Go to **Monetize** → **Manage** → **Ad Units**
+2. Create **Rewarded Video** ad unit → Copy **Ad Unit ID**
+3. Create **Interstitial** ad unit → Copy **Ad Unit ID**
+4. (Optional) Create **Banner** ad unit → Copy **Ad Unit ID**
+
+### 2.3 Enable Mediation Networks (Recommended)
+
+1. Go to **Monetize** → **Manage** → **Mediation**
+2. Enable networks: **AdMob**, **Meta Audience Network**, **Unity Ads**
+3. Each network requires API keys (follow MAX's setup flow)
+4. MAX automatically optimizes between networks
+
+### 2.4 Configure in Unity
+
+1. Open **Sorolla Configuration** (Sorolla → Configuration)
+2. Enter **SDK Key**, **Rewarded ID**, **Interstitial ID**
 3. Click **"Save"**
 
-**Alternative:** Use the **"Open Settings"** button in the Sorolla Configuration window.
+📖 **[Detailed Ads Setup Guide](ads-setup.md)** for advanced configuration
 
 ---
 
-## 2. AppLovin MAX Setup (Required)
+## Step 3: Adjust Setup
 
-AppLovin MAX provides ad mediation and monetization for production apps.
+### 3.1 Create Account & App
 
-**Follow the full guide:** [Ads Setup (AppLovin MAX)](ads-setup.md)
+1. Sign up at [adjust.com](https://www.adjust.com)
+2. Create app for iOS and/or Android
+3. Copy **App Token** (12-character string, e.g., `abc123def456`)
 
----
+### 3.2 Configure in Unity
 
-## 3. Adjust Setup (Required)
-
-Adjust provides attribution tracking and campaign analytics for production.
-
-### Create Account
-
-1. Go to [https://www.adjust.com](https://www.adjust.com)
-2. Click **"Get Started"** or **"Sign Up"**
-3. Complete registration and verify email
-4. Log in to dashboard
-
-### Create App
-
-1. Click **"+ Create App"** or go to **Apps** → **"New App"**
-2. Fill in app details:
-   - **App Name**: Your game's name
-   - **Platform**: Select iOS or Android (create separate apps for each)
-   - **Bundle ID / Package Name**: Your app's identifier
-3. Click **"Create App"**
-
-### Get App Token
-
-1. On the app overview page, your **App Token** is displayed at the top
-2. It's a 12-character alphanumeric string (e.g., `abc123def456`)
-3. Also available under **All Settings** → **App Token**
-
-**Note:** If you have both iOS and Android, you'll have separate tokens for each platform.
-
-### Configure Attribution Links (Optional)
-
-For tracking campaign performance:
-
-1. Go to **Campaign Lab** → **Trackers**
-2. Create tracking links for marketing campaigns
-3. Links will attribute installs to specific campaigns
-
-### Configure in Unity
-
-1. Open **Sorolla Configuration** window
-2. Under **SDK Keys** (visible in Full Mode), enter:
-   - **Adjust App Token**: From Step 3 above
+1. Open **Sorolla Configuration**
+2. Enter **Adjust App Token** (automatically used for correct platform)
 3. Click **"Save"**
 
-**Platform-Specific Notes:**
-- Sorolla SDK handles platform detection automatically
-- If you have separate iOS/Android tokens, enter the primary build target token
-- For multi-platform projects, token is read at build time for target platform
+### 3.3 Optional: Create Attribution Links
+
+1. In Adjust dashboard, go to **Campaign Lab** → **Trackers**
+2. Create tracking links for each marketing campaign
+3. Links will attribute installs to campaigns
 
 ---
 
-## 4. GameAnalytics Admin Access (Required)
+## Step 4: GDPR & ATT Consent (Required for EU/iOS)
 
-⚠️ **Required for publishing team to debug UA and analytics issues**
+### 4.1 Setup GDPR Consent (EU Requirement)
 
-### Grant Admin Access
+1. Create **AdMob account** at [admob.google.com](https://admob.google.com)
+2. Go to **Privacy & messaging** → **GDPR** → **Create message**
+3. Select your app and configure consent form
+4. Enable **Custom ad partners** and select: AppLovin, AdMob, Meta, Unity
+5. Click **Publish**
 
-1. Log in to [GameAnalytics](https://gameanalytics.com)
-2. Select your game from the top-left dropdown
-3. Click **Settings (Gear Icon)** in bottom-left menu
-4. Click **Users** tab
-5. Click **Invite User** (top right)
-6. Enter email: `studio@sorolla.io`
-7. ⚠️ **IMPORTANT:** Set Role to **Admin** (Viewer is not enough)
-8. Send Invite
+### 4.2 Configure in Unity
+
+1. In Unity, go to **AppLovin** → **Integration Manager**
+2. Enable **MAX Terms and Privacy Policy Flow**
+3. Set **Privacy Policy URL** (your company's privacy policy)
+4. Set **User Tracking Usage Description**: 
+   ```
+   This identifier will be used to deliver personalized ads to you.
+   ```
+5. Click **Save**
+
+### 4.3 Add Privacy Settings Button (Required)
+
+GDPR requires users to change their consent at any time:
+
+```csharp
+using UnityEngine;
+using UnityEngine.UI;
+using Sorolla.Palette;
+
+public class SettingsScreen : MonoBehaviour
+{
+    [SerializeField] Button privacyButton;
+
+    void Start()
+    {
+        // Show button only if user is in GDPR region
+        privacyButton.gameObject.SetActive(Palette.PrivacyOptionsRequired);
+        privacyButton.onClick.AddListener(OnPrivacyClicked);
+    }
+
+    void OnPrivacyClicked()
+    {
+        Palette.ShowPrivacyOptions(() => {
+            Debug.Log("Privacy settings updated");
+        });
+    }
+}
+```
+
+📖 **[Complete GDPR Setup Guide](gdpr-consent-setup.md)** with testing instructions
 
 ---
 
-## Full Mode Checklist
+## Step 5: Firebase Setup (Highly Recommended)
 
-**Before production launch, verify:**
+### 5.1 Create Firebase Project
 
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create new project (**enable Google Analytics** when prompted)
+3. Add iOS and/or Android apps with your bundle IDs
+
+### 5.2 Download Config Files
+
+- **Android**: Download `google-services.json` → Place in `Assets/`
+- **iOS**: Download `GoogleService-Info.plist` → Place in `Assets/`
+
+### 5.3 Install Firebase in Unity
+
+1. Open **Sorolla Configuration**
+2. Click **"Install"** next to Firebase (optional)
+3. Wait for packages to import
+4. Enable modules: **Analytics**, **Crashlytics**, **Remote Config**
+5. Click **"Save"**
+
+### 5.4 Use Firebase Features
+
+All Firebase features work automatically with no code changes:
+
+- **Analytics**: Events sent to both Firebase & GameAnalytics
+- **Crashlytics**: Automatic crash reporting on next app launch
+- **Remote Config**: Unified API (Firebase → GameAnalytics → default)
+
+```csharp
+using Sorolla.Palette;
+
+// Crashlytics - log exceptions
+try { /* risky code */ }
+catch (Exception ex) { Palette.LogException(ex); }
+
+// Remote Config - A/B testing
+Palette.FetchRemoteConfig(success => {
+    if (success)
+    {
+        float difficulty = Palette.GetRemoteConfigFloat("difficulty", 1.0f);
+        bool newFeature = Palette.GetRemoteConfigBool("new_ui", false);
+    }
+});
+```
+
+📖 **[Complete Firebase Guide](firebase.md)** with all features
+
+---
+
+## Step 6: Add Analytics Events
+
+### 6.1 Track Level Progression (Required)
+
+```csharp
+using Sorolla.Palette;
+
+int level = 1;
+string lvlStr = $"Level_{level:D3}";  // Zero-pad: "Level_001"
+
+// When level starts
+Palette.TrackProgression(ProgressionStatus.Start, lvlStr);
+
+// When level completes
+Palette.TrackProgression(ProgressionStatus.Complete, lvlStr, score: 1500);
+
+// When level fails
+Palette.TrackProgression(ProgressionStatus.Fail, lvlStr);
+```
+
+### 6.2 Show Ads
+
+```csharp
+// Rewarded ad
+if (Palette.IsRewardedAdReady)
+{
+    Palette.ShowRewardedAd(
+        onComplete: () => GiveReward(),
+        onFailed: () => Debug.Log("Ad not available")
+    );
+}
+
+// Interstitial ad (e.g., between levels)
+Palette.ShowInterstitialAd(onComplete: () => LoadNextLevel());
+```
+
+📖 **[Complete API Reference](api-reference.md)**
+
+---
+
+## Step 7: Test with Debug UI
+
+### 7.1 Import Debug UI Sample
+
+1. **Package Manager** → Sorolla SDK → Samples → Import "Debug UI"
+2. Add `DebugPanelManager` prefab to your first scene
+3. Build to iOS/Android device
+
+### 7.2 Verify Integration
+
+1. Launch app on device
+2. **Triple-tap** screen to open debug panel
+3. Verify all indicators are green:
+   - ✅ GameAnalytics initialized
+   - ✅ MAX initialized
+   - ✅ Adjust initialized
+   - ✅ Consent status (iOS: ATT granted, Android: GDPR consented)
+4. Test ad loading and showing
+5. Check event tracking
+
+---
+
+## ✅ Full Mode Production Checklist
+
+**Before launching to production:**
+
+### Core SDKs
 - [ ] GameAnalytics: Game Key and Secret Key configured
 - [ ] GameAnalytics: Admin access granted to `studio@sorolla.io`
-- [ ] AppLovin MAX: SDK Key configured
-- [ ] AppLovin MAX: Rewarded Ad Unit ID configured
-- [ ] AppLovin MAX: Interstitial Ad Unit ID configured
-- [ ] AppLovin MAX: Mediation networks enabled (recommended)
-- [ ] Adjust: App Token configured for target platform(s)
-- [ ] Adjust: Attribution links created (optional)
+- [ ] AppLovin MAX: SDK Key, Rewarded ID, Interstitial ID configured
+- [ ] AppLovin MAX: Mediation networks enabled (AdMob, Meta, Unity)
+- [ ] Adjust: App Token configured
+
+### Compliance (EU/iOS)
+- [ ] GDPR: Consent message created and published in AdMob
+- [ ] GDPR: Custom ad partners added (AppLovin, AdMob, Meta, Unity)
+- [ ] GDPR: Privacy policy URL set in MAX Integration Manager
+- [ ] GDPR: Privacy settings button added to game settings
+- [ ] iOS: User Tracking Usage Description set
+
+### Firebase (Recommended)
+- [ ] Firebase: Config files (`google-services.json`, `GoogleService-Info.plist`) added
+- [ ] Firebase: Analytics, Crashlytics, Remote Config enabled in Sorolla Config
+
+### Integration
+- [ ] Analytics: Level progression events added (`TrackProgression`)
+- [ ] Ads: Rewarded and interstitial ad calls integrated
+- [ ] Build: Successfully builds to iOS/Android
+- [ ] Testing: Debug UI shows all SDKs initialized
+- [ ] Testing: Ads load and show correctly
+- [ ] Testing: Consent flow appears on first launch (EU/iOS)
 
 ---
 
-## Quick Reference
+## 🎯 You're Production Ready!
 
-| SDK | What You Need | Where to Find It |
-|-----|---------------|------------------|
-| **GameAnalytics** | Game Key<br>Secret Key | [gameanalytics.com](https://gameanalytics.com) → Settings → Game Settings |
-| **AppLovin MAX** | SDK Key<br>Rewarded ID<br>Interstitial ID | [dash.applovin.com](https://dash.applovin.com)<br>→ Account → Keys<br>→ Monetize → Ad Units |
-| **Adjust** | App Token<br>(iOS/Android) | [adjust.com](https://www.adjust.com)<br>→ Apps → All Settings |
+Your game is now fully set up with:
+- ✅ Complete analytics (GameAnalytics + Firebase)
+- ✅ Full attribution (Adjust)
+- ✅ Ad monetization (MAX with mediation)
+- ✅ GDPR/ATT compliance
+- ✅ Crash reporting (Firebase Crashlytics)
+
+### Useful Resources
+
+- 📖 [API Reference](api-reference.md) - Complete code documentation
+- 📖 [GDPR Guide](gdpr-consent-setup.md) - Detailed compliance setup
+- 📖 [Firebase Guide](firebase.md) - All Firebase features
+- 📖 [Ads Guide](ads-setup.md) - Advanced ad configuration
+- 🐛 [Troubleshooting](troubleshooting.md) - Common issues and fixes
 
 ---
 
-## Need Help?
+## 💬 Need Help?
 
-- 📖 [Getting Started](getting-started.md) | [Troubleshooting](troubleshooting.md)
-- 🐙 [GitHub Repository](https://github.com/LaCreArthur/sorolla-palette-upm)
-- 🐛 [Report Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
-
-### Related Guides
-
-- [Ads Setup](ads-setup.md) - AppLovin MAX configuration details
-- [Prototype Mode Setup](prototype-setup.md) - Quick UA testing setup
-- [Firebase Setup](firebase.md) - Add Analytics, Crashlytics, Remote Config
-- [API Reference](api-reference.md) - Complete API documentation
+- 📧 **Email**: studio@sorolla.io (for setup assistance)
+- 💬 **GitHub Issues**: [Report problems](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
+- 📊 **Analytics**: Check your [GameAnalytics dashboard](https://gameanalytics.com)
+- 💰 **Revenue**: Monitor [AppLovin MAX dashboard](https://dash.applovin.com)

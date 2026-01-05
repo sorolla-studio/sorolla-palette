@@ -1,8 +1,12 @@
 # GDPR/ATT Consent Setup Guide
 
+**Required for Full Mode and EU/UK regions.**
+
 This guide walks you through enabling GDPR consent collection using MAX's built-in UMP (User Messaging Platform) automation. Once configured, MAX automatically handles consent collection for EU/UK users.
 
 > **Why This Matters**: Since January 2024, apps without proper GDPR consent show "Limited Ads" in EU/UK regions, significantly reducing ad revenue.
+
+> **Note**: This is **required** for [Full Mode](full-setup.md). For Prototype Mode, GDPR is optional (only needed if using MAX for ads in EU).
 
 ---
 
@@ -10,10 +14,12 @@ This guide walks you through enabling GDPR consent collection using MAX's built-
 
 Before starting, ensure you have:
 
-- [ ] Sorolla SDK installed with MAX enabled (Full mode)
+- [ ] Sorolla SDK installed with MAX enabled
 - [ ] AppLovin MAX SDK 8.5.0+ (included in Sorolla)
 - [ ] Google AdMob account with your app registered
 - [ ] Privacy Policy URL for your app/company
+
+> **💡 Tip**: If you're using [Full Mode](full-setup.md), follow Step 4 of that guide which includes condensed GDPR setup. This guide provides detailed instructions and troubleshooting.
 
 ---
 

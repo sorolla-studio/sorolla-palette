@@ -104,6 +104,7 @@ For better fill rates and revenue:
 
 ## Need Help?
 
-- 📖 [Getting Started](getting-started.md) | [Troubleshooting](troubleshooting.md)
-- 🐙 [GitHub Repository](https://github.com/LaCreArthur/sorolla-palette-upm)
+- 📖 [Prototype Setup](prototype-setup.md) - Quick UA testing setup
+- 📖 [Full Mode Setup](full-setup.md) - Complete production setup
+- 📖 [Troubleshooting](troubleshooting.md) - Common issues and fixes
 - 🐛 [Report Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues)

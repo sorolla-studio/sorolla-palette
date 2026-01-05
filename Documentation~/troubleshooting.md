@@ -4,6 +4,21 @@ Common issues and solutions for Sorolla SDK integration.
 
 ---
 
+## 🚨 Most Common Issues
+
+**Before diving deep, check these first:**
+
+| Issue | Quick Fix |
+|-------|-----------|
+| **SDK not initializing** | Check `Assets/Resources/SorollaConfig.asset` exists |
+| **Events not appearing** | Verify SDK keys in Configuration window, wait 5-10 min |
+| **Ads not loading** | Check SDK Key and Ad Unit IDs, wait 30 sec after init |
+| **Build failing on Android** | Run `Sorolla > Tools > Sanitize Android Manifest` |
+| **iOS provisioning errors** | Open Xcode, enable "Automatically manage signing" |
+| **Remote config returns defaults** | Ensure values are **published** in console |
+
+---
+
 ## Quick Fixes
 
 | Issue | Solution |
@@ -14,7 +29,7 @@ Common issues and solutions for Sorolla SDK integration.
 | Remote config returns defaults | Ensure values are **published** in console |
 | Firebase errors | Verify config files match bundle ID |
 | Build failing | Check **Build Health** section in Configuration window |
-| Runtime crash on Android | Run `Sorolla > Tools > Sanitize Android Manifest` |
+| Runtime crash on Android | Run `Palette > Tools > Sanitize Android Manifest` |
 
 ---
 
@@ -185,10 +200,10 @@ pod --version
 **How it happens**: Switching modes (Prototype ↔ Full) can leave orphaned entries.
 
 **Fix**:
-1. Open `Sorolla > Configuration` window
+1. Open `Palette > Configuration` window
 2. Check the **Build Health** section
 3. If "Android Manifest" shows an error, it will be auto-fixed on next validation
-4. Or manually run: `Sorolla > Tools > Sanitize Android Manifest`
+4. Or manually run: `Palette > Tools > Sanitize Android Manifest`
 
 The Build Health validator automatically detects and removes orphaned manifest entries before builds.
 
