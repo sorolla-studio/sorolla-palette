@@ -64,7 +64,7 @@ This guide covers setting up AppLovin MAX for ad monetization.
 ## 5. Show Ads in Code
 
 ```csharp
-using Sorolla.SDK;
+using Sorolla.Palette;
 
 // Rewarded ad
 if (Palette.IsRewardedAdReady)

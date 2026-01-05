@@ -7,7 +7,7 @@ Complete reference for the Sorolla SDK public API.
 ## Namespace
 
 ```csharp
-using Sorolla.SDK;
+using Sorolla.Palette;
 ```
 
 ---

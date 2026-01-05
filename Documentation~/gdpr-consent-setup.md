@@ -108,7 +108,7 @@ The Sorolla SDK automatically exposes consent status. No additional code is requ
 ### 3.1: Check Consent Status (Optional)
 
 ```csharp
-using Sorolla.SDK;
+using Sorolla.Palette;
 using Sorolla.Adapters;
 
 // After SDK initialization, check consent status
@@ -126,7 +126,7 @@ GDPR requires you to let users change their consent. Add to your settings screen
 ```csharp
 using UnityEngine;
 using UnityEngine.UI;
-using Sorolla.SDK;
+using Sorolla.Palette;
 
 public class SettingsScreen : MonoBehaviour
 {
