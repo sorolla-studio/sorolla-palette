@@ -104,37 +104,37 @@ The SDK initializes automatically. Add these events to your game:
 ### 3.1 Track Level Progression (Required)
 
 ```csharp
-using Sorolla;
+using Sorolla.SDK;
 
 // Level tracking (⚠️ REQUIRED for analytics)
 int level = 1;
 string lvlStr = $"Level_{level:D3}";  // "Level_001" - zero-pad for sorting
 
 // When level starts
-SorollaSDK.TrackProgression(ProgressionStatus.Start, lvlStr);
+Palette.TrackProgression(ProgressionStatus.Start, lvlStr);
 
 // When level completes (score is optional)
-SorollaSDK.TrackProgression(ProgressionStatus.Complete, lvlStr, score: 1500);
+Palette.TrackProgression(ProgressionStatus.Complete, lvlStr, score: 1500);
 
 // When level fails
-SorollaSDK.TrackProgression(ProgressionStatus.Fail, lvlStr);
+Palette.TrackProgression(ProgressionStatus.Fail, lvlStr);
 ```
 
 > 💡 **Tip:** Zero-pad level numbers (`Level_001` not `Level_1`) for better dashboard sorting.
 
 ### 3.2 Track Custom Events (Optional)
 ```csharp
-SorollaSDK.TrackDesign("tutorial:completed");
-SorollaSDK.TrackDesign("settings:opened", 1);
+Palette.TrackDesign("tutorial:completed");
+Palette.TrackDesign("settings:opened", 1);
 ```
 
 ### 3.3 Track Economy (Optional)
 ```csharp
 // Player earned currency
-SorollaSDK.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
+Palette.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
 
 // Player spent currency
-SorollaSDK.TrackResource(ResourceFlowType.Sink, "coins", 50, "shop", "speed_boost");
+Palette.TrackResource(ResourceFlowType.Sink, "coins", 50, "shop", "speed_boost");
 ```
 
 ---
@@ -171,12 +171,12 @@ Want to test ads early? Add AppLovin MAX (optional in Prototype mode):
 ### 5.2 Show Ads in Code
 
 ```csharp
-using Sorolla;
+using Sorolla.SDK;
 
 // Check if ad is ready
-if (SorollaSDK.IsRewardedAdReady)
+if (Palette.IsRewardedAdReady)
 {
-    SorollaSDK.ShowRewardedAd(
+    Palette.ShowRewardedAd(
         onComplete: () => GiveReward(),
         onFailed: () => Debug.Log("Ad not available")
     );

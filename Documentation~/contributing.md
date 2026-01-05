@@ -36,7 +36,7 @@ Thank you for your interest in contributing to Sorolla SDK!
 
 ```
 Runtime/
-├── SorollaSDK.cs              ← Main public API
+├── Palette.cs              ← Main public API
 ├── SorollaBootstrapper.cs     ← Auto-initialization
 ├── SorollaConfig.cs           ← Configuration asset
 └── Adapters/                  ← Third-party SDK wrappers
@@ -65,7 +65,7 @@ Samples~/DebugUI/              ← Debug panel sample
 1. Add SDK metadata to `Editor/Sdk/SdkRegistry.cs`
 2. Create adapter in `Runtime/Adapters/NewSdkAdapter.cs`
 3. Add scripting define in `Editor/Sdk/DefineSymbols.cs`
-4. Initialize in `SorollaSDK.Initialize()`
+4. Initialize in `Palette.Initialize()`
 5. Add UI section in `Editor/SorollaWindow.cs` if needed
 
 ### Testing

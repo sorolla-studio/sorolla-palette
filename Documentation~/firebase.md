@@ -61,9 +61,9 @@ Click **Save**.
 Events are automatically sent to both Firebase and GameAnalytics:
 
 ```csharp
-SorollaSDK.TrackDesign("tutorial:complete");
-SorollaSDK.TrackProgression(ProgressionStatus.Complete, "World_01", "Level_03");
-SorollaSDK.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
+Palette.TrackDesign("tutorial:complete");
+Palette.TrackProgression(ProgressionStatus.Complete, "World_01", "Level_03");
+Palette.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
 ```
 
 ### Crashlytics
@@ -71,9 +71,9 @@ SorollaSDK.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level
 Crashes are captured automatically. For manual logging:
 
 ```csharp
-SorollaSDK.LogCrashlytics("User started level 5");
-SorollaSDK.SetCrashlyticsKey("level", 5);
-SorollaSDK.LogException(ex); // Log handled exceptions
+Palette.LogCrashlytics("User started level 5");
+Palette.SetCrashlyticsKey("level", 5);
+Palette.LogException(ex); // Log handled exceptions
 ```
 
 ### Remote Config
@@ -84,11 +84,11 @@ Sorolla provides a **unified Remote Config API** that automatically uses Firebas
 2. Click **Publish changes**
 
 ```csharp
-SorollaSDK.FetchRemoteConfig(success => {
-    float difficulty = SorollaSDK.GetRemoteConfigFloat("difficulty", 1.0f);
-    bool feature = SorollaSDK.GetRemoteConfigBool("new_feature", false);
-    int coins = SorollaSDK.GetRemoteConfigInt("reward_amount", 100);
-    string msg = SorollaSDK.GetRemoteConfig("welcome_message", "Hello!");
+Palette.FetchRemoteConfig(success => {
+    float difficulty = Palette.GetRemoteConfigFloat("difficulty", 1.0f);
+    bool feature = Palette.GetRemoteConfigBool("new_feature", false);
+    int coins = Palette.GetRemoteConfigInt("reward_amount", 100);
+    string msg = Palette.GetRemoteConfig("welcome_message", "Hello!");
 });
 ```
 
@@ -111,20 +111,20 @@ SorollaSDK.FetchRemoteConfig(success => {
 
 ```csharp
 // Analytics (sent to Firebase + GameAnalytics)
-SorollaSDK.TrackDesign(string eventId, float value = 0);
-SorollaSDK.TrackProgression(ProgressionStatus status, string p1, string p2 = null, string p3 = null, int score = 0);
-SorollaSDK.TrackResource(ResourceFlowType flow, string currency, float amount, string itemType, string itemId);
+Palette.TrackDesign(string eventId, float value = 0);
+Palette.TrackProgression(ProgressionStatus status, string p1, string p2 = null, string p3 = null, int score = 0);
+Palette.TrackResource(ResourceFlowType flow, string currency, float amount, string itemType, string itemId);
 
 // Crashlytics
-SorollaSDK.LogCrashlytics(string message);
-SorollaSDK.LogException(Exception ex);
-SorollaSDK.SetCrashlyticsKey(string key, string/int/float/bool value);
+Palette.LogCrashlytics(string message);
+Palette.LogException(Exception ex);
+Palette.SetCrashlyticsKey(string key, string/int/float/bool value);
 
 // Remote Config (unified: Firebase → GameAnalytics → default)
-SorollaSDK.IsRemoteConfigReady();
-SorollaSDK.FetchRemoteConfig(Action<bool> callback);
-SorollaSDK.GetRemoteConfig(string key, string defaultValue);
-SorollaSDK.GetRemoteConfigInt(string key, int defaultValue);
-SorollaSDK.GetRemoteConfigFloat(string key, float defaultValue);
-SorollaSDK.GetRemoteConfigBool(string key, bool defaultValue);
+Palette.IsRemoteConfigReady();
+Palette.FetchRemoteConfig(Action<bool> callback);
+Palette.GetRemoteConfig(string key, string defaultValue);
+Palette.GetRemoteConfigInt(string key, int defaultValue);
+Palette.GetRemoteConfigFloat(string key, float defaultValue);
+Palette.GetRemoteConfigBool(string key, bool defaultValue);
 ```
