@@ -78,8 +78,36 @@ namespace Sorolla.Palette.Editor
             // Ensure config exists
             EnsureConfigExists();
             
+            // Auto-select Prototype mode for plug-and-play experience
+            AutoSelectModeIfNeeded();
+            
             Debug.Log("[Palette] Setup complete. Package Manager will resolve dependencies.");
-            Debug.Log("[Palette] Open Palette > Configuration to select a mode.");
+            
+            if (!SorollaSettings.IsConfigured)
+            {
+                Debug.Log("[Palette] Open Palette > Configuration to select a mode.");
+            }
+        }
+        
+        /// <summary>
+        ///     Automatically select Prototype mode on first import for plug-and-play experience.
+        ///     Prototype mode is perfect for immediate testing and the most common use case.
+        ///     Users can switch to Full mode later via Palette > Configuration.
+        /// </summary>
+        static void AutoSelectModeIfNeeded()
+        {
+            if (SorollaSettings.IsConfigured)
+            {
+                Debug.Log("[Palette] Mode already configured. No action needed.");
+                return;
+            }
+
+            Debug.Log("[Palette] No mode configured. Auto-selecting Prototype mode for plug-and-play setup...");
+            Debug.Log("[Palette] Prototype mode includes: GameAnalytics + Facebook SDK (perfect for UA testing)");
+            Debug.Log("[Palette] You can switch to Full mode later via: Window > Palette > Configuration");
+            
+            // Set Prototype mode - this will automatically install required SDKs
+            SorollaSettings.SetMode(SorollaMode.Prototype);
         }
         
         /// <summary>
