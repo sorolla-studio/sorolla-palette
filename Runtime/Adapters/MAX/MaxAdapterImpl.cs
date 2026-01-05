@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.Scripting;
 
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     /// <summary>
     ///     AppLovin MAX adapter implementation. Registered at runtime.

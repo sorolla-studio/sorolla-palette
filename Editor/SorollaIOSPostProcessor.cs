@@ -5,7 +5,7 @@ using UnityEditor.Callbacks;
 using UnityEditor.iOS.Xcode;
 using UnityEngine;
 
-namespace Sorolla.Editor
+namespace Sorolla.Palette.Editor
 {
     public static class SorollaIOSPostProcessor
     {
@@ -25,7 +25,7 @@ namespace Sorolla.Editor
             {
                 string trackingDesc = "Your data will be used to provide a better and personalized ad experience.";
                 rootDict.SetString("NSUserTrackingUsageDescription", trackingDesc);
-                Debug.Log("[SorollaSDK] Added NSUserTrackingUsageDescription to Info.plist");
+                Debug.Log("[Palette] Added NSUserTrackingUsageDescription to Info.plist");
             }
 
             // 2. Add SKAdNetwork IDs

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     [RequireComponent(typeof(RectTransform))]
     public class RectTransformResetPosOnStart : MonoBehaviour

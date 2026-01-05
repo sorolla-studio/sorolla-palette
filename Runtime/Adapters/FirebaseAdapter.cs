@@ -1,4 +1,4 @@
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     /// <summary>
     ///     Interface for Firebase Analytics adapter implementation.

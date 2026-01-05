@@ -1,10 +1,10 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
-    ///     Controls an individual ad card. Self-sufficient - calls SorollaSDK API directly.
+    ///     Controls an individual ad card. Self-sufficient - calls Palette API directly.
     /// </summary>
     public class AdCardController : UIComponentBase
     {
@@ -51,8 +51,8 @@ namespace Sorolla.DebugUI
 #if MAX_INSTALLED
             // Check if ad is already ready (MAX auto-loads)
             bool isReady = adType == AdType.Rewarded
-                ? SorollaSDK.IsRewardedAdReady
-                : SorollaSDK.IsInterstitialAdReady;
+                ? Palette.IsRewardedAdReady
+                : Palette.IsInterstitialAdReady;
 
             if (isReady)
             {
@@ -86,8 +86,8 @@ namespace Sorolla.DebugUI
                 elapsed += 0.5f;
 
                 bool isReady = adType == AdType.Rewarded
-                    ? SorollaSDK.IsRewardedAdReady
-                    : SorollaSDK.IsInterstitialAdReady;
+                    ? Palette.IsRewardedAdReady
+                    : Palette.IsInterstitialAdReady;
 
                 if (isReady)
                 {
@@ -124,7 +124,7 @@ namespace Sorolla.DebugUI
             switch (adType)
             {
                 case AdType.Interstitial:
-                    SorollaSDK.ShowInterstitialAd(() =>
+                    Palette.ShowInterstitialAd(() =>
                     {
                         SetStatus(AdStatus.Idle);
                         SorollaDebugEvents.RaiseShowToast("Interstitial completed", ToastType.Success);
@@ -133,7 +133,7 @@ namespace Sorolla.DebugUI
                     break;
 
                 case AdType.Rewarded:
-                    SorollaSDK.ShowRewardedAd(
+                    Palette.ShowRewardedAd(
                         () =>
                         {
                             SetStatus(AdStatus.Idle);

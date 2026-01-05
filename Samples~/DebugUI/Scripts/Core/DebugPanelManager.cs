@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
     ///     Main manager for the debug panel. Handles initialization and provides

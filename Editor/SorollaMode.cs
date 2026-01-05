@@ -1,4 +1,4 @@
-namespace Sorolla.Editor
+namespace Sorolla.Palette.Editor
 {
     /// <summary>
     ///     SDK operating mode

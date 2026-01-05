@@ -2,10 +2,10 @@ using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
-    ///     Controls the Events tab buttons. Self-sufficient - calls SorollaSDK tracking API directly.
+    ///     Controls the Events tab buttons. Self-sufficient - calls Palette tracking API directly.
     /// </summary>
     public class EventsTabController : UIComponentBase
     {
@@ -56,7 +56,7 @@ namespace Sorolla.DebugUI
         void TrackProgression(ProgressionStatus status)
         {
             string levelName = "Level_01";
-            SorollaSDK.TrackProgression(status, levelName);
+            Palette.TrackProgression(status, levelName);
 
             string statusName = status.ToString();
             DebugPanelManager.Instance?.Log($"Progression: {statusName} ({levelName})", LogSource.GA);
@@ -65,7 +65,7 @@ namespace Sorolla.DebugUI
 
         void TrackResource(ResourceFlowType flowType, string currency, float amount)
         {
-            SorollaSDK.TrackResource(flowType, currency, amount, "debug", "test_item");
+            Palette.TrackResource(flowType, currency, amount, "debug", "test_item");
 
             string action = flowType == ResourceFlowType.Source ? "+" : "-";
             DebugPanelManager.Instance?.Log($"Resource: {action}{amount} {currency}", LogSource.GA);
@@ -74,7 +74,7 @@ namespace Sorolla.DebugUI
 
         void TrackDesign(string eventName, float value = 0)
         {
-            SorollaSDK.TrackDesign(eventName, value);
+            Palette.TrackDesign(eventName, value);
 
             DebugPanelManager.Instance?.Log($"Design Event: {eventName}", LogSource.GA);
             SorollaDebugEvents.RaiseShowToast($"Tracked: {eventName}", ToastType.Success);

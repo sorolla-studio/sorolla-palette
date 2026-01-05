@@ -1,9 +1,9 @@
-using Sorolla.Adapters;
+using Sorolla.Palette.Adapters;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
     ///     Controls an identity card with copy-to-clipboard functionality.
@@ -57,11 +57,11 @@ namespace Sorolla.DebugUI
             
             if (identityType != IdentityType.Custom)
             {
-                if (identityType == IdentityType.SorollaMode && !SorollaSDK.IsInitialized)
+                if (identityType == IdentityType.SorollaMode && !Palette.IsInitialized)
                 {
                     // Wait for SDK init to get correct mode
                     valueText.text = "Initializing...";
-                    SorollaSDK.OnInitialized += OnSorollaInitialized;
+                    Palette.OnInitialized += OnSorollaInitialized;
                 }
                 else
                 {
@@ -72,7 +72,7 @@ namespace Sorolla.DebugUI
 
         void OnSorollaInitialized()
         {
-            SorollaSDK.OnInitialized -= OnSorollaInitialized;
+            Palette.OnInitialized -= OnSorollaInitialized;
             AutoPopulate();
         }
 
@@ -97,7 +97,7 @@ namespace Sorolla.DebugUI
                     break;
                 case IdentityType.SorollaMode:
                     label = "SDK Mode";
-                    bool isPrototype = SorollaSDK.Config == null || SorollaSDK.Config.isPrototypeMode;
+                    bool isPrototype = Palette.Config == null || Palette.Config.isPrototypeMode;
                     value = isPrototype ? "Prototype" : "Full";
                     break;
                 case IdentityType.IDFA:

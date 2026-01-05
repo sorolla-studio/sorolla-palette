@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
     ///     Adjusts RectTransform to respect device safe areas (notches, home indicators, etc.)

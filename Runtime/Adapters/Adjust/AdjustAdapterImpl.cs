@@ -3,7 +3,7 @@ using AdjustSdk;
 using UnityEngine;
 using UnityEngine.Scripting;
 
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     /// <summary>
     ///     Adjust SDK adapter implementation. Registered at runtime.

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     public class TabController : UIComponentBase
     {
@@ -14,7 +14,7 @@ namespace Sorolla.DebugUI
         {
             if (tabPages.Count == 0)
             {
-                Debug.LogError("[SorollaSDK Debug UI] TabController has no tab pages assigned.");
+                Debug.LogError("[Palette Debug UI] TabController has no tab pages assigned.");
                 return;
             }
             if (defaultTabIndex < 0) defaultTabIndex = tabPages.Count;
