@@ -298,6 +298,7 @@ Phase 2: Optimization (v2.3.0)
 - [x] **UMP Consent Integration** - GDPR/ATT consent API via MAX (2025-12-18)
 - [x] **Build Validator** - Pre-build validation with 6 checks + auto-fix (2025-12-18)
 - [x] **UI Consolidation** - Merged Setup Checklist + SDK Status into SDK Overview (2025-12-18)
+- [x] **App Store Privacy Guide** - Created compliance guide for prototypes (2026-01-05)
 
 ---
 
