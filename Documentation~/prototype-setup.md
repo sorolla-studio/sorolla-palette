@@ -1,10 +1,26 @@
 # Prototype Mode Setup Guide
 
-This guide covers SDK setup for **Prototype Mode** - designed for CPI testing and soft launch.
+**Complete setup for UA testing and soft launch in 10 minutes.**
 
-## 1. GameAnalytics Setup
+This guide covers everything you need to start testing user acquisition campaigns with GameAnalytics and Facebook SDK.
 
-### Create Account & Game Project
+---
+
+## What You'll Set Up
+
+✅ **GameAnalytics** - Analytics and event tracking  
+✅ **Facebook SDK** - Attribution for UA campaigns  
+⚡ **AppLovin MAX** - Optional: Add monetization early  
+
+**What's NOT included:** GDPR consent flows, Firebase, Adjust (→ use [Full Mode](full-setup.md) for production)
+
+---
+
+---
+
+## Step 1: GameAnalytics Setup
+
+### 1.1 Create Account & Game Project
 
 1. Go to [https://gameanalytics.com](https://gameanalytics.com)
 2. Click **"Sign Up"** and complete registration
@@ -15,7 +31,7 @@ This guide covers SDK setup for **Prototype Mode** - designed for CPI testing an
    - **Engine**: Select Unity
 5. Click **"Create Game"**
 
-### Set API Keys
+### 1.2 Configure in Unity
 
 1. Navigate to **Settings** → **Game Settings** (gear icon)
 2. Get both keys:
@@ -24,7 +40,7 @@ This guide covers SDK setup for **Prototype Mode** - designed for CPI testing an
 3. In Unity, open **Window** → **GameAnalytics** → **Select Settings**
 4. Log in to your account, or paste keys manually
 
-### Grant Admin Access to Sorolla
+### 1.3 Grant Admin Access (Required)
 
 1. Click **Settings (Gear Icon)** in bottom-left menu
 2. Click **Users** tab
@@ -35,9 +51,9 @@ This guide covers SDK setup for **Prototype Mode** - designed for CPI testing an
 
 ---
 
-## 2. Facebook SDK Setup
+## Step 2: Facebook SDK Setup
 
-### Create Developer Account & App
+### 2.1 Create Developer Account & App
 
 1. Go to [https://developers.facebook.com](https://developers.facebook.com)
 2. Click **"Get Started"** and complete registration
@@ -46,12 +62,12 @@ This guide covers SDK setup for **Prototype Mode** - designed for CPI testing an
 5. Enter **App Name** and **App Contact Email**
 6. Click **"Create App"**
 
-### Get App ID and Client Token
+### 2.2 Get App ID and Client Token
 
 1. Your **App ID** appears at the top of the app dashboard
 2. For **Client Token**: Go to **Settings** → **Advanced** → **Security** section
 
-### Configure Platforms
+### 2.3 Configure Platforms
 
 #### iOS Platform:
 1. Go to **Settings** → **Basic**
@@ -64,14 +80,14 @@ This guide covers SDK setup for **Prototype Mode** - designed for CPI testing an
 2. Enter your **Package Name** (must match Unity Player Settings)
 3. Click **"Save Changes"**
 
-### Authorize Sorolla Ad Account
+### 2.4 Authorize Sorolla Ad Account (Required)
 
 1. In **App Settings** → **Advanced**
 2. Scroll down to **Advertising Accounts** section
 3. In **Authorized Ad Account IDs** field, enter: `1130531078835118`
 4. Click **"Save Changes"** at the bottom
 
-### Configure in Unity
+### 2.5 Configure in Unity
 
 1. Open **Facebook** → **Edit Settings**
 2. Enter:
@@ -81,65 +97,133 @@ This guide covers SDK setup for **Prototype Mode** - designed for CPI testing an
 
 ---
 
-## 3. Track Events
+## Step 3: Add Analytics Events
 
-### Track Your First Event
+The SDK initializes automatically. Add these events to your game:
 
-The SDK initializes automatically. Add these events to your game logic:
-- The `TrackProgression` events are **mandatory**, others are optional
-
-> 💡 **Tip:** Zero-pad level numbers (`Level_001` not `Level_1`) for better dashboard sorting.
+### 3.1 Track Level Progression (Required)
 
 ```csharp
 using Sorolla;
 
-// Level tracking (⚠️ MANDATORY)
+// Level tracking (⚠️ REQUIRED for analytics)
 int level = 1;
-string lvlStr = $"Level_{level:D3}";  // "Level_001" - zero-pad for dashboard sorting
+string lvlStr = $"Level_{level:D3}";  // "Level_001" - zero-pad for sorting
 
-// Start
+// When level starts
 SorollaSDK.TrackProgression(ProgressionStatus.Start, lvlStr);
 
-// Completed (score is optional - use if your game has scores)
+// When level completes (score is optional)
 SorollaSDK.TrackProgression(ProgressionStatus.Complete, lvlStr, score: 1500);
 
-// Failed
+// When level fails
 SorollaSDK.TrackProgression(ProgressionStatus.Fail, lvlStr);
+```
 
+> 💡 **Tip:** Zero-pad level numbers (`Level_001` not `Level_1`) for better dashboard sorting.
 
-// Custom design events (optional)
+### 3.2 Track Custom Events (Optional)
+```csharp
 SorollaSDK.TrackDesign("tutorial:completed");
 SorollaSDK.TrackDesign("settings:opened", 1);
+```
 
-
-// Economy tracking (if your game has currencies)
+### 3.3 Track Economy (Optional)
+```csharp
+// Player earned currency
 SorollaSDK.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
+
+// Player spent currency
 SorollaSDK.TrackResource(ResourceFlowType.Sink, "coins", 50, "shop", "speed_boost");
 ```
 
 ---
 
-## Prototype Mode Checklist
+## Step 4: Test Your Integration (Optional)
 
-**Before launching UA campaigns, verify:**
+### 4.1 Use Debug UI for On-Device Testing
 
-- [ ] GameAnalytics: Game Key and Secret Key configured
-- [ ] GameAnalytics: Admin access granted to `studio@sorolla.io`
-- [ ] Facebook SDK: App ID configured
-- [ ] Facebook SDK: Client Token configured
-- [ ] Facebook SDK: Sorolla Ad Account (`1130531078835118`) authorized
-- [ ] Analytics: Add level progression events `SorollaSDK.TrackProgression`
+1. **Import Sample**: Package Manager → Sorolla SDK → Samples → Import "Debug UI"
+2. **Add to Scene**: Drag `DebugPanelManager` prefab into your first scene
+3. **Build to Device**: Deploy to iOS/Android
+4. **Open Panel**: Triple-tap screen (mobile) or press ` key (desktop)
+5. **Verify**: Check GA initialization, test event tracking
+
+### 4.2 Verify in Dashboards
+
+- **GameAnalytics**: Events appear in 5-10 minutes at [gameanalytics.com](https://gameanalytics.com)
+- **Facebook**: Install data appears in [business.facebook.com](https://business.facebook.com) Events Manager
 
 ---
 
-## Need Help?
+## Step 5: Optional - Add Monetization
 
-- 📖 [Getting Started](getting-started.md) | [Troubleshooting](troubleshooting.md)
-- 🐙 [GitHub Repository](https://github.com/LaCreArthur/sorolla-palette-upm)
-- 🐛 [Report Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
+Want to test ads early? Add AppLovin MAX (optional in Prototype mode):
 
-### Related Guides
+### 5.1 Quick Setup
 
-- [Ads Setup](ads-setup.md) - Add rewarded and interstitial ads (optional)
-- [Firebase Setup](firebase.md) - Add Analytics, Crashlytics, Remote Config
-- [API Reference](api-reference.md) - Complete API documentation
+1. Create account at [dash.applovin.com](https://dash.applovin.com/signup)
+2. Get **SDK Key** from Account → Keys
+3. Create **Rewarded** and **Interstitial** ad units
+4. In Unity: `Sorolla > Configuration` → Enter MAX keys
+5. Click **"Save"**
+
+### 5.2 Show Ads in Code
+
+```csharp
+using Sorolla;
+
+// Check if ad is ready
+if (SorollaSDK.IsRewardedAdReady)
+{
+    SorollaSDK.ShowRewardedAd(
+        onComplete: () => GiveReward(),
+        onFailed: () => Debug.Log("Ad not available")
+    );
+}
+```
+
+📖 **[Full Ads Setup Guide](ads-setup.md)** for mediation and optimization
+
+---
+
+## ✅ Prototype Mode Checklist
+
+**Before launching UA campaigns:**
+
+- [ ] GameAnalytics: Game Key and Secret Key configured in Unity
+- [ ] GameAnalytics: Admin access granted to `studio@sorolla.io`
+- [ ] Facebook SDK: App ID and Client Token configured
+- [ ] Facebook SDK: Sorolla Ad Account (`1130531078835118`) authorized
+- [ ] Analytics: Level progression events (`TrackProgression`) added to game
+- [ ] Build: Successfully builds to iOS/Android without errors
+- [ ] Testing: Debug UI shows GA and Facebook initialized (optional)
+- [ ] Optional: MAX SDK configured if testing ads
+
+---
+
+## 🎯 Next Steps
+
+### Ready to Launch UA Campaigns?
+
+You're all set! Your prototype is ready for user acquisition testing.
+
+### Need More Features?
+
+- **📱 Add GDPR/ATT** → [GDPR Setup Guide](gdpr-consent-setup.md) (required for EU)
+- **🔥 Add Firebase** → [Firebase Setup Guide](firebase.md) (Crashlytics, Remote Config)
+- **📊 Add more analytics** → [API Reference](api-reference.md) (custom events, economy tracking)
+
+### Upgrading to Production?
+
+When you're ready to scale to full production:
+
+📖 **[Migrate to Full Mode →](full-setup.md)** (adds Adjust attribution, required GDPR, production-ready setup)
+
+---
+
+## 💬 Need Help?
+
+- 📖 [API Reference](api-reference.md) - Complete code documentation
+- 🐛 [Troubleshooting](troubleshooting.md) - Common issues and fixes
+- 💬 [GitHub Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues) - Report problems
