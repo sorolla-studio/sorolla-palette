@@ -36,7 +36,7 @@ Thank you for your interest in contributing to Sorolla SDK!
 
 ```
 Runtime/
-├── Palette.cs                 ← Main public API
+├── Palette.cs              ← Main public API
 ├── SorollaBootstrapper.cs     ← Auto-initialization
 ├── SorollaConfig.cs           ← Configuration asset
 └── Adapters/                  ← Third-party SDK wrappers
@@ -110,5 +110,7 @@ Please include:
 
 ## Questions?
 
-- [GitHub Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
-- [GitHub Discussions](https://github.com/LaCreArthur/sorolla-palette-upm/discussions)
+- 💬 [GitHub Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
+- 💬 [GitHub Discussions](https://github.com/LaCreArthur/sorolla-palette-upm/discussions)
+- 📖 [Prototype Setup Guide](prototype-setup.md)
+- 📖 [Full Mode Setup Guide](full-setup.md)
