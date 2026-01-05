@@ -4,15 +4,15 @@ using UnityEngine;
 using GameAnalyticsSDK;
 #endif
 
-namespace Sorolla
+namespace Sorolla.Palette
 {
     /// <summary>
     ///     Internal adapter for GameAnalytics SDK.
-    ///     Use SorollaSDK API instead of calling this directly.
+    ///     Use Palette API instead of calling this directly.
     /// </summary>
     internal static class GameAnalyticsAdapter
     {
-        const string Tag = "[SorollaSDK:GA]";
+        const string Tag = "[Palette:GA]";
         static bool s_init;
 
         public static void Initialize()

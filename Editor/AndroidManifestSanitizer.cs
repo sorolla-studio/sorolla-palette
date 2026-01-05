@@ -6,7 +6,7 @@ using System.Xml.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace Sorolla.Editor
+namespace Sorolla.Palette.Editor
 {
     /// <summary>
     ///     Sanitizes AndroidManifest.xml by removing entries for uninstalled SDKs.
@@ -14,7 +14,7 @@ namespace Sorolla.Editor
     /// </summary>
     public static class AndroidManifestSanitizer
     {
-        private const string Tag = "[SorollaSDK ManifestSanitizer]";
+        private const string Tag = "[Palette ManifestSanitizer]";
 
         private static string AndroidManifestPath =>
             Path.Combine(Application.dataPath, "Plugins", "Android", "AndroidManifest.xml");
@@ -193,7 +193,7 @@ namespace Sorolla.Editor
         /// <summary>
         ///     Menu item to manually sanitize manifest
         /// </summary>
-        [MenuItem("SorollaSDK/Tools/Sanitize Android Manifest")]
+        [MenuItem("Palette/Tools/Sanitize Android Manifest")]
         public static void SanitizeMenuItem()
         {
             var orphaned = DetectOrphanedEntries();

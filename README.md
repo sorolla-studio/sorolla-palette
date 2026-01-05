@@ -56,36 +56,36 @@ The Setup Checklist guides you through configuration:
 ## Usage
 
 ```csharp
-using Sorolla;
+using Sorolla.Palette;
 
 // Track level completion
-Sorolla.TrackProgression(ProgressionStatus.Complete, "World_01", "Level_03");
+Palette.TrackProgression(ProgressionStatus.Complete, "World_01", "Level_03");
 
 // Track custom events
-Sorolla.TrackDesign("tutorial:completed");
+Palette.TrackDesign("tutorial:completed");
 
 // Track resources
-Sorolla.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
+Palette.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
 
 // Remote Config (unified: Firebase → GameAnalytics → default)
-Sorolla.FetchRemoteConfig(success => {
+Palette.FetchRemoteConfig(success => {
     if (success)
     {
-        int difficulty = Sorolla.GetRemoteConfigInt("difficulty", 1);
-        bool newFeature = Sorolla.GetRemoteConfigBool("enable_new_feature", false);
-        string message = Sorolla.GetRemoteConfig("welcome_message", "Hello!");
+        int difficulty = Palette.GetRemoteConfigInt("difficulty", 1);
+        bool newFeature = Palette.GetRemoteConfigBool("enable_new_feature", false);
+        string message = Palette.GetRemoteConfig("welcome_message", "Hello!");
     }
 });
 
 // Crashlytics: Log exceptions and custom data
 try { /* risky code */ }
-catch (Exception ex) { Sorolla.LogException(ex); }
+catch (Exception ex) { Palette.LogException(ex); }
 
-Sorolla.LogCrashlytics("User reached level 5");
-Sorolla.SetCrashlyticsKey("player_id", "12345");
+Palette.LogCrashlytics("User reached level 5");
+Palette.SetCrashlyticsKey("player_id", "12345");
 
 // Show ads (requires MAX)
-Sorolla.ShowRewardedAd(
+Palette.ShowRewardedAd(
     onComplete: () => GiveReward(),
     onFailed: () => Debug.Log("Ad not available")
 );

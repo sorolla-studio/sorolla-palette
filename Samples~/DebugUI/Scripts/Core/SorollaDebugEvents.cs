@@ -1,6 +1,6 @@
 using System;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
     ///     Static event hub for decoupled communication between UI components.

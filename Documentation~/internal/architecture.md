@@ -23,7 +23,7 @@ Technical reference for contributors and AI agents working on the Sorolla SDK.
 
 ```
 Runtime/
-├── SorollaSDK.cs              ← Main public API (static class)
+├── Palette.cs                 ← Main public API (static class)
 ├── SorollaBootstrapper.cs     ← Auto-init via [RuntimeInitializeOnLoadMethod]
 ├── SorollaConfig.cs           ← ScriptableObject configuration
 ├── SorollaLoadingOverlay.cs   ← Ad loading UI helper
@@ -79,7 +79,7 @@ Creates "[Sorolla SDK]" GameObject (DontDestroyOnLoad)
     ↓
 iOS: Check ATT status → Show ContextScreen if needed
     ↓
-SorollaSDK.Initialize(consent)
+Palette.Initialize(consent)
     ├── GameAnalyticsAdapter.Initialize()      ← Always
     ├── FacebookAdapter.Initialize()           ← Prototype only
     ├── MaxAdapter.Initialize()                ← If configured
@@ -283,7 +283,7 @@ public const string FIREBASE_VERSION = "12.10.1";
 
 ### Event Tracking
 ```
-SorollaSDK.TrackDesign("event:name")
+Palette.TrackDesign("event:name")
     ├── GameAnalyticsAdapter.TrackDesignEvent()  ← Always
     ├── FirebaseAdapter.TrackDesignEvent()       ← If enabled
     └── FacebookAdapter.TrackEvent()             ← Prototype only
@@ -291,7 +291,7 @@ SorollaSDK.TrackDesign("event:name")
 
 ### Ad Revenue
 ```
-SorollaSDK.ShowRewardedAd()
+Palette.ShowRewardedAd()
     └── MaxAdapter.ShowRewardedAd()
         └── OnAdRevenuePaidEvent
             └── AdjustAdapter.TrackAdRevenue()
@@ -299,7 +299,7 @@ SorollaSDK.ShowRewardedAd()
 
 ### Remote Config
 ```
-SorollaSDK.GetRemoteConfig(key, default)
+Palette.GetRemoteConfig(key, default)
     ├── Firebase ready? → return Firebase value
     ├── GA ready? → return GA value
     └── else → return default
@@ -313,7 +313,7 @@ SorollaSDK.GetRemoteConfig(key, default)
 
 1. Add entry to `SdkRegistry.cs`
 2. Create adapter in `Runtime/Adapters/`
-3. Add initialization call in `SorollaSDK.Initialize()`
+3. Add initialization call in `Palette.Initialize()`
 4. Add detection define in `DefineSymbols.cs`
 5. Add UI section in `SorollaWindow.cs`
 
@@ -325,7 +325,7 @@ SorollaSDK.GetRemoteConfig(key, default)
 
 ### Adding New API Method
 
-1. Add public method to `SorollaSDK.cs`
+1. Add public method to `Palette.cs`
 2. Call relevant adapters
 3. Add XML documentation
 
@@ -338,7 +338,7 @@ SorollaSDK.GetRemoteConfig(key, default)
 ### Key Files
 | File | Purpose | LOC |
 |------|---------|-----|
-| `Runtime/SorollaSDK.cs` | Main public API | 484 |
+| `Runtime/Palette.cs` | Main public API | 484 |
 | `Runtime/SorollaBootstrapper.cs` | Auto-initialization | 140 |
 | `Runtime/Adapters/MaxAdapter.cs` | Ad mediation | 227 |
 | `Editor/SorollaWindow.cs` | Configuration UI | 598 |
@@ -354,8 +354,8 @@ SorollaSDK.GetRemoteConfig(key, default)
 
 ### Critical Paths
 ```
-Init:   Bootstrapper → ATT → SorollaSDK.Initialize()
-Events: SorollaSDK → Adapters → Third-party SDKs
+Init:   Bootstrapper → ATT → Palette.Initialize()
+Events: Palette → Adapters → Third-party SDKs
 Ads:    ShowRewardedAd → MaxAdapter → AdjustAdapter.TrackAdRevenue
 Config: GetRemoteConfig → Firebase → GA → default
 ```
@@ -368,7 +368,7 @@ Config: GetRemoteConfig → Firebase → GA → default
 
 ### RAG Query Patterns
 ```
-"public API methods"         → SorollaSDK.cs
+"public API methods"         → Palette.cs
 "ad revenue tracking"        → MaxAdapter.cs, AdjustAdapter.cs
 "SDK installation"           → SdkInstaller.cs, ManifestManager.cs
 "ATT iOS consent"            → ContextScreenView.cs

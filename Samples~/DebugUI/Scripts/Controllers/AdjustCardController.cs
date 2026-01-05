@@ -1,4 +1,4 @@
-using Sorolla.Adapters;
+using Sorolla.Palette.Adapters;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -6,7 +6,7 @@ using UnityEngine.UI;
 using AdjustSdk;
 #endif
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
     ///     Controls Adjust SDK attribution display and test event buttons.

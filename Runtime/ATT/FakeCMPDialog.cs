@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Sorolla.ATT
+namespace Sorolla.Palette.ATT
 {
     /// <summary>
     ///     Fake CMP (Consent Management Platform) dialog for Editor testing.
@@ -30,7 +30,7 @@ namespace Sorolla.ATT
 
         void HandleDecision(bool accepted)
         {
-            Debug.Log($"[SorollaSDK:CMP] Fake CMP decision: {(accepted ? "Accepted" : "Rejected")}");
+            Debug.Log($"[Palette:CMP] Fake CMP decision: {(accepted ? "Accepted" : "Rejected")}");
             OnDecision?.Invoke(accepted);
             Destroy(gameObject);
         }
@@ -43,7 +43,7 @@ namespace Sorolla.ATT
             var prefab = Resources.Load<GameObject>("FakeCMPDialog");
             if (prefab == null)
             {
-                Debug.LogWarning("[SorollaSDK:CMP] FakeCMPDialog prefab not found. Run SorollaSDK > ATT > Create Fake CMP Popup Prefab");
+                Debug.LogWarning("[Palette:CMP] FakeCMPDialog prefab not found. Run Palette > ATT > Create Fake CMP Popup Prefab");
                 onDecision?.Invoke(true); // Default to accepted
                 return;
             }

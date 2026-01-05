@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     public class NavButton : UIComponentBase, IPointerClickHandler
     {

@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 
-namespace Sorolla.Editor
+namespace Sorolla.Palette.Editor
 {
     /// <summary>
     ///     SDK installation detection

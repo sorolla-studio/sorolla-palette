@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     /// <summary>
     ///     Interface for Firebase Remote Config adapter implementation.

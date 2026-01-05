@@ -4,7 +4,7 @@ using System.IO;
 using UnityEditor.PackageManager;
 using UnityEngine;
 
-namespace Sorolla.Editor
+namespace Sorolla.Palette.Editor
 {
     /// <summary>
     ///     DRY manifest modification utilities - eliminates repeated JSON parsing patterns

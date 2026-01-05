@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
     ///     Manages log entries with object pooling.  Handles filtering and clearing.

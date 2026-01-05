@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
-using Sorolla.Adapters;
+using Sorolla.Palette.Adapters;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
     ///     Displays remote config key-value pairs from Firebase.
@@ -29,7 +29,7 @@ namespace Sorolla.DebugUI
         void Start()
         {
             container.gameObject.SetActive(false);
-            if (SorollaSDK.IsRemoteConfigReady())
+            if (Palette.IsRemoteConfigReady())
                 RefreshConfigDisplay();
         }
 
@@ -37,7 +37,7 @@ namespace Sorolla.DebugUI
         {
             fetchButton.interactable = false;
             DebugPanelManager.Instance?.Log("Fetching Remote Config...", LogSource.Firebase);
-            SorollaSDK.FetchRemoteConfig(OnFetchComplete);
+            Palette.FetchRemoteConfig(OnFetchComplete);
         }
 
         void OnFetchComplete(bool success)

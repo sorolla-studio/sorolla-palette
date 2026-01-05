@@ -1,6 +1,6 @@
 using System;
 
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     /// <summary>
     ///     Ad type for loading state events.

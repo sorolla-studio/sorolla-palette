@@ -2,7 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     [RequireComponent(typeof(Image))]
     public class LogEntryView : UIComponentBase

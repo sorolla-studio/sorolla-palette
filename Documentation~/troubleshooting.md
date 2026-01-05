@@ -14,7 +14,7 @@ Common issues and solutions for Sorolla SDK integration.
 | Remote config returns defaults | Ensure values are **published** in console |
 | Firebase errors | Verify config files match bundle ID |
 | Build failing | Check **Build Health** section in Configuration window |
-| Runtime crash on Android | Run `SorollaSDK > Tools > Sanitize Android Manifest` |
+| Runtime crash on Android | Run `Sorolla > Tools > Sanitize Android Manifest` |
 
 ---
 
@@ -185,10 +185,10 @@ pod --version
 **How it happens**: Switching modes (Prototype ↔ Full) can leave orphaned entries.
 
 **Fix**:
-1. Open `SorollaSDK > Configuration` window
+1. Open `Sorolla > Configuration` window
 2. Check the **Build Health** section
 3. If "Android Manifest" shows an error, it will be auto-fixed on next validation
-4. Or manually run: `SorollaSDK > Tools > Sanitize Android Manifest`
+4. Or manually run: `Sorolla > Tools > Sanitize Android Manifest`
 
 The Build Health validator automatically detects and removes orphaned manifest entries before builds.
 

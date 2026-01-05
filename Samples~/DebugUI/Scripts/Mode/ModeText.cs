@@ -1,7 +1,7 @@
 using TMPro;
 using UnityEngine;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     [RequireComponent(typeof(TMP_Text))]
     public class ModeText : ModeComponentBase

@@ -5,7 +5,7 @@ using UnityEngine.UI;
 using Unity.Advertisement.IosSupport;
 #endif
 
-namespace Sorolla.ATT
+namespace Sorolla.Palette.ATT
 {
     /// <summary>
     ///     Controls an iOS App Tracking Transparency context screen.
@@ -36,12 +36,12 @@ namespace Sorolla.ATT
         public void RequestAuthorizationTracking()
         {
 #if UNITY_IOS && UNITY_IOS_SUPPORT_INSTALLED && !UNITY_EDITOR
-            Debug.Log("[SorollaSDK:ATT] Requesting iOS ATT dialog.");
+            Debug.Log("[Palette:ATT] Requesting iOS ATT dialog.");
             ATTrackingStatusBinding.RequestAuthorizationTracking();
             SentTrackingAuthorizationRequest?.Invoke();
 #else
             // Editor, Android, and other platforms: show fake ATT for testing
-            Debug.Log("[SorollaSDK:ATT] Showing Fake ATT dialog (non-iOS).");
+            Debug.Log("[Palette:ATT] Showing Fake ATT dialog (non-iOS).");
             FakeATTDialog.Show(_ => SentTrackingAuthorizationRequest?.Invoke());
 #endif
         }
