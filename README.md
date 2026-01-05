@@ -76,7 +76,7 @@ A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration ini
 The SDK auto-initializes on app start. Just call the API:
 
 ```csharp
-using Sorolla.SDK;
+using Sorolla.Palette;
 
 // Track level progression (required for analytics)
 Palette.TrackProgression(ProgressionStatus.Complete, "Level_001");

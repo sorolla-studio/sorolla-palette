@@ -104,7 +104,7 @@ The SDK initializes automatically. Add these events to your game:
 ### 3.1 Track Level Progression (Required)
 
 ```csharp
-using Sorolla.SDK;
+using Sorolla.Palette;
 
 // Level tracking (⚠️ REQUIRED for analytics)
 int level = 1;
@@ -171,7 +171,7 @@ Want to test ads early? Add AppLovin MAX (optional in Prototype mode):
 ### 5.2 Show Ads in Code
 
 ```csharp
-using Sorolla.SDK;
+using Sorolla.Palette;
 
 // Check if ad is ready
 if (Palette.IsRewardedAdReady)

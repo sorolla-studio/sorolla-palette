@@ -139,7 +139,7 @@ GDPR requires users to change their consent at any time:
 ```csharp
 using UnityEngine;
 using UnityEngine.UI;
-using Sorolla.SDK;
+using Sorolla.Palette;
 
 public class SettingsScreen : MonoBehaviour
 {
@@ -195,7 +195,7 @@ All Firebase features work automatically with no code changes:
 - **Remote Config**: Unified API (Firebase → GameAnalytics → default)
 
 ```csharp
-using Sorolla.SDK;
+using Sorolla.Palette;
 
 // Crashlytics - log exceptions
 try { /* risky code */ }
@@ -220,7 +220,7 @@ Palette.FetchRemoteConfig(success => {
 ### 6.1 Track Level Progression (Required)
 
 ```csharp
-using Sorolla.SDK;
+using Sorolla.Palette;
 
 int level = 1;
 string lvlStr = $"Level_{level:D3}";  // Zero-pad: "Level_001"
