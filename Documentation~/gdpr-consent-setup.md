@@ -108,14 +108,14 @@ The Sorolla SDK automatically exposes consent status. No additional code is requ
 ### 3.1: Check Consent Status (Optional)
 
 ```csharp
-using Sorolla;
+using Sorolla.SDK;
 using Sorolla.Adapters;
 
 // After SDK initialization, check consent status
 void OnSorollaReady()
 {
-    Debug.Log($"Consent Status: {SorollaSDK.ConsentStatus}");
-    Debug.Log($"Can Request Ads: {SorollaSDK.CanRequestAds}");
+    Debug.Log($"Consent Status: {Palette.ConsentStatus}");
+    Debug.Log($"Can Request Ads: {Palette.CanRequestAds}");
 }
 ```
 
@@ -126,7 +126,7 @@ GDPR requires you to let users change their consent. Add to your settings screen
 ```csharp
 using UnityEngine;
 using UnityEngine.UI;
-using Sorolla;
+using Sorolla.SDK;
 
 public class SettingsScreen : MonoBehaviour
 {
@@ -135,13 +135,13 @@ public class SettingsScreen : MonoBehaviour
     void Start()
     {
         // Only show privacy button if user is in GDPR region
-        privacyButton.gameObject.SetActive(SorollaSDK.PrivacyOptionsRequired);
+        privacyButton.gameObject.SetActive(Palette.PrivacyOptionsRequired);
         privacyButton.onClick.AddListener(OnPrivacyButtonClicked);
     }
 
     void OnPrivacyButtonClicked()
     {
-        SorollaSDK.ShowPrivacyOptions(() =>
+        Palette.ShowPrivacyOptions(() =>
         {
             Debug.Log("Privacy options dismissed");
             // Optionally refresh UI based on new consent
@@ -155,14 +155,14 @@ public class SettingsScreen : MonoBehaviour
 ```csharp
 void ShowRewardedAd()
 {
-    if (!SorollaSDK.CanRequestAds)
+    if (!Palette.CanRequestAds)
     {
         Debug.Log("Cannot show ads - consent not obtained");
         // Show alternative or inform user
         return;
     }
 
-    SorollaSDK.ShowRewardedAd(
+    Palette.ShowRewardedAd(
         onComplete: () => GiveReward(),
         onFailed: () => Debug.Log("Ad failed")
     );
@@ -174,12 +174,12 @@ void ShowRewardedAd()
 ```csharp
 void OnEnable()
 {
-    SorollaSDK.OnConsentStatusChanged += HandleConsentChanged;
+    Palette.OnConsentStatusChanged += HandleConsentChanged;
 }
 
 void OnDisable()
 {
-    SorollaSDK.OnConsentStatusChanged -= HandleConsentChanged;
+    Palette.OnConsentStatusChanged -= HandleConsentChanged;
 }
 
 void HandleConsentChanged(ConsentStatus status)
@@ -260,13 +260,13 @@ Use this checklist to confirm everything is set up correctly:
 
 ### Code Integration
 - [ ] Settings screen has privacy options button
-- [ ] Button visibility tied to `SorollaSDK.PrivacyOptionsRequired`
-- [ ] Button calls `SorollaSDK.ShowPrivacyOptions()`
+- [ ] Button visibility tied to `Palette.PrivacyOptionsRequired`
+- [ ] Button calls `Palette.ShowPrivacyOptions()`
 
 ### Testing (in GDPR region or with debug geography)
 - [ ] Consent form appears on first launch
-- [ ] `SorollaSDK.ConsentStatus` returns expected value after consent
-- [ ] `SorollaSDK.CanRequestAds` returns `true` after consent
+- [ ] `Palette.ConsentStatus` returns expected value after consent
+- [ ] `Palette.CanRequestAds` returns `true` after consent
 - [ ] Mediation Debugger shows "Google consent management solutions" as CMP
 - [ ] No missing networks in CMP CONFIGURATION
 - [ ] Privacy options form opens from settings
@@ -296,12 +296,12 @@ Use this checklist to confirm everything is set up correctly:
 ### ConsentStatus is Unknown
 
 1. Wait for MAX SDK to fully initialize
-2. Check `SorollaSDK.IsInitialized` is true
+2. Check `Palette.IsInitialized` is true
 3. Subscribe to `OnConsentStatusChanged` for updates
 
 ### Privacy options button not appearing
 
-1. Verify `SorollaSDK.PrivacyOptionsRequired` after SDK init
+1. Verify `Palette.PrivacyOptionsRequired` after SDK init
 2. User must be in a consent region for this to be true
 3. A CMP must be configured in AdMob
 
@@ -311,11 +311,11 @@ Use this checklist to confirm everything is set up correctly:
 
 | Property/Method | Type | Description |
 |-----------------|------|-------------|
-| `SorollaSDK.ConsentStatus` | `ConsentStatus` | Current consent state |
-| `SorollaSDK.CanRequestAds` | `bool` | Whether ads can be shown |
-| `SorollaSDK.PrivacyOptionsRequired` | `bool` | Whether to show privacy button |
-| `SorollaSDK.ShowPrivacyOptions(Action)` | `void` | Opens consent form |
-| `SorollaSDK.OnConsentStatusChanged` | `event` | Fired when consent changes |
+| `Palette.ConsentStatus` | `ConsentStatus` | Current consent state |
+| `Palette.CanRequestAds` | `bool` | Whether ads can be shown |
+| `Palette.PrivacyOptionsRequired` | `bool` | Whether to show privacy button |
+| `Palette.ShowPrivacyOptions(Action)` | `void` | Opens consent form |
+| `Palette.OnConsentStatusChanged` | `event` | Fired when consent changes |
 
 ### ConsentStatus Values
 

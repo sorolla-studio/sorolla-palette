@@ -139,7 +139,7 @@ GDPR requires users to change their consent at any time:
 ```csharp
 using UnityEngine;
 using UnityEngine.UI;
-using Sorolla;
+using Sorolla.SDK;
 
 public class SettingsScreen : MonoBehaviour
 {
@@ -148,13 +148,13 @@ public class SettingsScreen : MonoBehaviour
     void Start()
     {
         // Show button only if user is in GDPR region
-        privacyButton.gameObject.SetActive(SorollaSDK.PrivacyOptionsRequired);
+        privacyButton.gameObject.SetActive(Palette.PrivacyOptionsRequired);
         privacyButton.onClick.AddListener(OnPrivacyClicked);
     }
 
     void OnPrivacyClicked()
     {
-        SorollaSDK.ShowPrivacyOptions(() => {
+        Palette.ShowPrivacyOptions(() => {
             Debug.Log("Privacy settings updated");
         });
     }
@@ -195,18 +195,18 @@ All Firebase features work automatically with no code changes:
 - **Remote Config**: Unified API (Firebase → GameAnalytics → default)
 
 ```csharp
-using Sorolla;
+using Sorolla.SDK;
 
 // Crashlytics - log exceptions
 try { /* risky code */ }
-catch (Exception ex) { SorollaSDK.LogException(ex); }
+catch (Exception ex) { Palette.LogException(ex); }
 
 // Remote Config - A/B testing
-SorollaSDK.FetchRemoteConfig(success => {
+Palette.FetchRemoteConfig(success => {
     if (success)
     {
-        float difficulty = SorollaSDK.GetRemoteConfigFloat("difficulty", 1.0f);
-        bool newFeature = SorollaSDK.GetRemoteConfigBool("new_ui", false);
+        float difficulty = Palette.GetRemoteConfigFloat("difficulty", 1.0f);
+        bool newFeature = Palette.GetRemoteConfigBool("new_ui", false);
     }
 });
 ```
@@ -220,35 +220,35 @@ SorollaSDK.FetchRemoteConfig(success => {
 ### 6.1 Track Level Progression (Required)
 
 ```csharp
-using Sorolla;
+using Sorolla.SDK;
 
 int level = 1;
 string lvlStr = $"Level_{level:D3}";  // Zero-pad: "Level_001"
 
 // When level starts
-SorollaSDK.TrackProgression(ProgressionStatus.Start, lvlStr);
+Palette.TrackProgression(ProgressionStatus.Start, lvlStr);
 
 // When level completes
-SorollaSDK.TrackProgression(ProgressionStatus.Complete, lvlStr, score: 1500);
+Palette.TrackProgression(ProgressionStatus.Complete, lvlStr, score: 1500);
 
 // When level fails
-SorollaSDK.TrackProgression(ProgressionStatus.Fail, lvlStr);
+Palette.TrackProgression(ProgressionStatus.Fail, lvlStr);
 ```
 
 ### 6.2 Show Ads
 
 ```csharp
 // Rewarded ad
-if (SorollaSDK.IsRewardedAdReady)
+if (Palette.IsRewardedAdReady)
 {
-    SorollaSDK.ShowRewardedAd(
+    Palette.ShowRewardedAd(
         onComplete: () => GiveReward(),
         onFailed: () => Debug.Log("Ad not available")
     );
 }
 
 // Interstitial ad (e.g., between levels)
-SorollaSDK.ShowInterstitialAd(onComplete: () => LoadNextLevel());
+Palette.ShowInterstitialAd(onComplete: () => LoadNextLevel());
 ```
 
 📖 **[Complete API Reference](api-reference.md)**
