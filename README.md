@@ -42,135 +42,77 @@ A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration ini
 
 ## Quick Start
 
-### 1. Select Your Mode
-The Configuration window opens automatically. Select **Prototype** or **Full** mode.
+### Choose Your Path
 
-### 2. Configure SDKs
-The Setup Checklist guides you through configuration:
-- **GameAnalytics**: Click "Open Settings" → Setup Wizard
-- **Facebook**: Click "Open Settings" → Edit Settings  
-- **MAX/Adjust**: Enter keys directly in Sorolla Configuration
+**New to the SDK?** → Start with [**Prototype Mode**](Documentation~/prototype-setup.md)  
+**Ready for production?** → Jump to [**Full Mode**](Documentation~/full-setup.md)
 
-### 3. Done! 🎉
+| | **🚀 Prototype Mode** | **🏭 Full Mode** |
+|---|---|---|
+| **Best for** | Testing UA campaigns<br>Soft launch<br>Rapid iteration | Production launch<br>Live games<br>Full monetization |
+| **Setup time** | 10 minutes | 20-30 minutes |
+| **Analytics** | ✅ GameAnalytics | ✅ GameAnalytics |
+| **Attribution** | ✅ Facebook SDK | ✅ Adjust (full attribution) |
+| **Ads** | ⚡ Optional (MAX) | ✅ Required (MAX + mediation) |
+| **GDPR/ATT** | ⚡ Optional | ✅ Required for EU/production |
+| **Firebase** | ⚡ Optional add-on | ⚡ Recommended add-on |
+| **Team support** | Self-service | Assisted by Sorolla team |
+
+### Getting Started
+
+1. **Install**: Add package from git URL in Unity Package Manager:
+   ```
+   https://github.com/LaCreArthur/sorolla-palette-upm.git
+   ```
+
+2. **Choose mode**: Configuration window opens automatically
+
+3. **Follow guide**: 
+   - 📖 [**Prototype Setup Guide**](Documentation~/prototype-setup.md) - Lightweight, autonomous setup
+   - 📖 [**Full Mode Setup Guide**](Documentation~/full-setup.md) - Complete production setup
 
 ## Usage
+
+The SDK auto-initializes on app start. Just call the API:
 
 ```csharp
 using Sorolla;
 
-// Track level completion
-Sorolla.TrackProgression(ProgressionStatus.Complete, "World_01", "Level_03");
+// Track level progression (required for analytics)
+SorollaSDK.TrackProgression(ProgressionStatus.Complete, "Level_001");
 
 // Track custom events
-Sorolla.TrackDesign("tutorial:completed");
+SorollaSDK.TrackDesign("tutorial:completed");
 
-// Track resources
-Sorolla.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
+// Track economy
+SorollaSDK.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
 
-// Remote Config (unified: Firebase → GameAnalytics → default)
-Sorolla.FetchRemoteConfig(success => {
-    if (success)
-    {
-        int difficulty = Sorolla.GetRemoteConfigInt("difficulty", 1);
-        bool newFeature = Sorolla.GetRemoteConfigBool("enable_new_feature", false);
-        string message = Sorolla.GetRemoteConfig("welcome_message", "Hello!");
-    }
-});
-
-// Crashlytics: Log exceptions and custom data
-try { /* risky code */ }
-catch (Exception ex) { Sorolla.LogException(ex); }
-
-Sorolla.LogCrashlytics("User reached level 5");
-Sorolla.SetCrashlyticsKey("player_id", "12345");
-
-// Show ads (requires MAX)
-Sorolla.ShowRewardedAd(
-    onComplete: () => GiveReward(),
-    onFailed: () => Debug.Log("Ad not available")
-);
+// Show rewarded ad (requires MAX)
+if (SorollaSDK.IsRewardedAdReady)
+{
+    SorollaSDK.ShowRewardedAd(
+        onComplete: () => GiveReward(),
+        onFailed: () => Debug.Log("Ad not available")
+    );
+}
 ```
 
-### 4. Verify with Debug UI
-
-The SDK includes a built-in Debug UI to verify your integration on-device without needing logs.
-
-1. **Install Sample**: Open Package Manager > Sort by "In Project" > Select "Sorolla SDK" > Samples > Import "Debug UI".
-2. **Setup**: Drag the `Debug UI` scene into your project or copy the `DebugPanelManager` prefab (once created) into your scene.
-3. **Launch App**: Build to device (iOS/Android) or play in Editor.
-4. **Open UI**: Triple-tap anywhere on the screen (Mobile) or press "Back Quote" key (PC/Mac) to toggle.
-5. **features**:
-    - Check "Identity" for Advertising IDs (GAID/IDFA)
-    - Test Ad loading/showing (MAX)
-    - Verify Adjust/GA initialization status
-    - Reset/Test Consent flows
-
-## SDK Configuration
-
-📖 **[Getting Started Guide →](Documentation~/getting-started.md)**
-
-For step-by-step setup instructions, see the guides for your mode:
-- [Prototype Mode](Documentation~/prototype-setup.md) - GameAnalytics + Facebook
-- [Full Mode](Documentation~/full-setup.md) - GameAnalytics + MAX + Adjust
-
-### Quick Overview
-
-#### GameAnalytics (Required)
-1. Create account at [gameanalytics.com](https://gameanalytics.com/)
-2. Create game → Copy Game Key & Secret Key
-3. In Unity: `GameAnalytics > Setup Wizard`
-
-#### Facebook (Prototype Mode Only)
-1. Create app at [developers.facebook.com](https://developers.facebook.com/apps/)
-2. Copy App ID + **Client Token** (Settings → Advanced → Security) ⚠️
-3. In Unity: `Facebook > Edit Settings`
-
-#### AppLovin MAX (Optional in Prototype, Required in Full)
-1. Create account at [dash.applovin.com](https://dash.applovin.com/)
-2. Get SDK Key from Account → Keys
-3. Create Ad Units (Rewarded, Interstitial)
-4. Enter keys in Sorolla Configuration window
-
-#### Adjust (Full Mode)
-1. Create account at [adjust.com](https://www.adjust.com/)
-2. Create app → Copy App Token
-3. Enter token in Sorolla Configuration window
-
-### Firebase (Optional)
-
-Firebase provides Analytics, Crashlytics, and Remote Config.
-
-**Quick Setup:**
-1. Create project at [Firebase Console](https://console.firebase.google.com/)
-2. Add your Unity app (Android and/or iOS)
-3. Download config files → place in `Assets/`:
-   - **Android**: `google-services.json`
-   - **iOS**: `GoogleService-Info.plist`
-4. In Unity: `Sorolla > Configuration` → Click "Install" under Firebase
-5. Enable modules (Analytics, Crashlytics, Remote Config)
-
-📖 **[Firebase Setup Guide](Documentation~/firebase.md)**
-
-**Note**: All Firebase features work in parallel with GameAnalytics — no code changes required!
+📖 **[Complete API Reference](Documentation~/api-reference.md)**
 
 ## Documentation
 
-### Setup Guides
-| Guide | Description |
-|-------|-------------|
-| [Getting Started](Documentation~/getting-started.md) | Quick start in 10 minutes |
-| [Prototype Mode](Documentation~/prototype-setup.md) | GameAnalytics + Facebook setup |
-| [Full Mode](Documentation~/full-setup.md) | GameAnalytics + MAX + Adjust setup |
-| [Firebase](Documentation~/firebase.md) | Analytics, Crashlytics, Remote Config |
+### 📚 Setup Guides
+| Path | Guide | Description |
+|------|-------|-------------|
+| 🚀 **Start Here** | [**Prototype Setup**](Documentation~/prototype-setup.md) | Complete guide for UA testing (10 min) |
+| 🏭 **Production** | [**Full Mode Setup**](Documentation~/full-setup.md) | Complete guide for live games (30 min) |
+| 🔥 **Optional** | [Firebase](Documentation~/firebase.md) | Analytics, Crashlytics, Remote Config |
+| 📱 **Optional** | [Ads Setup](Documentation~/ads-setup.md) | AppLovin MAX monetization |
 
-### Reference
+### 📖 Reference & Support
 | Document | Description |
 |----------|-------------|
-| [API Reference](Documentation~/api-reference.md) | Complete API documentation |
-| [Troubleshooting](Documentation~/troubleshooting.md) | Common issues and fixes |
+| [API Reference](Documentation~/api-reference.md) | Complete API documentation with examples |
+| [Troubleshooting](Documentation~/troubleshooting.md) | Common issues and solutions |
 | [Contributing](Documentation~/contributing.md) | How to contribute to the SDK |
-
-## Support
-
-- [GitHub Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
-- [Changelog](CHANGELOG.md)
+| [Changelog](CHANGELOG.md) | Version history and updates |

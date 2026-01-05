@@ -4,6 +4,21 @@ Common issues and solutions for Sorolla SDK integration.
 
 ---
 
+## 🚨 Most Common Issues
+
+**Before diving deep, check these first:**
+
+| Issue | Quick Fix |
+|-------|-----------|
+| **SDK not initializing** | Check `Assets/Resources/SorollaConfig.asset` exists |
+| **Events not appearing** | Verify SDK keys in Configuration window, wait 5-10 min |
+| **Ads not loading** | Check SDK Key and Ad Unit IDs, wait 30 sec after init |
+| **Build failing on Android** | Run `Sorolla > Tools > Sanitize Android Manifest` |
+| **iOS provisioning errors** | Open Xcode, enable "Automatically manage signing" |
+| **Remote config returns defaults** | Ensure values are **published** in console |
+
+---
+
 ## Quick Fixes
 
 | Issue | Solution |
