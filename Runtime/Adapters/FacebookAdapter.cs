@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 using Facebook.Unity;
 using UnityEngine;
 
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     /// <summary>
     ///     Facebook SDK adapter. Use Sorolla API instead.
@@ -109,7 +109,7 @@ namespace Sorolla.Adapters
     }
 }
 #else
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     internal static class FacebookAdapter
     {

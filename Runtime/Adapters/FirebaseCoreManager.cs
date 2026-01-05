@@ -1,6 +1,6 @@
 using System;
 
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     /// <summary>
     ///     Interface for Firebase Core Manager implementation.

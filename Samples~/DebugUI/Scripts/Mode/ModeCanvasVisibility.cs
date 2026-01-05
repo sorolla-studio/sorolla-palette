@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
     ///     Controls visibility of UI elements based on SDK mode (Prototype vs Full).

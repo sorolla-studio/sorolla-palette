@@ -4,7 +4,7 @@ using Firebase;
 using Firebase.Extensions;
 using UnityEngine;
 
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     /// <summary>
     ///     Firebase Core Manager implementation. Registered at runtime.

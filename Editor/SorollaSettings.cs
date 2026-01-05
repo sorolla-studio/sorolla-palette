@@ -1,10 +1,10 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Sorolla.Editor
+namespace Sorolla.Palette.Editor
 {
     /// <summary>
-    ///     Central settings for SorollaSDK SDK.
+    ///     Central settings for Palette SDK.
     /// </summary>
     public static class SorollaSettings
     {
@@ -40,11 +40,11 @@ namespace Sorolla.Editor
         {
             if (mode == SorollaMode.None)
             {
-                Debug.LogWarning("[SorollaSDK] Cannot set mode to None");
+                Debug.LogWarning("[Palette] Cannot set mode to None");
                 return;
             }
 
-            Debug.Log($"[SorollaSDK] Setting mode to: {mode}");
+            Debug.Log($"[Palette] Setting mode to: {mode}");
 
             Mode = mode;
 
@@ -61,7 +61,7 @@ namespace Sorolla.Editor
             SdkInstaller.UninstallUnnecessarySdks(mode == SorollaMode.Prototype);
 
             AssetDatabase.Refresh();
-            Debug.Log("[SorollaSDK] Mode switch complete.");
+            Debug.Log("[Palette] Mode switch complete.");
         }
 
         /// <summary>
@@ -72,7 +72,7 @@ namespace Sorolla.Editor
             var config = Resources.Load<SorollaConfig>("SorollaConfig");
             if (config == null)
             {
-                Debug.LogWarning("[SorollaSDK] SorollaConfig not found in Resources. Runtime mode may be incorrect.");
+                Debug.LogWarning("[Palette] SorollaConfig not found in Resources. Runtime mode may be incorrect.");
                 return;
             }
 
@@ -81,7 +81,7 @@ namespace Sorolla.Editor
                 config.isPrototypeMode = isPrototype;
                 EditorUtility.SetDirty(config);
                 AssetDatabase.SaveAssets();
-                Debug.Log($"[SorollaSDK] Updated SorollaConfig.isPrototypeMode = {isPrototype}");
+                Debug.Log($"[Palette] Updated SorollaConfig.isPrototypeMode = {isPrototype}");
             }
         }
 

@@ -2,12 +2,12 @@ using System;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using UnityEngine;
-using Sorolla.Adapters;
+using Sorolla.Palette.Adapters;
 #if GAMEANALYTICS_INSTALLED
 using GameAnalyticsSDK;
 #endif
 
-namespace Sorolla
+namespace Sorolla.Palette
 {
     /// <summary>
     ///     Progression status for tracking level/stage events.
@@ -32,13 +32,13 @@ namespace Sorolla
 
 
     /// <summary>
-    ///     Main API for SorollaSDK SDK.
+    ///     Main API for Palette SDK.
     ///     Provides unified interface for analytics, ads, and attribution.
     ///     Auto-initialized - no manual setup required.
     /// </summary>
-    public static class SorollaSDK
+    public static class Palette
     {
-        const string Tag = "[SorollaSDK]";
+        const string Tag = "[Palette]";
 
         /// <summary>Whether the SDK is initialized</summary>
         public static bool IsInitialized { get; private set; }
@@ -57,7 +57,7 @@ namespace Sorolla
         /// </summary>
         /// <remarks>
         ///     Values: Unknown, NotApplicable, Required, Obtained, Denied.
-        ///     See <see cref="Sorolla.Adapters.ConsentStatus"/> for details.
+        ///     See <see cref="Adapters.ConsentStatus"/> for details.
         /// </remarks>
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
         public static Adapters.ConsentStatus ConsentStatus => MaxAdapter.ConsentStatus;
@@ -70,8 +70,8 @@ namespace Sorolla
         ///     Use this to gate ad loading/showing in GDPR regions.
         /// </summary>
         /// <example>
-        ///     if (SorollaSDK.CanRequestAds)
-        ///         SorollaSDK.ShowRewardedAd(onComplete, onFailed);
+        ///     if (Palette.CanRequestAds)
+        ///         Palette.ShowRewardedAd(onComplete, onFailed);
         ///     else
         ///         Debug.Log("Consent required");
         /// </example>
@@ -86,7 +86,7 @@ namespace Sorolla
         ///     Only true if MAX CMP is available and user is in a consent region.
         /// </summary>
         /// <example>
-        ///     privacyButton.gameObject.SetActive(SorollaSDK.PrivacyOptionsRequired);
+        ///     privacyButton.gameObject.SetActive(Palette.PrivacyOptionsRequired);
         /// </example>
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
         public static bool PrivacyOptionsRequired => MaxAdapter.IsPrivacyOptionsRequired;
@@ -116,10 +116,10 @@ namespace Sorolla
         /// <param name="onComplete">Optional callback when form is dismissed</param>
         /// <example>
         ///     // In your settings UI
-        ///     if (SorollaSDK.PrivacyOptionsRequired)
+        ///     if (Palette.PrivacyOptionsRequired)
         ///     {
         ///         privacyButton.onClick.AddListener(() =>
-        ///             SorollaSDK.ShowPrivacyOptions());
+        ///             Palette.ShowPrivacyOptions());
         ///     }
         /// </example>
         public static void ShowPrivacyOptions(Action onComplete = null)
@@ -264,7 +264,7 @@ namespace Sorolla
         #region Initialization
 
         /// <summary>
-        ///     Initialize SorollaSDK SDK. Called automatically by SorollaBootstrapper.
+        ///     Initialize Palette SDK. Called automatically by SorollaBootstrapper.
         ///     Do NOT call directly.
         /// </summary>
         public static void Initialize(bool consent)

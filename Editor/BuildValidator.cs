@@ -7,16 +7,16 @@ using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
-namespace Sorolla.Editor
+namespace Sorolla.Palette.Editor
 {
     /// <summary>
     ///     Pre-build validation for SDK conflicts, version mismatches, and configuration issues.
-    ///     Menu: SorollaSDK > Tools > Validate Build
+    ///     Menu: Palette > Tools > Validate Build
     ///     Also runs automatically before builds via IPreprocessBuildWithReport.
     /// </summary>
     public static class BuildValidator
     {
-        private const string Tag = "[SorollaSDK BuildValidator]";
+        private const string Tag = "[Palette BuildValidator]";
         private static string ManifestPath => Path.Combine(Application.dataPath, "..", "Packages", "manifest.json");
 
         public enum ValidationStatus
@@ -226,7 +226,7 @@ namespace Sorolla.Editor
             {
                 results.Add(new ValidationResult(
                     ValidationStatus.Warning,
-                    "No SDK mode configured. Run SorollaSDK > Configuration to select Prototype or Full mode.",
+                    "No SDK mode configured. Run Palette > Configuration to select Prototype or Full mode.",
                     category: CheckCategory.ModeConsistency
                 ));
                 return results;
@@ -308,7 +308,7 @@ namespace Sorolla.Editor
                     results.Add(new ValidationResult(
                         ValidationStatus.Error,
                         $"Missing scoped registry for {sdk.Name}\n  Required scope: {sdk.Scope}",
-                        "Run SorollaSDK > Configuration to fix registry configuration",
+                        "Run Palette > Configuration to fix registry configuration",
                         CheckCategory.ScopedRegistries
                     ));
                 }
@@ -375,7 +375,7 @@ namespace Sorolla.Editor
                 results.Add(new ValidationResult(
                     ValidationStatus.Warning,
                     "SorollaConfig not found in Resources folder",
-                    "Create config via Assets > Create > SorollaSDK > Config",
+                    "Create config via Assets > Create > Palette > Config",
                     CheckCategory.ConfigSync
                 ));
                 return results;
@@ -428,7 +428,7 @@ namespace Sorolla.Editor
                     ValidationStatus.Warning,
                     $"Config mode mismatch - SorollaConfig.isPrototypeMode={config.isPrototypeMode}, " +
                     $"SorollaSettings.Mode={SorollaSettings.Mode}",
-                    "Run SorollaSDK > Configuration to sync mode settings",
+                    "Run Palette > Configuration to sync mode settings",
                     CheckCategory.ConfigSync
                 ));
             }
@@ -522,7 +522,7 @@ namespace Sorolla.Editor
                         $"AndroidManifest.xml has {sdkName} entries but SDK is not installed!\n" +
                         $"  Found patterns: {string.Join(", ", entries)}\n" +
                         "  This WILL crash at runtime.",
-                        "Run SorollaSDK > Tools > Sanitize Android Manifest",
+                        "Run Palette > Tools > Sanitize Android Manifest",
                         CheckCategory.AndroidManifest
                     ));
                 }
@@ -618,13 +618,13 @@ namespace Sorolla.Editor
 
         public void OnPreprocessBuild(BuildReport report)
         {
-            Debug.Log("[SorollaSDK BuildValidator] Running pre-build validation...");
+            Debug.Log("[Palette BuildValidator] Running pre-build validation...");
 
             // Auto-fix AndroidManifest orphaned entries before validation
             var orphanedEntries = AndroidManifestSanitizer.DetectOrphanedEntries();
             if (orphanedEntries.Count > 0)
             {
-                Debug.Log("[SorollaSDK BuildValidator] Detected orphaned AndroidManifest entries, auto-fixing...");
+                Debug.Log("[Palette BuildValidator] Detected orphaned AndroidManifest entries, auto-fixing...");
                 AndroidManifestSanitizer.Sanitize();
             }
 
@@ -634,23 +634,23 @@ namespace Sorolla.Editor
             if (errors.Count > 0)
             {
                 foreach (var error in errors)
-                    Debug.LogError($"[SorollaSDK BuildValidator] ERROR: {error.Message}");
+                    Debug.LogError($"[Palette BuildValidator] ERROR: {error.Message}");
 
                 throw new BuildFailedException(
                     $"Build validation failed with {errors.Count} error(s). " +
-                    "Run SorollaSDK > Tools > Validate Build for details."
+                    "Run Palette > Tools > Validate Build for details."
                 );
             }
 
             // Log warnings but don't block build
             var warnings = results.Where(r => r.Status == BuildValidator.ValidationStatus.Warning).ToList();
             foreach (var warning in warnings)
-                Debug.LogWarning($"[SorollaSDK BuildValidator] WARNING: {warning.Message}");
+                Debug.LogWarning($"[Palette BuildValidator] WARNING: {warning.Message}");
 
             if (warnings.Count > 0)
-                Debug.Log($"[SorollaSDK BuildValidator] Pre-build validation passed with {warnings.Count} warning(s)");
+                Debug.Log($"[Palette BuildValidator] Pre-build validation passed with {warnings.Count} warning(s)");
             else
-                Debug.Log("[SorollaSDK BuildValidator] Pre-build validation passed");
+                Debug.Log("[Palette BuildValidator] Pre-build validation passed");
         }
     }
 }

@@ -3,7 +3,7 @@ using Firebase.Analytics;
 using UnityEngine;
 using UnityEngine.Scripting;
 
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     /// <summary>
     ///     Firebase Analytics adapter implementation. Registered at runtime.

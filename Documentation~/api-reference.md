@@ -7,7 +7,7 @@ Complete reference for the Sorolla SDK public API.
 ## Namespace
 
 ```csharp
-using Sorolla;
+using Sorolla.Palette;
 ```
 
 ---
@@ -18,16 +18,16 @@ The SDK initializes automatically via `SorollaBootstrapper`. No manual init requ
 
 ```csharp
 // Check if SDK is ready
-if (SorollaSDK.IsInitialized) { /* safe to call API */ }
+if (Palette.IsInitialized) { /* safe to call API */ }
 
 // Check ATT consent status (iOS)
-bool hasConsent = SorollaSDK.HasConsent;
+bool hasConsent = Palette.HasConsent;
 
 // Get current config
-SorollaConfig config = SorollaSDK.Config;
+SorollaConfig config = Palette.Config;
 
 // Subscribe to init event
-SorollaSDK.OnInitialized += () => Debug.Log("SDK ready");
+Palette.OnInitialized += () => Debug.Log("SDK ready");
 ```
 
 ---
@@ -37,7 +37,7 @@ SorollaSDK.OnInitialized += () => Debug.Log("SDK ready");
 ### Level Tracking (Progression)
 
 ```csharp
-SorollaSDK.TrackProgression(
+Palette.TrackProgression(
     ProgressionStatus status,  // Start, Complete, Fail
     string progression01,       // e.g., "World_01" or "Level_001"
     string progression02 = null,// e.g., "Level_003"
@@ -48,18 +48,18 @@ SorollaSDK.TrackProgression(
 
 **Examples:**
 ```csharp
-SorollaSDK.TrackProgression(ProgressionStatus.Start, "Level_001");
-SorollaSDK.TrackProgression(ProgressionStatus.Complete, "Level_001", score: 1500);
-SorollaSDK.TrackProgression(ProgressionStatus.Fail, "Level_001");
+Palette.TrackProgression(ProgressionStatus.Start, "Level_001");
+Palette.TrackProgression(ProgressionStatus.Complete, "Level_001", score: 1500);
+Palette.TrackProgression(ProgressionStatus.Fail, "Level_001");
 
 // With multiple progression levels
-SorollaSDK.TrackProgression(ProgressionStatus.Complete, "World_01", "Level_05", "Boss");
+Palette.TrackProgression(ProgressionStatus.Complete, "World_01", "Level_05", "Boss");
 ```
 
 ### Custom Events (Design)
 
 ```csharp
-SorollaSDK.TrackDesign(
+Palette.TrackDesign(
     string eventId,     // Colon-delimited: "category:action:label"
     float value = 0     // Optional numeric value
 );
@@ -67,16 +67,16 @@ SorollaSDK.TrackDesign(
 
 **Examples:**
 ```csharp
-SorollaSDK.TrackDesign("tutorial:completed");
-SorollaSDK.TrackDesign("shop:purchase:sword", 100);
-SorollaSDK.TrackDesign("ui:settings:sound_off");
-SorollaSDK.TrackDesign("gameplay:powerup_used", 3);
+Palette.TrackDesign("tutorial:completed");
+Palette.TrackDesign("shop:purchase:sword", 100);
+Palette.TrackDesign("ui:settings:sound_off");
+Palette.TrackDesign("gameplay:powerup_used", 3);
 ```
 
 ### Economy Tracking (Resource)
 
 ```csharp
-SorollaSDK.TrackResource(
+Palette.TrackResource(
     ResourceFlowType flowType, // Source (earned) or Sink (spent)
     string currency,           // e.g., "coins", "gems"
     float amount,              // Amount earned/spent
@@ -88,12 +88,12 @@ SorollaSDK.TrackResource(
 **Examples:**
 ```csharp
 // Player earned coins
-SorollaSDK.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
-SorollaSDK.TrackResource(ResourceFlowType.Source, "gems", 10, "iap", "starter_pack");
+Palette.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
+Palette.TrackResource(ResourceFlowType.Source, "gems", 10, "iap", "starter_pack");
 
 // Player spent coins
-SorollaSDK.TrackResource(ResourceFlowType.Sink, "coins", 50, "shop", "speed_boost");
-SorollaSDK.TrackResource(ResourceFlowType.Sink, "gems", 100, "gacha", "premium_chest");
+Palette.TrackResource(ResourceFlowType.Sink, "coins", 50, "shop", "speed_boost");
+Palette.TrackResource(ResourceFlowType.Sink, "gems", 100, "gacha", "premium_chest");
 ```
 
 ---
@@ -104,10 +104,10 @@ SorollaSDK.TrackResource(ResourceFlowType.Sink, "gems", 100, "gacha", "premium_c
 
 ```csharp
 // Check if ad is loaded
-bool ready = SorollaSDK.IsRewardedAdReady;
+bool ready = Palette.IsRewardedAdReady;
 
 // Show rewarded ad
-SorollaSDK.ShowRewardedAd(
+Palette.ShowRewardedAd(
     Action onComplete,  // Called when user earns reward
     Action onFailed     // Called if ad fails/skipped
 );
@@ -117,9 +117,9 @@ SorollaSDK.ShowRewardedAd(
 ```csharp
 public void OnWatchAdClicked()
 {
-    if (SorollaSDK.IsRewardedAdReady)
+    if (Palette.IsRewardedAdReady)
     {
-        SorollaSDK.ShowRewardedAd(
+        Palette.ShowRewardedAd(
             onComplete: () => {
                 coins += 100;
                 UpdateUI();
@@ -135,7 +135,7 @@ public void OnWatchAdClicked()
 ### Interstitial Ads
 
 ```csharp
-SorollaSDK.ShowInterstitialAd(
+Palette.ShowInterstitialAd(
     Action onComplete  // Called when ad closes
 );
 ```
@@ -146,7 +146,7 @@ void OnLevelComplete()
 {
     if (levelsCompleted % 3 == 0)  // Every 3 levels
     {
-        SorollaSDK.ShowInterstitialAd(onComplete: ShowNextLevel);
+        Palette.ShowInterstitialAd(onComplete: ShowNextLevel);
     }
 }
 ```
@@ -161,33 +161,33 @@ Unified API supporting Firebase (primary) and GameAnalytics (fallback).
 
 ```csharp
 // Check if remote config is available
-bool ready = SorollaSDK.IsRemoteConfigReady();
+bool ready = Palette.IsRemoteConfigReady();
 
 // Fetch latest values from server
-SorollaSDK.FetchRemoteConfig(Action<bool> onComplete);
+Palette.FetchRemoteConfig(Action<bool> onComplete);
 ```
 
 ### Get Values
 
 ```csharp
-string SorollaSDK.GetRemoteConfig(string key, string defaultValue);
-int SorollaSDK.GetRemoteConfigInt(string key, int defaultValue);
-float SorollaSDK.GetRemoteConfigFloat(string key, float defaultValue);
-bool SorollaSDK.GetRemoteConfigBool(string key, bool defaultValue);
+string Palette.GetRemoteConfig(string key, string defaultValue);
+int Palette.GetRemoteConfigInt(string key, int defaultValue);
+float Palette.GetRemoteConfigFloat(string key, float defaultValue);
+bool Palette.GetRemoteConfigBool(string key, bool defaultValue);
 ```
 
 **Example:**
 ```csharp
 void Start()
 {
-    SorollaSDK.FetchRemoteConfig(success =>
+    Palette.FetchRemoteConfig(success =>
     {
         if (success)
         {
-            playerSpeed = SorollaSDK.GetRemoteConfigFloat("player_speed", 5.0f);
-            enableXmasEvent = SorollaSDK.GetRemoteConfigBool("xmas_event", false);
-            dailyReward = SorollaSDK.GetRemoteConfigInt("daily_reward", 100);
-            welcomeMsg = SorollaSDK.GetRemoteConfig("welcome_message", "Hello!");
+            playerSpeed = Palette.GetRemoteConfigFloat("player_speed", 5.0f);
+            enableXmasEvent = Palette.GetRemoteConfigBool("xmas_event", false);
+            dailyReward = Palette.GetRemoteConfigInt("daily_reward", 100);
+            welcomeMsg = Palette.GetRemoteConfig("welcome_message", "Hello!");
         }
     });
 }
@@ -201,24 +201,24 @@ Available when Firebase Crashlytics is enabled.
 
 ```csharp
 // Log non-fatal exception
-SorollaSDK.LogException(Exception exception);
+Palette.LogException(Exception exception);
 
 // Add breadcrumb log
-SorollaSDK.LogCrashlytics(string message);
+Palette.LogCrashlytics(string message);
 
 // Set custom key-value
-SorollaSDK.SetCrashlyticsKey(string key, string value);
-SorollaSDK.SetCrashlyticsKey(string key, int value);
-SorollaSDK.SetCrashlyticsKey(string key, float value);
-SorollaSDK.SetCrashlyticsKey(string key, bool value);
+Palette.SetCrashlyticsKey(string key, string value);
+Palette.SetCrashlyticsKey(string key, int value);
+Palette.SetCrashlyticsKey(string key, float value);
+Palette.SetCrashlyticsKey(string key, bool value);
 ```
 
 **Example:**
 ```csharp
 void OnUserLogin(string playerId)
 {
-    SorollaSDK.SetCrashlyticsKey("player_id", playerId);
-    SorollaSDK.LogCrashlytics($"User logged in: {playerId}");
+    Palette.SetCrashlyticsKey("player_id", playerId);
+    Palette.LogCrashlytics($"User logged in: {playerId}");
 }
 
 void RiskyOperation()
@@ -229,7 +229,7 @@ void RiskyOperation()
     }
     catch (Exception ex)
     {
-        SorollaSDK.LogException(ex);
+        Palette.LogException(ex);
         // handle gracefully
     }
 }

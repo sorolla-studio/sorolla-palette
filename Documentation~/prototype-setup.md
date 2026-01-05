@@ -91,30 +91,30 @@ The SDK initializes automatically. Add these events to your game logic:
 > 💡 **Tip:** Zero-pad level numbers (`Level_001` not `Level_1`) for better dashboard sorting.
 
 ```csharp
-using Sorolla;
+using Sorolla.Palette;
 
 // Level tracking (⚠️ MANDATORY)
 int level = 1;
 string lvlStr = $"Level_{level:D3}";  // "Level_001" - zero-pad for dashboard sorting
 
 // Start
-SorollaSDK.TrackProgression(ProgressionStatus.Start, lvlStr);
+Palette.TrackProgression(ProgressionStatus.Start, lvlStr);
 
 // Completed (score is optional - use if your game has scores)
-SorollaSDK.TrackProgression(ProgressionStatus.Complete, lvlStr, score: 1500);
+Palette.TrackProgression(ProgressionStatus.Complete, lvlStr, score: 1500);
 
 // Failed
-SorollaSDK.TrackProgression(ProgressionStatus.Fail, lvlStr);
+Palette.TrackProgression(ProgressionStatus.Fail, lvlStr);
 
 
 // Custom design events (optional)
-SorollaSDK.TrackDesign("tutorial:completed");
-SorollaSDK.TrackDesign("settings:opened", 1);
+Palette.TrackDesign("tutorial:completed");
+Palette.TrackDesign("settings:opened", 1);
 
 
 // Economy tracking (if your game has currencies)
-SorollaSDK.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
-SorollaSDK.TrackResource(ResourceFlowType.Sink, "coins", 50, "shop", "speed_boost");
+Palette.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
+Palette.TrackResource(ResourceFlowType.Sink, "coins", 50, "shop", "speed_boost");
 ```
 
 ---
@@ -128,7 +128,7 @@ SorollaSDK.TrackResource(ResourceFlowType.Sink, "coins", 50, "shop", "speed_boos
 - [ ] Facebook SDK: App ID configured
 - [ ] Facebook SDK: Client Token configured
 - [ ] Facebook SDK: Sorolla Ad Account (`1130531078835118`) authorized
-- [ ] Analytics: Add level progression events `SorollaSDK.TrackProgression`
+- [ ] Analytics: Add level progression events `Palette.TrackProgression`
 
 ---
 

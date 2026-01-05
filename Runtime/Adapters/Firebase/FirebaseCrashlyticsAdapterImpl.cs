@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Firebase.Crashlytics;
 using UnityEngine;
 
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     /// <summary>
     ///     Firebase Crashlytics adapter implementation. Registered at runtime.

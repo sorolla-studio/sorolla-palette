@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
     ///     Controls active state of a target GameObject based on SDK mode.

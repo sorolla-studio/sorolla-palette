@@ -1,9 +1,9 @@
 using UnityEngine;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
-    ///     Base class for all SorollaSDK Debug UI components.
+    ///     Base class for all Palette Debug UI components.
     ///     Provides access to theme and common functionality.
     /// </summary>
     public abstract class UIComponentBase : MonoBehaviour

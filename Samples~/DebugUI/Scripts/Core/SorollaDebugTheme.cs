@@ -1,8 +1,8 @@
 using UnityEngine;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
-    [CreateAssetMenu(fileName = "SorollaDebugTheme", menuName = "SorollaSDK/Debug UI Theme")]
+    [CreateAssetMenu(fileName = "SorollaDebugTheme", menuName = "Palette/Debug UI Theme")]
     public class SorollaDebugTheme : ScriptableObject
     {
 

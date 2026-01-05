@@ -5,7 +5,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
-namespace Sorolla.Editor
+namespace Sorolla.Palette.Editor
 {
     /// <summary>
     ///     Auto-setup on package import.
@@ -23,7 +23,7 @@ namespace Sorolla.Editor
         }
         static string SetupKey => $"Sorolla_Setup_{SetupVersion}_{Application.dataPath.GetHashCode()}";
 
-        [MenuItem("SorollaSDK/Run Setup (Force)")]
+        [MenuItem("Palette/Run Setup (Force)")]
         public static void ForceRunSetup()
         {
             EditorPrefs.DeleteKey(SetupKey);
@@ -35,7 +35,7 @@ namespace Sorolla.Editor
             if (EditorPrefs.GetBool(SetupKey, false))
                 return;
 
-            Debug.Log("[SorollaSDK] Running initial setup...");
+            Debug.Log("[Palette] Running initial setup...");
 
             // Copy link.xml to Assets/ for IL2CPP stripping protection
             CopyLinkXmlToAssets();
@@ -74,8 +74,8 @@ namespace Sorolla.Editor
             ManifestManager.AddDependencies(dependencies);
 
             EditorPrefs.SetBool(SetupKey, true);
-            Debug.Log("[SorollaSDK] Setup complete. Package Manager will resolve dependencies.");
-            Debug.Log("[SorollaSDK] Open SorollaSDK > Configuration to select a mode.");
+            Debug.Log("[Palette] Setup complete. Package Manager will resolve dependencies.");
+            Debug.Log("[Palette] Open Palette > Configuration to select a mode.");
         }
 
         /// <summary>
@@ -90,13 +90,13 @@ namespace Sorolla.Editor
             // Skip if already exists (don't overwrite user modifications)
             if (File.Exists(destPath))
             {
-                Debug.Log("[SorollaSDK] link.xml already exists in Assets/, skipping copy.");
+                Debug.Log("[Palette] link.xml already exists in Assets/, skipping copy.");
                 return;
             }
 
             if (!File.Exists(sourcePath))
             {
-                Debug.LogWarning($"[SorollaSDK] Source link.xml not found at {sourcePath}");
+                Debug.LogWarning($"[Palette] Source link.xml not found at {sourcePath}");
                 return;
             }
 
@@ -104,11 +104,11 @@ namespace Sorolla.Editor
             {
                 File.Copy(sourcePath, destPath);
                 AssetDatabase.Refresh();
-                Debug.Log($"[SorollaSDK] Copied link.xml to {destPath} for IL2CPP stripping protection.");
+                Debug.Log($"[Palette] Copied link.xml to {destPath} for IL2CPP stripping protection.");
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"[SorollaSDK] Failed to copy link.xml: {e.Message}");
+                Debug.LogError($"[Palette] Failed to copy link.xml: {e.Message}");
             }
         }
 
@@ -166,12 +166,12 @@ namespace Sorolla.Editor
 
                 if (changed)
                 {
-                    Debug.Log("[SorollaSDK] Configured EDM4U to use Unity's Gradle templates (Java 17+ compatibility).");
+                    Debug.Log("[Palette] Configured EDM4U to use Unity's Gradle templates (Java 17+ compatibility).");
                 }
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[SorollaSDK] Could not configure EDM4U settings: {e.Message}");
+                Debug.LogWarning($"[Palette] Could not configure EDM4U settings: {e.Message}");
             }
         }
     }

@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine.UI;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
     ///     Toggle to switch SDK mode (Prototype/Full) in Editor/Debug builds.
@@ -11,7 +11,7 @@ namespace Sorolla.DebugUI
         Button _toggle;
         bool _isPrototype;
 
-        static bool IsPrototype => SorollaSDK.Config == null || SorollaSDK.Config.isPrototypeMode;
+        static bool IsPrototype => Palette.Config == null || Palette.Config.isPrototypeMode;
 
         void Awake()
         {
@@ -28,14 +28,14 @@ namespace Sorolla.DebugUI
         {
 #if UNITY_EDITOR
             // Actually change the config in Editor
-            if (SorollaSDK.Config != null)
+            if (Palette.Config != null)
             {
-                SorollaSDK.Config.isPrototypeMode = !SorollaSDK.Config.isPrototypeMode;
-                EditorUtility.SetDirty(SorollaSDK.Config);
+                Palette.Config.isPrototypeMode = !Palette.Config.isPrototypeMode;
+                EditorUtility.SetDirty(Palette.Config);
             }
 #else
             // Do not change SDK behavior in builds
-            UnityEngine.Debug.LogWarning("[SorollaSDK Debug UI] Mode switch called in build, but SDK behavior remains unchanged.");
+            UnityEngine.Debug.LogWarning("[Palette Debug UI] Mode switch called in build, but SDK behavior remains unchanged.");
 #endif
 
             // Notify UI to refresh

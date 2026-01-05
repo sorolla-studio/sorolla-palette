@@ -1,4 +1,4 @@
-using Sorolla.ATT;
+using Sorolla.Palette.ATT;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -6,7 +6,7 @@ using UnityEngine.UI;
 using Unity.Advertisement.IosSupport;
 #endif
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
     ///     Controls the Privacy & CMP section.

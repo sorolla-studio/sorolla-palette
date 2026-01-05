@@ -4,7 +4,7 @@ using Firebase.Extensions;
 using Firebase.RemoteConfig;
 using UnityEngine;
 
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     /// <summary>
     ///     Firebase Remote Config adapter implementation. Registered at runtime.

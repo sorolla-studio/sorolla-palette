@@ -2,10 +2,10 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
-    ///     Shows SDK health status. Self-sufficient - checks SorollaSDK.IsInitialized on start.
+    ///     Shows SDK health status. Self-sufficient - checks Palette.IsInitialized on start.
     /// </summary>
     public class SDKHealthIndicator : UIComponentBase
     {
@@ -19,15 +19,15 @@ namespace Sorolla.DebugUI
 
         void Start()
         {
-            if (SorollaSDK.IsInitialized)
+            if (Palette.IsInitialized)
                 CheckSDKStatus();
             else
-                SorollaSDK.OnInitialized += CheckSDKStatus;
+                Palette.OnInitialized += CheckSDKStatus;
         }
 
         void OnDestroy()
         {
-            SorollaSDK.OnInitialized -= CheckSDKStatus;
+            Palette.OnInitialized -= CheckSDKStatus;
         }
 
         protected override void SubscribeToEvents() => SorollaDebugEvents.OnSDKHealthChanged += HandleSDKHealthChanged;
@@ -47,15 +47,15 @@ namespace Sorolla.DebugUI
             // Check actual SDK status based on name
             bool isHealthy = _sdkName.ToLower() switch
             {
-                "gameanalytics" or "ga" => SorollaSDK.IsInitialized,
-                "sorolla" => SorollaSDK.IsInitialized,
-                "firebase" => SorollaSDK.IsInitialized && SorollaSDK.Config != null && SorollaSDK.Config.enableFirebaseAnalytics,
-                "crashlytics" => SorollaSDK.IsInitialized && SorollaSDK.Config != null && SorollaSDK.Config.enableCrashlytics,
-                "remoteconfig" or "remote config" => SorollaSDK.IsRemoteConfigReady(),
-                "max" or "applovin" => SorollaSDK.IsInitialized && SorollaSDK.Config != null && !SorollaSDK.Config.isPrototypeMode,
-                "facebook" or "fb" => SorollaSDK.IsInitialized && SorollaSDK.Config != null && SorollaSDK.Config.isPrototypeMode,
-                "adjust" => SorollaSDK.IsInitialized && SorollaSDK.Config != null && !SorollaSDK.Config.isPrototypeMode,
-                _ => SorollaSDK.IsInitialized,
+                "gameanalytics" or "ga" => Palette.IsInitialized,
+                "sorolla" => Palette.IsInitialized,
+                "firebase" => Palette.IsInitialized && Palette.Config != null && Palette.Config.enableFirebaseAnalytics,
+                "crashlytics" => Palette.IsInitialized && Palette.Config != null && Palette.Config.enableCrashlytics,
+                "remoteconfig" or "remote config" => Palette.IsRemoteConfigReady(),
+                "max" or "applovin" => Palette.IsInitialized && Palette.Config != null && !Palette.Config.isPrototypeMode,
+                "facebook" or "fb" => Palette.IsInitialized && Palette.Config != null && Palette.Config.isPrototypeMode,
+                "adjust" => Palette.IsInitialized && Palette.Config != null && !Palette.Config.isPrototypeMode,
+                _ => Palette.IsInitialized,
             };
 
             _isHealthy = isHealthy;

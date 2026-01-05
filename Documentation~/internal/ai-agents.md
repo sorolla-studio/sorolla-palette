@@ -31,7 +31,7 @@ Optimized for RAG retrieval and minimal token usage.
 
 | Area | File | Key Classes |
 |------|------|-------------|
-| Public API | `Runtime/SorollaSDK.cs` | `SorollaSDK` |
+| Public API | `Runtime/Palette.cs` | `Palette` |
 | Auto-init | `Runtime/SorollaBootstrapper.cs` | `SorollaBootstrapper` |
 | Ads | `Runtime/Adapters/MaxAdapter.cs` | `MaxAdapter` |
 | Attribution | `Runtime/Adapters/AdjustAdapter.cs` | `AdjustAdapter` |
@@ -45,16 +45,16 @@ Optimized for RAG retrieval and minimal token usage.
 
 ```
 Initialization:
-App Start → SorollaBootstrapper.AutoInit() → ATT Check → SorollaSDK.Initialize(consent)
+App Start → SorollaBootstrapper.AutoInit() → ATT Check → Palette.Initialize(consent)
 
 Event Tracking:
-SorollaSDK.TrackDesign() → GameAnalyticsAdapter + FirebaseAdapter + FacebookAdapter
+Palette.TrackDesign() → GameAnalyticsAdapter + FirebaseAdapter + FacebookAdapter
 
 Ad Flow:
-SorollaSDK.ShowRewardedAd() → MaxAdapter → OnRevenue → AdjustAdapter.TrackAdRevenue()
+Palette.ShowRewardedAd() → MaxAdapter → OnRevenue → AdjustAdapter.TrackAdRevenue()
 
 Remote Config:
-SorollaSDK.GetRemoteConfig() → Firebase (if ready) → GA (fallback) → default
+Palette.GetRemoteConfig() → Firebase (if ready) → GA (fallback) → default
 ```
 
 ---
@@ -83,7 +83,7 @@ SorollaSDK.GetRemoteConfig() → Firebase (if ready) → GA (fallback) → defau
 ## Common RAG Queries
 
 ```
-"TrackProgression API"        → ../api-reference.md, SorollaSDK.cs
+"TrackProgression API"        → ../api-reference.md, Palette.cs
 "MAX ad not loading"          → ../troubleshooting.md
 "Facebook SDK setup"          → ../prototype-setup.md
 "Adjust attribution"          → ../full-setup.md, AdjustAdapter.cs
@@ -114,27 +114,27 @@ SorollaSDK.GetRemoteConfig() → Firebase (if ready) → GA (fallback) → defau
 
 ```csharp
 // Namespace
-using Sorolla;
+using Sorolla.Palette;
 
 // Check state
-SorollaSDK.IsInitialized
-SorollaSDK.HasConsent
-SorollaSDK.IsRewardedAdReady
+Palette.IsInitialized
+Palette.HasConsent
+Palette.IsRewardedAdReady
 
 // Analytics
-SorollaSDK.TrackProgression(ProgressionStatus.Complete, "Level_001", score: 100);
-SorollaSDK.TrackDesign("event:name", value);
-SorollaSDK.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "item");
+Palette.TrackProgression(ProgressionStatus.Complete, "Level_001", score: 100);
+Palette.TrackDesign("event:name", value);
+Palette.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "item");
 
 // Ads
-SorollaSDK.ShowRewardedAd(onComplete, onFailed);
-SorollaSDK.ShowInterstitialAd(onComplete);
+Palette.ShowRewardedAd(onComplete, onFailed);
+Palette.ShowInterstitialAd(onComplete);
 
 // Remote Config
-SorollaSDK.FetchRemoteConfig(success => { });
-SorollaSDK.GetRemoteConfigInt("key", defaultValue);
+Palette.FetchRemoteConfig(success => { });
+Palette.GetRemoteConfigInt("key", defaultValue);
 
 // Crashlytics
-SorollaSDK.LogException(ex);
-SorollaSDK.LogCrashlytics("message");
+Palette.LogException(ex);
+Palette.LogCrashlytics("message");
 ```

@@ -5,10 +5,10 @@ using UnityEditor.Build;
 using UnityEditor.PackageManager;
 using UnityEngine;
 
-namespace Sorolla.Editor
+namespace Sorolla.Palette.Editor
 {
     /// <summary>
-    ///     Manages scripting define symbols for SorollaSDK SDK.
+    ///     Manages scripting define symbols for Palette SDK.
     /// </summary>
     [InitializeOnLoad]
     public static class DefineSymbols
@@ -60,7 +60,7 @@ namespace Sorolla.Editor
 
             if (listRequest.Status != StatusCode.Success)
             {
-                Debug.LogWarning("[SorollaSDK] Failed to list packages for SDK detection");
+                Debug.LogWarning("[Palette] Failed to list packages for SDK detection");
                 return;
             }
 
@@ -78,7 +78,7 @@ namespace Sorolla.Editor
 
                     if (wasChanged)
                     {
-                        Debug.Log($"[SorollaSDK] {define} = {isInstalled} (package: {kvp.Key})");
+                        Debug.Log($"[Palette] {define} = {isInstalled} (package: {kvp.Key})");
                     }
                 }
             }
@@ -169,7 +169,7 @@ namespace Sorolla.Editor
 
             string newSymbols = string.Join(";", defines);
             PlayerSettings.SetScriptingDefineSymbols(target, newSymbols);
-            Debug.Log($"[SorollaSDK] Defines for {target}: {newSymbols}");
+            Debug.Log($"[Palette] Defines for {target}: {newSymbols}");
         }
     }
 }

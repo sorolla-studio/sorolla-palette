@@ -1,6 +1,6 @@
 using System;
 
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     public enum AdjustEnvironment { Sandbox, Production }
 

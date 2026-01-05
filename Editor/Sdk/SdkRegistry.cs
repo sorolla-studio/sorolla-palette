@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Sorolla.Editor
+namespace Sorolla.Palette.Editor
 {
     /// <summary>
     ///     Unique identifier for each SDK

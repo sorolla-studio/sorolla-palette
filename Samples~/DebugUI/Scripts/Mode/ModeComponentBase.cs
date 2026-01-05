@@ -1,23 +1,23 @@
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
     ///     Base class for components that change based on SDK mode (Prototype vs Full).
     /// </summary>
     public abstract class ModeComponentBase : UIComponentBase
     {
-        protected bool IsPrototype => SorollaSDK.Config == null || SorollaSDK.Config.isPrototypeMode;
+        protected bool IsPrototype => Palette.Config == null || Palette.Config.isPrototypeMode;
 
         void Start()
         {
-            if (SorollaSDK.IsInitialized)
+            if (Palette.IsInitialized)
                 ApplyTheme();
             else
-                SorollaSDK.OnInitialized += OnSorollaInitialized;
+                Palette.OnInitialized += OnSorollaInitialized;
         }
 
         void OnDestroy()
         {
-            SorollaSDK.OnInitialized -= OnSorollaInitialized;
+            Palette.OnInitialized -= OnSorollaInitialized;
         }
 
         void OnSorollaInitialized() => ApplyTheme();

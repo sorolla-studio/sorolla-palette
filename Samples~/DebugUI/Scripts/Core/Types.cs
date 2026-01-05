@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Sorolla.DebugUI
+namespace Sorolla.Palette.DebugUI
 {
     // Enums
     public enum AdType

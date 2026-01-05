@@ -4,10 +4,10 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace Sorolla.Editor
+namespace Sorolla.Palette.Editor
 {
     /// <summary>
-    ///     Configuration window for SorollaSDK SDK.
+    ///     Configuration window for Palette SDK.
     /// </summary>
     public class SorollaWindow : EditorWindow
     {
@@ -40,10 +40,10 @@ namespace Sorolla.Editor
             EditorGUILayout.EndScrollView();
         }
 
-        [MenuItem("SorollaSDK/Configuration")]
+        [MenuItem("Palette/Configuration")]
         public static void ShowWindow()
         {
-            var window = GetWindow<SorollaWindow>("SorollaSDK");
+            var window = GetWindow<SorollaWindow>("Palette");
             window.minSize = new Vector2(420, 380);
             window.Show();
         }
@@ -58,7 +58,7 @@ namespace Sorolla.Editor
         void DrawHeader()
         {
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            GUILayout.Label("SorollaSDK SDK",
+            GUILayout.Label("Palette SDK",
                 new GUIStyle(EditorStyles.boldLabel) { fontSize = 16, alignment = TextAnchor.MiddleCenter });
             GUILayout.Label("v1.0.0 - Plug & Play Publisher Stack",
                 new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleCenter });
@@ -430,7 +430,7 @@ namespace Sorolla.Editor
                 {
                     EditorUtility.SetDirty(_config);
                     AssetDatabase.SaveAssets();
-                    Debug.Log("[SorollaSDK] Configuration saved.");
+                    Debug.Log("[Palette] Configuration saved.");
                 }
 
                 if (GUILayout.Button("Select Asset"))
@@ -545,7 +545,7 @@ namespace Sorolla.Editor
             GUILayout.Label(
                 "The SDK auto-initializes when your game starts.\n" +
                 "• iOS: Shows ATT consent dialog automatically\n" +
-                "• Use SorollaSDK.TrackDesign() to track events",
+                "• Use Palette.TrackDesign() to track events",
                 new GUIStyle(EditorStyles.label) { wordWrap = true });
             EditorGUILayout.EndVertical();
         }
@@ -745,7 +745,7 @@ namespace Sorolla.Editor
             AssetDatabase.CreateAsset(_config, path);
             AssetDatabase.SaveAssets();
 
-            Debug.Log($"[SorollaSDK] Config created at: {path}");
+            Debug.Log($"[Palette] Config created at: {path}");
             Selection.activeObject = _config;
         }
     }
