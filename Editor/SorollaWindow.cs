@@ -48,8 +48,17 @@ namespace Sorolla.Palette.Editor
             window.Show();
         }
 
-        // Window no longer auto-opens since Prototype mode is auto-selected on import
-        // Users can open manually via Palette > Configuration to switch modes
+        [InitializeOnLoadMethod]
+        static void AutoOpenOnLoad() => EditorApplication.delayCall += () =>
+        {
+            // Auto-open on first import so users can see configuration
+            // Prototype mode is auto-selected, so this shows the config UI with API key fields
+            if (!EditorPrefs.GetBool("Sorolla_ConfigWindowOpened", false) && !Application.isPlaying)
+            {
+                EditorPrefs.SetBool("Sorolla_ConfigWindowOpened", true);
+                ShowWindow();
+            }
+        };
 
         void DrawHeader()
         {
@@ -66,11 +75,15 @@ namespace Sorolla.Palette.Editor
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             EditorGUILayout.Space(10);
 
-            GUILayout.Label("Welcome! Select a mode to get started:",
+            GUILayout.Label("Select SDK Mode:",
                 new GUIStyle(EditorStyles.boldLabel) { alignment = TextAnchor.MiddleCenter });
+            EditorGUILayout.Space(5);
+            
+            GUILayout.Label("(Prototype mode is auto-selected on import)",
+                new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleCenter });
             EditorGUILayout.Space(15);
 
-            if (GUILayout.Button("🧪  Prototype Mode\n(Facebook SDK for UA)", GUILayout.Height(45)))
+            if (GUILayout.Button("🧪  Prototype Mode\n(GameAnalytics + Facebook SDK)", GUILayout.Height(45)))
                 SorollaSettings.SetPrototypeMode();
 
             EditorGUILayout.Space(8);
@@ -723,25 +736,12 @@ namespace Sorolla.Palette.Editor
 
         void LoadOrCreateConfig()
         {
-            string[] guids = AssetDatabase.FindAssets("t:SorollaConfig");
-            if (guids.Length > 0)
-                _config = AssetDatabase.LoadAssetAtPath<SorollaConfig>(AssetDatabase.GUIDToAssetPath(guids[0]));
-            else
-                CreateConfig();
+            _config = SorollaConfigHelper.EnsureConfigExists();
         }
 
         void CreateConfig()
         {
-            _config = CreateInstance<SorollaConfig>();
-
-            if (!AssetDatabase.IsValidFolder("Assets/Resources"))
-                AssetDatabase.CreateFolder("Assets", "Resources");
-
-            string path = AssetDatabase.GenerateUniqueAssetPath("Assets/Resources/SorollaConfig.asset");
-            AssetDatabase.CreateAsset(_config, path);
-            AssetDatabase.SaveAssets();
-
-            Debug.Log($"[Palette] Config created at: {path}");
+            _config = SorollaConfigHelper.CreateConfig();
             Selection.activeObject = _config;
         }
     }

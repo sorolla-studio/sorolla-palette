@@ -76,7 +76,7 @@ namespace Sorolla.Palette.Editor
             EditorPrefs.SetBool(SetupKey, true);
             
             // Ensure config exists
-            EnsureConfigExists();
+            SorollaConfigHelper.EnsureConfigExists();
             
             // Auto-select Prototype mode for plug-and-play experience
             AutoSelectModeIfNeeded();
@@ -108,38 +108,6 @@ namespace Sorolla.Palette.Editor
             
             // Set Prototype mode - this will automatically install required SDKs
             SorollaSettings.SetMode(SorollaMode.Prototype);
-        }
-        
-        /// <summary>
-        ///     Ensure SorollaConfig exists in Resources folder.
-        ///     Creates it automatically if missing for plug-and-play experience.
-        /// </summary>
-        static void EnsureConfigExists()
-        {
-            string[] guids = AssetDatabase.FindAssets("t:SorollaConfig");
-            if (guids.Length > 0)
-            {
-                Debug.Log("[Palette] SorollaConfig found - ready to use.");
-                return;
-            }
-
-            // Config doesn't exist - create it
-            Debug.Log("[Palette] Creating SorollaConfig (required for SDK operation)...");
-            
-            var config = ScriptableObject.CreateInstance<SorollaConfig>();
-
-            if (!AssetDatabase.IsValidFolder("Assets/Resources"))
-            {
-                AssetDatabase.CreateFolder("Assets", "Resources");
-                Debug.Log("[Palette] Created Assets/Resources folder.");
-            }
-
-            string path = "Assets/Resources/SorollaConfig.asset";
-            AssetDatabase.CreateAsset(config, path);
-            AssetDatabase.SaveAssets();
-
-            Debug.Log($"[Palette] SorollaConfig created at: {path}");
-            Debug.Log("[Palette] Configure via: Window > Palette > Configuration");
         }
 
         /// <summary>
