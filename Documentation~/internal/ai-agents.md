@@ -18,14 +18,14 @@ Optimized for RAG retrieval and minimal token usage.
 
 | Task | Primary File | Secondary |
 |------|-------------|-----------|
-| API usage | `../getting-started.md` | `../api-reference.md` |
+| API usage | `../api-reference.md` | `../prototype-setup.md` |
 | SDK setup | `../prototype-setup.md` or `../full-setup.md` | - |
 | Firebase | `../firebase.md` | - |
 | Debug issue | `../troubleshooting.md` | - |
 | Code changes | `architecture.md` | - |
-| Task status | `plan.md` | `devlog.md` |
 | Competitive intel | `competitive-analysis.md` | `market-research.md` |
-| Product planning | `product-roadmap.md` | `plan.md` |
+| Product planning | `product-roadmap.md` | - |
+| GDPR/Consent | `../gdpr-consent-setup.md` | - |
 
 ### By Code Area
 
@@ -33,7 +33,8 @@ Optimized for RAG retrieval and minimal token usage.
 |------|------|-------------|
 | Public API | `Runtime/Palette.cs` | `Palette` |
 | Auto-init | `Runtime/SorollaBootstrapper.cs` | `SorollaBootstrapper` |
-| Ads | `Runtime/Adapters/MaxAdapter.cs` | `MaxAdapter` |
+| Ads (stub) | `Runtime/Adapters/MaxAdapter.cs` | `MaxAdapter` |
+| Ads (impl) | `Runtime/Adapters/MAX/MaxAdapterImpl.cs` | `MaxAdapterImpl` |
 | Attribution | `Runtime/Adapters/AdjustAdapter.cs` | `AdjustAdapter` |
 | Config | `Runtime/SorollaConfig.cs` | `SorollaConfig` |
 | Editor UI | `Editor/SorollaWindow.cs` | `SorollaWindow` |
@@ -48,65 +49,38 @@ Initialization:
 App Start → SorollaBootstrapper.AutoInit() → ATT Check → Palette.Initialize(consent)
 
 Event Tracking:
-Palette.TrackDesign() → GameAnalyticsAdapter + FirebaseAdapter + FacebookAdapter
+Palette.TrackDesign() → GameAnalyticsAdapter + FirebaseAdapter
 
 Ad Flow:
 Palette.ShowRewardedAd() → MaxAdapter → OnRevenue → AdjustAdapter.TrackAdRevenue()
 
 Remote Config:
 Palette.GetRemoteConfig() → Firebase (if ready) → GA (fallback) → default
+
+GDPR Consent:
+MaxAdapter.Initialize() → CmpService → UMP consent form (EU/UK)
 ```
 
 ---
 
 ## Key Patterns
 
-1. **Conditional Compilation**: `#if GAMEANALYTICS_INSTALLED`
+1. **Stub + Implementation**: Optional SDKs use separate assemblies with `defineConstraints`
 2. **Static Adapters**: No DI, static classes wrap SDKs
-3. **Mode-Based**: `SOROLLA_PROTOTYPE` or `SOROLLA_FULL` define
+3. **Mode-Based**: Prototype (GA only) or Full (GA + MAX + Adjust)
 4. **Auto-Init**: `[RuntimeInitializeOnLoadMethod]`
 5. **ScriptableObject Config**: `Resources/SorollaConfig.asset`
 
 ---
 
-## Codebase Stats
-
-| Category | Files | LOC |
-|----------|-------|-----|
-| Runtime | 15 | ~2,100 |
-| Editor | 13 | ~1,800 |
-| Debug UI | 31 | ~1,800 |
-| **Total** | **59** | **~3,900** |
-
----
-
-## Common RAG Queries
+## Assembly Pattern (Critical)
 
 ```
-"TrackProgression API"        → ../api-reference.md, Palette.cs
-"MAX ad not loading"          → ../troubleshooting.md
-"Facebook SDK setup"          → ../prototype-setup.md
-"Adjust attribution"          → ../full-setup.md, AdjustAdapter.cs
-"Firebase crashlytics"        → ../firebase.md
-"iOS ATT consent"             → ../troubleshooting.md
-"mode switching"              → architecture.md
-"SDK versions"                → SdkRegistry.cs
-"competitor features"         → competitive-analysis.md
-"roadmap priorities"          → product-roadmap.md
-"developer pain points"       → market-research.md
+Sorolla.Adapters.asmdef     ← Stubs (no external refs, always compiles)
+Sorolla.Adapters.MAX.asmdef ← Impl (defineConstraints: APPLOVIN_MAX_INSTALLED)
 ```
 
----
-
-## Memory Buffers
-
-| File | Purpose |
-|------|---------|
-| `plan.md` | Current tasks, backlog, ADRs |
-| `devlog.md` | Change history, learnings, hindsight |
-| `competitive-analysis.md` | Competitor features, market position |
-| `market-research.md` | Developer pain points, trends |
-| `product-roadmap.md` | Feature prioritization, version plans |
+**Why?** Unity resolves assembly refs before `#if` preprocessor evaluation.
 
 ---
 
@@ -137,4 +111,37 @@ Palette.GetRemoteConfigInt("key", defaultValue);
 // Crashlytics
 Palette.LogException(ex);
 Palette.LogCrashlytics("message");
+
+// GDPR/Consent
+Palette.ConsentStatus          // Unknown, NotApplicable, Required, Obtained, Denied
+Palette.CanRequestAds          // True if ads allowed
+Palette.ShowPrivacyOptions()   // Opens UMP form
 ```
+
+---
+
+## Common RAG Queries
+
+```
+"TrackProgression API"        → ../api-reference.md, Palette.cs
+"MAX ad not loading"          → ../troubleshooting.md
+"Adjust attribution"          → ../full-setup.md, AdjustAdapter.cs
+"Firebase crashlytics"        → ../firebase.md
+"iOS ATT consent"             → ../troubleshooting.md, ContextScreenView.cs
+"GDPR consent"                → ../gdpr-consent-setup.md, MaxAdapter.cs
+"mode switching"              → architecture.md
+"SDK versions"                → SdkRegistry.cs
+"competitor features"         → competitive-analysis.md
+"roadmap priorities"          → product-roadmap.md
+```
+
+---
+
+## Memory Buffers
+
+| File | Purpose |
+|------|---------|
+| `devlog.md` | Change history, validated learnings |
+| `competitive-analysis.md` | Competitor features, market position |
+| `market-research.md` | Developer pain points, trends |
+| `product-roadmap.md` | Feature prioritization, version plans, ADRs |
