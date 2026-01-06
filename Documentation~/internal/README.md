@@ -1,39 +1,41 @@
 # Internal Documentation
 
 > **Access**: SDK development team and AI agents only
-> **Last Updated**: 2025-12-17
+> **Last Updated**: 2026-01-06
 
-This directory contains internal documentation for Sorolla SDK development, including competitive analysis, product planning, and AI agent optimization guides.
+This directory contains technical documentation for Sorolla SDK development. Strategic planning docs have been moved to the workspace sorolla-docs repository.
 
 ---
 
 ## Quick Navigation
 
-### Strategic Planning
-| Document | Purpose |
-|----------|---------|
-| [Product Roadmap](product-roadmap.md) | Feature prioritization, version planning |
-| [Competitive Analysis](competitive-analysis.md) | VoodooSauce, Homa Belly, market positioning |
-| [Market Research](market-research.md) | Developer pain points, industry trends |
-
-### Development
+### Development (This Repository)
 | Document | Purpose |
 |----------|---------|
 | [Architecture](architecture.md) | Technical deep-dive for contributors |
 | [Plan & Tasks](plan.md) | Current sprint, backlog, ADRs |
 | [Development Log](devlog.md) | Change history with hindsight insights |
+| [MAX Mediation Plan](max-mediation-plan.md) | AppLovin MAX integration plan |
 
 ### AI Agent Support
 | Document | Purpose |
 |----------|---------|
 | [AI Agent Guide](ai-agents.md) | RAG-optimized codebase reference |
 
+### Strategic Planning (Moved to sorolla-docs)
+Strategic documentation now lives in `~/web/workspace/sorolla-docs/`:
+- **Product Roadmap** - Feature prioritization, version planning
+- **Competitive Analysis** - VoodooSauce, Homa Belly, market positioning
+- **Market Research** - Developer pain points, industry trends
+
+See [SDK Reference](file:///Users/arthur/web/workspace/sorolla-docs/sdk-reference.md) for complete navigation.
+
 ---
 
 ## Document Purposes
 
 ### For Product Decisions
-Start with `competitive-analysis.md` → `market-research.md` → `product-roadmap.md`
+See sorolla-docs: Competitive Analysis → Market Research → Product Roadmap
 
 ### For Development Tasks
 Start with `plan.md` → `architecture.md` → check `devlog.md` for context
