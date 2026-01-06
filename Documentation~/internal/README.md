@@ -13,7 +13,6 @@ This directory contains technical documentation for Sorolla SDK development. Str
 | Document | Purpose |
 |----------|---------|
 | [Architecture](architecture.md) | Technical deep-dive for contributors |
-| [Plan & Tasks](plan.md) | Current sprint, backlog, ADRs |
 | [Development Log](devlog.md) | Change history with hindsight insights |
 | [MAX Mediation Plan](max-mediation-plan.md) | AppLovin MAX integration plan |
 
@@ -38,7 +37,7 @@ See `sorolla-docs/sdk/reference.md` in your workspace for complete navigation.
 See sorolla-docs: Competitive Analysis → Market Research → Product Roadmap
 
 ### For Development Tasks
-Start with `plan.md` → `architecture.md` → check `devlog.md` for context
+Start with `architecture.md` → check `devlog.md` for context
 
 ### For AI Agents
 Load `ai-agents.md` first for quick orientation, then relevant docs by task type

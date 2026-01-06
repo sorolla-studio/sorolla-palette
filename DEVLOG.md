@@ -52,6 +52,14 @@ MaxSdk.SetSdkKey() is deprecated - SDK reads from settings automatically
 Use reflection to access: Type.GetType("AppLovinSettings, MaxSdk.Scripts.IntegrationManager.Editor")
 ```
 
+### Namespace Translation (Legacy References)
+```
+When reading older docs/context, mentally translate:
+SorollaSDK. → Palette.
+using Sorolla; → using Sorolla.Palette;
+SorollaSDK.cs → Palette.cs
+```
+
 ---
 
 ## 2026-01-08: Remove deprecated MaxSdk.SetSdkKey()
@@ -69,6 +77,30 @@ Use reflection to access: Type.GetType("AppLovinSettings, MaxSdk.Scripts.Integra
 - `AppLovinSettings` is unnamespaced, requires reflection to access
 - Must search all loaded assemblies as fallback (assembly name varies by MAX SDK version)
 - Unity meta files MUST be committed with new .cs files - missing meta = compile errors
+
+---
+
+## 2026-01-06: Namespace Refactor & Documentation Consolidation
+
+**Summary**:
+Major internal documentation update reflecting v2.3.3 changes.
+
+**Key Changes**:
+1. **Namespace refactored**: `SorollaSDK` class → `Palette` class, `using Sorolla;` → `using Sorolla.Palette;`
+2. **Facebook SDK**: Required for prototype mode UA campaigns
+3. **GDPR/UMP complete**: Full consent flow via MAX SDK (CmpService)
+4. **Debug UI moved**: Now a UPM sample (`Samples~/DebugUI`)
+
+**Documentation Consolidated**:
+- Removed `plan.md` (outdated task tracking)
+- Removed `max-mediation-plan.md` (session-specific, paused)
+- Updated all internal docs to use correct `Palette` namespace
+- Updated feature matrices to reflect completed GDPR/UMP
+- ADRs moved to `product-roadmap.md`
+
+**Files Changed**:
+- All internal documentation files updated
+- Version references updated to 2.3.3
 
 ---
 
@@ -220,7 +252,7 @@ Analyzed developer pain points and prioritized GDPR/UMP as critical gap.
 - MAX SDK automates UMP via CmpService (no manual integration needed)
 - Firebase 12.x still compatible, 13.x available
 
-**UMP Status**: ✅ Complete (MAX handles automatically)
+**UMP Status**: Complete (MAX handles automatically)
 
 ---
 
