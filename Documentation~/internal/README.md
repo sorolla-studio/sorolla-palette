@@ -23,12 +23,12 @@ This directory contains technical documentation for Sorolla SDK development. Str
 | [AI Agent Guide](ai-agents.md) | RAG-optimized codebase reference |
 
 ### Strategic Planning (Moved to sorolla-docs)
-Strategic documentation now lives in `~/web/workspace/sorolla-docs/`:
+Strategic documentation now lives in the `sorolla-docs` repository (`sdk/` folder):
 - **Product Roadmap** - Feature prioritization, version planning
 - **Competitive Analysis** - VoodooSauce, Homa Belly, market positioning
 - **Market Research** - Developer pain points, industry trends
 
-See [SDK Reference](file:///Users/arthur/web/workspace/sorolla-docs/sdk-reference.md) for complete navigation.
+See `sorolla-docs/sdk/reference.md` in your workspace for complete navigation.
 
 ---
 
