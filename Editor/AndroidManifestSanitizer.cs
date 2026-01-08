@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -34,6 +33,8 @@ namespace Sorolla.Palette.Editor
                 "com.adjust.sdk"
             }
         };
+
+        private static readonly XNamespace AndroidNs = "http://schemas.android.com/apk/res/android";
 
         /// <summary>
         ///     Check if AndroidManifest has entries for uninstalled SDKs
@@ -73,6 +74,79 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
+        ///     Detect duplicate activity declarations in AndroidManifest
+        /// </summary>
+        public static List<string> DetectDuplicateActivities()
+        {
+            var duplicates = new List<string>();
+
+            if (!File.Exists(AndroidManifestPath))
+                return duplicates;
+
+            try
+            {
+                var doc = XDocument.Load(AndroidManifestPath);
+                var application = doc.Root?.Element("application");
+                if (application == null)
+                    return duplicates;
+
+                var activities = application.Elements("activity")
+                    .Select(e => e.Attribute(AndroidNs + "name")?.Value)
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .ToList();
+
+                duplicates = activities
+                    .GroupBy(name => name)
+                    .Where(g => g.Count() > 1)
+                    .Select(g => g.Key)
+                    .ToList();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"{Tag} Failed to detect duplicate activities: {e.Message}");
+            }
+
+            return duplicates;
+        }
+
+        /// <summary>
+        ///     Remove duplicate activity declarations, keeping the best one
+        ///     (prefers android:exported="true" for main activities)
+        /// </summary>
+        private static bool RemoveDuplicateActivities(XDocument doc)
+        {
+            var application = doc.Root?.Element("application");
+            if (application == null)
+                return false;
+
+            var modified = false;
+            var activitiesByName = application.Elements("activity")
+                .GroupBy(e => e.Attribute(AndroidNs + "name")?.Value ?? "")
+                .Where(g => !string.IsNullOrEmpty(g.Key) && g.Count() > 1);
+
+            foreach (var group in activitiesByName)
+            {
+                var activities = group.ToList();
+
+                // Keep the one with android:exported="true", or the first one
+                var toKeep = activities.FirstOrDefault(e =>
+                    e.Attribute(AndroidNs + "exported")?.Value == "true") ?? activities[0];
+
+                foreach (var activity in activities)
+                {
+                    if (activity == toKeep)
+                        continue;
+
+                    Debug.Log($"{Tag} Removing duplicate activity: {group.Key}");
+                    activity.Remove();
+                    modified = true;
+                }
+            }
+
+            return modified;
+        }
+
+        /// <summary>
         ///     Read UPM manifest.json dependencies
         /// </summary>
         private static Dictionary<string, object> ReadUpmManifest()
@@ -96,7 +170,7 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Remove orphaned SDK entries from AndroidManifest.xml
+        ///     Remove orphaned SDK entries and duplicate activities from AndroidManifest.xml
         /// </summary>
         public static bool Sanitize()
         {
@@ -107,9 +181,11 @@ namespace Sorolla.Palette.Editor
             }
 
             var orphaned = DetectOrphanedEntries();
-            if (orphaned.Count == 0)
+            var duplicates = DetectDuplicateActivities();
+
+            if (orphaned.Count == 0 && duplicates.Count == 0)
             {
-                Debug.Log($"{Tag} No orphaned entries found");
+                Debug.Log($"{Tag} No orphaned entries or duplicate activities found");
                 return false;
             }
 
@@ -118,10 +194,18 @@ namespace Sorolla.Palette.Editor
                 var doc = XDocument.Load(AndroidManifestPath);
                 var modified = false;
 
+                // Remove orphaned SDK entries
                 foreach (var (sdkId, patterns) in orphaned)
                 {
                     Debug.Log($"{Tag} Removing {SdkRegistry.All[sdkId].Name} entries from AndroidManifest.xml");
                     modified |= RemoveSdkEntries(doc, patterns);
+                }
+
+                // Remove duplicate activities
+                if (duplicates.Count > 0)
+                {
+                    Debug.Log($"{Tag} Removing {duplicates.Count} duplicate activity declaration(s)");
+                    modified |= RemoveDuplicateActivities(doc);
                 }
 
                 if (modified)
@@ -197,25 +281,37 @@ namespace Sorolla.Palette.Editor
         public static void SanitizeMenuItem()
         {
             var orphaned = DetectOrphanedEntries();
+            var duplicates = DetectDuplicateActivities();
 
-            if (orphaned.Count == 0)
+            if (orphaned.Count == 0 && duplicates.Count == 0)
             {
                 EditorUtility.DisplayDialog(
                     "Manifest Sanitizer",
-                    "No orphaned SDK entries found in AndroidManifest.xml",
+                    "No issues found in AndroidManifest.xml",
                     "OK"
                 );
                 return;
             }
 
-            var sdkNames = string.Join(", ", orphaned.Select(o => SdkRegistry.All[o.sdk].Name));
+            // Build message describing issues found
+            var issues = new List<string>();
+
+            if (orphaned.Count > 0)
+            {
+                var sdkNames = string.Join(", ", orphaned.Select(o => SdkRegistry.All[o.sdk].Name));
+                issues.Add($"Orphaned SDK entries: {sdkNames}");
+            }
+
+            if (duplicates.Count > 0)
+                issues.Add($"Duplicate activities: {string.Join(", ", duplicates)}");
+
             var confirm = EditorUtility.DisplayDialog(
                 "Manifest Sanitizer",
-                $"Found orphaned entries for: {sdkNames}\n\n" +
-                "These SDKs are referenced in AndroidManifest.xml but not installed.\n" +
-                "This will cause runtime crashes!\n\n" +
-                "Remove these entries?",
-                "Yes, Remove",
+                $"Found issues in AndroidManifest.xml:\n\n" +
+                $"{string.Join("\n", issues.Select(i => $"• {i}"))}\n\n" +
+                "These issues can cause build failures or runtime crashes.\n\n" +
+                "Fix these issues?",
+                "Yes, Fix",
                 "Cancel"
             );
 
