@@ -45,6 +45,31 @@ First resolution may fail, but works after selecting mode and re-resolving
 Auto-config runs too late to catch initial EDM4U resolution
 ```
 
+### MAX SDK Key Location
+```
+SDK key is in AppLovinSettings (Integration Manager), NOT SorollaConfig
+MaxSdk.SetSdkKey() is deprecated - SDK reads from settings automatically
+Use reflection to access: Type.GetType("AppLovinSettings, MaxSdk.Scripts.IntegrationManager.Editor")
+```
+
+---
+
+## 2026-01-08: Remove deprecated MaxSdk.SetSdkKey()
+
+**Summary**: SDK key now lives in AppLovinSettings (Integration Manager), not SorollaConfig.
+
+**Changes**:
+- Removed `maxSdkKey` from `SorollaConfig.cs`
+- Removed `sdkKey` parameter from `MaxAdapter.Initialize()` and `IMaxAdapter`
+- Added SDK key helpers to `MaxSettingsSanitizer.cs`: `GetSdkKey()`, `IsSdkKeyConfigured()`
+- Added SDK key validation to `BuildValidator.CheckMaxSettings()`
+
+**Learnings**:
+- `MaxSdk.SetSdkKey()` deprecated - SDK reads from `AppLovinSettings.Instance.SdkKey`
+- `AppLovinSettings` is unnamespaced, requires reflection to access
+- Must search all loaded assemblies as fallback (assembly name varies by MAX SDK version)
+- Unity meta files MUST be committed with new .cs files - missing meta = compile errors
+
 ---
 
 ## 2025-12-29: EDM4U Gradle Java 17+ (Partial Fix)
