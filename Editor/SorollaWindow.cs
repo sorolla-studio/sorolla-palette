@@ -587,24 +587,10 @@ namespace Sorolla.Palette.Editor
 
             // Auto-fix: Sync config with installed SDKs before validation
             if (BuildValidator.FixConfigSync())
-            {
                 _autoFixLog.Add("Synced SorollaConfig with installed SDKs");
-            }
 
-            // Auto-fix: Sanitize AndroidManifest before validation
-            var orphanedEntries = AndroidManifestSanitizer.DetectOrphanedEntries();
-            var duplicateActivities = AndroidManifestSanitizer.DetectDuplicateActivities();
-            if (orphanedEntries.Count > 0 || duplicateActivities.Count > 0)
-            {
-                foreach (var (sdkId, _) in orphanedEntries)
-                {
-                    var sdkName = SdkRegistry.All[sdkId].Name;
-                    _autoFixLog.Add($"Removed {sdkName} entries from AndroidManifest.xml");
-                }
-                if (duplicateActivities.Count > 0)
-                    _autoFixLog.Add($"Removed {duplicateActivities.Count} duplicate activity declaration(s)");
-                AndroidManifestSanitizer.Sanitize();
-            }
+            // Run all sanitizers (single source of truth)
+            _autoFixLog.AddRange(BuildValidator.RunAutoFixes());
 
             // Run validation checks
             _validationResults = BuildValidator.RunAllChecks();

@@ -14,6 +14,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.applovin.mediation.ads",
+            "expression": "",
+            "define": "SOROLLA_MAX_INSTALLED"
+        }
+    ],
     "noEngineReferences": false
 }

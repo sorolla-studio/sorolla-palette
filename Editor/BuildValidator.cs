@@ -33,7 +33,8 @@ namespace Sorolla.Palette.Editor
             ScopedRegistries,
             FirebaseCoherence,
             ConfigSync,
-            AndroidManifest
+            AndroidManifest,
+            MaxSettings
         }
 
         public static readonly Dictionary<CheckCategory, string> CheckNames = new()
@@ -43,7 +44,8 @@ namespace Sorolla.Palette.Editor
             [CheckCategory.ScopedRegistries] = "Scoped Registries",
             [CheckCategory.FirebaseCoherence] = "Firebase Coherence",
             [CheckCategory.ConfigSync] = "Config Sync",
-            [CheckCategory.AndroidManifest] = "Android Manifest"
+            [CheckCategory.AndroidManifest] = "Android Manifest",
+            [CheckCategory.MaxSettings] = "MAX Settings"
         };
 
         public class ValidationResult
@@ -104,6 +106,7 @@ namespace Sorolla.Palette.Editor
                 results.AddRange(CheckFirebaseCoherence(dependencies));
                 results.AddRange(CheckConfigSync(dependencies));
                 results.AddRange(CheckAndroidManifest());
+                results.AddRange(CheckMaxSettings());
             }
             catch (Exception e)
             {
@@ -111,6 +114,33 @@ namespace Sorolla.Palette.Editor
             }
 
             return results;
+        }
+
+        /// <summary>
+        ///     Run all auto-fixes before validation. Returns list of fixes applied.
+        ///     This is the single source of truth for all sanitizers.
+        /// </summary>
+        public static List<string> RunAutoFixes()
+        {
+            var fixes = new List<string>();
+
+            // AndroidManifest sanitization
+            var orphaned = AndroidManifestSanitizer.DetectOrphanedEntries();
+            var duplicates = AndroidManifestSanitizer.DetectDuplicateActivities();
+            if (orphaned.Count > 0 || duplicates.Count > 0)
+            {
+                foreach (var (sdkId, _) in orphaned)
+                    fixes.Add($"Removed {SdkRegistry.All[sdkId].Name} entries from AndroidManifest.xml");
+                if (duplicates.Count > 0)
+                    fixes.Add($"Removed {duplicates.Count} duplicate activity declaration(s)");
+                AndroidManifestSanitizer.Sanitize();
+            }
+
+            // MAX settings sanitization
+            if (MaxSettingsSanitizer.Sanitize())
+                fixes.Add("Disabled AppLovin Quality Service (prevents build failures)");
+
+            return fixes;
         }
 
         /// <summary>
@@ -553,6 +583,36 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
+        ///     Check AppLovin MAX settings for known issues
+        /// </summary>
+        private static List<ValidationResult> CheckMaxSettings()
+        {
+            var results = new List<ValidationResult>();
+
+#if SOROLLA_MAX_INSTALLED
+            if (MaxSettingsSanitizer.IsQualityServiceEnabled())
+            {
+                results.Add(new ValidationResult(
+                    ValidationStatus.Warning,
+                    "AppLovin Quality Service is enabled.\n" +
+                    "  This can cause 401 errors and build failures.\n" +
+                    "  Quality Service is optional - ads work without it.",
+                    "Run Palette > Tools > Check MAX Settings to disable",
+                    CheckCategory.MaxSettings
+                ));
+            }
+            else
+            {
+                results.Add(new ValidationResult(ValidationStatus.Valid, "MAX settings OK", category: CheckCategory.MaxSettings));
+            }
+#else
+            results.Add(new ValidationResult(ValidationStatus.Valid, "MAX not installed", category: CheckCategory.MaxSettings));
+#endif
+
+            return results;
+        }
+
+        /// <summary>
         ///     Read and parse manifest.json
         /// </summary>
         private static Dictionary<string, object> ReadManifest()
@@ -637,14 +697,10 @@ namespace Sorolla.Palette.Editor
         {
             Debug.Log("[Palette BuildValidator] Running pre-build validation...");
 
-            // Auto-fix AndroidManifest issues before validation
-            var orphanedEntries = AndroidManifestSanitizer.DetectOrphanedEntries();
-            var duplicateActivities = AndroidManifestSanitizer.DetectDuplicateActivities();
-            if (orphanedEntries.Count > 0 || duplicateActivities.Count > 0)
-            {
-                Debug.Log("[Palette BuildValidator] Detected AndroidManifest issues, auto-fixing...");
-                AndroidManifestSanitizer.Sanitize();
-            }
+            // Run all auto-fixes before validation
+            var fixes = BuildValidator.RunAutoFixes();
+            foreach (var fix in fixes)
+                Debug.Log($"[Palette BuildValidator] Auto-fix: {fix}");
 
             var results = BuildValidator.RunAllChecks();
             var errors = results.Where(r => r.Status == BuildValidator.ValidationStatus.Error).ToList();
