@@ -45,7 +45,7 @@ namespace Sorolla.Palette.Adapters
         event Action OnSdkInitialized;
         event Action<ConsentStatus> OnConsentStatusChanged;
 
-        void Initialize(string sdkKey, string rewardedId, string interstitialId, string bannerId, bool consent);
+        void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent);
         void ShowRewardedAd(Action onComplete, Action onFailed);
         void ShowInterstitialAd(Action onComplete);
         void ShowPrivacyOptions(Action onComplete);
@@ -104,10 +104,10 @@ namespace Sorolla.Palette.Adapters
         /// <summary>Event fired when consent status changes.</summary>
         public static event Action<ConsentStatus> OnConsentStatusChanged;
 
-        public static void Initialize(string sdkKey, string rewardedId, string interstitialId, string bannerId, bool consent)
+        public static void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent)
         {
             if (s_impl != null)
-                s_impl.Initialize(sdkKey, rewardedId, interstitialId, bannerId, consent);
+                s_impl.Initialize(rewardedId, interstitialId, bannerId, consent);
             else
                 UnityEngine.Debug.LogWarning("[Sorolla:MAX] Not installed");
         }

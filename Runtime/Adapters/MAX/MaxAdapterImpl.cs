@@ -60,7 +60,7 @@ namespace Sorolla.Palette.Adapters
         public event Action OnSdkInitialized;
         public event Action<ConsentStatus> OnConsentStatusChanged;
 
-        public void Initialize(string sdkKey, string rewardedId, string interstitialId, string bannerId, bool consent)
+        public void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent)
         {
             if (_init) return;
 
@@ -72,7 +72,7 @@ namespace Sorolla.Palette.Adapters
             Debug.Log("[Sorolla:MAX] Initializing...");
             MaxSdkCallbacks.OnSdkInitializedEvent += OnSdkInit;
 
-            MaxSdk.SetSdkKey(sdkKey);
+            // SDK key is read from AppLovinSettings (configured in Integration Manager)
             MaxSdk.InitializeSdk();
         }
 

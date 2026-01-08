@@ -492,9 +492,9 @@ namespace Sorolla.Palette
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
         static void InitializeMax()
         {
-            if (Config == null || string.IsNullOrEmpty(Config.maxSdkKey))
+            if (Config == null)
             {
-                Debug.LogWarning($"{Tag} MAX SDK Key not configured.");
+                Debug.LogWarning($"{Tag} SorollaConfig not found.");
                 return;
             }
 
@@ -506,7 +506,8 @@ namespace Sorolla.Palette
             // Subscribe to SDK initialized event to init Adjust (per MAX docs)
             MaxAdapter.OnSdkInitialized += OnMaxSdkInitialized;
 
-            MaxAdapter.Initialize(Config.maxSdkKey, Config.maxRewardedAdUnitId,
+            // SDK key is read from AppLovinSettings (configured in Integration Manager)
+            MaxAdapter.Initialize(Config.maxRewardedAdUnitId,
                 Config.maxInterstitialAdUnitId, Config.maxBannerAdUnitId, HasConsent);
         }
 
