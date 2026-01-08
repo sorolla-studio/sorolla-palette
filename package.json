@@ -13,7 +13,7 @@
   ],
   "author": {
     "name": "Sorolla",
-    "url": "https://github.com/LaCreArthur/sorolla-palette-upm"
+    "url": "https://github.com/sorolla-studio/sorolla-palette"
   },
   "dependencies": {
     "com.unity.textmeshpro": "3.0.6",

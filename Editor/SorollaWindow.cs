@@ -562,17 +562,17 @@ namespace Sorolla.Palette.Editor
             };
 
             if (GUILayout.Button("Documentation", linkStyle))
-                Application.OpenURL("https://github.com/LaCreArthur/sorolla-palette-upm#readme");
+                Application.OpenURL("https://github.com/sorolla-studio/sorolla-palette#readme");
 
             GUILayout.Label("|", EditorStyles.linkLabel);
 
             if (GUILayout.Button("GitHub", linkStyle))
-                Application.OpenURL("https://github.com/LaCreArthur/sorolla-palette-upm");
+                Application.OpenURL("https://github.com/sorolla-studio/sorolla-palette");
 
             GUILayout.Label("|", EditorStyles.linkLabel);
 
             if (GUILayout.Button("Report Issue", linkStyle))
-                Application.OpenURL("https://github.com/LaCreArthur/sorolla-palette-upm/issues");
+                Application.OpenURL("https://github.com/sorolla-studio/sorolla-palette/issues");
 
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();

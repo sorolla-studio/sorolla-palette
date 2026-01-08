@@ -16,7 +16,7 @@ Thank you for your interest in contributing to Sorolla SDK!
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/LaCreArthur/sorolla-palette-upm.git
+   git clone https://github.com/sorolla-studio/sorolla-palette.git
    ```
 
 2. Open in Unity as a local package or link via `manifest.json`:
@@ -110,7 +110,7 @@ Please include:
 
 ## Questions?
 
-- 💬 [GitHub Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
-- 💬 [GitHub Discussions](https://github.com/LaCreArthur/sorolla-palette-upm/discussions)
+- 💬 [GitHub Issues](https://github.com/sorolla-studio/sorolla-palette/issues)
+- 💬 [GitHub Discussions](https://github.com/sorolla-studio/sorolla-palette/discussions)
 - 📖 [Prototype Setup Guide](prototype-setup.md)
 - 📖 [Full Mode Setup Guide](full-setup.md)
