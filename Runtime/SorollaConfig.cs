@@ -14,7 +14,6 @@ namespace Sorolla.Palette
         [Tooltip("Prototype = GA + Facebook | Full = GA + MAX + Adjust")]
         public bool isPrototypeMode = true;
 
-        [Header("AppLovin MAX Ad Units")]
         [Tooltip("Rewarded ad unit ID")]
         public string maxRewardedAdUnitId;
 

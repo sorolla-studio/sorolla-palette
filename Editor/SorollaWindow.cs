@@ -17,10 +17,7 @@ namespace Sorolla.Palette.Editor
         // Build health state
         List<BuildValidator.ValidationResult> _validationResults = new();
         List<string> _autoFixLog = new();
-        bool _validationRan;
 
-        // SDK Overview expansion state
-        bool _maxExpanded;
 
         void OnEnable()
         {
@@ -303,11 +300,6 @@ namespace Sorolla.Palette.Editor
             }
             else
             {
-                // Expand/collapse button for ad unit IDs
-                var expandLabel = _maxExpanded ? "▼" : "▶";
-                if (GUILayout.Button(expandLabel, GUILayout.Width(25)))
-                    _maxExpanded = !_maxExpanded;
-
                 // Edit button opens Integration Manager (for SDK key)
                 if (GUILayout.Button("Edit", GUILayout.Width(50)))
                     SdkConfigDetector.OpenMaxSettings();
@@ -315,8 +307,8 @@ namespace Sorolla.Palette.Editor
 
             EditorGUILayout.EndHorizontal();
 
-            // Expanded content: Ad Unit IDs
-            if (isInstalled && _maxExpanded && _config != null)
+            // Ad Unit IDs (always shown when installed)
+            if (isInstalled && _config != null)
             {
                 EditorGUI.indentLevel += 2;
 
@@ -642,7 +634,6 @@ namespace Sorolla.Palette.Editor
         void RunBuildValidation()
         {
             _autoFixLog.Clear();
-            _validationRan = true;
 
             // Auto-fix: Sync config with installed SDKs before validation
             if (BuildValidator.FixConfigSync())
