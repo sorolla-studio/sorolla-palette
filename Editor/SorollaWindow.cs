@@ -593,13 +593,16 @@ namespace Sorolla.Palette.Editor
 
             // Auto-fix: Sanitize AndroidManifest before validation
             var orphanedEntries = AndroidManifestSanitizer.DetectOrphanedEntries();
-            if (orphanedEntries.Count > 0)
+            var duplicateActivities = AndroidManifestSanitizer.DetectDuplicateActivities();
+            if (orphanedEntries.Count > 0 || duplicateActivities.Count > 0)
             {
                 foreach (var (sdkId, _) in orphanedEntries)
                 {
                     var sdkName = SdkRegistry.All[sdkId].Name;
                     _autoFixLog.Add($"Removed {sdkName} entries from AndroidManifest.xml");
                 }
+                if (duplicateActivities.Count > 0)
+                    _autoFixLog.Add($"Removed {duplicateActivities.Count} duplicate activity declaration(s)");
                 AndroidManifestSanitizer.Sanitize();
             }
 

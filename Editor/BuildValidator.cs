@@ -510,10 +510,13 @@ namespace Sorolla.Palette.Editor
         private static List<ValidationResult> CheckAndroidManifest()
         {
             var results = new List<ValidationResult>();
+            var hasIssues = false;
 
+            // Check for orphaned SDK entries
             var orphaned = AndroidManifestSanitizer.DetectOrphanedEntries();
             if (orphaned.Count > 0)
             {
+                hasIssues = true;
                 foreach (var (sdkId, entries) in orphaned)
                 {
                     var sdkName = SdkRegistry.All[sdkId].Name;
@@ -527,10 +530,24 @@ namespace Sorolla.Palette.Editor
                     ));
                 }
             }
-            else
+
+            // Check for duplicate activities
+            var duplicates = AndroidManifestSanitizer.DetectDuplicateActivities();
+            if (duplicates.Count > 0)
             {
-                results.Add(new ValidationResult(ValidationStatus.Valid, "Manifest clean", category: CheckCategory.AndroidManifest));
+                hasIssues = true;
+                results.Add(new ValidationResult(
+                    ValidationStatus.Error,
+                    $"AndroidManifest.xml has duplicate activity declarations!\n" +
+                    $"  Duplicates: {string.Join(", ", duplicates)}\n" +
+                    "  This WILL cause build failures.",
+                    "Run Palette > Tools > Sanitize Android Manifest",
+                    CheckCategory.AndroidManifest
+                ));
             }
+
+            if (!hasIssues)
+                results.Add(new ValidationResult(ValidationStatus.Valid, "Manifest clean", category: CheckCategory.AndroidManifest));
 
             return results;
         }
@@ -620,11 +637,12 @@ namespace Sorolla.Palette.Editor
         {
             Debug.Log("[Palette BuildValidator] Running pre-build validation...");
 
-            // Auto-fix AndroidManifest orphaned entries before validation
+            // Auto-fix AndroidManifest issues before validation
             var orphanedEntries = AndroidManifestSanitizer.DetectOrphanedEntries();
-            if (orphanedEntries.Count > 0)
+            var duplicateActivities = AndroidManifestSanitizer.DetectDuplicateActivities();
+            if (orphanedEntries.Count > 0 || duplicateActivities.Count > 0)
             {
-                Debug.Log("[Palette BuildValidator] Detected orphaned AndroidManifest entries, auto-fixing...");
+                Debug.Log("[Palette BuildValidator] Detected AndroidManifest issues, auto-fixing...");
                 AndroidManifestSanitizer.Sanitize();
             }
 
