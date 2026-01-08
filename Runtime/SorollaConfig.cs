@@ -14,10 +14,7 @@ namespace Sorolla.Palette
         [Tooltip("Prototype = GA + Facebook | Full = GA + MAX + Adjust")]
         public bool isPrototypeMode = true;
 
-        [Header("AppLovin MAX")]
-        [Tooltip("SDK Key from AppLovin dashboard")]
-        public string maxSdkKey;
-
+        [Header("AppLovin MAX Ad Units")]
         [Tooltip("Rewarded ad unit ID")]
         public string maxRewardedAdUnitId;
 
@@ -55,13 +52,7 @@ namespace Sorolla.Palette
             if (isPrototypeMode)
                 return true; // Prototype is lenient
 
-            // Full mode requires MAX and Adjust
-            if (string.IsNullOrEmpty(maxSdkKey))
-            {
-                Debug.LogError("[Palette] MAX SDK Key required in Full Mode");
-                return false;
-            }
-
+            // Full mode requires Adjust token (MAX SDK key is in AppLovin settings)
             if (string.IsNullOrEmpty(adjustAppToken))
             {
                 Debug.LogError("[Palette] Adjust App Token required in Full Mode");

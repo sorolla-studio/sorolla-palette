@@ -19,6 +19,9 @@ namespace Sorolla.Palette.Editor
         List<string> _autoFixLog = new();
         bool _validationRan;
 
+        // SDK Overview expansion state
+        bool _maxExpanded;
+
         void OnEnable()
         {
             LoadOrCreateConfig();
@@ -153,25 +156,13 @@ namespace Sorolla.Palette.Editor
                     isRequired: true
                 );
 
-                // MAX (optional in Prototype)
-                DrawSdkOverviewItem(
-                    SdkRegistry.All[SdkId.AppLovinMAX],
-                    maxStatus,
-                    "Enter SDK key below",
-                    SdkConfigDetector.OpenMaxSettings,
-                    isRequired: false
-                );
+                // MAX (optional in Prototype) - expandable for ad unit IDs
+                DrawMaxOverviewItem(maxStatus, isRequired: false);
             }
             else
             {
                 // Full mode: MAX + Adjust required
-                DrawSdkOverviewItem(
-                    SdkRegistry.All[SdkId.AppLovinMAX],
-                    maxStatus,
-                    "Enter SDK key below",
-                    SdkConfigDetector.OpenMaxSettings,
-                    isRequired: true
-                );
+                DrawMaxOverviewItem(maxStatus, isRequired: true);
 
                 DrawSdkOverviewItem(
                     SdkRegistry.All[SdkId.Adjust],
@@ -254,6 +245,97 @@ namespace Sorolla.Palette.Editor
             }
 
             EditorGUILayout.EndHorizontal();
+        }
+
+        void DrawMaxOverviewItem(SdkConfigDetector.ConfigStatus configStatus, bool isRequired)
+        {
+            var sdk = SdkRegistry.All[SdkId.AppLovinMAX];
+            bool isInstalled = SdkDetector.IsInstalled(sdk);
+
+            EditorGUILayout.BeginHorizontal();
+
+            // Install status icon
+            var iconStyle = new GUIStyle(EditorStyles.label) { fixedWidth = 20 };
+            if (isInstalled)
+            {
+                iconStyle.normal.textColor = new Color(0.2f, 0.8f, 0.2f);
+                GUILayout.Label("✓", iconStyle);
+            }
+            else
+            {
+                iconStyle.normal.textColor = isRequired ? new Color(1f, 0.4f, 0.4f) : Color.gray;
+                GUILayout.Label(isRequired ? "✗" : "○", iconStyle);
+            }
+
+            // SDK name
+            var nameLabel = isRequired ? sdk.Name : $"{sdk.Name} (optional)";
+            GUILayout.Label(nameLabel, GUILayout.Width(140));
+
+            // Config status
+            var configStyle = new GUIStyle(EditorStyles.miniLabel);
+            string configText;
+
+            if (!isInstalled)
+            {
+                configStyle.normal.textColor = Color.gray;
+                configText = "—";
+            }
+            else if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
+            {
+                configStyle.normal.textColor = new Color(0.5f, 0.8f, 0.5f);
+                configText = "✓ Configured";
+            }
+            else
+            {
+                configStyle.normal.textColor = new Color(1f, 0.7f, 0.2f);
+                configText = "Set SDK key";
+            }
+
+            GUILayout.Label(configText, configStyle, GUILayout.Width(120));
+
+            GUILayout.FlexibleSpace();
+
+            // Action buttons
+            if (!isInstalled)
+            {
+                if (GUILayout.Button("Install", GUILayout.Width(70)))
+                    SdkInstaller.Install(sdk.Id);
+            }
+            else
+            {
+                // Expand/collapse button for ad unit IDs
+                var expandLabel = _maxExpanded ? "▼" : "▶";
+                if (GUILayout.Button(expandLabel, GUILayout.Width(25)))
+                    _maxExpanded = !_maxExpanded;
+
+                // Edit button opens Integration Manager (for SDK key)
+                if (GUILayout.Button("Edit", GUILayout.Width(50)))
+                    SdkConfigDetector.OpenMaxSettings();
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            // Expanded content: Ad Unit IDs
+            if (isInstalled && _maxExpanded && _config != null)
+            {
+                EditorGUI.indentLevel += 2;
+
+                var serializedConfig = new SerializedObject(_config);
+
+                EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxRewardedAdUnitId"),
+                    new GUIContent("Rewarded Ad Unit"));
+                EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxInterstitialAdUnitId"),
+                    new GUIContent("Interstitial Ad Unit"));
+                EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxBannerAdUnitId"),
+                    new GUIContent("Banner Ad Unit"));
+
+                if (serializedConfig.ApplyModifiedProperties())
+                {
+                    EditorUtility.SetDirty(_config);
+                }
+
+                EditorGUI.indentLevel -= 2;
+            }
         }
 
         void DrawFirebaseOverviewItem()
@@ -382,45 +464,22 @@ namespace Sorolla.Palette.Editor
             var serializedConfig = new SerializedObject(_config);
             bool isPrototype = SorollaSettings.IsPrototype;
 
-            // Only show SDK Keys section if MAX or Adjust needs keys
-            bool showMaxConfig = SdkDetector.IsInstalled(SdkId.AppLovinMAX);
+            // Only show SDK Keys section if Adjust needs config (Full mode only)
+            // MAX config is now inline in SDK Overview (expandable row)
             bool showAdjustConfig = !isPrototype && SdkDetector.IsInstalled(SdkId.Adjust);
 
-            if (showMaxConfig || showAdjustConfig)
+            if (showAdjustConfig)
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
                 GUILayout.Label("SDK Keys", EditorStyles.boldLabel);
 
-                // MAX config (if installed)
-                if (showMaxConfig)
-                {
-                    EditorGUILayout.Space(5);
-                    EditorGUILayout.BeginHorizontal();
-                    GUILayout.Label("AppLovin MAX", EditorStyles.boldLabel, GUILayout.Width(120));
-                    GUILayout.FlexibleSpace();
-                    if (GUILayout.Button("Integration Manager", EditorStyles.miniButton, GUILayout.Width(120)))
-                        SdkConfigDetector.OpenMaxSettings();
-                    EditorGUILayout.EndHorizontal();
-
-                    EditorGUI.indentLevel++;
-                    EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxSdkKey"), new GUIContent("SDK Key"));
-                    EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxRewardedAdUnitId"),
-                        new GUIContent("Rewarded Ad Unit"));
-                    EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxInterstitialAdUnitId"),
-                        new GUIContent("Interstitial Ad Unit"));
-                    EditorGUI.indentLevel--;
-                }
-
                 // Adjust config (full mode only)
-                if (showAdjustConfig)
-                {
-                    EditorGUILayout.Space(5);
-                    GUILayout.Label("Adjust", EditorStyles.boldLabel);
-                    EditorGUI.indentLevel++;
-                    EditorGUILayout.PropertyField(serializedConfig.FindProperty("adjustAppToken"),
-                        new GUIContent("App Token"));
-                    EditorGUI.indentLevel--;
-                }
+                EditorGUILayout.Space(5);
+                GUILayout.Label("Adjust", EditorStyles.boldLabel);
+                EditorGUI.indentLevel++;
+                EditorGUILayout.PropertyField(serializedConfig.FindProperty("adjustAppToken"),
+                    new GUIContent("App Token"));
+                EditorGUI.indentLevel--;
 
                 serializedConfig.ApplyModifiedProperties();
 

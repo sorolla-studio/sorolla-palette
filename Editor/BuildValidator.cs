@@ -590,8 +590,26 @@ namespace Sorolla.Palette.Editor
             var results = new List<ValidationResult>();
 
 #if SOROLLA_MAX_INSTALLED
+            var hasIssues = false;
+
+            // Check SDK key is configured in AppLovinSettings (Integration Manager)
+            if (!MaxSettingsSanitizer.IsSdkKeyConfigured())
+            {
+                hasIssues = true;
+                results.Add(new ValidationResult(
+                    ValidationStatus.Error,
+                    "AppLovin SDK key is not configured!\n" +
+                    "  SDK key must be set in AppLovin Integration Manager.\n" +
+                    "  Ads will not work without a valid SDK key.",
+                    "Open AppLovin > Integration Manager and enter your SDK key",
+                    CheckCategory.MaxSettings
+                ));
+            }
+
+            // Check Quality Service (causes 401 build failures)
             if (MaxSettingsSanitizer.IsQualityServiceEnabled())
             {
+                hasIssues = true;
                 results.Add(new ValidationResult(
                     ValidationStatus.Warning,
                     "AppLovin Quality Service is enabled.\n" +
@@ -601,10 +619,9 @@ namespace Sorolla.Palette.Editor
                     CheckCategory.MaxSettings
                 ));
             }
-            else
-            {
+
+            if (!hasIssues)
                 results.Add(new ValidationResult(ValidationStatus.Valid, "MAX settings OK", category: CheckCategory.MaxSettings));
-            }
 #else
             results.Add(new ValidationResult(ValidationStatus.Valid, "MAX not installed", category: CheckCategory.MaxSettings));
 #endif

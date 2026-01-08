@@ -12,6 +12,66 @@ namespace Sorolla.Palette.Editor
         private const string Tag = "[Palette MaxSanitizer]";
 
         /// <summary>
+        ///     Get the SDK key from AppLovinSettings (configured in Integration Manager)
+        /// </summary>
+        public static string GetSdkKey()
+        {
+#if SOROLLA_MAX_INSTALLED
+            try
+            {
+                var settingsType = FindAppLovinSettingsType();
+                if (settingsType == null)
+                    return null;
+
+                var instanceProp = settingsType.GetProperty("Instance",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                var instance = instanceProp?.GetValue(null);
+                if (instance == null)
+                    return null;
+
+                var sdkKeyProp = settingsType.GetProperty("SdkKey",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+                return sdkKeyProp?.GetValue(instance) as string;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"{Tag} Failed to get SDK key: {e.Message}");
+                return null;
+            }
+#else
+            return null;
+#endif
+        }
+
+        /// <summary>
+        ///     Check if SDK key is configured in AppLovinSettings
+        /// </summary>
+        public static bool IsSdkKeyConfigured()
+        {
+            var key = GetSdkKey();
+            return !string.IsNullOrEmpty(key) && key.Length > 10;
+        }
+
+        private static System.Type FindAppLovinSettingsType()
+        {
+            var settingsType = System.Type.GetType("AppLovinSettings, Assembly-CSharp-Editor")
+                               ?? System.Type.GetType("AppLovinSettings, MaxSdk.Scripts.IntegrationManager.Editor");
+
+            if (settingsType == null)
+            {
+                foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    settingsType = assembly.GetType("AppLovinSettings");
+                    if (settingsType != null)
+                        break;
+                }
+            }
+
+            return settingsType;
+        }
+
+        /// <summary>
         ///     Check if Quality Service is enabled (causes build failures with 401 errors)
         /// </summary>
         public static bool IsQualityServiceEnabled()
@@ -19,39 +79,20 @@ namespace Sorolla.Palette.Editor
 #if SOROLLA_MAX_INSTALLED
             try
             {
-                // AppLovinSettings is not namespaced, access via reflection for safety
-                var settingsType = System.Type.GetType("AppLovinSettings, Assembly-CSharp-Editor")
-                                   ?? System.Type.GetType("AppLovinSettings, MaxSdk.Scripts.IntegrationManager.Editor");
-
-                if (settingsType == null)
-                {
-                    // Try to find it in loaded assemblies
-                    foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
-                    {
-                        settingsType = assembly.GetType("AppLovinSettings");
-                        if (settingsType != null)
-                            break;
-                    }
-                }
-
+                var settingsType = FindAppLovinSettingsType();
                 if (settingsType == null)
                     return false;
 
                 var instanceProp = settingsType.GetProperty("Instance",
                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                if (instanceProp == null)
-                    return false;
-
-                var instance = instanceProp.GetValue(null);
+                var instance = instanceProp?.GetValue(null);
                 if (instance == null)
                     return false;
 
                 var qsProp = settingsType.GetProperty("QualityServiceEnabled",
                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                if (qsProp == null)
-                    return false;
 
-                return (bool)qsProp.GetValue(instance);
+                return qsProp != null && (bool)qsProp.GetValue(instance);
             }
             catch (System.Exception e)
             {
@@ -81,17 +122,7 @@ namespace Sorolla.Palette.Editor
 
             try
             {
-                var settingsType = System.Type.GetType("AppLovinSettings, Assembly-CSharp-Editor");
-                if (settingsType == null)
-                {
-                    foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
-                    {
-                        settingsType = assembly.GetType("AppLovinSettings");
-                        if (settingsType != null)
-                            break;
-                    }
-                }
-
+                var settingsType = FindAppLovinSettingsType();
                 if (settingsType == null)
                     return false;
 
