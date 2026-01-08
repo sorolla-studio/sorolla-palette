@@ -107,4 +107,4 @@ For better fill rates and revenue:
 - 📖 [Prototype Setup](prototype-setup.md) - Quick UA testing setup
 - 📖 [Full Mode Setup](full-setup.md) - Complete production setup
 - 📖 [Troubleshooting](troubleshooting.md) - Common issues and fixes
-- 🐛 [Report Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
+- 🐛 [Report Issues](https://github.com/sorolla-studio/sorolla-palette/issues)

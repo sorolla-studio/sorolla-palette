@@ -331,6 +331,6 @@ Your game is now fully set up with:
 ## 💬 Need Help?
 
 - 📧 **Email**: studio@sorolla.io (for setup assistance)
-- 💬 **GitHub Issues**: [Report problems](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
+- 💬 **GitHub Issues**: [Report problems](https://github.com/sorolla-studio/sorolla-palette/issues)
 - 📊 **Analytics**: Check your [GameAnalytics dashboard](https://gameanalytics.com)
 - 💰 **Revenue**: Monitor [AppLovin MAX dashboard](https://dash.applovin.com)

@@ -290,7 +290,7 @@ Crashlytics requires:
 
 ## Getting Help
 
-1. Check [GitHub Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues)
+1. Check [GitHub Issues](https://github.com/sorolla-studio/sorolla-palette/issues)
 2. Review error messages in Unity Console
 3. Use Debug UI for on-device diagnostics
 4. File new issue with:

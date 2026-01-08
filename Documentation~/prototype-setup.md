@@ -226,4 +226,4 @@ When you're ready to scale to full production:
 
 - 📖 [API Reference](api-reference.md) - Complete code documentation
 - 🐛 [Troubleshooting](troubleshooting.md) - Common issues and fixes
-- 💬 [GitHub Issues](https://github.com/LaCreArthur/sorolla-palette-upm/issues) - Report problems
+- 💬 [GitHub Issues](https://github.com/sorolla-studio/sorolla-palette/issues) - Report problems
