@@ -18,6 +18,20 @@ namespace Sorolla.Palette.Editor
         List<BuildValidator.ValidationResult> _validationResults = new();
         List<string> _autoFixLog = new();
 
+        /// <summary>
+        ///     Data for rendering a single SDK row in the overview section.
+        /// </summary>
+        struct SdkRowData
+        {
+            public string Name;
+            public bool IsInstalled;
+            public bool IsRequired;
+            public SdkConfigDetector.ConfigStatus ConfigStatus;
+            public string ConfigHint;
+            public Action OnConfigure;
+            public Action OnInstall;
+        }
+
 
         void OnEnable()
         {
@@ -179,37 +193,48 @@ namespace Sorolla.Palette.Editor
         void DrawSdkOverviewItem(SdkInfo sdk, SdkConfigDetector.ConfigStatus configStatus,
             string configHint, Action openSettings, bool isRequired)
         {
-            bool isInstalled = SdkDetector.IsInstalled(sdk);
+            DrawSdkRow(new SdkRowData
+            {
+                Name = sdk.Name,
+                IsInstalled = SdkDetector.IsInstalled(sdk),
+                IsRequired = isRequired,
+                ConfigStatus = configStatus,
+                ConfigHint = configHint,
+                OnConfigure = openSettings,
+                OnInstall = () => SdkInstaller.Install(sdk.Id)
+            });
+        }
 
+        void DrawSdkRow(SdkRowData data)
+        {
             EditorGUILayout.BeginHorizontal();
 
-            // Install status icon
+            // Icon
             var iconStyle = new GUIStyle(EditorStyles.label) { fixedWidth = 20 };
-            if (isInstalled)
+            if (data.IsInstalled)
             {
                 iconStyle.normal.textColor = new Color(0.2f, 0.8f, 0.2f);
                 GUILayout.Label("✓", iconStyle);
             }
             else
             {
-                iconStyle.normal.textColor = isRequired ? new Color(1f, 0.4f, 0.4f) : Color.gray;
-                GUILayout.Label(isRequired ? "✗" : "○", iconStyle);
+                iconStyle.normal.textColor = data.IsRequired ? new Color(1f, 0.4f, 0.4f) : Color.gray;
+                GUILayout.Label(data.IsRequired ? "✗" : "○", iconStyle);
             }
 
-            // SDK name
-            var nameLabel = isRequired ? sdk.Name : $"{sdk.Name} (optional)";
+            // Name
+            var nameLabel = data.IsRequired ? data.Name : $"{data.Name} (optional)";
             GUILayout.Label(nameLabel, GUILayout.Width(140));
 
             // Config status
             var configStyle = new GUIStyle(EditorStyles.miniLabel);
             string configText;
-
-            if (!isInstalled)
+            if (!data.IsInstalled)
             {
                 configStyle.normal.textColor = Color.gray;
                 configText = "—";
             }
-            else if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
+            else if (data.ConfigStatus == SdkConfigDetector.ConfigStatus.Configured)
             {
                 configStyle.normal.textColor = new Color(0.5f, 0.8f, 0.5f);
                 configText = "✓ Configured";
@@ -217,28 +242,27 @@ namespace Sorolla.Palette.Editor
             else
             {
                 configStyle.normal.textColor = new Color(1f, 0.7f, 0.2f);
-                configText = configHint;
+                configText = data.ConfigHint;
             }
-
             GUILayout.Label(configText, configStyle, GUILayout.Width(120));
 
             GUILayout.FlexibleSpace();
 
             // Action button
-            if (!isInstalled)
+            if (!data.IsInstalled && data.OnInstall != null)
             {
                 if (GUILayout.Button("Install", GUILayout.Width(70)))
-                    SdkInstaller.Install(sdk.Id);
+                    data.OnInstall();
             }
-            else if (configStatus == SdkConfigDetector.ConfigStatus.NotConfigured && openSettings != null)
+            else if (data.IsInstalled && data.ConfigStatus == SdkConfigDetector.ConfigStatus.NotConfigured && data.OnConfigure != null)
             {
                 if (GUILayout.Button("Configure", GUILayout.Width(70)))
-                    openSettings();
+                    data.OnConfigure();
             }
-            else if (configStatus == SdkConfigDetector.ConfigStatus.Configured && openSettings != null)
+            else if (data.IsInstalled && data.ConfigStatus == SdkConfigDetector.ConfigStatus.Configured && data.OnConfigure != null)
             {
                 if (GUILayout.Button("Edit", GUILayout.Width(50)))
-                    openSettings();
+                    data.OnConfigure();
             }
 
             EditorGUILayout.EndHorizontal();
