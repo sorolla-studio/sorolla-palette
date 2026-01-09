@@ -13,6 +13,21 @@ namespace Sorolla.Palette.Editor
     public static class SdkInstaller
     {
         /// <summary>
+        ///     Ensure MAX registry is properly configured (uses its own registry, not OpenUPM).
+        /// </summary>
+        static void EnsureMaxRegistry()
+        {
+            // Remove com.applovin from OpenUPM if it exists (fixes duplicate scope error)
+            ManifestManager.RemoveScopeFromRegistry("https://package.openupm.com", "com.applovin");
+
+            ManifestManager.AddOrUpdateRegistry(
+                "AppLovin MAX",
+                "https://unity.packages.applovin.com/",
+                new[] { "com.applovin" }
+            );
+        }
+
+        /// <summary>
         ///     Install an SDK by adding it to manifest.json
         /// </summary>
         public static void Install(SdkId id)
@@ -27,16 +42,7 @@ namespace Sorolla.Palette.Editor
 
             // Add registry if needed (for MAX - uses its own registry, not OpenUPM)
             if (id == SdkId.AppLovinMAX)
-            {
-                // Remove com.applovin from OpenUPM if it exists (fixes duplicate scope error)
-                ManifestManager.RemoveScopeFromRegistry("https://package.openupm.com", "com.applovin");
-
-                ManifestManager.AddOrUpdateRegistry(
-                    "AppLovin MAX",
-                    "https://unity.packages.applovin.com/",
-                    new[] { "com.applovin" }
-                );
-            }
+                EnsureMaxRegistry();
             // Add scope to OpenUPM if needed (but not for MAX)
             else if (!string.IsNullOrEmpty(info.Scope))
             {
@@ -97,16 +103,7 @@ namespace Sorolla.Palette.Editor
 
                 // Special handling for MAX - uses its own registry, not OpenUPM
                 if (sdk.Id == SdkId.AppLovinMAX)
-                {
-                    // Remove com.applovin from OpenUPM if it exists (fixes duplicate scope error)
-                    ManifestManager.RemoveScopeFromRegistry("https://package.openupm.com", "com.applovin");
-
-                    ManifestManager.AddOrUpdateRegistry(
-                        "AppLovin MAX",
-                        "https://unity.packages.applovin.com/",
-                        new[] { "com.applovin" }
-                    );
-                }
+                    EnsureMaxRegistry();
             }
 
 
