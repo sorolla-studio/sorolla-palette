@@ -42,23 +42,5 @@ namespace Sorolla.Palette
         [Header("Firebase Remote Config (Optional)")]
         [Tooltip("Enable Firebase Remote Config for A/B testing and feature flags")]
         public bool enableRemoteConfig;
-
-        /// <summary>
-        ///     Validate configuration for current mode
-        /// </summary>
-        public bool IsValid()
-        {
-            if (isPrototypeMode)
-                return true; // Prototype is lenient
-
-            // Full mode requires Adjust token (MAX SDK key is in AppLovin settings)
-            if (string.IsNullOrEmpty(adjustAppToken))
-            {
-                Debug.LogError("[Palette] Adjust App Token required in Full Mode");
-                return false;
-            }
-
-            return true;
-        }
     }
 }
