@@ -62,6 +62,9 @@ namespace Sorolla.Palette.Editor
             window.Show();
         }
 
+        [MenuItem("Palette/Tools/Validate Build")]
+        public static void ValidateBuild() => ShowWindow();
+
         [InitializeOnLoadMethod]
         static void AutoOpenOnLoad() => EditorApplication.delayCall += () =>
         {
