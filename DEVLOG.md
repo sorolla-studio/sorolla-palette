@@ -62,6 +62,34 @@ SorollaSDK.cs → Palette.cs
 
 ---
 
+## 2026-01-09: SDK Simplification - Complete
+
+**Summary**: Completed all 11 tasks in the simplification plan.
+
+**Bug Fixes**:
+- `Palette.cs:202`: `s_config` → `Config` (undefined variable)
+- `SorollaTestingTools.cs:18`: `v3` → `v6` (stale EditorPrefs key)
+
+**Dead Code Removed**:
+- `SorollaConfig.IsValid()` - no callers
+- `SdkConfigDetector.GetCrashlyticsStatus()` - no callers
+- `SdkConfigDetector.GetRemoteConfigStatus()` - no callers
+
+**Deduplication**:
+- `SorollaWindow.cs`: Added `SdkRowData` struct + `DrawSdkRow()` helper
+- `SdkInstaller.cs`: Extracted `EnsureMaxRegistry()` for MAX registry setup
+- `MaxSettingsSanitizer.cs`: Cached `AppLovinSettings` Type lookup
+
+**Files Merged/Deleted**:
+- `SorollaMode.cs` → merged into `SorollaSettings.cs` (deleted)
+- `BuildValidationWindow.cs` → merged into `SorollaWindow.cs` (deleted)
+- `FirebaseCoreManager.cs` → merged into `FirebaseAdapter.cs` (deleted)
+
+**Cleanup**:
+- Trimmed verbose comments in 3 AssemblyInfo.cs files
+
+---
+
 ## 2026-01-08: Remove deprecated MaxSdk.SetSdkKey()
 
 **Summary**: SDK key now lives in AppLovinSettings (Integration Manager), not SorollaConfig.

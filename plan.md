@@ -11,7 +11,7 @@ Simplify the Sorolla SDK codebase by fixing bugs, removing dead code, consolidat
 
 ## Phase 1: Bug Fix
 
-### 1.1 Fix undefined `s_config` in Palette.cs
+### [x] 1.1 Fix undefined `s_config` in Palette.cs
 
 **File:** `Runtime/Palette.cs`
 **Line:** 202
@@ -38,7 +38,7 @@ Simplify the Sorolla SDK codebase by fixing bugs, removing dead code, consolidat
 
 ## Phase 2: Dead Code Removal
 
-### 2.1 Delete `IsValid()` from SorollaConfig.cs
+### [x] 2.1 Delete `IsValid()` from SorollaConfig.cs
 
 **File:** `Runtime/SorollaConfig.cs`
 **Lines to delete:** 46-62 (including comment above method)
@@ -66,7 +66,7 @@ Delete this entire block:
 
 **Verification:** Grep codebase for `IsValid` - no callers exist.
 
-### 2.2 Delete unused methods from SdkConfigDetector.cs
+### [x] 2.2 Delete unused methods from SdkConfigDetector.cs
 
 **File:** `Editor/Sdk/SdkConfigDetector.cs`
 **Lines to delete:** 192-226
@@ -92,7 +92,7 @@ Delete these two methods (they are never called):
 
 **Verification:** Grep for `GetCrashlyticsStatus` and `GetRemoteConfigStatus` - no callers.
 
-### 2.3 Fix stale version key in SorollaTestingTools.cs
+### [x] 2.3 Fix stale version key in SorollaTestingTools.cs
 
 **File:** `Editor/SorollaTestingTools.cs`
 **Line:** 18
@@ -113,7 +113,7 @@ EditorPrefs.DeleteKey($"Sorolla_Setup_v6_{hash}");
 
 ## Phase 3: Deduplication
 
-### 3.1 Extract shared UI rendering in SorollaWindow.cs
+### [x] 3.1 Extract shared UI rendering in SorollaWindow.cs
 
 **File:** `Editor/SorollaWindow.cs`
 **Problem:** Three methods share identical patterns (lines 179-409):
@@ -207,7 +207,7 @@ private void DrawSdkRow(SdkRowData data)
 
 Then refactor `DrawSdkOverviewItem()` to use it. Keep `DrawMaxOverviewItem()` and `DrawFirebaseOverviewItem()` separate since they have extra UI (ad unit fields, Firebase modules).
 
-### 3.2 Extract shared registry setup in SdkInstaller.cs
+### [x] 3.2 Extract shared registry setup in SdkInstaller.cs
 
 **File:** `Editor/Sdk/SdkInstaller.cs`
 **Problem:** MAX registry setup duplicated at lines 29-38 and 99-108
@@ -230,7 +230,7 @@ private static void EnsureMaxRegistry()
 
 Call from both `Install()` (line 29) and `InstallRequiredSdks()` (line 99) when `id == SdkId.AppLovinMAX`.
 
-### 3.3 Cache reflection Type in MaxSettingsSanitizer.cs
+### [x] 3.3 Cache reflection Type in MaxSettingsSanitizer.cs
 
 **File:** `Editor/MaxSettingsSanitizer.cs`
 **Problem:** `FindAppLovinSettingsType()` called separately in each method (lines 22, 82, 125)
@@ -258,7 +258,7 @@ Replace all calls to `FindAppLovinSettingsType()` with `GetAppLovinSettingsType(
 
 ## Phase 4: Cleanup
 
-### 4.1 Merge SorollaMode.cs into SorollaSettings.cs
+### [x] 4.1 Merge SorollaMode.cs into SorollaSettings.cs
 
 **Delete:** `Editor/SorollaMode.cs`
 **Modify:** `Editor/SorollaSettings.cs`
@@ -291,7 +291,7 @@ namespace Sorolla.Palette.Editor
 }
 ```
 
-### 4.2 Merge BuildValidationWindow.cs into SorollaWindow.cs
+### [x] 4.2 Merge BuildValidationWindow.cs into SorollaWindow.cs
 
 **Delete:** `Editor/BuildValidationWindow.cs`
 **Modify:** `Editor/SorollaWindow.cs`
@@ -303,7 +303,7 @@ Add the menu item inside SorollaWindow class (near line 43-49 where other menu i
 public static void ValidateBuild() => ShowWindow();
 ```
 
-### 4.3 Merge FirebaseCoreManager.cs into FirebaseAdapter.cs
+### [x] 4.3 Merge FirebaseCoreManager.cs into FirebaseAdapter.cs
 
 **Delete:** `Runtime/Adapters/FirebaseCoreManager.cs`
 **Modify:** `Runtime/Adapters/FirebaseAdapter.cs`
@@ -356,7 +356,7 @@ namespace Sorolla.Palette.Adapters
 }
 ```
 
-### 4.4 Trim AssemblyInfo comments
+### [x] 4.4 Trim AssemblyInfo comments
 
 **Files:**
 - `Runtime/Adapters/MAX/AssemblyInfo.cs`
