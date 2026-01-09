@@ -188,41 +188,5 @@ namespace Sorolla.Palette.Editor
 
             return ConfigStatus.NotConfigured;
         }
-
-        /// <summary>
-        ///     Checks if Firebase Crashlytics is configured.
-        /// </summary>
-        public static ConfigStatus GetCrashlyticsStatus(SorollaConfig config)
-        {
-            if (!SdkDetector.IsInstalled(SdkId.FirebaseCrashlytics))
-                return ConfigStatus.NotInstalled;
-
-            if (config == null || !config.enableCrashlytics)
-                return ConfigStatus.NotConfigured;
-
-            // Crashlytics needs config files too
-            if (IsFirebaseAndroidConfigured() || IsFirebaseIOSConfigured())
-                return ConfigStatus.Configured;
-
-            return ConfigStatus.NotConfigured;
-        }
-
-        /// <summary>
-        ///     Checks if Firebase Remote Config is configured.
-        /// </summary>
-        public static ConfigStatus GetRemoteConfigStatus(SorollaConfig config)
-        {
-            if (!SdkDetector.IsInstalled(SdkId.FirebaseRemoteConfig))
-                return ConfigStatus.NotInstalled;
-
-            if (config == null || !config.enableRemoteConfig)
-                return ConfigStatus.NotConfigured;
-
-            // Remote Config needs config files too
-            if (IsFirebaseAndroidConfigured() || IsFirebaseIOSConfigured())
-                return ConfigStatus.Configured;
-
-            return ConfigStatus.NotConfigured;
-        }
     }
 }
