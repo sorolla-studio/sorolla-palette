@@ -15,7 +15,7 @@ namespace Sorolla.Palette.Editor
         public static void ResetPackageState()
         {
             int hash = Application.dataPath.GetHashCode();
-            EditorPrefs.DeleteKey($"Sorolla_Setup_v3_{hash}");
+            EditorPrefs.DeleteKey($"Sorolla_Setup_v6_{hash}");
             EditorPrefs.DeleteKey($"Sorolla_Mode_{hash}");
             Debug.Log("[Palette Testing] Package state reset.");
         }
