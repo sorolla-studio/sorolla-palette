@@ -199,7 +199,7 @@ namespace Sorolla.Palette
             GameAnalyticsAdapter.TrackDesignEvent(eventName, value);
 
 #if SOROLLA_FACEBOOK_ENABLED
-            var isPrototype = s_config == null || s_config.isPrototypeMode;
+            var isPrototype = Config == null || Config.isPrototypeMode;
             if (isPrototype)
                 FacebookAdapter.TrackEvent(eventName, value);
 #endif
