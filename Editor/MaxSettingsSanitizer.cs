@@ -11,6 +11,10 @@ namespace Sorolla.Palette.Editor
     {
         private const string Tag = "[Palette MaxSanitizer]";
 
+        // Cached Type lookup to avoid repeated reflection
+        private static System.Type s_appLovinSettingsType;
+        private static bool s_typeSearched;
+
         /// <summary>
         ///     Get the SDK key from AppLovinSettings (configured in Integration Manager)
         /// </summary>
@@ -19,7 +23,7 @@ namespace Sorolla.Palette.Editor
 #if SOROLLA_MAX_INSTALLED
             try
             {
-                var settingsType = FindAppLovinSettingsType();
+                var settingsType = GetAppLovinSettingsType();
                 if (settingsType == null)
                     return null;
 
@@ -53,6 +57,16 @@ namespace Sorolla.Palette.Editor
             return !string.IsNullOrEmpty(key) && key.Length > 10;
         }
 
+        private static System.Type GetAppLovinSettingsType()
+        {
+            if (!s_typeSearched)
+            {
+                s_typeSearched = true;
+                s_appLovinSettingsType = FindAppLovinSettingsType();
+            }
+            return s_appLovinSettingsType;
+        }
+
         private static System.Type FindAppLovinSettingsType()
         {
             var settingsType = System.Type.GetType("AppLovinSettings, Assembly-CSharp-Editor")
@@ -79,7 +93,7 @@ namespace Sorolla.Palette.Editor
 #if SOROLLA_MAX_INSTALLED
             try
             {
-                var settingsType = FindAppLovinSettingsType();
+                var settingsType = GetAppLovinSettingsType();
                 if (settingsType == null)
                     return false;
 
@@ -122,7 +136,7 @@ namespace Sorolla.Palette.Editor
 
             try
             {
-                var settingsType = FindAppLovinSettingsType();
+                var settingsType = GetAppLovinSettingsType();
                 if (settingsType == null)
                     return false;
 
