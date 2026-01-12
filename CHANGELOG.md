@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0] - 2025-01-12
+
+### Breaking Changes
+- **Ad Unit IDs**: Replaced single fields with `PlatformAdUnitId` class containing Android/iOS variants
+  - `maxRewardedAdUnitId` → `rewardedAdUnit.android` / `rewardedAdUnit.ios`
+  - `maxInterstitialAdUnitId` → `interstitialAdUnit.android` / `interstitialAdUnit.ios`
+  - `maxBannerAdUnitId` → `bannerAdUnit.android` / `bannerAdUnit.ios`
+  - **Migration**: Re-enter ad unit IDs in the new platform-specific fields
+
+### Added
+- **Platform-Specific Ad Units**: `PlatformAdUnitId` class with `.Current` property for automatic platform selection
+- **AppLovin Quality Service Auto-Fix**: Build validator auto-disables Quality Service to prevent 401 build failures
+- **Duplicate Activity Detection**: AndroidManifestSanitizer now detects and removes duplicate SDK activities
+
+### Fixed
+- Setup version key updated from v3 to v6
+- `s_config` → `Config` reference in `TrackDesign` method
+
+### Changed
+- Merged `FirebaseCoreManager` into `FirebaseAdapter.cs`
+- Merged `BuildValidationWindow` menu into `SorollaWindow.cs`
+- Merged `SorollaMode` enum into `SorollaSettings.cs`
+- Removed unused `GetCrashlyticsStatus`/`GetRemoteConfigStatus` methods
+- Removed unused `IsValid()` from `SorollaConfig`
+- Various code simplifications and refactoring
+
 ## [2.3.3] - 2025-12-29
 
 ### Fixed
