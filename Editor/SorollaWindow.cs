@@ -341,12 +341,12 @@ namespace Sorolla.Palette.Editor
 
                 var serializedConfig = new SerializedObject(_config);
 
-                EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxRewardedAdUnitId"),
+                EditorGUILayout.PropertyField(serializedConfig.FindProperty("rewardedAdUnit"),
                     new GUIContent("Rewarded Ad Unit"));
-                EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxInterstitialAdUnitId"),
+                EditorGUILayout.PropertyField(serializedConfig.FindProperty("interstitialAdUnit"),
                     new GUIContent("Interstitial Ad Unit"));
-                EditorGUILayout.PropertyField(serializedConfig.FindProperty("maxBannerAdUnitId"),
-                    new GUIContent("Banner Ad Unit"));
+                EditorGUILayout.PropertyField(serializedConfig.FindProperty("bannerAdUnit"),
+                    new GUIContent("Banner Ad Unit (Optional)"));
 
                 if (serializedConfig.ApplyModifiedProperties())
                 {

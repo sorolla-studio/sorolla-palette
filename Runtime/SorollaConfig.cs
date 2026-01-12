@@ -1,7 +1,29 @@
+using System;
 using UnityEngine;
 
 namespace Sorolla.Palette
 {
+    /// <summary>
+    ///     Platform-specific ad unit ID container.
+    ///     Use .Current to get the correct ID for the active build target.
+    /// </summary>
+    [Serializable]
+    public class PlatformAdUnitId
+    {
+        public string android;
+        public string ios;
+
+        public string Current =>
+#if UNITY_IOS
+            ios;
+#else
+            android;
+#endif
+
+        public bool IsConfigured =>
+            !string.IsNullOrEmpty(android) || !string.IsNullOrEmpty(ios);
+    }
+
     /// <summary>
     ///     Configuration asset for Palette SDK.
     ///     Create via: Assets > Create > Palette > Config
@@ -14,14 +36,15 @@ namespace Sorolla.Palette
         [Tooltip("Prototype = GA + Facebook | Full = GA + MAX + Adjust")]
         public bool isPrototypeMode = true;
 
-        [Tooltip("Rewarded ad unit ID")]
-        public string maxRewardedAdUnitId;
+        [Header("MAX Ad Units")]
+        [Tooltip("Rewarded ad unit IDs per platform")]
+        public PlatformAdUnitId rewardedAdUnit;
 
-        [Tooltip("Interstitial ad unit ID")]
-        public string maxInterstitialAdUnitId;
+        [Tooltip("Interstitial ad unit IDs per platform")]
+        public PlatformAdUnitId interstitialAdUnit;
 
-        [Tooltip("Banner ad unit ID (optional)")]
-        public string maxBannerAdUnitId;
+        [Tooltip("Banner ad unit IDs per platform (optional)")]
+        public PlatformAdUnitId bannerAdUnit;
 
         [Header("Adjust (Full Mode Only)")]
         [Tooltip("Adjust App Token")]
