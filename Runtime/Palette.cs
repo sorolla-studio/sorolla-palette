@@ -507,8 +507,11 @@ namespace Sorolla.Palette
             MaxAdapter.OnSdkInitialized += OnMaxSdkInitialized;
 
             // SDK key is read from AppLovinSettings (configured in Integration Manager)
-            MaxAdapter.Initialize(Config.maxRewardedAdUnitId,
-                Config.maxInterstitialAdUnitId, Config.maxBannerAdUnitId, HasConsent);
+            MaxAdapter.Initialize(
+                Config.rewardedAdUnit.Current,
+                Config.interstitialAdUnit.Current,
+                Config.bannerAdUnit.Current,
+                HasConsent);
         }
 
         static void OnMaxSdkInitialized()
