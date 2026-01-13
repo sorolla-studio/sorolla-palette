@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0] - 2025-01-13
+
+### Changed
+- **Firebase is now required** in all modes (Prototype + Full)
+- Firebase packages auto-install on SDK import/upgrade
+- SetupVersion bumped to v7 (triggers setup for upgrading users)
+
+### Added
+- **Migration popup**: One-time guide for Firebase setup after SDK upgrade
+- Links to Firebase Console and configuration window
+
+### Documentation
+- Updated `firebase.md` to reflect required status
+- Added Firebase config step to `prototype-setup.md`
+- Updated `full-setup.md` to show Firebase as required
+
 ## [3.0.0] - 2025-01-12
 
 ### Breaking Changes
