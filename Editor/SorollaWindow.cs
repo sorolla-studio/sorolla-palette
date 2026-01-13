@@ -35,6 +35,11 @@ namespace Sorolla.Palette.Editor
         static readonly Color ColorRed = new Color(0.9f, 0.4f, 0.4f);
         static readonly Color ColorGray = Color.gray;
 
+        // Version from package.json (cached)
+        static string s_version;
+        static string Version => s_version ??= UnityEditor.PackageManager.PackageInfo
+            .FindForAssembly(typeof(SorollaWindow).Assembly)?.version ?? "?.?.?";
+
         // Instance state
         readonly List<string> _autoFixLog = new List<string>();
         SorollaConfig _config;
@@ -130,7 +135,7 @@ namespace Sorolla.Palette.Editor
         {
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             GUILayout.Label("Palette SDK", s_headerTitleStyle);
-            GUILayout.Label("v3.1.0 - Plug & Play Publisher Stack", s_headerSubtitleStyle);
+            GUILayout.Label($"v{Version} - Plug & Play Publisher Stack", s_headerSubtitleStyle);
             EditorGUILayout.EndVertical();
         }
 
