@@ -62,6 +62,23 @@ SorollaSDK.cs → Palette.cs
 
 ---
 
+## 2026-01-13: v3.1.0 - Firebase Mandatory
+
+**Summary**: Made Firebase required in all modes (Prototype + Full) with zero-friction upgrade path.
+
+**Changes**:
+- `SdkRegistry.cs`: Changed all 4 Firebase packages from `Optional` to `Core`
+- `SorollaSetup.cs`: Bumped SetupVersion to v7, added `FirebaseMigrationKey` for one-time popup
+- `MigrationPopup.cs`: New EditorWindow guides users through Firebase setup
+- `package.json`: Version 3.0.0 → 3.1.0
+
+**Learnings**:
+- SetupVersion bump triggers full setup for existing users (installs new Core packages)
+- Separate migration key needed for one-time UI (separate from setup key)
+- EditorWindow.ShowUtility() creates modal-like behavior without blocking
+
+---
+
 ## 2026-01-09: SDK Simplification - Complete
 
 **Summary**: Completed all 11 tasks in the simplification plan.

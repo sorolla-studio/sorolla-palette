@@ -13,7 +13,7 @@ Make Firebase mandatory in all paths (Prototype + Full) with zero-friction upgra
 
 ## Implementation Plan
 
-### 1. Change Firebase Requirement Level
+### [x] 1. Change Firebase Requirement Level
 **File:** `Editor/Sdk/SdkRegistry.cs`
 
 Change all Firebase packages from `Optional` → `Core`:
@@ -22,7 +22,7 @@ Change all Firebase packages from `Optional` → `Core`:
 Requirement = SdkRequirement.Core  // was Optional
 ```
 
-### 2. Auto-Install Firebase on Upgrade
+### [x] 2. Auto-Install Firebase on Upgrade
 **File:** `Editor/SorollaSetup.cs`
 
 Add versioned upgrade hook (runs once per project):
@@ -43,7 +43,7 @@ if (!EditorPrefs.GetBool(FirebaseMigrationKey, false))
 }
 ```
 
-### 3. Migration Popup Window
+### [x] 3. Migration Popup Window
 **New file:** `Editor/MigrationPopup.cs`
 
 A minimal EditorWindow that appears once:
@@ -76,13 +76,13 @@ Features:
 - "Open Configuration" button → `SorollaWindow.ShowWindow()`
 - Simple, scannable, actionable
 
-### 4. Version Bump
+### [x] 4. Version Bump
 **File:** `package.json`
 ```json
 "version": "3.1.0"
 ```
 
-### 5. Update Documentation
+### [x] 5. Update Documentation
 
 **File:** `Documentation~/firebase.md`
 - Add note: "Firebase is required as of v3.1"
