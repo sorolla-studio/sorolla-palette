@@ -37,22 +37,44 @@ namespace Sorolla.Palette.Editor
     }
 
     /// <summary>
-    ///     Metadata for a single SDK
+    ///     Metadata for a single SDK. Immutable to prevent accidental mutation.
     /// </summary>
-    public class SdkInfo
+    public readonly struct SdkInfo
     {
-        public SdkId Id;
-        public string Name;
-        public string PackageId;
+        public readonly SdkId Id;
+        public readonly string Name;
+        public readonly string PackageId;
         /// <summary>Version for OpenUPM packages (null = use InstallUrl instead)</summary>
-        public string Version;
+        public readonly string Version;
         /// <summary>Git URL for packages not on OpenUPM (null = use PackageId@Version)</summary>
-        public string InstallUrl;
+        public readonly string InstallUrl;
         /// <summary>OpenUPM scope required for this package (null = no scope needed)</summary>
-        public string Scope;
-        public string[] DetectionAssemblies;
-        public string[] DetectionTypes;
-        public SdkRequirement Requirement;
+        public readonly string Scope;
+        public readonly string[] DetectionAssemblies;
+        public readonly string[] DetectionTypes;
+        public readonly SdkRequirement Requirement;
+
+        public SdkInfo(
+            SdkId id,
+            string name,
+            string packageId,
+            SdkRequirement requirement,
+            string[] detectionAssemblies,
+            string[] detectionTypes,
+            string version = null,
+            string installUrl = null,
+            string scope = null)
+        {
+            Id = id;
+            Name = name;
+            PackageId = packageId;
+            Requirement = requirement;
+            DetectionAssemblies = detectionAssemblies;
+            DetectionTypes = detectionTypes;
+            Version = version;
+            InstallUrl = installUrl;
+            Scope = scope;
+        }
 
         /// <summary>Get the dependency value for manifest.json</summary>
         public string DependencyValue => !string.IsNullOrEmpty(InstallUrl) ? InstallUrl : Version;
@@ -91,112 +113,100 @@ namespace Sorolla.Palette.Editor
 
         public static readonly IReadOnlyDictionary<SdkId, SdkInfo> All = new Dictionary<SdkId, SdkInfo>
         {
-            [SdkId.ExternalDependencyManager] = new()
-            {
-                Id = SdkId.ExternalDependencyManager,
-                Name = "External Dependency Manager",
-                PackageId = "com.google.external-dependency-manager",
-                Version = EDM_VERSION,
-                Scope = "com.google.external-dependency-manager",
-                DetectionAssemblies = new[] { "Google.JarResolver" },
-                DetectionTypes = System.Array.Empty<string>(),
-                Requirement = SdkRequirement.Core
-            },
-            [SdkId.GameAnalytics] = new()
-            {
-                Id = SdkId.GameAnalytics,
-                Name = "GameAnalytics",
-                PackageId = "com.gameanalytics.sdk",
-                Version = GA_VERSION,
-                Scope = "com.gameanalytics",
-                DetectionAssemblies = new[] { "GameAnalyticsSDK" },
-                DetectionTypes = new[] { "GameAnalyticsSDK.GameAnalytics, GameAnalyticsSDK" },
-                Requirement = SdkRequirement.Core
-            },
-            [SdkId.IosSupport] = new()
-            {
-                Id = SdkId.IosSupport,
-                Name = "iOS Support (ATT)",
-                PackageId = "com.unity.ads.ios-support",
-                Version = "1.2.0",
+            [SdkId.ExternalDependencyManager] = new SdkInfo(
+                id: SdkId.ExternalDependencyManager,
+                name: "External Dependency Manager",
+                packageId: "com.google.external-dependency-manager",
+                requirement: SdkRequirement.Core,
+                detectionAssemblies: new[] { "Google.JarResolver" },
+                detectionTypes: System.Array.Empty<string>(),
+                version: EDM_VERSION,
+                scope: "com.google.external-dependency-manager"
+            ),
+            [SdkId.GameAnalytics] = new SdkInfo(
+                id: SdkId.GameAnalytics,
+                name: "GameAnalytics",
+                packageId: "com.gameanalytics.sdk",
+                requirement: SdkRequirement.Core,
+                detectionAssemblies: new[] { "GameAnalyticsSDK" },
+                detectionTypes: new[] { "GameAnalyticsSDK.GameAnalytics, GameAnalyticsSDK" },
+                version: GA_VERSION,
+                scope: "com.gameanalytics"
+            ),
+            [SdkId.IosSupport] = new SdkInfo(
+                id: SdkId.IosSupport,
+                name: "iOS Support (ATT)",
+                packageId: "com.unity.ads.ios-support",
+                requirement: SdkRequirement.Core,
+                detectionAssemblies: new[] { "Unity.Advertisement.IosSupport" },
+                detectionTypes: new[] { "Unity.Advertisement.IosSupport.ATTrackingStatusBinding, Unity.Advertisement.IosSupport" },
+                version: "1.2.0"
                 // No scope needed - Unity registry
-                DetectionAssemblies = new[] { "Unity.Advertisement.IosSupport" },
-                DetectionTypes = new[] { "Unity.Advertisement.IosSupport.ATTrackingStatusBinding, Unity.Advertisement.IosSupport" },
-                Requirement = SdkRequirement.Core
-            },
-            [SdkId.Facebook] = new()
-            {
-                Id = SdkId.Facebook,
-                Name = "Facebook SDK",
-                PackageId = "com.lacrearthur.facebook-sdk-for-unity",
-                // Use Git URL - works great, no need to change
-                InstallUrl = "https://github.com/LaCreArthur/facebook-unity-sdk-upm.git",
-                DetectionAssemblies = new[] { "Facebook.Unity" },
-                DetectionTypes = new[] { "Facebook.Unity.FB, Facebook.Unity" },
-                Requirement = SdkRequirement.PrototypeOnly
-            },
-            [SdkId.AppLovinMAX] = new()
-            {
-                Id = SdkId.AppLovinMAX,
-                Name = "AppLovin MAX",
-                PackageId = "com.applovin.mediation.ads",
-                Version = MAX_VERSION,
-                Scope = "com.applovin",
-                DetectionAssemblies = new[] { "MaxSdk.Scripts", "applovin" },
-                DetectionTypes = new[] { "MaxSdk, MaxSdk.Scripts", "MaxSdkBase, MaxSdk.Scripts" },
-                Requirement = SdkRequirement.FullRequired
-            },
-            [SdkId.Adjust] = new()
-            {
-                Id = SdkId.Adjust,
-                Name = "Adjust SDK",
-                PackageId = "com.adjust.sdk",
-                // Use Git URL - official distribution
-                InstallUrl = "https://github.com/adjust/unity_sdk.git?path=Assets/Adjust",
-                DetectionAssemblies = new[] { "com.adjust.sdk", "adjustsdk.scripts", "adjust" },
-                DetectionTypes = new[] { "AdjustSdk.Adjust, AdjustSdk.Scripts" },
-                Requirement = SdkRequirement.FullOnly
-            },
-            [SdkId.FirebaseApp] = new()
-            {
-                Id = SdkId.FirebaseApp,
-                Name = "Firebase App",
-                PackageId = "com.google.firebase.app",
-                InstallUrl = "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseApp#" + FIREBASE_VERSION,
-                DetectionAssemblies = new[] { "Firebase.App" },
-                DetectionTypes = new[] { "Firebase.FirebaseApp, Firebase.App" },
-                Requirement = SdkRequirement.Core
-            },
-            [SdkId.FirebaseAnalytics] = new()
-            {
-                Id = SdkId.FirebaseAnalytics,
-                Name = "Firebase Analytics",
-                PackageId = "com.google.firebase.analytics",
-                InstallUrl = "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseAnalytics#" + FIREBASE_VERSION,
-                DetectionAssemblies = new[] { "Firebase.Analytics" },
-                DetectionTypes = new[] { "Firebase.Analytics.FirebaseAnalytics, Firebase.Analytics" },
-                Requirement = SdkRequirement.Core
-            },
-            [SdkId.FirebaseCrashlytics] = new()
-            {
-                Id = SdkId.FirebaseCrashlytics,
-                Name = "Firebase Crashlytics",
-                PackageId = "com.google.firebase.crashlytics",
-                InstallUrl = "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseCrashlytics#" + FIREBASE_VERSION,
-                DetectionAssemblies = new[] { "Firebase.Crashlytics" },
-                DetectionTypes = new[] { "Firebase.Crashlytics.Crashlytics, Firebase.Crashlytics" },
-                Requirement = SdkRequirement.Core
-            },
-            [SdkId.FirebaseRemoteConfig] = new()
-            {
-                Id = SdkId.FirebaseRemoteConfig,
-                Name = "Firebase Remote Config",
-                PackageId = "com.google.firebase.remote-config",
-                InstallUrl = "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseRemoteConfig#" + FIREBASE_VERSION,
-                DetectionAssemblies = new[] { "Firebase.RemoteConfig" },
-                DetectionTypes = new[] { "Firebase.RemoteConfig.FirebaseRemoteConfig, Firebase.RemoteConfig" },
-                Requirement = SdkRequirement.Core
-            }
+            ),
+            [SdkId.Facebook] = new SdkInfo(
+                id: SdkId.Facebook,
+                name: "Facebook SDK",
+                packageId: "com.lacrearthur.facebook-sdk-for-unity",
+                requirement: SdkRequirement.PrototypeOnly,
+                detectionAssemblies: new[] { "Facebook.Unity" },
+                detectionTypes: new[] { "Facebook.Unity.FB, Facebook.Unity" },
+                installUrl: "https://github.com/LaCreArthur/facebook-unity-sdk-upm.git"
+            ),
+            [SdkId.AppLovinMAX] = new SdkInfo(
+                id: SdkId.AppLovinMAX,
+                name: "AppLovin MAX",
+                packageId: "com.applovin.mediation.ads",
+                requirement: SdkRequirement.FullRequired,
+                detectionAssemblies: new[] { "MaxSdk.Scripts", "applovin" },
+                detectionTypes: new[] { "MaxSdk, MaxSdk.Scripts", "MaxSdkBase, MaxSdk.Scripts" },
+                version: MAX_VERSION,
+                scope: "com.applovin"
+            ),
+            [SdkId.Adjust] = new SdkInfo(
+                id: SdkId.Adjust,
+                name: "Adjust SDK",
+                packageId: "com.adjust.sdk",
+                requirement: SdkRequirement.FullOnly,
+                detectionAssemblies: new[] { "com.adjust.sdk", "adjustsdk.scripts", "adjust" },
+                detectionTypes: new[] { "AdjustSdk.Adjust, AdjustSdk.Scripts" },
+                installUrl: "https://github.com/adjust/unity_sdk.git?path=Assets/Adjust"
+            ),
+            [SdkId.FirebaseApp] = new SdkInfo(
+                id: SdkId.FirebaseApp,
+                name: "Firebase App",
+                packageId: "com.google.firebase.app",
+                requirement: SdkRequirement.Core,
+                detectionAssemblies: new[] { "Firebase.App" },
+                detectionTypes: new[] { "Firebase.FirebaseApp, Firebase.App" },
+                installUrl: "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseApp#" + FIREBASE_VERSION
+            ),
+            [SdkId.FirebaseAnalytics] = new SdkInfo(
+                id: SdkId.FirebaseAnalytics,
+                name: "Firebase Analytics",
+                packageId: "com.google.firebase.analytics",
+                requirement: SdkRequirement.Core,
+                detectionAssemblies: new[] { "Firebase.Analytics" },
+                detectionTypes: new[] { "Firebase.Analytics.FirebaseAnalytics, Firebase.Analytics" },
+                installUrl: "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseAnalytics#" + FIREBASE_VERSION
+            ),
+            [SdkId.FirebaseCrashlytics] = new SdkInfo(
+                id: SdkId.FirebaseCrashlytics,
+                name: "Firebase Crashlytics",
+                packageId: "com.google.firebase.crashlytics",
+                requirement: SdkRequirement.Core,
+                detectionAssemblies: new[] { "Firebase.Crashlytics" },
+                detectionTypes: new[] { "Firebase.Crashlytics.Crashlytics, Firebase.Crashlytics" },
+                installUrl: "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseCrashlytics#" + FIREBASE_VERSION
+            ),
+            [SdkId.FirebaseRemoteConfig] = new SdkInfo(
+                id: SdkId.FirebaseRemoteConfig,
+                name: "Firebase Remote Config",
+                packageId: "com.google.firebase.remote-config",
+                requirement: SdkRequirement.Core,
+                detectionAssemblies: new[] { "Firebase.RemoteConfig" },
+                detectionTypes: new[] { "Firebase.RemoteConfig.FirebaseRemoteConfig, Firebase.RemoteConfig" },
+                installUrl: "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseRemoteConfig#" + FIREBASE_VERSION
+            )
         };
 
         /// <summary>
