@@ -72,10 +72,18 @@ SorollaSDK.cs → Palette.cs
 - `MigrationPopup.cs`: New EditorWindow guides users through Firebase setup
 - `package.json`: Version 3.0.0 → 3.1.0
 
+**Follow-up fix**: Removed stale "optional" Firebase references from:
+- `SorollaWindow.cs`: UI now shows red ✗ when Firebase not installed
+- `README.md`: Mode tables updated
+- `BuildValidator.cs`: "No Firebase" now shows as Warning
+- `SorollaConfig.cs`: Header attributes no longer say "(Optional)"
+- `CLAUDE.md`: Mode system table updated
+
 **Learnings**:
 - SetupVersion bump triggers full setup for existing users (installs new Core packages)
 - Separate migration key needed for one-time UI (separate from setup key)
 - EditorWindow.ShowUtility() creates modal-like behavior without blocking
+- When changing requirement levels, grep for "optional" mentions across entire codebase
 
 ---
 
