@@ -2,16 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.1.0] - 2025-01-13
+## [3.1.0] - 2026-01-13
 
 ### Changed
 - **Firebase is now required** in all modes (Prototype + Full)
 - Firebase packages auto-install on SDK import/upgrade
 - SetupVersion bumped to v7 (triggers setup for upgrading users)
+- **SdkInfo refactored to immutable struct** - prevents accidental mutation
+- **SorollaWindow editor cleanup**:
+  - Cached GUIStyles and SerializedObject to avoid GC pressure
+  - Removed style mutation in OnGUI (uses DrawIcon helper)
+  - Merged Firebase Configuration into Build Health as sub-rows
+  - Moved MAX Ad Units to SDK Keys section
+  - Simplified SDK overview rendering
 
 ### Added
 - **Migration popup**: One-time guide for Firebase setup after SDK upgrade
 - Links to Firebase Console and configuration window
+
+### Fixed
+- Removed module toggles for Firebase (no longer optional)
+- Cleaned up stale Firebase references throughout codebase
 
 ### Documentation
 - Updated `firebase.md` to reflect required status
