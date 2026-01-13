@@ -12,12 +12,8 @@ This guide covers everything for a production-ready mobile game with full analyt
 - **GameAnalytics** - Analytics and event tracking
 - **AppLovin MAX** - Ad monetization with mediation
 - **Adjust** - Full attribution tracking
+- **Firebase** - Analytics, Crashlytics, Remote Config (auto-installed)
 - **GDPR/ATT Consent** - EU compliance and iOS tracking
-
-### ⚡ Highly Recommended
-- **Firebase Crashlytics** - Crash reporting
-- **Firebase Remote Config** - A/B testing and feature flags
-- **Firebase Analytics** - Dual analytics backend
 
 **Estimated time:** 20-30 minutes for full setup
 
@@ -165,7 +161,9 @@ public class SettingsScreen : MonoBehaviour
 
 ---
 
-## Step 5: Firebase Setup (Highly Recommended)
+## Step 5: Firebase Setup (Required)
+
+Firebase packages are auto-installed. You just need to add your config files.
 
 ### 5.1 Create Firebase Project
 
@@ -178,13 +176,11 @@ public class SettingsScreen : MonoBehaviour
 - **Android**: Download `google-services.json` → Place in `Assets/`
 - **iOS**: Download `GoogleService-Info.plist` → Place in `Assets/`
 
-### 5.3 Install Firebase in Unity
+### 5.3 Enable Firebase Modules
 
 1. Open **Sorolla Configuration**
-2. Click **"Install"** next to Firebase (optional)
-3. Wait for packages to import
-4. Enable modules: **Analytics**, **Crashlytics**, **Remote Config**
-5. Click **"Save"**
+2. Enable modules: **Analytics**, **Crashlytics**, **Remote Config**
+3. Click **"Save"**
 
 ### 5.4 Use Firebase Features
 
@@ -295,7 +291,7 @@ Palette.ShowInterstitialAd(onComplete: () => LoadNextLevel());
 - [ ] GDPR: Privacy settings button added to game settings
 - [ ] iOS: User Tracking Usage Description set
 
-### Firebase (Recommended)
+### Firebase (Required)
 - [ ] Firebase: Config files (`google-services.json`, `GoogleService-Info.plist`) added
 - [ ] Firebase: Analytics, Crashlytics, Remote Config enabled in Sorolla Config
 

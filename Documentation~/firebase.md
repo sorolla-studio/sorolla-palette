@@ -1,5 +1,7 @@
 # Firebase Setup Guide
 
+> **Note:** Firebase is required as of SDK v3.1. Packages are auto-installed on SDK import.
+
 Quick guide for setting up Firebase Analytics, Crashlytics, and Remote Config.
 
 ---
@@ -28,11 +30,9 @@ Quick guide for setting up Firebase Analytics, Crashlytics, and Remote Config.
 
 ## 2. Unity Setup
 
-### Install Firebase
+### Firebase Packages
 
-1. Open `Sorolla > Configuration`
-2. Click **Install** next to **Firebase (optional)**
-3. Wait for packages to import
+Firebase packages are **auto-installed** when you import Sorolla SDK. No manual installation needed.
 
 ### Add Config Files
 

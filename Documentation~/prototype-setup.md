@@ -8,11 +8,12 @@ This guide covers everything you need to start testing user acquisition campaign
 
 ## What You'll Set Up
 
-✅ **GameAnalytics** - Analytics and event tracking  
-✅ **Facebook SDK** - Attribution for UA campaigns  
-⚡ **AppLovin MAX** - Optional: Add monetization early  
+✅ **GameAnalytics** - Analytics and event tracking
+✅ **Facebook SDK** - Attribution for UA campaigns
+✅ **Firebase** - Analytics, Crashlytics, Remote Config (auto-installed)
+⚡ **AppLovin MAX** - Optional: Add monetization early
 
-**What's NOT included:** GDPR consent flows, Firebase, Adjust (→ use [Full Mode](full-setup.md) for production)
+**What's NOT included:** GDPR consent flows, Adjust (→ use [Full Mode](full-setup.md) for production)
 
 ---
 
@@ -97,11 +98,25 @@ This guide covers everything you need to start testing user acquisition campaign
 
 ---
 
-## Step 3: Add Analytics Events
+## Step 3: Firebase Config Files
+
+Firebase packages are auto-installed. Download config files from [Firebase Console](https://console.firebase.google.com/):
+
+1. Create a Firebase project (enable Google Analytics when prompted)
+2. Add your iOS and Android apps
+3. Download and place in `Assets/`:
+   - `google-services.json` (Android)
+   - `GoogleService-Info.plist` (iOS)
+
+See [Firebase Setup Guide](firebase.md) for detailed instructions.
+
+---
+
+## Step 4: Add Analytics Events
 
 The SDK initializes automatically. Add these events to your game:
 
-### 3.1 Track Level Progression (Required)
+### 4.1 Track Level Progression (Required)
 
 ```csharp
 using Sorolla.Palette;
@@ -122,13 +137,13 @@ Palette.TrackProgression(ProgressionStatus.Fail, lvlStr);
 
 > 💡 **Tip:** Zero-pad level numbers (`Level_001` not `Level_1`) for better dashboard sorting.
 
-### 3.2 Track Custom Events (Optional)
+### 4.2 Track Custom Events (Optional)
 ```csharp
 Palette.TrackDesign("tutorial:completed");
 Palette.TrackDesign("settings:opened", 1);
 ```
 
-### 3.3 Track Economy (Optional)
+### 4.3 Track Economy (Optional)
 ```csharp
 // Player earned currency
 Palette.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
@@ -139,9 +154,9 @@ Palette.TrackResource(ResourceFlowType.Sink, "coins", 50, "shop", "speed_boost")
 
 ---
 
-## Step 4: Test Your Integration (Optional)
+## Step 5: Test Your Integration (Optional)
 
-### 4.1 Use Debug UI for On-Device Testing
+### 5.1 Use Debug UI for On-Device Testing
 
 1. **Import Sample**: Package Manager → Sorolla SDK → Samples → Import "Debug UI"
 2. **Add to Scene**: Drag `DebugPanelManager` prefab into your first scene
@@ -149,18 +164,18 @@ Palette.TrackResource(ResourceFlowType.Sink, "coins", 50, "shop", "speed_boost")
 4. **Open Panel**: Triple-tap screen (mobile) or press ` key (desktop)
 5. **Verify**: Check GA initialization, test event tracking
 
-### 4.2 Verify in Dashboards
+### 5.2 Verify in Dashboards
 
 - **GameAnalytics**: Events appear in 5-10 minutes at [gameanalytics.com](https://gameanalytics.com)
 - **Facebook**: Install data appears in [business.facebook.com](https://business.facebook.com) Events Manager
 
 ---
 
-## Step 5: Optional - Add Monetization
+## Step 6: Optional - Add Monetization
 
 Want to test ads early? Add AppLovin MAX (optional in Prototype mode):
 
-### 5.1 Quick Setup
+### 6.1 Quick Setup
 
 1. Create account at [dash.applovin.com](https://dash.applovin.com/signup)
 2. Get **SDK Key** from Account → Keys
@@ -168,7 +183,7 @@ Want to test ads early? Add AppLovin MAX (optional in Prototype mode):
 4. In Unity: `Sorolla > Configuration` → Enter MAX keys
 5. Click **"Save"**
 
-### 5.2 Show Ads in Code
+### 6.2 Show Ads in Code
 
 ```csharp
 using Sorolla.Palette;
@@ -195,6 +210,7 @@ if (Palette.IsRewardedAdReady)
 - [ ] GameAnalytics: Admin access granted to `studio@sorolla.io`
 - [ ] Facebook SDK: App ID and Client Token configured
 - [ ] Facebook SDK: Sorolla Ad Account (`1130531078835118`) authorized
+- [ ] Firebase: Config files added (`google-services.json`, `GoogleService-Info.plist`)
 - [ ] Analytics: Level progression events (`TrackProgression`) added to game
 - [ ] Build: Successfully builds to iOS/Android without errors
 - [ ] Testing: Debug UI shows GA and Facebook initialized (optional)
@@ -211,7 +227,7 @@ You're all set! Your prototype is ready for user acquisition testing.
 ### Need More Features?
 
 - **📱 Add GDPR/ATT** → [GDPR Setup Guide](gdpr-consent-setup.md) (required for EU)
-- **🔥 Add Firebase** → [Firebase Setup Guide](firebase.md) (Crashlytics, Remote Config)
+- **🔥 Configure Firebase** → [Firebase Setup Guide](firebase.md) (Crashlytics, Remote Config)
 - **📊 Add more analytics** → [API Reference](api-reference.md) (custom events, economy tracking)
 
 ### Upgrading to Production?
