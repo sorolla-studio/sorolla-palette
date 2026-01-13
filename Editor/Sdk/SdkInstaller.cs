@@ -194,69 +194,7 @@ namespace Sorolla.Palette.Editor
                 { remoteConfigInfo.PackageId, remoteConfigInfo.DependencyValue },
             });
 
-            // Auto-enable Firebase modules in config
-            EnableFirebaseInConfig(true);
-
             Debug.Log("[Palette] Firebase added to manifest. Package Manager will resolve.");
-        }
-
-        /// <summary>
-        ///     Uninstall all Firebase packages
-        ///     Also disables all Firebase modules in SorollaConfig.
-        /// </summary>
-        public static void UninstallFirebase()
-        {
-            Debug.Log("[Palette] Uninstalling Firebase...");
-
-            // IMPORTANT: Disable config FIRST, before removing packages.
-            // Package removal triggers domain reload which interrupts asset saves.
-            EnableFirebaseInConfig(false);
-
-            SdkInfo appInfo = SdkRegistry.All[SdkId.FirebaseApp];
-            SdkInfo analyticsInfo = SdkRegistry.All[SdkId.FirebaseAnalytics];
-            SdkInfo crashlyticsInfo = SdkRegistry.All[SdkId.FirebaseCrashlytics];
-            SdkInfo remoteConfigInfo = SdkRegistry.All[SdkId.FirebaseRemoteConfig];
-
-            ManifestManager.RemoveDependencies(new[]
-            {
-                appInfo.PackageId,
-                analyticsInfo.PackageId,
-                crashlyticsInfo.PackageId,
-                remoteConfigInfo.PackageId,
-            });
-
-            Debug.Log("[Palette] Firebase removed from manifest.");
-        }
-
-        /// <summary>
-        ///     Enable or disable all Firebase modules in SorollaConfig
-        /// </summary>
-        static void EnableFirebaseInConfig(bool enable)
-        {
-            string[] guids = AssetDatabase.FindAssets("t:SorollaConfig");
-            if (guids.Length == 0)
-            {
-                Debug.LogWarning("[Palette] No SorollaConfig found to update Firebase settings.");
-                return;
-            }
-
-            string configPath = AssetDatabase.GUIDToAssetPath(guids[0]);
-            var config = AssetDatabase.LoadAssetAtPath<SorollaConfig>(configPath);
-
-            if (config == null)
-            {
-                Debug.LogWarning("[Palette] Could not load SorollaConfig.");
-                return;
-            }
-
-            config.enableFirebaseAnalytics = enable;
-            config.enableCrashlytics = enable;
-            config.enableRemoteConfig = enable;
-
-            EditorUtility.SetDirty(config);
-            AssetDatabase.SaveAssets();
-
-            Debug.Log($"[Palette] Firebase modules {(enable ? "enabled" : "disabled")} in config.");
         }
     }
 }

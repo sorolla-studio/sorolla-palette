@@ -180,8 +180,7 @@ namespace Sorolla.Palette
 #endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
-            if (Config != null && Config.enableFirebaseAnalytics)
-                FirebaseAdapter.TrackProgressionEvent(status.ToString().ToLower(), progression01, progression02, progression03, score);
+            FirebaseAdapter.TrackProgressionEvent(status.ToString().ToLower(), progression01, progression02, progression03, score);
 #endif
         }
 
@@ -205,8 +204,7 @@ namespace Sorolla.Palette
 #endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
-            if (Config != null && Config.enableFirebaseAnalytics)
-                FirebaseAdapter.TrackDesignEvent(eventName, value);
+            FirebaseAdapter.TrackDesignEvent(eventName, value);
 #endif
         }
 
@@ -230,8 +228,7 @@ namespace Sorolla.Palette
 #endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
-            if (Config != null && Config.enableFirebaseAnalytics)
-                FirebaseAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId);
+            FirebaseAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId);
 #endif
         }
 
@@ -300,43 +297,20 @@ namespace Sorolla.Palette
 #endif
 
 
-            // Firebase Analytics (optional)
+            // Firebase modules (always enabled when installed)
 #if FIREBASE_ANALYTICS_INSTALLED
-            if (Config != null && Config.enableFirebaseAnalytics)
-            {
-                Debug.Log($"{Tag} Initializing Firebase Analytics...");
-                FirebaseAdapter.Initialize();
-            }
-            else
-            {
-                Debug.Log($"{Tag} Firebase Analytics disabled (config: {Config != null}, enabled: {Config?.enableFirebaseAnalytics})");
-            }
+            Debug.Log($"{Tag} Initializing Firebase Analytics...");
+            FirebaseAdapter.Initialize();
 #endif
 
-            // Firebase Crashlytics (optional)
 #if FIREBASE_CRASHLYTICS_INSTALLED
-            if (Config != null && Config.enableCrashlytics)
-            {
-                Debug.Log($"{Tag} Initializing Firebase Crashlytics...");
-                FirebaseCrashlyticsAdapter.Initialize(captureUncaughtExceptions: true);
-            }
-            else
-            {
-                Debug.Log($"{Tag} Firebase Crashlytics disabled (config: {Config != null}, enabled: {Config?.enableCrashlytics})");
-            }
+            Debug.Log($"{Tag} Initializing Firebase Crashlytics...");
+            FirebaseCrashlyticsAdapter.Initialize(captureUncaughtExceptions: true);
 #endif
 
-            // Firebase Remote Config (optional)
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (Config != null && Config.enableRemoteConfig)
-            {
-                Debug.Log($"{Tag} Initializing Firebase Remote Config...");
-                FirebaseRemoteConfigAdapter.Initialize(autoFetch: true);
-            }
-            else
-            {
-                Debug.Log($"{Tag} Firebase Remote Config disabled (config: {Config != null}, enabled: {Config?.enableRemoteConfig})");
-            }
+            Debug.Log($"{Tag} Initializing Firebase Remote Config...");
+            FirebaseRemoteConfigAdapter.Initialize(autoFetch: true);
 #endif
 
             IsInitialized = true;
@@ -364,37 +338,34 @@ namespace Sorolla.Palette
             if (!IsInitialized) return false;
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (Config != null && Config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+            if (FirebaseRemoteConfigAdapter.IsReady)
                 return true;
 #endif
             return GameAnalyticsAdapter.IsRemoteConfigReady();
         }
 
         /// <summary>
-        ///     Fetch Remote Config values. Fetches from Firebase if enabled, GameAnalytics is always ready.
+        ///     Fetch Remote Config values. Fetches from Firebase if installed, GameAnalytics is always ready.
         /// </summary>
         public static void FetchRemoteConfig(Action<bool> onComplete = null)
         {
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (Config != null && Config.enableRemoteConfig)
-            {
-                FirebaseRemoteConfigAdapter.FetchAndActivate(onComplete);
-                return;
-            }
-#endif
+            FirebaseRemoteConfigAdapter.FetchAndActivate(onComplete);
+#else
             // GameAnalytics RC doesn't need explicit fetch
             onComplete?.Invoke(GameAnalyticsAdapter.IsRemoteConfigReady());
+#endif
         }
 
         /// <summary>
-        ///     Get Remote Config string value. Checks Firebase first (if enabled), then GameAnalytics.
+        ///     Get Remote Config string value. Checks Firebase first, then GameAnalytics.
         /// </summary>
         public static string GetRemoteConfig(string key, string defaultValue = "")
         {
             if (!IsInitialized) return defaultValue;
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (Config != null && Config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+            if (FirebaseRemoteConfigAdapter.IsReady)
             {
                 string value = FirebaseRemoteConfigAdapter.GetString(key, null);
                 if (value != null) return value;
@@ -406,14 +377,14 @@ namespace Sorolla.Palette
         }
 
         /// <summary>
-        ///     Get Remote Config int value. Checks Firebase first (if enabled), then GameAnalytics.
+        ///     Get Remote Config int value. Checks Firebase first, then GameAnalytics.
         /// </summary>
         public static int GetRemoteConfigInt(string key, int defaultValue = 0)
         {
             if (!IsInitialized) return defaultValue;
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (Config != null && Config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+            if (FirebaseRemoteConfigAdapter.IsReady)
                 return FirebaseRemoteConfigAdapter.GetInt(key, defaultValue);
 #endif
             string strValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
@@ -421,14 +392,14 @@ namespace Sorolla.Palette
         }
 
         /// <summary>
-        ///     Get Remote Config float value. Checks Firebase first (if enabled), then GameAnalytics.
+        ///     Get Remote Config float value. Checks Firebase first, then GameAnalytics.
         /// </summary>
         public static float GetRemoteConfigFloat(string key, float defaultValue = 0f)
         {
             if (!IsInitialized) return defaultValue;
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (Config != null && Config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+            if (FirebaseRemoteConfigAdapter.IsReady)
                 return FirebaseRemoteConfigAdapter.GetFloat(key, defaultValue);
 #endif
             string strValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
@@ -437,14 +408,14 @@ namespace Sorolla.Palette
         }
 
         /// <summary>
-        ///     Get Remote Config bool value. Checks Firebase first (if enabled), then GameAnalytics.
+        ///     Get Remote Config bool value. Checks Firebase first, then GameAnalytics.
         /// </summary>
         public static bool GetRemoteConfigBool(string key, bool defaultValue = false)
         {
             if (!IsInitialized) return defaultValue;
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            if (Config != null && Config.enableRemoteConfig && FirebaseRemoteConfigAdapter.IsReady)
+            if (FirebaseRemoteConfigAdapter.IsReady)
                 return FirebaseRemoteConfigAdapter.GetBool(key, defaultValue);
 #endif
             string strValue = GameAnalyticsAdapter.GetRemoteConfigValue(key, null);
@@ -460,8 +431,7 @@ namespace Sorolla.Palette
         {
 #if FIREBASE_CRASHLYTICS_INSTALLED
             if (!EnsureInit()) return;
-            if (Config != null && Config.enableCrashlytics)
-                FirebaseCrashlyticsAdapter.LogException(exception);
+            FirebaseCrashlyticsAdapter.LogException(exception);
 #endif
         }
 
@@ -470,8 +440,7 @@ namespace Sorolla.Palette
         {
 #if FIREBASE_CRASHLYTICS_INSTALLED
             if (!EnsureInit()) return;
-            if (Config != null && Config.enableCrashlytics)
-                FirebaseCrashlyticsAdapter.Log(message);
+            FirebaseCrashlyticsAdapter.Log(message);
 #endif
         }
 
@@ -480,8 +449,7 @@ namespace Sorolla.Palette
         {
 #if FIREBASE_CRASHLYTICS_INSTALLED
             if (!EnsureInit()) return;
-            if (Config != null && Config.enableCrashlytics)
-                FirebaseCrashlyticsAdapter.SetCustomKey(key, value);
+            FirebaseCrashlyticsAdapter.SetCustomKey(key, value);
 #endif
         }
 

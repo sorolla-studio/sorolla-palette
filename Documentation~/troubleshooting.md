@@ -89,8 +89,7 @@ The Configuration window includes a **Build Health** section that validates your
 
 1. Verify `google-services.json` (Android) or `GoogleService-Info.plist` (iOS) exists
 2. Enable "Google Analytics" when creating Firebase project
-3. Enable `enableFirebaseAnalytics` in SorollaConfig
-4. Firebase events have ~24 hour delay in console
+3. Firebase events have ~24 hour delay in console
 
 ---
 
@@ -236,7 +235,7 @@ The Build Health validator automatically detects and removes orphaned manifest e
 
 1. Crashes report on next app launch
 2. Wait 5-10 minutes for dashboard update
-3. Verify `enableCrashlytics` is true in config
+3. Verify Firebase config files are in Assets/
 
 ### Crashes in development not showing
 

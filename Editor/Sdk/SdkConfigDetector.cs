@@ -172,15 +172,12 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Checks if Firebase is fully configured (both platforms).
+        ///     Checks if Firebase is fully configured (config files present).
         /// </summary>
         public static ConfigStatus GetFirebaseStatus(SorollaConfig config)
         {
             if (!SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
                 return ConfigStatus.NotInstalled;
-
-            if (config == null || !config.enableFirebaseAnalytics)
-                return ConfigStatus.NotConfigured;
 
             // At least one platform should be configured
             if (IsFirebaseAndroidConfigured() || IsFirebaseIOSConfigured())

@@ -49,8 +49,8 @@ namespace Sorolla.Palette.DebugUI
             {
                 "gameanalytics" or "ga" => Palette.IsInitialized,
                 "sorolla" => Palette.IsInitialized,
-                "firebase" => Palette.IsInitialized && Palette.Config != null && Palette.Config.enableFirebaseAnalytics,
-                "crashlytics" => Palette.IsInitialized && Palette.Config != null && Palette.Config.enableCrashlytics,
+                "firebase" => Palette.IsInitialized,
+                "crashlytics" => Palette.IsInitialized,
                 "remoteconfig" or "remote config" => Palette.IsRemoteConfigReady(),
                 "max" or "applovin" => Palette.IsInitialized && Palette.Config != null && !Palette.Config.isPrototypeMode,
                 "facebook" or "fb" => Palette.IsInitialized && Palette.Config != null && Palette.Config.isPrototypeMode,
