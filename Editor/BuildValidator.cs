@@ -385,7 +385,12 @@ namespace Sorolla.Palette.Editor
             }
             else
             {
-                results.Add(new ValidationResult(ValidationStatus.Valid, "No Firebase (optional)", category: CheckCategory.FirebaseCoherence));
+                results.Add(new ValidationResult(
+                    ValidationStatus.Warning,
+                    "Firebase not installed (required)",
+                    "Firebase is required as of v3.1. Run setup or open Palette > Configuration.",
+                    CheckCategory.FirebaseCoherence
+                ));
             }
 
             return results;

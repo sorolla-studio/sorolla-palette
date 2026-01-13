@@ -18,16 +18,8 @@ A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration ini
 
 | Mode | SDKs | Use Case |
 |------|------|----------|
-| **Prototype** | GameAnalytics + Facebook + MAX (optional) | Rapid UA testing |
-| **Full** | GameAnalytics + MAX + Adjust | Production |
-
-### Optional Add-ons
-
-| Add-on | Description |
-|--------|-------------|
-| **Firebase Analytics** | Dual analytics backend (parallel with GameAnalytics) |
-| **Firebase Crashlytics** | Automatic crash & exception reporting |
-| **Firebase Remote Config** | A/B testing and feature flags |
+| **Prototype** | GameAnalytics + Facebook + Firebase + MAX (optional) | Rapid UA testing |
+| **Full** | GameAnalytics + MAX + Adjust + Firebase | Production |
 
 ## Installation
 
@@ -55,7 +47,7 @@ A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration ini
 | **Attribution** | ✅ Facebook SDK | ✅ Adjust (full attribution) |
 | **Ads** | ⚡ Optional (MAX) | ✅ Required (MAX + mediation) |
 | **GDPR/ATT** | ⚡ Optional | ✅ Required for EU/production |
-| **Firebase** | ⚡ Optional add-on | ⚡ Recommended add-on |
+| **Firebase** | ✅ Required | ✅ Required |
 | **Team support** | Self-service | Assisted by Sorolla team |
 
 ### Getting Started
@@ -106,7 +98,7 @@ if (Palette.IsRewardedAdReady)
 |------|-------|-------------|
 | 🚀 **Start Here** | [**Prototype Setup**](Documentation~/prototype-setup.md) | Complete guide for UA testing (10 min) |
 | 🏭 **Production** | [**Full Mode Setup**](Documentation~/full-setup.md) | Complete guide for live games (30 min) |
-| 🔥 **Optional** | [Firebase](Documentation~/firebase.md) | Analytics, Crashlytics, Remote Config |
+| 🔥 **Required** | [Firebase](Documentation~/firebase.md) | Analytics, Crashlytics, Remote Config |
 | 📱 **Optional** | [Ads Setup](Documentation~/ads-setup.md) | AppLovin MAX monetization |
 
 ### 📖 Reference & Support
