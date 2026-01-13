@@ -165,7 +165,7 @@ namespace Sorolla.Palette.Editor
                 InstallUrl = "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseApp#" + FIREBASE_VERSION,
                 DetectionAssemblies = new[] { "Firebase.App" },
                 DetectionTypes = new[] { "Firebase.FirebaseApp, Firebase.App" },
-                Requirement = SdkRequirement.Optional
+                Requirement = SdkRequirement.Core
             },
             [SdkId.FirebaseAnalytics] = new()
             {
@@ -175,7 +175,7 @@ namespace Sorolla.Palette.Editor
                 InstallUrl = "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseAnalytics#" + FIREBASE_VERSION,
                 DetectionAssemblies = new[] { "Firebase.Analytics" },
                 DetectionTypes = new[] { "Firebase.Analytics.FirebaseAnalytics, Firebase.Analytics" },
-                Requirement = SdkRequirement.Optional
+                Requirement = SdkRequirement.Core
             },
             [SdkId.FirebaseCrashlytics] = new()
             {
@@ -185,7 +185,7 @@ namespace Sorolla.Palette.Editor
                 InstallUrl = "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseCrashlytics#" + FIREBASE_VERSION,
                 DetectionAssemblies = new[] { "Firebase.Crashlytics" },
                 DetectionTypes = new[] { "Firebase.Crashlytics.Crashlytics, Firebase.Crashlytics" },
-                Requirement = SdkRequirement.Optional
+                Requirement = SdkRequirement.Core
             },
             [SdkId.FirebaseRemoteConfig] = new()
             {
@@ -195,7 +195,7 @@ namespace Sorolla.Palette.Editor
                 InstallUrl = "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseRemoteConfig#" + FIREBASE_VERSION,
                 DetectionAssemblies = new[] { "Firebase.RemoteConfig" },
                 DetectionTypes = new[] { "Firebase.RemoteConfig.FirebaseRemoteConfig, Firebase.RemoteConfig" },
-                Requirement = SdkRequirement.Optional
+                Requirement = SdkRequirement.Core
             }
         };
 
