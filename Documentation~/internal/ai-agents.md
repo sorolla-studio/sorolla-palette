@@ -18,14 +18,14 @@ Optimized for RAG retrieval and minimal token usage.
 
 | Task | Primary File | Secondary |
 |------|-------------|-----------|
-| API usage | `../api-reference.md` | `../prototype-setup.md` |
-| SDK setup | `../prototype-setup.md` or `../full-setup.md` | - |
-| Firebase | `../firebase.md` | - |
+| API usage | `../api-reference.md` | `../quick-start.md` |
+| SDK setup | `../quick-start.md` or `../switching-to-full.md` | - |
+| Firebase | `../guides/firebase.md` | - |
 | Debug issue | `../troubleshooting.md` | - |
 | Code changes | `architecture.md` | - |
 | Competitive intel | `competitive-analysis.md` | `market-research.md` |
 | Product planning | `product-roadmap.md` | - |
-| GDPR/Consent | `../gdpr-consent-setup.md` | - |
+| GDPR/Consent | `../guides/gdpr.md` | - |
 
 ### By Code Area
 
@@ -125,10 +125,10 @@ Palette.ShowPrivacyOptions()   // Opens UMP form
 ```
 "TrackProgression API"        → ../api-reference.md, Palette.cs
 "MAX ad not loading"          → ../troubleshooting.md
-"Adjust attribution"          → ../full-setup.md, AdjustAdapter.cs
-"Firebase crashlytics"        → ../firebase.md
+"Adjust attribution"          → ../guides/adjust.md, AdjustAdapter.cs
+"Firebase crashlytics"        → ../guides/firebase.md
 "iOS ATT consent"             → ../troubleshooting.md, ContextScreenView.cs
-"GDPR consent"                → ../gdpr-consent-setup.md, MaxAdapter.cs
+"GDPR consent"                → ../guides/gdpr.md, MaxAdapter.cs
 "mode switching"              → architecture.md
 "SDK versions"                → SdkRegistry.cs
 "competitor features"         → competitive-analysis.md

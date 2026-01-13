@@ -1,110 +1,61 @@
 # Sorolla SDK
 
-A **plug-and-play** mobile publisher SDK for Unity games. Zero-configuration initialization with automatic iOS ATT handling.
+Plug-and-play mobile publisher SDK for Unity. Zero-config initialization with automatic iOS ATT handling.
 
 [![Unity 2022.3+](https://img.shields.io/badge/Unity-2022.3%2B-blue)](https://unity.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
 
-## Features
+## Install
 
-- 🔌 **Plug & Play**: Auto-initializes on app start - no code required
-- 📱 **iOS ATT Support**: Automatic App Tracking Transparency handling
-- 📊 **Unified Analytics API**: Single interface for all analytics providers
-- 🔥 **Firebase Suite**: Analytics, Crashlytics, and Remote Config
-- 🛠️ **Debug UI**: In-game overlay for testing Ads, Analytics, and Privacy flows
-- 💰 **Monetization Ready**: AppLovin MAX with Adjust attribution
-
-### Two Modes
-
-| Mode | SDKs | Use Case |
-|------|------|----------|
-| **Prototype** | GameAnalytics + Facebook + Firebase + MAX (optional) | Rapid UA testing |
-| **Full** | GameAnalytics + MAX + Adjust + Firebase | Production |
-
-## Installation
-
-### Via Git URL
-
-1. Open Unity Package Manager
-2. Click `+` → `Add package from git URL` → Enter:
-   
-   `https://github.com/sorolla-studio/sorolla-palette.git`
-
-**That's it!** The package automatically installs dependencies.
+1. **Package Manager** → `+` → **Add package from git URL**
+2. Paste: `https://github.com/sorolla-studio/sorolla-palette.git`
+3. Configuration window opens → Follow setup
 
 ## Quick Start
 
-### Choose Your Path
-
-**New to the SDK?** → Start with [**Prototype Mode**](Documentation~/prototype-setup.md)  
-**Ready for production?** → Jump to [**Full Mode**](Documentation~/full-setup.md)
-
-| | **🚀 Prototype Mode** | **🏭 Full Mode** |
-|---|---|---|
-| **Best for** | Testing UA campaigns<br>Soft launch<br>Rapid iteration | Production launch<br>Live games<br>Full monetization |
-| **Setup time** | 10 minutes | 20-30 minutes |
-| **Analytics** | ✅ GameAnalytics | ✅ GameAnalytics |
-| **Attribution** | ✅ Facebook SDK | ✅ Adjust (full attribution) |
-| **Ads** | ⚡ Optional (MAX) | ✅ Required (MAX + mediation) |
-| **GDPR/ATT** | ⚡ Optional | ✅ Required for EU/production |
-| **Firebase** | ✅ Required | ✅ Required |
-| **Team support** | Self-service | Assisted by Sorolla team |
-
-### Getting Started
-
-1. **Install**: Add package from git URL in Unity Package Manager:
-   ```
-   https://github.com/sorolla-studio/sorolla-palette.git
-   ```
-
-2. **Choose mode**: Configuration window opens automatically
-
-3. **Follow guide**: 
-   - 📖 [**Prototype Setup Guide**](Documentation~/prototype-setup.md) - Lightweight, autonomous setup
-   - 📖 [**Full Mode Setup Guide**](Documentation~/full-setup.md) - Complete production setup
+**[Get Started](Documentation~/quick-start.md)** - 10 minute setup for UA testing
 
 ## Usage
 
-The SDK auto-initializes on app start. Just call the API:
+The SDK auto-initializes. Just call the API:
 
 ```csharp
 using Sorolla.Palette;
 
-// Track level progression (required for analytics)
+// Track level progression (required)
 Palette.TrackProgression(ProgressionStatus.Complete, "Level_001");
 
 // Track custom events
 Palette.TrackDesign("tutorial:completed");
 
-// Track economy
-Palette.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_complete");
-
-// Show rewarded ad (requires MAX)
+// Show rewarded ad
 if (Palette.IsRewardedAdReady)
-{
-    Palette.ShowRewardedAd(
-        onComplete: () => GiveReward(),
-        onFailed: () => Debug.Log("Ad not available")
-    );
-}
+    Palette.ShowRewardedAd(onComplete: () => GiveReward());
 ```
-
-📖 **[Complete API Reference](Documentation~/api-reference.md)**
 
 ## Documentation
 
-### 📚 Setup Guides
-| Path | Guide | Description |
-|------|-------|-------------|
-| 🚀 **Start Here** | [**Prototype Setup**](Documentation~/prototype-setup.md) | Complete guide for UA testing (10 min) |
-| 🏭 **Production** | [**Full Mode Setup**](Documentation~/full-setup.md) | Complete guide for live games (30 min) |
-| 🔥 **Required** | [Firebase](Documentation~/firebase.md) | Analytics, Crashlytics, Remote Config |
-| 📱 **Optional** | [Ads Setup](Documentation~/ads-setup.md) | AppLovin MAX monetization |
+| | |
+|---|---|
+| [Quick Start](Documentation~/quick-start.md) | Get running in 10 minutes |
+| [Switch to Full Mode](Documentation~/switching-to-full.md) | Production setup (Adjust + GDPR) |
+| [API Reference](Documentation~/api-reference.md) | Complete API documentation |
+| [Troubleshooting](Documentation~/troubleshooting.md) | Common issues and fixes |
 
-### 📖 Reference & Support
-| Document | Description |
-|----------|-------------|
-| [API Reference](Documentation~/api-reference.md) | Complete API documentation with examples |
-| [Troubleshooting](Documentation~/troubleshooting.md) | Common issues and solutions |
-| [Contributing](Documentation~/contributing.md) | How to contribute to the SDK |
-| [Changelog](CHANGELOG.md) | Version history and updates |
+### SDK Guides
+
+| | |
+|---|---|
+| [GameAnalytics](Documentation~/guides/gameanalytics.md) | Analytics setup |
+| [Facebook](Documentation~/guides/facebook.md) | Attribution setup |
+| [Firebase](Documentation~/guides/firebase.md) | Analytics, Crashlytics, Remote Config |
+| [Ads (MAX)](Documentation~/guides/ads.md) | Monetization setup |
+| [Adjust](Documentation~/guides/adjust.md) | Full attribution (Full mode) |
+| [GDPR/ATT](Documentation~/guides/gdpr.md) | Privacy compliance |
+
+## What's Included
+
+| Mode | SDKs | Use Case |
+|------|------|----------|
+| **Prototype** | GameAnalytics, Facebook, Firebase | UA testing, soft launch |
+| **Full** | GameAnalytics, MAX, Adjust, Firebase | Production |
