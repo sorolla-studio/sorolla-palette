@@ -53,17 +53,7 @@ namespace Sorolla.Palette
         [Tooltip("Use Sandbox environment for testing (disable for production builds)")]
         public bool adjustSandboxMode = true;
 
-
-        [Header("Firebase Analytics")]
-        [Tooltip("Enable Firebase Analytics (requires google-services.json / GoogleService-Info.plist)")]
-        public bool enableFirebaseAnalytics;
-
-        [Header("Firebase Crashlytics")]
-        [Tooltip("Enable Firebase Crashlytics for crash reporting")]
-        public bool enableCrashlytics;
-
-        [Header("Firebase Remote Config")]
-        [Tooltip("Enable Firebase Remote Config for A/B testing and feature flags")]
-        public bool enableRemoteConfig;
+        // Note: Firebase modules (Analytics, Crashlytics, Remote Config) are always enabled
+        // when Firebase is installed. No toggles needed as of v3.1.0.
     }
 }

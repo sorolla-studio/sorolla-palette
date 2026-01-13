@@ -396,7 +396,6 @@ namespace Sorolla.Palette.Editor
 
             GUILayout.FlexibleSpace();
 
-            // Action button
             if (!isInstalled)
             {
                 if (GUILayout.Button("Install", GUILayout.Width(70)))
@@ -409,31 +408,12 @@ namespace Sorolla.Palette.Editor
             }
             else
             {
-                if (GUILayout.Button("Uninstall", GUILayout.Width(70)))
-                    SdkInstaller.UninstallFirebase();
+                // Configured - offer to open console for edits
+                if (GUILayout.Button("Console", GUILayout.Width(70)))
+                    OpenFirebaseConsole();
             }
 
             EditorGUILayout.EndHorizontal();
-
-            // Show Firebase modules when installed
-            if (isInstalled)
-            {
-                var moduleStyle = new GUIStyle(EditorStyles.miniLabel);
-                moduleStyle.normal.textColor = new Color(0.6f, 0.8f, 0.6f);
-
-                EditorGUILayout.BeginHorizontal();
-                GUILayout.Space(25);
-                GUILayout.Label("├ Analytics", moduleStyle, GUILayout.Width(100));
-                GUILayout.Label(SdkDetector.IsInstalled(SdkId.FirebaseAnalytics) ? "✓" : "○",
-                    moduleStyle, GUILayout.Width(20));
-                GUILayout.Label("├ Crashlytics", moduleStyle, GUILayout.Width(100));
-                GUILayout.Label(SdkDetector.IsInstalled(SdkId.FirebaseCrashlytics) ? "✓" : "○",
-                    moduleStyle, GUILayout.Width(20));
-                GUILayout.Label("└ Remote Config", moduleStyle, GUILayout.Width(100));
-                GUILayout.Label(SdkDetector.IsInstalled(SdkId.FirebaseRemoteConfig) ? "✓" : "○",
-                    moduleStyle, GUILayout.Width(20));
-                EditorGUILayout.EndHorizontal();
-            }
         }
 
         static void OpenFirebaseConsole() => Application.OpenURL("https://console.firebase.google.com/");
@@ -536,41 +516,8 @@ namespace Sorolla.Palette.Editor
             GUILayout.Label("Firebase", EditorStyles.boldLabel);
 
             EditorGUILayout.Space(5);
-
-            // Module toggles with helper text
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Modules (auto-enabled on install):", EditorStyles.miniLabel);
-            GUILayout.FlexibleSpace();
-
-            // Quick enable/disable all
-            if (GUILayout.Button("All On", EditorStyles.miniButton, GUILayout.Width(50)))
-            {
-                serializedConfig.FindProperty("enableFirebaseAnalytics").boolValue = true;
-                serializedConfig.FindProperty("enableCrashlytics").boolValue = true;
-                serializedConfig.FindProperty("enableRemoteConfig").boolValue = true;
-            }
-            if (GUILayout.Button("All Off", EditorStyles.miniButton, GUILayout.Width(50)))
-            {
-                serializedConfig.FindProperty("enableFirebaseAnalytics").boolValue = false;
-                serializedConfig.FindProperty("enableCrashlytics").boolValue = false;
-                serializedConfig.FindProperty("enableRemoteConfig").boolValue = false;
-            }
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUI.indentLevel++;
-
-            EditorGUILayout.PropertyField(serializedConfig.FindProperty("enableFirebaseAnalytics"),
-                new GUIContent("Analytics", "Track custom events to Firebase Analytics"));
-
-            EditorGUILayout.PropertyField(serializedConfig.FindProperty("enableCrashlytics"),
-                new GUIContent("Crashlytics", "Automatic crash and exception reporting"));
-
-            EditorGUILayout.PropertyField(serializedConfig.FindProperty("enableRemoteConfig"),
-                new GUIContent("Remote Config", "A/B testing and feature flags"));
-
-            EditorGUI.indentLevel--;
-
-            EditorGUILayout.Space(8);
+            GUILayout.Label("All modules enabled: Analytics, Crashlytics, Remote Config", EditorStyles.miniLabel);
+            EditorGUILayout.Space(5);
 
             // Config file status
             bool androidConfigured = SdkConfigDetector.IsFirebaseAndroidConfigured();
