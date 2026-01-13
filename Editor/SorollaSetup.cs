@@ -15,13 +15,14 @@ namespace Sorolla.Palette.Editor
     [InitializeOnLoad]
     public static class SorollaSetup
     {
-        const string SetupVersion = "v6"; // Bumped for EDM4U Gradle fix
+        const string SetupVersion = "v7"; // v3.1.0: Firebase mandatory
 
         static SorollaSetup()
         {
             EditorApplication.delayCall += RunSetup;
         }
         static string SetupKey => $"Sorolla_Setup_{SetupVersion}_{Application.dataPath.GetHashCode()}";
+        static string FirebaseMigrationKey => $"Sorolla_Firebase31_{Application.dataPath.GetHashCode()}";
 
         [MenuItem("Palette/Run Setup (Force)")]
         public static void ForceRunSetup()
@@ -76,6 +77,13 @@ namespace Sorolla.Palette.Editor
             EditorPrefs.SetBool(SetupKey, true);
             Debug.Log("[Palette] Setup complete. Package Manager will resolve dependencies.");
             Debug.Log("[Palette] Open Palette > Configuration to select a mode.");
+
+            // v3.1.0: Show migration popup once for Firebase mandatory upgrade
+            if (!EditorPrefs.GetBool(FirebaseMigrationKey, false))
+            {
+                EditorPrefs.SetBool(FirebaseMigrationKey, true);
+                EditorApplication.delayCall += MigrationPopup.Show;
+            }
         }
 
         /// <summary>
