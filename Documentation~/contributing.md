@@ -112,5 +112,5 @@ Please include:
 
 - 💬 [GitHub Issues](https://github.com/sorolla-studio/sorolla-palette/issues)
 - 💬 [GitHub Discussions](https://github.com/sorolla-studio/sorolla-palette/discussions)
-- 📖 [Prototype Setup Guide](prototype-setup.md)
-- 📖 [Full Mode Setup Guide](full-setup.md)
+- 📖 [Quick Start](quick-start.md)
+- 📖 [Full Mode](switching-to-full.md)
