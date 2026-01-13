@@ -11,27 +11,36 @@ namespace Sorolla.Palette.Editor
     /// </summary>
     public class SorollaWindow : EditorWindow
     {
+        // Cached GUIStyles - initialized once
+        static GUIStyle s_headerTitleStyle;
+        static GUIStyle s_headerSubtitleStyle;
+        static GUIStyle s_centeredBoldStyle;
+        static GUIStyle s_statusGreenStyle;
+        static GUIStyle s_statusYellowStyle;
+        static GUIStyle s_statusRedStyle;
+        static GUIStyle s_configStyleGreen;
+        static GUIStyle s_configStyleYellow;
+        static GUIStyle s_configStyleRed;
+        static GUIStyle s_configStyleGray;
+        static GUIStyle s_modePrototypeStyle;
+        static GUIStyle s_modeFullStyle;
+        static GUIStyle s_wordWrapStyle;
+        static GUIStyle s_linkStyle;
+        static GUIStyle s_autoFixStyle;
+        static bool s_stylesInitialized;
+
+        // Icon colors (avoid style mutation)
+        static readonly Color ColorGreen = new Color(0.2f, 0.8f, 0.2f);
+        static readonly Color ColorYellow = new Color(1f, 0.7f, 0.2f);
+        static readonly Color ColorRed = new Color(0.9f, 0.4f, 0.4f);
+        static readonly Color ColorGray = Color.gray;
+
+        // Instance state
+        readonly List<string> _autoFixLog = new List<string>();
         SorollaConfig _config;
+        SerializedObject _serializedConfig;
         Vector2 _scrollPos;
-
-        // Build health state
-        List<BuildValidator.ValidationResult> _validationResults = new();
-        List<string> _autoFixLog = new();
-
-        /// <summary>
-        ///     Data for rendering a single SDK row in the overview section.
-        /// </summary>
-        struct SdkRowData
-        {
-            public string Name;
-            public bool IsInstalled;
-            public bool IsRequired;
-            public SdkConfigDetector.ConfigStatus ConfigStatus;
-            public string ConfigHint;
-            public Action OnConfigure;
-            public Action OnInstall;
-        }
-
+        List<BuildValidator.ValidationResult> _validationResults = new List<BuildValidator.ValidationResult>();
 
         void OnEnable()
         {
@@ -41,6 +50,7 @@ namespace Sorolla.Palette.Editor
 
         void OnGUI()
         {
+            EnsureStyles();
             _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
 
             DrawHeader();
@@ -52,6 +62,50 @@ namespace Sorolla.Palette.Editor
                 DrawMainUI();
 
             EditorGUILayout.EndScrollView();
+        }
+
+        static void EnsureStyles()
+        {
+            if (s_stylesInitialized) return;
+
+            s_headerTitleStyle = new GUIStyle(EditorStyles.boldLabel)
+            {
+                fontSize = 16,
+                alignment = TextAnchor.MiddleCenter,
+            };
+            s_headerSubtitleStyle = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleCenter };
+            s_centeredBoldStyle = new GUIStyle(EditorStyles.boldLabel) { alignment = TextAnchor.MiddleCenter };
+
+            s_statusGreenStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = ColorGreen } };
+            s_statusYellowStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = ColorYellow } };
+            s_statusRedStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = ColorRed } };
+
+            s_configStyleGreen = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = new Color(0.5f, 0.8f, 0.5f) } };
+            s_configStyleYellow = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = ColorYellow } };
+            s_configStyleRed = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = new Color(1f, 0.5f, 0.5f) } };
+            s_configStyleGray = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = ColorGray } };
+
+            s_modePrototypeStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = new Color(0.3f, 0.7f, 1f) } };
+            s_modeFullStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = new Color(0.3f, 1f, 0.3f) } };
+
+            s_wordWrapStyle = new GUIStyle(EditorStyles.label) { wordWrap = true };
+            s_linkStyle = new GUIStyle(EditorStyles.linkLabel)
+            {
+                normal = { textColor = new Color(0.4f, 0.7f, 1f) },
+                hover = { textColor = new Color(0.6f, 0.85f, 1f) },
+            };
+            s_autoFixStyle = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = new Color(0.4f, 0.8f, 0.4f) } };
+
+            s_stylesInitialized = true;
+        }
+
+        /// <summary>Draw a colored icon without mutating shared styles.</summary>
+        static void DrawIcon(string icon, Color color)
+        {
+            var prev = GUI.contentColor;
+            GUI.contentColor = color;
+            GUILayout.Label(icon, GUILayout.Width(20));
+            GUI.contentColor = prev;
         }
 
         [MenuItem("Palette/Configuration")]
@@ -75,10 +129,8 @@ namespace Sorolla.Palette.Editor
         void DrawHeader()
         {
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            GUILayout.Label("Palette SDK",
-                new GUIStyle(EditorStyles.boldLabel) { fontSize = 16, alignment = TextAnchor.MiddleCenter });
-            GUILayout.Label("v1.0.0 - Plug & Play Publisher Stack",
-                new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleCenter });
+            GUILayout.Label("Palette SDK", s_headerTitleStyle);
+            GUILayout.Label("v3.1.0 - Plug & Play Publisher Stack", s_headerSubtitleStyle);
             EditorGUILayout.EndVertical();
         }
 
@@ -87,8 +139,7 @@ namespace Sorolla.Palette.Editor
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             EditorGUILayout.Space(10);
 
-            GUILayout.Label("Welcome! Select a mode to get started:",
-                new GUIStyle(EditorStyles.boldLabel) { alignment = TextAnchor.MiddleCenter });
+            GUILayout.Label("Welcome! Select a mode to get started:", s_centeredBoldStyle);
             EditorGUILayout.Space(15);
 
             if (GUILayout.Button("🧪  Prototype Mode\n(Facebook SDK for UA)", GUILayout.Height(45)))
@@ -118,6 +169,156 @@ namespace Sorolla.Palette.Editor
             DrawLinksSection();
         }
 
+        void DrawModeSection()
+        {
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            GUILayout.Label("Mode", EditorStyles.boldLabel);
+
+            SorollaMode mode = SorollaSettings.Mode;
+            bool isPrototype = mode == SorollaMode.Prototype;
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Current:", GUILayout.Width(60));
+
+            GUILayout.Label(isPrototype ? "🧪 Prototype" : "🚀 Full", isPrototype ? s_modePrototypeStyle : s_modeFullStyle);
+
+            GUILayout.FlexibleSpace();
+
+            SorollaMode otherMode = isPrototype ? SorollaMode.Full : SorollaMode.Prototype;
+            if (GUILayout.Button($"Switch to {otherMode}", GUILayout.Width(130)))
+                if (EditorUtility.DisplayDialog($"Switch to {otherMode} Mode?",
+                    "This will install/uninstall SDKs as needed.", "Switch", "Cancel"))
+                {
+                    SorollaSettings.SetMode(otherMode);
+                    // Re-run validation after mode switch
+                    EditorApplication.delayCall += RunBuildValidation;
+                }
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.EndVertical();
+        }
+
+        void DrawConfigSection()
+        {
+            if (_config == null || _serializedConfig == null)
+            {
+                EditorGUILayout.HelpBox("No config found. Click below to create one.", MessageType.Warning);
+                if (GUILayout.Button("Create Configuration Asset"))
+                {
+                    CreateConfig();
+                    _serializedConfig = new SerializedObject(_config);
+                }
+                return;
+            }
+
+            _serializedConfig.Update();
+            bool isPrototype = SorollaSettings.IsPrototype;
+            bool showMax = SdkDetector.IsInstalled(SdkId.AppLovinMAX);
+            bool showAdjust = !isPrototype && SdkDetector.IsInstalled(SdkId.Adjust);
+
+            if (!showMax && !showAdjust)
+                return;
+
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            GUILayout.Label("SDK Keys", EditorStyles.boldLabel);
+
+            // MAX Ad Units (Header comes from [Header] attribute on first property)
+            if (showMax)
+            {
+                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("rewardedAdUnit"), new GUIContent("Rewarded"));
+                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("interstitialAdUnit"), new GUIContent("Interstitial"));
+                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("bannerAdUnit"), new GUIContent("Banner (Optional)"));
+            }
+
+            // Adjust (full mode only)
+            if (showAdjust)
+            {
+                EditorGUILayout.Space(5);
+                GUILayout.Label("Adjust", EditorStyles.boldLabel);
+                EditorGUI.indentLevel++;
+                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("adjustAppToken"), new GUIContent("App Token"));
+                EditorGUI.indentLevel--;
+            }
+
+            if (_serializedConfig.ApplyModifiedProperties())
+                EditorUtility.SetDirty(_config);
+
+            EditorGUILayout.EndVertical();
+        }
+
+        void DrawInfoSection()
+        {
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            GUILayout.Label("ℹ️ Auto-Initialization", EditorStyles.boldLabel);
+            GUILayout.Label(
+                "The SDK auto-initializes when your game starts.\n" +
+                "• iOS: Shows ATT consent dialog automatically\n" +
+                "• Use Palette.TrackDesign() to track events",
+                s_wordWrapStyle);
+            EditorGUILayout.EndVertical();
+        }
+
+        void DrawLinksSection()
+        {
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+
+            if (GUILayout.Button("Documentation", s_linkStyle))
+                Application.OpenURL("https://github.com/sorolla-studio/sorolla-palette#readme");
+
+            GUILayout.Label("|", EditorStyles.linkLabel);
+
+            if (GUILayout.Button("GitHub", s_linkStyle))
+                Application.OpenURL("https://github.com/sorolla-studio/sorolla-palette");
+
+            GUILayout.Label("|", EditorStyles.linkLabel);
+
+            if (GUILayout.Button("Report Issue", s_linkStyle))
+                Application.OpenURL("https://github.com/sorolla-studio/sorolla-palette/issues");
+
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+        }
+
+        void LoadOrCreateConfig()
+        {
+            string[] guids = AssetDatabase.FindAssets("t:SorollaConfig");
+            if (guids.Length > 0)
+                _config = AssetDatabase.LoadAssetAtPath<SorollaConfig>(AssetDatabase.GUIDToAssetPath(guids[0]));
+            else
+                CreateConfig();
+
+            if (_config != null)
+                _serializedConfig = new SerializedObject(_config);
+        }
+
+        void CreateConfig()
+        {
+            _config = CreateInstance<SorollaConfig>();
+
+            if (!AssetDatabase.IsValidFolder("Assets/Resources"))
+                AssetDatabase.CreateFolder("Assets", "Resources");
+
+            string path = AssetDatabase.GenerateUniqueAssetPath("Assets/Resources/SorollaConfig.asset");
+            AssetDatabase.CreateAsset(_config, path);
+            AssetDatabase.SaveAssets();
+
+            Debug.Log($"[Palette] Config created at: {path}");
+        }
+
+        /// <summary>
+        ///     Data for rendering a single SDK row in the overview section.
+        /// </summary>
+        struct SdkRowData
+        {
+            public string Name;
+            public bool IsInstalled;
+            public bool IsRequired;
+            public SdkConfigDetector.ConfigStatus ConfigStatus;
+            public string ConfigHint;
+            public Action OnConfigure;
+            public Action OnInstall;
+        }
+
         #region SDK Overview
 
         void DrawSdkOverviewSection()
@@ -125,10 +326,10 @@ namespace Sorolla.Palette.Editor
             bool isPrototype = SorollaSettings.IsPrototype;
 
             // Calculate overall readiness
-            var gaStatus = SdkConfigDetector.GetGameAnalyticsStatus();
-            var fbStatus = SdkConfigDetector.GetFacebookStatus();
-            var maxStatus = SdkConfigDetector.GetMaxStatus(_config);
-            var adjustStatus = SdkConfigDetector.GetAdjustStatus(_config);
+            SdkConfigDetector.ConfigStatus gaStatus = SdkConfigDetector.GetGameAnalyticsStatus();
+            SdkConfigDetector.ConfigStatus fbStatus = SdkConfigDetector.GetFacebookStatus();
+            SdkConfigDetector.ConfigStatus maxStatus = SdkConfigDetector.GetMaxStatus(_config);
+            SdkConfigDetector.ConfigStatus adjustStatus = SdkConfigDetector.GetAdjustStatus(_config);
 
             bool isReady = gaStatus == SdkConfigDetector.ConfigStatus.Configured &&
                            (isPrototype
@@ -143,9 +344,7 @@ namespace Sorolla.Palette.Editor
             GUILayout.Label("SDK Overview", EditorStyles.boldLabel);
             GUILayout.FlexibleSpace();
 
-            var statusStyle = new GUIStyle(EditorStyles.boldLabel);
-            statusStyle.normal.textColor = isReady ? new Color(0.2f, 0.8f, 0.2f) : new Color(1f, 0.7f, 0.2f);
-            GUILayout.Label(isReady ? "✓ Ready" : "⚠ Setup Required", statusStyle);
+            GUILayout.Label(isReady ? "✓ Ready" : "⚠ Setup Required", isReady ? s_statusGreenStyle : s_statusYellowStyle);
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.Space(5);
@@ -156,7 +355,7 @@ namespace Sorolla.Palette.Editor
                 gaStatus,
                 "Configure game keys",
                 SdkConfigDetector.OpenGameAnalyticsSettings,
-                isRequired: true
+                true
             );
 
             if (isPrototype)
@@ -167,23 +366,23 @@ namespace Sorolla.Palette.Editor
                     fbStatus,
                     "Set App ID",
                     SdkConfigDetector.OpenFacebookSettings,
-                    isRequired: true
+                    true
                 );
 
                 // MAX (optional in Prototype) - expandable for ad unit IDs
-                DrawMaxOverviewItem(maxStatus, isRequired: false);
+                DrawMaxOverviewItem(maxStatus, false);
             }
             else
             {
                 // Full mode: MAX + Adjust required
-                DrawMaxOverviewItem(maxStatus, isRequired: true);
+                DrawMaxOverviewItem(maxStatus, true);
 
                 DrawSdkOverviewItem(
                     SdkRegistry.All[SdkId.Adjust],
                     adjustStatus,
                     "Enter app token below",
                     null,
-                    isRequired: true
+                    true
                 );
             }
 
@@ -194,57 +393,46 @@ namespace Sorolla.Palette.Editor
         }
 
         void DrawSdkOverviewItem(SdkInfo sdk, SdkConfigDetector.ConfigStatus configStatus,
-            string configHint, Action openSettings, bool isRequired)
+            string configHint, Action openSettings, bool isRequired) => DrawSdkRow(new SdkRowData
         {
-            DrawSdkRow(new SdkRowData
-            {
-                Name = sdk.Name,
-                IsInstalled = SdkDetector.IsInstalled(sdk),
-                IsRequired = isRequired,
-                ConfigStatus = configStatus,
-                ConfigHint = configHint,
-                OnConfigure = openSettings,
-                OnInstall = () => SdkInstaller.Install(sdk.Id)
-            });
-        }
+            Name = sdk.Name,
+            IsInstalled = SdkDetector.IsInstalled(sdk),
+            IsRequired = isRequired,
+            ConfigStatus = configStatus,
+            ConfigHint = configHint,
+            OnConfigure = openSettings,
+            OnInstall = () => SdkInstaller.Install(sdk.Id),
+        });
 
         void DrawSdkRow(SdkRowData data)
         {
             EditorGUILayout.BeginHorizontal();
 
-            // Icon
-            var iconStyle = new GUIStyle(EditorStyles.label) { fixedWidth = 20 };
-            if (data.IsInstalled)
-            {
-                iconStyle.normal.textColor = new Color(0.2f, 0.8f, 0.2f);
-                GUILayout.Label("✓", iconStyle);
-            }
-            else
-            {
-                iconStyle.normal.textColor = data.IsRequired ? new Color(1f, 0.4f, 0.4f) : Color.gray;
-                GUILayout.Label(data.IsRequired ? "✗" : "○", iconStyle);
-            }
+            // Status icon
+            Color iconColor = data.IsInstalled ? ColorGreen : data.IsRequired ? ColorRed : ColorGray;
+            string iconText = data.IsInstalled ? "✓" : data.IsRequired ? "✗" : "○";
+            DrawIcon(iconText, iconColor);
 
             // Name
-            var nameLabel = data.IsRequired ? data.Name : $"{data.Name} (optional)";
+            string nameLabel = data.IsRequired ? data.Name : $"{data.Name} (optional)";
             GUILayout.Label(nameLabel, GUILayout.Width(140));
 
             // Config status
-            var configStyle = new GUIStyle(EditorStyles.miniLabel);
+            GUIStyle configStyle;
             string configText;
             if (!data.IsInstalled)
             {
-                configStyle.normal.textColor = Color.gray;
+                configStyle = s_configStyleGray;
                 configText = "—";
             }
             else if (data.ConfigStatus == SdkConfigDetector.ConfigStatus.Configured)
             {
-                configStyle.normal.textColor = new Color(0.5f, 0.8f, 0.5f);
+                configStyle = s_configStyleGreen;
                 configText = "✓ Configured";
             }
             else
             {
-                configStyle.normal.textColor = new Color(1f, 0.7f, 0.2f);
+                configStyle = s_configStyleYellow;
                 configText = data.ConfigHint;
             }
             GUILayout.Label(configText, configStyle, GUILayout.Width(120));
@@ -273,48 +461,37 @@ namespace Sorolla.Palette.Editor
 
         void DrawMaxOverviewItem(SdkConfigDetector.ConfigStatus configStatus, bool isRequired)
         {
-            var sdk = SdkRegistry.All[SdkId.AppLovinMAX];
+            SdkInfo sdk = SdkRegistry.All[SdkId.AppLovinMAX];
             bool isInstalled = SdkDetector.IsInstalled(sdk);
 
             EditorGUILayout.BeginHorizontal();
 
-            // Install status icon
-            var iconStyle = new GUIStyle(EditorStyles.label) { fixedWidth = 20 };
-            if (isInstalled)
-            {
-                iconStyle.normal.textColor = new Color(0.2f, 0.8f, 0.2f);
-                GUILayout.Label("✓", iconStyle);
-            }
-            else
-            {
-                iconStyle.normal.textColor = isRequired ? new Color(1f, 0.4f, 0.4f) : Color.gray;
-                GUILayout.Label(isRequired ? "✗" : "○", iconStyle);
-            }
+            // Status icon
+            Color iconColor = isInstalled ? ColorGreen : isRequired ? ColorRed : ColorGray;
+            DrawIcon(isInstalled ? "✓" : isRequired ? "✗" : "○", iconColor);
 
             // SDK name
-            var nameLabel = isRequired ? sdk.Name : $"{sdk.Name} (optional)";
+            string nameLabel = isRequired ? sdk.Name : $"{sdk.Name} (optional)";
             GUILayout.Label(nameLabel, GUILayout.Width(140));
 
             // Config status
-            var configStyle = new GUIStyle(EditorStyles.miniLabel);
+            GUIStyle configStyle;
             string configText;
-
             if (!isInstalled)
             {
-                configStyle.normal.textColor = Color.gray;
+                configStyle = s_configStyleGray;
                 configText = "—";
             }
             else if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
             {
-                configStyle.normal.textColor = new Color(0.5f, 0.8f, 0.5f);
+                configStyle = s_configStyleGreen;
                 configText = "✓ Configured";
             }
             else
             {
-                configStyle.normal.textColor = new Color(1f, 0.7f, 0.2f);
+                configStyle = s_configStyleYellow;
                 configText = "Set SDK key";
             }
-
             GUILayout.Label(configText, configStyle, GUILayout.Width(120));
 
             GUILayout.FlexibleSpace();
@@ -325,36 +502,12 @@ namespace Sorolla.Palette.Editor
                 if (GUILayout.Button("Install", GUILayout.Width(70)))
                     SdkInstaller.Install(sdk.Id);
             }
-            else
+            else if (GUILayout.Button("Edit", GUILayout.Width(50)))
             {
-                // Edit button opens Integration Manager (for SDK key)
-                if (GUILayout.Button("Edit", GUILayout.Width(50)))
-                    SdkConfigDetector.OpenMaxSettings();
+                SdkConfigDetector.OpenMaxSettings();
             }
 
             EditorGUILayout.EndHorizontal();
-
-            // Ad Unit IDs (always shown when installed)
-            if (isInstalled && _config != null)
-            {
-                EditorGUI.indentLevel += 2;
-
-                var serializedConfig = new SerializedObject(_config);
-
-                EditorGUILayout.PropertyField(serializedConfig.FindProperty("rewardedAdUnit"),
-                    new GUIContent("Rewarded Ad Unit"));
-                EditorGUILayout.PropertyField(serializedConfig.FindProperty("interstitialAdUnit"),
-                    new GUIContent("Interstitial Ad Unit"));
-                EditorGUILayout.PropertyField(serializedConfig.FindProperty("bannerAdUnit"),
-                    new GUIContent("Banner Ad Unit (Optional)"));
-
-                if (serializedConfig.ApplyModifiedProperties())
-                {
-                    EditorUtility.SetDirty(_config);
-                }
-
-                EditorGUI.indentLevel -= 2;
-            }
         }
 
         void DrawFirebaseOverviewItem()
@@ -364,34 +517,29 @@ namespace Sorolla.Palette.Editor
 
             EditorGUILayout.BeginHorizontal();
 
-            // Install status icon
-            var iconStyle = new GUIStyle(EditorStyles.label) { fixedWidth = 20 };
-            iconStyle.normal.textColor = isInstalled ? new Color(0.2f, 0.8f, 0.2f) : new Color(1f, 0.4f, 0.4f);
-            GUILayout.Label(isInstalled ? "✓" : "✗", iconStyle);
+            // Status icon (Firebase is always required)
+            DrawIcon(isInstalled ? "✓" : "✗", isInstalled ? ColorGreen : ColorRed);
 
-            // Name
             GUILayout.Label("Firebase", GUILayout.Width(140));
 
             // Config status
-            var configStyle = new GUIStyle(EditorStyles.miniLabel);
+            GUIStyle configStyle;
             string configText;
-
             if (!isInstalled)
             {
-                configStyle.normal.textColor = Color.gray;
+                configStyle = s_configStyleGray;
                 configText = "—";
             }
             else if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
             {
-                configStyle.normal.textColor = new Color(0.5f, 0.8f, 0.5f);
+                configStyle = s_configStyleGreen;
                 configText = "✓ Configured";
             }
             else
             {
-                configStyle.normal.textColor = new Color(1f, 0.7f, 0.2f);
+                configStyle = s_configStyleYellow;
                 configText = "Add config files";
             }
-
             GUILayout.Label(configText, configStyle, GUILayout.Width(120));
 
             GUILayout.FlexibleSpace();
@@ -401,207 +549,15 @@ namespace Sorolla.Palette.Editor
                 if (GUILayout.Button("Install", GUILayout.Width(70)))
                     SdkInstaller.InstallFirebase();
             }
-            else if (configStatus == SdkConfigDetector.ConfigStatus.NotConfigured)
+            else if (GUILayout.Button("Console", GUILayout.Width(70)))
             {
-                if (GUILayout.Button("Console", GUILayout.Width(70)))
-                    OpenFirebaseConsole();
-            }
-            else
-            {
-                // Configured - offer to open console for edits
-                if (GUILayout.Button("Console", GUILayout.Width(70)))
-                    OpenFirebaseConsole();
+                Application.OpenURL("https://console.firebase.google.com/");
             }
 
             EditorGUILayout.EndHorizontal();
         }
-
-        static void OpenFirebaseConsole() => Application.OpenURL("https://console.firebase.google.com/");
 
         #endregion
-
-        void DrawModeSection()
-        {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            GUILayout.Label("Mode", EditorStyles.boldLabel);
-
-            SorollaMode mode = SorollaSettings.Mode;
-            bool isPrototype = mode == SorollaMode.Prototype;
-
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Current:", GUILayout.Width(60));
-
-            var modeStyle = new GUIStyle(EditorStyles.boldLabel);
-            modeStyle.normal.textColor = isPrototype ? new Color(0.3f, 0.7f, 1f) : new Color(0.3f, 1f, 0.3f);
-            GUILayout.Label(isPrototype ? "🧪 Prototype" : "🚀 Full", modeStyle);
-
-            GUILayout.FlexibleSpace();
-
-            SorollaMode otherMode = isPrototype ? SorollaMode.Full : SorollaMode.Prototype;
-            if (GUILayout.Button($"Switch to {otherMode}", GUILayout.Width(130)))
-                if (EditorUtility.DisplayDialog($"Switch to {otherMode} Mode?",
-                    "This will install/uninstall SDKs as needed.", "Switch", "Cancel"))
-                {
-                    SorollaSettings.SetMode(otherMode);
-                    // Re-run validation after mode switch
-                    EditorApplication.delayCall += RunBuildValidation;
-                }
-            EditorGUILayout.EndHorizontal();
-            EditorGUILayout.EndVertical();
-        }
-
-        void DrawConfigSection()
-        {
-            if (_config == null)
-            {
-                EditorGUILayout.HelpBox("No config found. Click below to create one.", MessageType.Warning);
-                if (GUILayout.Button("Create Configuration Asset"))
-                    CreateConfig();
-                return;
-            }
-
-            var serializedConfig = new SerializedObject(_config);
-            bool isPrototype = SorollaSettings.IsPrototype;
-
-            // Only show SDK Keys section if Adjust needs config (Full mode only)
-            // MAX config is now inline in SDK Overview (expandable row)
-            bool showAdjustConfig = !isPrototype && SdkDetector.IsInstalled(SdkId.Adjust);
-
-            if (showAdjustConfig)
-            {
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                GUILayout.Label("SDK Keys", EditorStyles.boldLabel);
-
-                // Adjust config (full mode only)
-                EditorGUILayout.Space(5);
-                GUILayout.Label("Adjust", EditorStyles.boldLabel);
-                EditorGUI.indentLevel++;
-                EditorGUILayout.PropertyField(serializedConfig.FindProperty("adjustAppToken"),
-                    new GUIContent("App Token"));
-                EditorGUI.indentLevel--;
-
-                serializedConfig.ApplyModifiedProperties();
-
-                EditorGUILayout.Space(5);
-                EditorGUILayout.BeginHorizontal();
-                if (GUILayout.Button("Save"))
-                {
-                    EditorUtility.SetDirty(_config);
-                    AssetDatabase.SaveAssets();
-                    Debug.Log("[Palette] Configuration saved.");
-                }
-
-                if (GUILayout.Button("Select Asset"))
-                {
-                    Selection.activeObject = _config;
-                    EditorGUIUtility.PingObject(_config);
-                }
-
-                EditorGUILayout.EndHorizontal();
-
-                EditorGUILayout.EndVertical();
-            }
-
-            // Firebase section (always check, shown when installed)
-            DrawFirebaseConfigSection(serializedConfig);
-        }
-
-        void DrawFirebaseConfigSection(SerializedObject serializedConfig)
-        {
-            if (!SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
-                return;
-
-            EditorGUILayout.Space(10);
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            GUILayout.Label("Firebase", EditorStyles.boldLabel);
-
-            EditorGUILayout.Space(5);
-            GUILayout.Label("All modules enabled: Analytics, Crashlytics, Remote Config", EditorStyles.miniLabel);
-            EditorGUILayout.Space(5);
-
-            // Config file status
-            bool androidConfigured = SdkConfigDetector.IsFirebaseAndroidConfigured();
-            bool iosConfigured = SdkConfigDetector.IsFirebaseIOSConfigured();
-
-            GUILayout.Label("Configuration Files:", EditorStyles.miniLabel);
-
-            // Android config
-            EditorGUILayout.BeginHorizontal();
-            var androidStyle = new GUIStyle(EditorStyles.label) { fixedWidth = 20 };
-            androidStyle.normal.textColor = androidConfigured ? new Color(0.2f, 0.8f, 0.2f) : new Color(1f, 0.5f, 0.2f);
-            GUILayout.Label(androidConfigured ? "✓" : "○", androidStyle);
-            GUILayout.Label("google-services.json", GUILayout.Width(150));
-
-            var androidStatusStyle = new GUIStyle(EditorStyles.miniLabel);
-            if (androidConfigured)
-                androidStatusStyle.normal.textColor = new Color(0.5f, 0.8f, 0.5f);
-            GUILayout.Label(androidConfigured ? "Found in Assets/" : "Missing - download from Firebase Console",
-                androidStatusStyle);
-            EditorGUILayout.EndHorizontal();
-
-            // iOS config
-            EditorGUILayout.BeginHorizontal();
-            var iosStyle = new GUIStyle(EditorStyles.label) { fixedWidth = 20 };
-            iosStyle.normal.textColor = iosConfigured ? new Color(0.2f, 0.8f, 0.2f) : new Color(1f, 0.5f, 0.2f);
-            GUILayout.Label(iosConfigured ? "✓" : "○", iosStyle);
-            GUILayout.Label("GoogleService-Info.plist", GUILayout.Width(150));
-
-            var iosStatusStyle = new GUIStyle(EditorStyles.miniLabel);
-            if (iosConfigured)
-                iosStatusStyle.normal.textColor = new Color(0.5f, 0.8f, 0.5f);
-            GUILayout.Label(iosConfigured ? "Found in Assets/" : "Missing - download from Firebase Console",
-                iosStatusStyle);
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.Space(5);
-
-            if (!androidConfigured || !iosConfigured)
-                if (GUILayout.Button("Open Firebase Console", GUILayout.Height(25)))
-                    Application.OpenURL("https://console.firebase.google.com/");
-
-            serializedConfig.ApplyModifiedProperties();
-            EditorGUILayout.EndVertical();
-        }
-
-        void DrawInfoSection()
-        {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            GUILayout.Label("ℹ️ Auto-Initialization", EditorStyles.boldLabel);
-            GUILayout.Label(
-                "The SDK auto-initializes when your game starts.\n" +
-                "• iOS: Shows ATT consent dialog automatically\n" +
-                "• Use Palette.TrackDesign() to track events",
-                new GUIStyle(EditorStyles.label) { wordWrap = true });
-            EditorGUILayout.EndVertical();
-        }
-
-        void DrawLinksSection()
-        {
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
-
-            var linkStyle = new GUIStyle(EditorStyles.linkLabel)
-            {
-                normal = { textColor = new Color(0.4f, 0.7f, 1f) },
-                hover = { textColor = new Color(0.6f, 0.85f, 1f) },
-            };
-
-            if (GUILayout.Button("Documentation", linkStyle))
-                Application.OpenURL("https://github.com/sorolla-studio/sorolla-palette#readme");
-
-            GUILayout.Label("|", EditorStyles.linkLabel);
-
-            if (GUILayout.Button("GitHub", linkStyle))
-                Application.OpenURL("https://github.com/sorolla-studio/sorolla-palette");
-
-            GUILayout.Label("|", EditorStyles.linkLabel);
-
-            if (GUILayout.Button("Report Issue", linkStyle))
-                Application.OpenURL("https://github.com/sorolla-studio/sorolla-palette/issues");
-
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
-        }
 
         #region Build Health
 
@@ -623,9 +579,8 @@ namespace Sorolla.Palette.Editor
 
         void DrawBuildHealthSection()
         {
-            var errors = _validationResults.Count(r => r.Status == BuildValidator.ValidationStatus.Error);
-            var warnings = _validationResults.Count(r => r.Status == BuildValidator.ValidationStatus.Warning);
-            var isHealthy = errors == 0;
+            int errors = _validationResults.Count(r => r.Status == BuildValidator.ValidationStatus.Error);
+            bool isHealthy = errors == 0;
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
@@ -634,17 +589,10 @@ namespace Sorolla.Palette.Editor
             GUILayout.Label("Build Health", EditorStyles.boldLabel);
             GUILayout.FlexibleSpace();
 
-            var statusStyle = new GUIStyle(EditorStyles.boldLabel);
             if (isHealthy)
-            {
-                statusStyle.normal.textColor = new Color(0.2f, 0.8f, 0.2f);
-                GUILayout.Label("Ready to Build", statusStyle);
-            }
+                GUILayout.Label("Ready to Build", s_statusGreenStyle);
             else
-            {
-                statusStyle.normal.textColor = new Color(0.9f, 0.4f, 0.4f);
-                GUILayout.Label($"{errors} Issue(s)", statusStyle);
-            }
+                GUILayout.Label($"{errors} Issue(s)", s_statusRedStyle);
 
             if (GUILayout.Button("Refresh", GUILayout.Width(60)))
                 RunBuildValidation();
@@ -655,12 +603,10 @@ namespace Sorolla.Palette.Editor
             if (_autoFixLog.Count > 0)
             {
                 EditorGUILayout.Space(5);
-                foreach (var fix in _autoFixLog)
+                foreach (string fix in _autoFixLog)
                 {
                     EditorGUILayout.BeginHorizontal();
-                    var fixStyle = new GUIStyle(EditorStyles.miniLabel);
-                    fixStyle.normal.textColor = new Color(0.4f, 0.8f, 0.4f);
-                    GUILayout.Label("AUTO-FIXED", fixStyle, GUILayout.Width(70));
+                    GUILayout.Label("AUTO-FIXED", s_autoFixStyle, GUILayout.Width(70));
                     GUILayout.Label(fix, EditorStyles.miniLabel);
                     EditorGUILayout.EndHorizontal();
                 }
@@ -668,98 +614,86 @@ namespace Sorolla.Palette.Editor
 
             EditorGUILayout.Space(5);
 
-            // Show all 7 checks with their status
-            foreach (BuildValidator.CheckCategory category in Enum.GetValues(typeof(BuildValidator.CheckCategory)))
+            // Show all checks with their status
+            foreach (BuildValidator.CheckCategory category in (BuildValidator.CheckCategory[])Enum.GetValues(typeof(BuildValidator.CheckCategory)))
             {
-                var checkName = BuildValidator.CheckNames[category];
+                string checkName = BuildValidator.CheckNames[category];
                 var categoryResults = _validationResults.Where(r => r.Category == category).ToList();
 
-                // Determine status for this category
-                var hasError = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Error);
-                var hasWarning = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Warning);
-                var validResult = categoryResults.FirstOrDefault(r => r.Status == BuildValidator.ValidationStatus.Valid);
+                bool hasError = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Error);
+                bool hasWarning = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Warning);
+                var validResult = categoryResults.Find(r => r.Status == BuildValidator.ValidationStatus.Valid);
 
                 EditorGUILayout.BeginHorizontal();
 
                 // Status icon
-                var iconStyle = new GUIStyle(EditorStyles.label) { fixedWidth = 20 };
                 if (hasError)
-                {
-                    iconStyle.normal.textColor = new Color(1f, 0.4f, 0.4f);
-                    GUILayout.Label("✗", iconStyle);
-                }
+                    DrawIcon("✗", ColorRed);
                 else if (hasWarning)
-                {
-                    iconStyle.normal.textColor = new Color(1f, 0.8f, 0.2f);
-                    GUILayout.Label("⚠", iconStyle);
-                }
+                    DrawIcon("⚠", ColorYellow);
                 else
-                {
-                    iconStyle.normal.textColor = new Color(0.2f, 0.8f, 0.2f);
-                    GUILayout.Label("✓", iconStyle);
-                }
+                    DrawIcon("✓", ColorGreen);
 
-                // Check name
                 GUILayout.Label(checkName, GUILayout.Width(120));
 
                 // Status text
-                var textStyle = new GUIStyle(EditorStyles.miniLabel);
+                GUIStyle textStyle;
                 string statusText;
                 if (hasError)
                 {
-                    textStyle.normal.textColor = new Color(1f, 0.5f, 0.5f);
-                    var firstError = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Error);
-                    statusText = firstError.Message.Split('\n')[0];
+                    textStyle = s_configStyleRed;
+                    statusText = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Error).Message.Split('\n')[0];
                 }
                 else if (hasWarning)
                 {
-                    textStyle.normal.textColor = new Color(1f, 0.85f, 0.5f);
-                    var firstWarning = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Warning);
-                    statusText = firstWarning.Message.Split('\n')[0];
+                    textStyle = s_configStyleYellow;
+                    statusText = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Warning).Message.Split('\n')[0];
                 }
                 else if (validResult != null)
                 {
-                    textStyle.normal.textColor = new Color(0.5f, 0.8f, 0.5f);
+                    textStyle = s_configStyleGreen;
                     statusText = validResult.Message;
                 }
                 else
                 {
-                    textStyle.normal.textColor = Color.gray;
+                    textStyle = s_configStyleGray;
                     statusText = "Not checked";
                 }
 
                 GUILayout.Label(statusText, textStyle);
 
                 EditorGUILayout.EndHorizontal();
+
+                // Firebase config file sub-rows
+                if (category == BuildValidator.CheckCategory.FirebaseCoherence && SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
+                    DrawFirebaseConfigSubRows();
             }
 
             EditorGUILayout.EndVertical();
         }
 
+        void DrawFirebaseConfigSubRows()
+        {
+            bool androidOk = SdkConfigDetector.IsFirebaseAndroidConfigured();
+            bool iosOk = SdkConfigDetector.IsFirebaseIOSConfigured();
+
+            // Android config
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Space(24); // Indent under parent row
+            DrawIcon(androidOk ? "✓" : "○", androidOk ? ColorGreen : ColorYellow);
+            GUILayout.Label("google-services.json", GUILayout.Width(150));
+            GUILayout.Label(androidOk ? "Found" : "Missing", androidOk ? s_configStyleGreen : s_configStyleYellow);
+            EditorGUILayout.EndHorizontal();
+
+            // iOS config
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Space(24);
+            DrawIcon(iosOk ? "✓" : "○", iosOk ? ColorGreen : ColorYellow);
+            GUILayout.Label("GoogleService-Info.plist", GUILayout.Width(150));
+            GUILayout.Label(iosOk ? "Found" : "Missing", iosOk ? s_configStyleGreen : s_configStyleYellow);
+            EditorGUILayout.EndHorizontal();
+        }
+
         #endregion
-
-        void LoadOrCreateConfig()
-        {
-            string[] guids = AssetDatabase.FindAssets("t:SorollaConfig");
-            if (guids.Length > 0)
-                _config = AssetDatabase.LoadAssetAtPath<SorollaConfig>(AssetDatabase.GUIDToAssetPath(guids[0]));
-            else
-                CreateConfig();
-        }
-
-        void CreateConfig()
-        {
-            _config = CreateInstance<SorollaConfig>();
-
-            if (!AssetDatabase.IsValidFolder("Assets/Resources"))
-                AssetDatabase.CreateFolder("Assets", "Resources");
-
-            string path = AssetDatabase.GenerateUniqueAssetPath("Assets/Resources/SorollaConfig.asset");
-            AssetDatabase.CreateAsset(_config, path);
-            AssetDatabase.SaveAssets();
-
-            Debug.Log($"[Palette] Config created at: {path}");
-            Selection.activeObject = _config;
-        }
     }
 }
