@@ -10,28 +10,20 @@ namespace Sorolla.Palette.Adapters
     [Preserve]
     internal class MaxAdapterImpl : IMaxAdapter
     {
-        private bool _init;
-        private string _rewardedId;
-        private string _interstitialId;
-        private string _bannerId;
+        string _bannerId;
+        bool _consent;
+        bool _init;
+        string _interstitialId;
+        bool _interstitialReady;
+        Action _onInterstitialComplete;
 
-        private Action _onRewardComplete;
-        private Action _onRewardFailed;
-        private Action _onInterstitialComplete;
+        Action _onRewardComplete;
+        Action _onRewardFailed;
+        string _rewardedId;
 
-        private bool _rewardedReady;
-        private bool _interstitialReady;
-        private bool _consent;
+        bool _rewardedReady;
 
-        private MaxSdkBase.SdkConfiguration _sdkConfig;
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        [Preserve]
-        private static void Register()
-        {
-            Debug.Log("[Sorolla:MAX] Register() called - assembly is loaded!");
-            MaxAdapter.RegisterImpl(new MaxAdapterImpl());
-        }
+        MaxSdkBase.SdkConfiguration _sdkConfig;
 
         public bool IsRewardedAdReady => _init && _rewardedReady && MaxSdk.IsRewardedAdReady(_rewardedId);
         public bool IsInterstitialAdReady => _init && _interstitialReady && MaxSdk.IsInterstitialReady(_interstitialId);
@@ -42,8 +34,7 @@ namespace Sorolla.Palette.Adapters
 
         public bool IsPrivacyOptionsRequired
         {
-            get
-            {
+            get {
                 if (!_init) return false;
                 try
                 {
@@ -74,82 +65,6 @@ namespace Sorolla.Palette.Adapters
 
             // SDK key is read from AppLovinSettings (configured in Integration Manager)
             MaxSdk.InitializeSdk();
-        }
-
-        private void OnSdkInit(MaxSdkBase.SdkConfiguration config)
-        {
-            Debug.Log("[Sorolla:MAX] Initialized");
-
-            _init = true;
-            _sdkConfig = config;
-
-            // Check if CMP (UMP) is handling consent automatically
-            bool cmpHandlesConsent = false;
-            try
-            {
-                cmpHandlesConsent = MaxSdk.CmpService.HasSupportedCmp;
-            }
-            catch
-            {
-                // CmpService not available in older SDK versions
-            }
-
-            if (cmpHandlesConsent)
-            {
-                Debug.Log("[Sorolla:MAX] CMP enabled - consent handled by UMP");
-            }
-            else
-            {
-                MaxSdk.SetHasUserConsent(_consent);
-                Debug.Log($"[Sorolla:MAX] SetHasUserConsent({_consent}) - no CMP");
-            }
-
-            UpdateConsentStatusFromConfig(config);
-
-            InitRewarded();
-            InitInterstitial();
-
-            OnSdkInitialized?.Invoke();
-        }
-
-        private void UpdateConsentStatusFromConfig(MaxSdkBase.SdkConfiguration config)
-        {
-            var oldStatus = ConsentStatus;
-
-            if (config.ConsentFlowUserGeography == MaxSdkBase.ConsentFlowUserGeography.Gdpr)
-            {
-                try
-                {
-                    if (MaxSdk.CmpService.HasSupportedCmp)
-                    {
-                        bool hasConsent = MaxSdk.HasUserConsent();
-                        ConsentStatus = hasConsent ? ConsentStatus.Obtained : ConsentStatus.Denied;
-                    }
-                    else
-                    {
-                        ConsentStatus = _consent ? ConsentStatus.Obtained : ConsentStatus.Required;
-                    }
-                }
-                catch
-                {
-                    ConsentStatus = _consent ? ConsentStatus.Obtained : ConsentStatus.Required;
-                }
-            }
-            else if (config.ConsentFlowUserGeography == MaxSdkBase.ConsentFlowUserGeography.Unknown)
-            {
-                ConsentStatus = _consent ? ConsentStatus.Obtained : ConsentStatus.Required;
-            }
-            else
-            {
-                ConsentStatus = ConsentStatus.NotApplicable;
-            }
-
-            Debug.Log($"[Sorolla:MAX] ConsentStatus: {ConsentStatus} (Geography: {config.ConsentFlowUserGeography})");
-
-            if (oldStatus != ConsentStatus)
-            {
-                OnConsentStatusChanged?.Invoke(ConsentStatus);
-            }
         }
 
         public void ShowPrivacyOptions(Action onComplete)
@@ -238,61 +153,157 @@ namespace Sorolla.Palette.Adapters
             }
         }
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [Preserve]
+        static void Register()
+        {
+            Debug.Log("[Sorolla:MAX] Register() called - assembly is loaded!");
+            MaxAdapter.RegisterImpl(new MaxAdapterImpl());
+        }
+
+        void OnSdkInit(MaxSdkBase.SdkConfiguration config)
+        {
+            Debug.Log("[Sorolla:MAX] Initialized");
+
+            _init = true;
+            _sdkConfig = config;
+
+            // Check if CMP (UMP) is handling consent automatically
+            bool cmpHandlesConsent = false;
+            try
+            {
+                cmpHandlesConsent = MaxSdk.CmpService.HasSupportedCmp;
+            }
+            catch
+            {
+                // CmpService not available in older SDK versions
+            }
+
+            if (cmpHandlesConsent)
+            {
+                Debug.Log("[Sorolla:MAX] CMP enabled - consent handled by UMP");
+            }
+            else
+            {
+                MaxSdk.SetHasUserConsent(_consent);
+                Debug.Log($"[Sorolla:MAX] SetHasUserConsent({_consent}) - no CMP");
+            }
+
+            UpdateConsentStatusFromConfig(config);
+
+            InitRewarded();
+            InitInterstitial();
+
+            OnSdkInitialized?.Invoke();
+        }
+
+        void UpdateConsentStatusFromConfig(MaxSdkBase.SdkConfiguration config)
+        {
+            ConsentStatus oldStatus = ConsentStatus;
+
+            if (config.ConsentFlowUserGeography == MaxSdkBase.ConsentFlowUserGeography.Gdpr)
+            {
+                try
+                {
+                    if (MaxSdk.CmpService.HasSupportedCmp)
+                    {
+                        bool hasConsent = MaxSdk.HasUserConsent();
+                        ConsentStatus = hasConsent ? ConsentStatus.Obtained : ConsentStatus.Denied;
+                    }
+                    else
+                    {
+                        ConsentStatus = _consent ? ConsentStatus.Obtained : ConsentStatus.Required;
+                    }
+                }
+                catch
+                {
+                    ConsentStatus = _consent ? ConsentStatus.Obtained : ConsentStatus.Required;
+                }
+            }
+            else if (config.ConsentFlowUserGeography == MaxSdkBase.ConsentFlowUserGeography.Unknown)
+            {
+                ConsentStatus = _consent ? ConsentStatus.Obtained : ConsentStatus.Required;
+            }
+            else
+            {
+                ConsentStatus = ConsentStatus.NotApplicable;
+            }
+
+            Debug.Log($"[Sorolla:MAX] ConsentStatus: {ConsentStatus} (Geography: {config.ConsentFlowUserGeography})");
+
+            if (oldStatus != ConsentStatus)
+            {
+                OnConsentStatusChanged?.Invoke(ConsentStatus);
+            }
+        }
+
         #region Rewarded
 
-        private void InitRewarded()
+        void InitRewarded()
         {
             if (string.IsNullOrEmpty(_rewardedId)) return;
 
-            MaxSdkCallbacks.Rewarded.OnAdLoadedEvent += (_, __) =>
-            {
-                _rewardedReady = true;
-                OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, false);
-            };
-            MaxSdkCallbacks.Rewarded.OnAdLoadFailedEvent += (_, __) =>
-            {
-                _rewardedReady = false;
-                OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, false);
-                LoadRewarded();
-            };
-            MaxSdkCallbacks.Rewarded.OnAdHiddenEvent += (_, __) =>
-            {
-                _rewardedReady = false;
-                LoadRewarded();
-            };
-            MaxSdkCallbacks.Rewarded.OnAdDisplayFailedEvent += (_, __, ___) =>
-            {
-                _rewardedReady = false;
-                _onRewardFailed?.Invoke();
-                _onRewardFailed = null;
-                _onRewardComplete = null;
-                LoadRewarded();
-            };
-            MaxSdkCallbacks.Rewarded.OnAdReceivedRewardEvent += (_, __, ___) =>
-            {
-                _onRewardComplete?.Invoke();
-                _onRewardComplete = null;
-                _onRewardFailed = null;
-            };
-            MaxSdkCallbacks.Rewarded.OnAdRevenuePaidEvent += (_, info) =>
-            {
-#if SOROLLA_ADJUST_ENABLED
-                AdjustAdapter.TrackAdRevenue(new AdRevenueInfo
-                {
-                    Source = "applovin_max_sdk",
-                    Revenue = info.Revenue,
-                    Currency = "USD",
-                    Network = info.NetworkName,
-                    AdUnit = info.AdUnitIdentifier,
-                    Placement = info.Placement
-                });
-#endif
-            };
+            MaxSdkCallbacks.Rewarded.OnAdLoadedEvent += OnRewardedAdLoaded;
+            MaxSdkCallbacks.Rewarded.OnAdLoadFailedEvent += OnRewardedAdLoadFailed;
+            MaxSdkCallbacks.Rewarded.OnAdHiddenEvent += OnRewardedAdHidden;
+            MaxSdkCallbacks.Rewarded.OnAdDisplayFailedEvent += OnRewardedAdDisplayFailed;
+            MaxSdkCallbacks.Rewarded.OnAdReceivedRewardEvent += OnRewardedAdReceivedReward;
+            MaxSdkCallbacks.Rewarded.OnAdRevenuePaidEvent += OnRewardedAdRevenuePaid;
 
             LoadRewarded();
         }
 
-        private void LoadRewarded()
+        void OnRewardedAdLoaded(string adUnitId, MaxSdkBase.AdInfo adInfo)
+        {
+            _rewardedReady = true;
+            OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, false);
+        }
+
+        void OnRewardedAdLoadFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo)
+        {
+            _rewardedReady = false;
+            OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, false);
+            LoadRewarded();
+        }
+
+        void OnRewardedAdHidden(string adUnitId, MaxSdkBase.AdInfo adInfo)
+        {
+            _rewardedReady = false;
+            LoadRewarded();
+        }
+
+        void OnRewardedAdDisplayFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo, MaxSdkBase.AdInfo adInfo)
+        {
+            _rewardedReady = false;
+            _onRewardFailed?.Invoke();
+            _onRewardFailed = null;
+            _onRewardComplete = null;
+            LoadRewarded();
+        }
+
+        void OnRewardedAdReceivedReward(string adUnitId, MaxSdkBase.Reward reward, MaxSdkBase.AdInfo adInfo)
+        {
+            _onRewardComplete?.Invoke();
+            _onRewardComplete = null;
+            _onRewardFailed = null;
+        }
+
+        void OnRewardedAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo)
+        {
+#if SOROLLA_ADJUST_ENABLED
+            AdjustAdapter.TrackAdRevenue(new AdRevenueInfo
+            {
+                Source = "applovin_max_sdk",
+                Revenue = adInfo.Revenue,
+                Currency = "USD",
+                Network = adInfo.NetworkName,
+                AdUnit = adInfo.AdUnitIdentifier,
+                Placement = adInfo.Placement,
+            });
+#endif
+        }
+
+        void LoadRewarded()
         {
             OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, true);
             MaxSdk.LoadRewardedAd(_rewardedId);
@@ -323,54 +334,64 @@ namespace Sorolla.Palette.Adapters
 
         #region Interstitial
 
-        private void InitInterstitial()
+        void InitInterstitial()
         {
             if (string.IsNullOrEmpty(_interstitialId)) return;
 
-            MaxSdkCallbacks.Interstitial.OnAdLoadedEvent += (_, __) =>
-            {
-                _interstitialReady = true;
-                OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, false);
-            };
-            MaxSdkCallbacks.Interstitial.OnAdLoadFailedEvent += (_, __) =>
-            {
-                _interstitialReady = false;
-                OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, false);
-                LoadInterstitial();
-            };
-            MaxSdkCallbacks.Interstitial.OnAdHiddenEvent += (_, __) =>
-            {
-                _interstitialReady = false;
-                _onInterstitialComplete?.Invoke();
-                _onInterstitialComplete = null;
-                LoadInterstitial();
-            };
-            MaxSdkCallbacks.Interstitial.OnAdDisplayFailedEvent += (_, __, ___) =>
-            {
-                _interstitialReady = false;
-                _onInterstitialComplete?.Invoke();
-                _onInterstitialComplete = null;
-                LoadInterstitial();
-            };
-            MaxSdkCallbacks.Interstitial.OnAdRevenuePaidEvent += (_, info) =>
-            {
-#if SOROLLA_ADJUST_ENABLED
-                AdjustAdapter.TrackAdRevenue(new AdRevenueInfo
-                {
-                    Source = "applovin_max_sdk",
-                    Revenue = info.Revenue,
-                    Currency = "USD",
-                    Network = info.NetworkName,
-                    AdUnit = info.AdUnitIdentifier,
-                    Placement = info.Placement
-                });
-#endif
-            };
+            MaxSdkCallbacks.Interstitial.OnAdLoadedEvent += OnInterstitialAdLoaded;
+            MaxSdkCallbacks.Interstitial.OnAdLoadFailedEvent += OnInterstitialAdLoadFailed;
+            MaxSdkCallbacks.Interstitial.OnAdHiddenEvent += OnInterstitialAdHidden;
+            MaxSdkCallbacks.Interstitial.OnAdDisplayFailedEvent += OnInterstitialAdDisplayFailed;
+            MaxSdkCallbacks.Interstitial.OnAdRevenuePaidEvent += OnInterstitialAdRevenuePaid;
 
             LoadInterstitial();
         }
 
-        private void LoadInterstitial()
+        void OnInterstitialAdLoaded(string adUnitId, MaxSdkBase.AdInfo adInfo)
+        {
+            _interstitialReady = true;
+            OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, false);
+        }
+
+        void OnInterstitialAdLoadFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo)
+        {
+            _interstitialReady = false;
+            OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, false);
+            LoadInterstitial();
+        }
+
+        void OnInterstitialAdHidden(string adUnitId, MaxSdkBase.AdInfo adInfo)
+        {
+            _interstitialReady = false;
+            _onInterstitialComplete?.Invoke();
+            _onInterstitialComplete = null;
+            LoadInterstitial();
+        }
+
+        void OnInterstitialAdDisplayFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo, MaxSdkBase.AdInfo adInfo)
+        {
+            _interstitialReady = false;
+            _onInterstitialComplete?.Invoke();
+            _onInterstitialComplete = null;
+            LoadInterstitial();
+        }
+
+        void OnInterstitialAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo)
+        {
+#if SOROLLA_ADJUST_ENABLED
+            AdjustAdapter.TrackAdRevenue(new AdRevenueInfo
+            {
+                Source = "applovin_max_sdk",
+                Revenue = adInfo.Revenue,
+                Currency = "USD",
+                Network = adInfo.NetworkName,
+                AdUnit = adInfo.AdUnitIdentifier,
+                Placement = adInfo.Placement,
+            });
+#endif
+        }
+
+        void LoadInterstitial()
         {
             OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, true);
             MaxSdk.LoadInterstitial(_interstitialId);
