@@ -187,7 +187,7 @@ namespace Sorolla.Palette.Editor
                 );
             }
 
-            // Firebase (always optional)
+            // Firebase (required in all modes)
             DrawFirebaseOverviewItem();
 
             EditorGUILayout.EndVertical();
@@ -366,11 +366,11 @@ namespace Sorolla.Palette.Editor
 
             // Install status icon
             var iconStyle = new GUIStyle(EditorStyles.label) { fixedWidth = 20 };
-            iconStyle.normal.textColor = isInstalled ? new Color(0.2f, 0.8f, 0.2f) : Color.gray;
-            GUILayout.Label(isInstalled ? "✓" : "○", iconStyle);
+            iconStyle.normal.textColor = isInstalled ? new Color(0.2f, 0.8f, 0.2f) : new Color(1f, 0.4f, 0.4f);
+            GUILayout.Label(isInstalled ? "✓" : "✗", iconStyle);
 
             // Name
-            GUILayout.Label("Firebase (optional)", GUILayout.Width(140));
+            GUILayout.Label("Firebase", GUILayout.Width(140));
 
             // Config status
             var configStyle = new GUIStyle(EditorStyles.miniLabel);

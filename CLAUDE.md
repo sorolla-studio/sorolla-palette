@@ -100,7 +100,7 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 
 | Mode | Required SDKs | Optional | Use Case |
 |------|---------------|----------|----------|
-| Prototype | GameAnalytics, Facebook | MAX | CPI tests, soft launch |
-| Full | GameAnalytics, MAX, Adjust | Firebase | Production |
+| Prototype | GameAnalytics, Facebook, Firebase | MAX | CPI tests, soft launch |
+| Full | GameAnalytics, MAX, Adjust, Firebase | — | Production |
 
 Mode stored in EditorPrefs, runtime config in `Resources/SorollaConfig.asset`.

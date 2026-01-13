@@ -54,15 +54,15 @@ namespace Sorolla.Palette
         public bool adjustSandboxMode = true;
 
 
-        [Header("Firebase Analytics (Optional)")]
+        [Header("Firebase Analytics")]
         [Tooltip("Enable Firebase Analytics (requires google-services.json / GoogleService-Info.plist)")]
         public bool enableFirebaseAnalytics;
 
-        [Header("Firebase Crashlytics (Optional)")]
+        [Header("Firebase Crashlytics")]
         [Tooltip("Enable Firebase Crashlytics for crash reporting")]
         public bool enableCrashlytics;
 
-        [Header("Firebase Remote Config (Optional)")]
+        [Header("Firebase Remote Config")]
         [Tooltip("Enable Firebase Remote Config for A/B testing and feature flags")]
         public bool enableRemoteConfig;
     }
