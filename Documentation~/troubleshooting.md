@@ -4,32 +4,18 @@ Common issues and solutions for Sorolla SDK integration.
 
 ---
 
-## 🚨 Most Common Issues
-
-**Before diving deep, check these first:**
-
-| Issue | Quick Fix |
-|-------|-----------|
-| **SDK not initializing** | Check `Assets/Resources/SorollaConfig.asset` exists |
-| **Events not appearing** | Verify SDK keys in Configuration window, wait 5-10 min |
-| **Ads not loading** | Check SDK Key and Ad Unit IDs, wait 30 sec after init |
-| **Build failing on Android** | Run `Sorolla > Tools > Sanitize Android Manifest` |
-| **iOS provisioning errors** | Open Xcode, enable "Automatically manage signing" |
-| **Remote config returns defaults** | Ensure values are **published** in console |
-
----
-
 ## Quick Fixes
 
-| Issue | Solution |
-|-------|----------|
-| SDK not initializing | Check `SorollaConfig` exists in `Assets/Resources/` |
-| Events not appearing | Verify SDK keys in Configuration window |
-| Ads not loading | Check MAX SDK Key and Ad Unit IDs |
-| Remote config returns defaults | Ensure values are **published** in console |
-| Firebase errors | Verify config files match bundle ID |
-| Build failing | Check **Build Health** section in Configuration window |
-| Runtime crash on Android | Run `Palette > Tools > Sanitize Android Manifest` |
+| Issue | Solution | Details |
+|-------|----------|---------|
+| SDK not initializing | Check `Assets/Resources/SorollaConfig.asset` exists | [→](#sdk-initialization) |
+| Events not appearing | Verify SDK keys, wait 5-10 min | [→](#analytics) |
+| Ads not loading | Check SDK Key and Ad Unit IDs, wait 30 sec after init | [→](#ads-applovin-max) |
+| Remote config returns defaults | Ensure values are **published** in console | [→](#remote-config) |
+| Firebase errors | Verify config files match bundle ID | [→](#firebase-issues) |
+| Build failing | Check **Build Health** in Configuration window | [→](#build-health) |
+| Runtime crash on Android | Run `Palette > Tools > Sanitize Android Manifest` | [→](#android-specific-issues) |
+| iOS provisioning errors | Open Xcode, enable "Automatically manage signing" | [→](#ios-specific-issues) |
 
 ---
 
