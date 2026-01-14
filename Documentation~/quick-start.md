@@ -10,8 +10,6 @@ Get your prototype running in 10 minutes.
 2. Paste: `https://github.com/sorolla-studio/sorolla-palette.git#v3.1.0`
 3. **Configuration window** opens automatically
 
-> Check [Releases](https://github.com/sorolla-studio/sorolla-palette/releases) for the latest version.
-
 ---
 
 ## 2. Configure
@@ -55,6 +53,7 @@ Palette.TrackProgression(ProgressionStatus.Fail, level);     // Level lost
 2. Verify in dashboards:
    - [GameAnalytics](https://gameanalytics.com) - Events in 5-10 min
    - [Facebook Events Manager](https://business.facebook.com) - Install data
+   - [Firebase Console](https://console.firebase.google.com) - Analytics, Crashlytics
 
 ### Optional: Debug UI
 
