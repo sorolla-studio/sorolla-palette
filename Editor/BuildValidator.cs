@@ -34,7 +34,8 @@ namespace Sorolla.Palette.Editor
             FirebaseCoherence,
             ConfigSync,
             AndroidManifest,
-            MaxSettings
+            MaxSettings,
+            Edm4uSettings
         }
 
         public static readonly Dictionary<CheckCategory, string> CheckNames = new()
@@ -45,7 +46,8 @@ namespace Sorolla.Palette.Editor
             [CheckCategory.FirebaseCoherence] = "Firebase Coherence",
             [CheckCategory.ConfigSync] = "Config Sync",
             [CheckCategory.AndroidManifest] = "Android Manifest",
-            [CheckCategory.MaxSettings] = "MAX Settings"
+            [CheckCategory.MaxSettings] = "MAX Settings",
+            [CheckCategory.Edm4uSettings] = "EDM4U Settings"
         };
 
         public class ValidationResult
@@ -107,6 +109,7 @@ namespace Sorolla.Palette.Editor
                 results.AddRange(CheckConfigSync(dependencies));
                 results.AddRange(CheckAndroidManifest());
                 results.AddRange(CheckMaxSettings());
+                results.AddRange(CheckEdm4uSettings());
             }
             catch (Exception e)
             {
@@ -558,6 +561,26 @@ namespace Sorolla.Palette.Editor
 #endif
 
             return results;
+        }
+
+        /// <summary>
+        ///     Check for duplicate EDM4U installations (common with .unitypackage imports)
+        /// </summary>
+        private static List<ValidationResult> CheckEdm4uSettings()
+        {
+            var duplicates = Edm4uSanitizer.DetectDuplicateInstallations();
+            if (duplicates.Count == 0)
+                return new List<ValidationResult>
+                {
+                    new(ValidationStatus.Valid, "No duplicate EDM4U", category: CheckCategory.Edm4uSettings)
+                };
+
+            return duplicates.Select(dup => new ValidationResult(
+                ValidationStatus.Warning,
+                dup,
+                "Remove duplicate EDM4U from Assets/ folder",
+                CheckCategory.Edm4uSettings
+            )).ToList();
         }
 
         /// <summary>
