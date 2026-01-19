@@ -60,7 +60,7 @@ namespace Sorolla.Palette.Adapters
             _bannerId = bannerId;
             _consent = consent;
 
-            Debug.Log("[Sorolla:MAX] Initializing...");
+            Debug.Log("[Palette:MAX] Initializing...");
             MaxSdkCallbacks.OnSdkInitializedEvent += OnSdkInit;
 
             // SDK key is read from AppLovinSettings (configured in Integration Manager)
@@ -71,7 +71,7 @@ namespace Sorolla.Palette.Adapters
         {
             if (!_init)
             {
-                Debug.LogWarning("[Sorolla:MAX] Cannot show privacy options - SDK not initialized");
+                Debug.LogWarning("[Palette:MAX] Cannot show privacy options - SDK not initialized");
                 onComplete?.Invoke();
                 return;
             }
@@ -80,21 +80,21 @@ namespace Sorolla.Palette.Adapters
             {
                 if (!MaxSdk.CmpService.HasSupportedCmp)
                 {
-                    Debug.LogWarning("[Sorolla:MAX] No CMP configured - privacy options not available");
+                    Debug.LogWarning("[Palette:MAX] No CMP configured - privacy options not available");
                     onComplete?.Invoke();
                     return;
                 }
 
-                Debug.Log("[Sorolla:MAX] Showing privacy options...");
+                Debug.Log("[Palette:MAX] Showing privacy options...");
                 MaxSdk.CmpService.ShowCmpForExistingUser(error =>
                 {
                     if (error != null)
                     {
-                        Debug.LogWarning($"[Sorolla:MAX] Privacy options error: {error.Message}");
+                        Debug.LogWarning($"[Palette:MAX] Privacy options error: {error.Message}");
                     }
                     else
                     {
-                        Debug.Log("[Sorolla:MAX] Privacy options dismissed");
+                        Debug.Log("[Palette:MAX] Privacy options dismissed");
                         RefreshConsentStatus();
                     }
                     onComplete?.Invoke();
@@ -102,7 +102,7 @@ namespace Sorolla.Palette.Adapters
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[Sorolla:MAX] CmpService not available: {e.Message}");
+                Debug.LogWarning($"[Palette:MAX] CmpService not available: {e.Message}");
                 onComplete?.Invoke();
             }
         }
@@ -140,11 +140,11 @@ namespace Sorolla.Palette.Adapters
             if (!cmpHandlesConsent)
             {
                 MaxSdk.SetHasUserConsent(consent);
-                Debug.Log($"[Sorolla:MAX] UpdateConsent({consent})");
+                Debug.Log($"[Palette:MAX] UpdateConsent({consent})");
             }
             else
             {
-                Debug.LogWarning("[Sorolla:MAX] UpdateConsent called but CMP is enabled - use ShowPrivacyOptions() instead");
+                Debug.LogWarning("[Palette:MAX] UpdateConsent called but CMP is enabled - use ShowPrivacyOptions() instead");
             }
 
             if (_init && _sdkConfig != null)
@@ -157,13 +157,13 @@ namespace Sorolla.Palette.Adapters
         [Preserve]
         static void Register()
         {
-            Debug.Log("[Sorolla:MAX] Register() called - assembly is loaded!");
+            Debug.Log("[Palette:MAX] Register() called - assembly is loaded!");
             MaxAdapter.RegisterImpl(new MaxAdapterImpl());
         }
 
         void OnSdkInit(MaxSdkBase.SdkConfiguration config)
         {
-            Debug.Log("[Sorolla:MAX] Initialized");
+            Debug.Log("[Palette:MAX] Initialized");
 
             _init = true;
             _sdkConfig = config;
@@ -181,12 +181,12 @@ namespace Sorolla.Palette.Adapters
 
             if (cmpHandlesConsent)
             {
-                Debug.Log("[Sorolla:MAX] CMP enabled - consent handled by UMP");
+                Debug.Log("[Palette:MAX] CMP enabled - consent handled by UMP");
             }
             else
             {
                 MaxSdk.SetHasUserConsent(_consent);
-                Debug.Log($"[Sorolla:MAX] SetHasUserConsent({_consent}) - no CMP");
+                Debug.Log($"[Palette:MAX] SetHasUserConsent({_consent}) - no CMP");
             }
 
             UpdateConsentStatusFromConfig(config);
@@ -229,7 +229,7 @@ namespace Sorolla.Palette.Adapters
                 ConsentStatus = ConsentStatus.NotApplicable;
             }
 
-            Debug.Log($"[Sorolla:MAX] ConsentStatus: {ConsentStatus} (Geography: {config.ConsentFlowUserGeography})");
+            Debug.Log($"[Palette:MAX] ConsentStatus: {ConsentStatus} (Geography: {config.ConsentFlowUserGeography})");
 
             if (oldStatus != ConsentStatus)
             {
@@ -288,20 +288,7 @@ namespace Sorolla.Palette.Adapters
             _onRewardFailed = null;
         }
 
-        void OnRewardedAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo)
-        {
-#if SOROLLA_ADJUST_ENABLED
-            AdjustAdapter.TrackAdRevenue(new AdRevenueInfo
-            {
-                Source = "applovin_max_sdk",
-                Revenue = adInfo.Revenue,
-                Currency = "USD",
-                Network = adInfo.NetworkName,
-                AdUnit = adInfo.AdUnitIdentifier,
-                Placement = adInfo.Placement,
-            });
-#endif
-        }
+        void OnRewardedAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo) => TrackAdRevenue(adInfo);
 
         void LoadRewarded()
         {
@@ -320,7 +307,7 @@ namespace Sorolla.Palette.Adapters
             if (!_rewardedReady || !MaxSdk.IsRewardedAdReady(_rewardedId))
             {
                 LoadRewarded();
-                Debug.LogWarning("[Sorolla:MAX] Rewarded ad not ready");
+                Debug.LogWarning("[Palette:MAX] Rewarded ad not ready");
                 onFailed?.Invoke();
                 return;
             }
@@ -376,20 +363,7 @@ namespace Sorolla.Palette.Adapters
             LoadInterstitial();
         }
 
-        void OnInterstitialAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo)
-        {
-#if SOROLLA_ADJUST_ENABLED
-            AdjustAdapter.TrackAdRevenue(new AdRevenueInfo
-            {
-                Source = "applovin_max_sdk",
-                Revenue = adInfo.Revenue,
-                Currency = "USD",
-                Network = adInfo.NetworkName,
-                AdUnit = adInfo.AdUnitIdentifier,
-                Placement = adInfo.Placement,
-            });
-#endif
-        }
+        void OnInterstitialAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo) => TrackAdRevenue(adInfo);
 
         void LoadInterstitial()
         {
@@ -408,6 +382,25 @@ namespace Sorolla.Palette.Adapters
 
             _onInterstitialComplete = onComplete;
             MaxSdk.ShowInterstitial(_interstitialId);
+        }
+
+        #endregion
+
+        #region Ad Revenue
+
+        void TrackAdRevenue(MaxSdkBase.AdInfo adInfo)
+        {
+#if SOROLLA_ADJUST_ENABLED
+            AdjustAdapter.TrackAdRevenue(new AdRevenueInfo
+            {
+                Source = "applovin_max_sdk",
+                Revenue = adInfo.Revenue,
+                Currency = "USD",
+                Network = adInfo.NetworkName,
+                AdUnit = adInfo.AdUnitIdentifier,
+                Placement = adInfo.Placement,
+            });
+#endif
         }
 
         #endregion

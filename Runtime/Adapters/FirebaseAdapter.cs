@@ -37,7 +37,7 @@ namespace Sorolla.Palette.Adapters
         internal static void RegisterImpl(IFirebaseAdapter impl)
         {
             s_impl = impl;
-            UnityEngine.Debug.Log("[Sorolla:Firebase] Implementation registered");
+            UnityEngine.Debug.Log("[Palette:Firebase] Implementation registered");
         }
 
         public static bool IsReady => s_impl?.IsReady ?? false;
@@ -47,7 +47,7 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize();
             else
-                UnityEngine.Debug.LogWarning("[Sorolla:Firebase] Not installed");
+                UnityEngine.Debug.LogWarning("[Palette:Firebase] Not installed");
         }
 
         public static void TrackDesignEvent(string eventName, float value = 0)
@@ -87,7 +87,7 @@ namespace Sorolla.Palette.Adapters
         internal static void RegisterImpl(IFirebaseCoreManager impl)
         {
             s_impl = impl;
-            UnityEngine.Debug.Log("[Sorolla:FirebaseCore] Implementation registered");
+            UnityEngine.Debug.Log("[Palette:FirebaseCore] Implementation registered");
         }
 
         public static bool IsInitializing => s_impl?.IsInitializing ?? false;
