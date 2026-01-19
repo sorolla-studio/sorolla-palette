@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using Firebase.Crashlytics;
 using UnityEngine;
+using UnityEngine.Scripting;
 
 namespace Sorolla.Palette.Adapters
 {
     /// <summary>
     ///     Firebase Crashlytics adapter implementation. Registered at runtime.
     /// </summary>
+    [Preserve]
     internal class FirebaseCrashlyticsAdapterImpl : IFirebaseCrashlyticsAdapter
     {
         private const string Tag = "[Palette:Crashlytics]";
@@ -17,6 +19,7 @@ namespace Sorolla.Palette.Adapters
         private readonly Queue<Action> _pendingActions = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [Preserve]
         private static void Register()
         {
             FirebaseCrashlyticsAdapter.RegisterImpl(new FirebaseCrashlyticsAdapterImpl());

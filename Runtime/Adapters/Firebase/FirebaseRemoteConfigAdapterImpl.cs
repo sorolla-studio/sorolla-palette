@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using Firebase.Extensions;
 using Firebase.RemoteConfig;
 using UnityEngine;
+using UnityEngine.Scripting;
 
 namespace Sorolla.Palette.Adapters
 {
     /// <summary>
     ///     Firebase Remote Config adapter implementation. Registered at runtime.
     /// </summary>
+    [Preserve]
     internal class FirebaseRemoteConfigAdapterImpl : IFirebaseRemoteConfigAdapter
     {
         private const string Tag = "[Palette:RemoteConfig]";
@@ -20,6 +22,7 @@ namespace Sorolla.Palette.Adapters
         private Action<bool> _pendingFetchCallback;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [Preserve]
         private static void Register()
         {
             FirebaseRemoteConfigAdapter.RegisterImpl(new FirebaseRemoteConfigAdapterImpl());
