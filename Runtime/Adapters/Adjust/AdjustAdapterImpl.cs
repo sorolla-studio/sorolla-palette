@@ -17,7 +17,7 @@ namespace Sorolla.Palette.Adapters
         [Preserve]
         private static void Register()
         {
-            Debug.Log("[Sorolla:Adjust] Register() called - assembly is loaded!");
+            Debug.Log("[Palette:Adjust] Register() called - assembly is loaded!");
             AdjustAdapter.RegisterImpl(new AdjustAdapterImpl());
         }
 
@@ -25,7 +25,7 @@ namespace Sorolla.Palette.Adapters
         {
             if (_init) return;
 
-            Debug.Log($"[Sorolla:Adjust] Initializing ({environment})...");
+            Debug.Log($"[Palette:Adjust] Initializing ({environment})...");
 
             var config = new AdjustConfig(appToken, environment == AdjustEnvironment.Production
                 ? AdjustSdk.AdjustEnvironment.Production
@@ -35,12 +35,12 @@ namespace Sorolla.Palette.Adapters
             config.LogLevel = AdjustLogLevel.Info;
             config.AttributionChangedDelegate = attribution =>
             {
-                Debug.Log($"[Sorolla:Adjust] Attribution: network={attribution.Network}, campaign={attribution.Campaign}");
+                Debug.Log($"[Palette:Adjust] Attribution: network={attribution.Network}, campaign={attribution.Campaign}");
             };
 
             Adjust.InitSdk(config);
             _init = true;
-            Debug.Log("[Sorolla:Adjust] Initialized");
+            Debug.Log("[Palette:Adjust] Initialized");
         }
 
         public void TrackEvent(string eventToken)

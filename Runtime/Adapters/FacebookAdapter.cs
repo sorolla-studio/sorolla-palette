@@ -12,7 +12,7 @@ namespace Sorolla.Palette.Adapters
     /// </summary>
     internal static class FacebookAdapter
     {
-        private const string Tag = "[Sorolla:FB]";
+        private const string Tag = "[Palette:FB]";
         private static bool s_init;
         private static bool s_consent;
 
@@ -116,7 +116,7 @@ namespace Sorolla.Palette.Adapters
         #pragma warning disable CS0067 // Event is never used (stub for API compatibility)
         public static event System.Action<bool> OnGameVisibilityChanged;
         #pragma warning restore CS0067
-        public static void Initialize(bool consent) => UnityEngine.Debug.LogWarning("[Sorolla:FB] Not installed");
+        public static void Initialize(bool consent) => UnityEngine.Debug.LogWarning("[Palette:FB] Not installed");
 
         public static void TrackEvent(string e, float? v = null, System.Collections.Generic.Dictionary<string, object> p = null) { }
         public static void TrackPurchase(float a, string c = "USD", System.Collections.Generic.Dictionary<string, object> p = null) { }

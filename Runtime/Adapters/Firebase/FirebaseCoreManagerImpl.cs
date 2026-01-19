@@ -11,7 +11,7 @@ namespace Sorolla.Palette.Adapters
     /// </summary>
     internal class FirebaseCoreManagerImpl : IFirebaseCoreManager
     {
-        private const string Tag = "[Sorolla:FirebaseCore]";
+        private const string Tag = "[Palette:FirebaseCore]";
 
         private bool _initRequested;
         private bool _initialized;

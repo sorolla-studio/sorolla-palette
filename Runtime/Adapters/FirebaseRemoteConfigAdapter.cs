@@ -30,7 +30,7 @@ namespace Sorolla.Palette.Adapters
         internal static void RegisterImpl(IFirebaseRemoteConfigAdapter impl)
         {
             s_impl = impl;
-            UnityEngine.Debug.Log("[Sorolla:RemoteConfig] Implementation registered");
+            UnityEngine.Debug.Log("[Palette:RemoteConfig] Implementation registered");
         }
 
         public static bool IsReady => s_impl?.IsReady ?? false;
@@ -40,7 +40,7 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize(defaults, autoFetch);
             else
-                UnityEngine.Debug.LogWarning("[Sorolla:RemoteConfig] Not installed");
+                UnityEngine.Debug.LogWarning("[Palette:RemoteConfig] Not installed");
         }
 
         public static void FetchAndActivate(Action<bool> onComplete = null)

@@ -26,7 +26,7 @@ namespace Sorolla.Palette.Adapters
         internal static void RegisterImpl(IFirebaseCrashlyticsAdapter impl)
         {
             s_impl = impl;
-            UnityEngine.Debug.Log("[Sorolla:Crashlytics] Implementation registered");
+            UnityEngine.Debug.Log("[Palette:Crashlytics] Implementation registered");
         }
 
         public static bool IsReady => s_impl?.IsReady ?? false;
@@ -37,7 +37,7 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize(captureUncaughtExceptions);
             else
-                UnityEngine.Debug.LogWarning("[Sorolla:Crashlytics] Not installed");
+                UnityEngine.Debug.LogWarning("[Palette:Crashlytics] Not installed");
         }
 
         public static void LogException(Exception exception) => s_impl?.LogException(exception);

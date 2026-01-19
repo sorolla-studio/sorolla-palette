@@ -10,7 +10,7 @@ namespace Sorolla.Palette.Adapters
     /// </summary>
     internal class FirebaseCrashlyticsAdapterImpl : IFirebaseCrashlyticsAdapter
     {
-        private const string Tag = "[Sorolla:Crashlytics]";
+        private const string Tag = "[Palette:Crashlytics]";
         private bool _initRequested;
         private bool _ready;
         private bool _captureExceptions;

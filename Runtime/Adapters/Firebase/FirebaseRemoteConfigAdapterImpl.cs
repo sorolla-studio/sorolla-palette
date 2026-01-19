@@ -11,7 +11,7 @@ namespace Sorolla.Palette.Adapters
     /// </summary>
     internal class FirebaseRemoteConfigAdapterImpl : IFirebaseRemoteConfigAdapter
     {
-        private const string Tag = "[Sorolla:RemoteConfig]";
+        private const string Tag = "[Palette:RemoteConfig]";
         private bool _initRequested;
         private bool _init;
         private bool _fetching;

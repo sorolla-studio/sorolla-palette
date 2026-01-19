@@ -7,7 +7,7 @@ namespace Sorolla.Palette
 {
     public class SorollaLoadingOverlay : MonoBehaviour
     {
-        static SorollaLoadingOverlay _instance;
+        static SorollaLoadingOverlay s_instance;
         GameObject _canvasObject;
         Text _loadingText;
 
@@ -20,27 +20,27 @@ namespace Sorolla.Palette
         public static void Show(string message = "Loading Ad...")
         {
             EnsureInstance();
-            _instance.InternalShow(message);
+            s_instance.InternalShow(message);
         }
 
         public static void Hide()
         {
-            if (_instance != null) _instance.InternalHide();
+            if (s_instance != null) s_instance.InternalHide();
         }
 
         public static void WaitForAd(Func<bool> isReadyCheck, Action onReady, Action onFailed, float timeout = 5.0f)
         {
             EnsureInstance();
             Show();
-            _instance.StartCoroutine(_instance.WaitForAdRoutine(isReadyCheck, onReady, onFailed, timeout));
+            s_instance.StartCoroutine(s_instance.WaitForAdRoutine(isReadyCheck, onReady, onFailed, timeout));
         }
 
         static void EnsureInstance()
         {
-            if (_instance != null) return;
+            if (s_instance != null) return;
 
             var go = new GameObject("SorollaLoadingOverlay");
-            _instance = go.AddComponent<SorollaLoadingOverlay>();
+            s_instance = go.AddComponent<SorollaLoadingOverlay>();
             DontDestroyOnLoad(go);
         }
 
@@ -73,7 +73,7 @@ namespace Sorolla.Palette
             }
 
             Hide();
-            Debug.LogWarning("[SorollaLoadingOverlay] Ad load timeout");
+            Debug.LogWarning("[Palette:LoadingOverlay] Ad load timeout");
             onFailed?.Invoke();
         }
 
