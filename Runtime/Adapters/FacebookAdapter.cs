@@ -12,7 +12,7 @@ namespace Sorolla.Palette.Adapters
     /// </summary>
     internal static class FacebookAdapter
     {
-        private const string Tag = "[Palette:FB]";
+        const string Tag = "[Palette:FB]";
         private static bool s_init;
         private static bool s_consent;
 

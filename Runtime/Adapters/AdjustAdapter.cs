@@ -40,12 +40,14 @@ namespace Sorolla.Palette.Adapters
     /// </summary>
     public static class AdjustAdapter
     {
+        const string Tag = "[Palette:Adjust]";
+
         private static IAdjustAdapter s_impl;
 
         internal static void RegisterImpl(IAdjustAdapter impl)
         {
             s_impl = impl;
-            UnityEngine.Debug.Log("[Palette:Adjust] Implementation registered");
+            UnityEngine.Debug.Log($"{Tag} Implementation registered");
         }
 
         public static void Initialize(string appToken, AdjustEnvironment environment)
@@ -53,7 +55,7 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize(appToken, environment);
             else
-                UnityEngine.Debug.LogWarning("[Palette:Adjust] Not installed");
+                UnityEngine.Debug.LogWarning($"{Tag} Not installed");
         }
 
         public static void TrackEvent(string eventToken)

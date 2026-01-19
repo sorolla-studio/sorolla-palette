@@ -11,7 +11,7 @@ namespace Sorolla.Palette.Adapters
     [Preserve]
     internal class FirebaseAdapterImpl : IFirebaseAdapter
     {
-        private const string Tag = "[Palette:Firebase]";
+        const string Tag = "[Palette:Firebase]";
         private bool _initRequested;
         private bool _ready;
         private readonly Queue<System.Action> _pendingEvents = new();

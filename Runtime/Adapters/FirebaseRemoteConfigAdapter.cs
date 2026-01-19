@@ -25,12 +25,14 @@ namespace Sorolla.Palette.Adapters
     /// </summary>
     public static class FirebaseRemoteConfigAdapter
     {
+        const string Tag = "[Palette:RemoteConfig]";
+
         private static IFirebaseRemoteConfigAdapter s_impl;
 
         internal static void RegisterImpl(IFirebaseRemoteConfigAdapter impl)
         {
             s_impl = impl;
-            UnityEngine.Debug.Log("[Palette:RemoteConfig] Implementation registered");
+            UnityEngine.Debug.Log($"{Tag} Implementation registered");
         }
 
         public static bool IsReady => s_impl?.IsReady ?? false;
@@ -40,7 +42,7 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize(defaults, autoFetch);
             else
-                UnityEngine.Debug.LogWarning("[Palette:RemoteConfig] Not installed");
+                UnityEngine.Debug.LogWarning($"{Tag} Not installed");
         }
 
         public static void FetchAndActivate(Action<bool> onComplete = null)
