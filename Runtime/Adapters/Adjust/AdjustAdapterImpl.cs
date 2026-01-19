@@ -61,7 +61,7 @@ namespace Sorolla.Palette.Adapters
         {
             if (!_init) return;
 
-            var adRevenue = new AdjustAdRevenue(info.Source ?? "applovin_max_sdk");
+            var adRevenue = new AdjustAdRevenue(info.Source ?? AdRevenueInfo.DefaultSource);
             adRevenue.SetRevenue(info.Revenue, info.Currency ?? "USD");
             adRevenue.AdRevenueNetwork = info.Network;
             adRevenue.AdRevenueUnit = info.AdUnit;
