@@ -21,12 +21,14 @@ namespace Sorolla.Palette.Adapters
     /// </summary>
     public static class FirebaseCrashlyticsAdapter
     {
+        const string Tag = "[Palette:Crashlytics]";
+
         private static IFirebaseCrashlyticsAdapter s_impl;
 
         internal static void RegisterImpl(IFirebaseCrashlyticsAdapter impl)
         {
             s_impl = impl;
-            UnityEngine.Debug.Log("[Palette:Crashlytics] Implementation registered");
+            UnityEngine.Debug.Log($"{Tag} Implementation registered");
         }
 
         public static bool IsReady => s_impl?.IsReady ?? false;
@@ -37,7 +39,7 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize(captureUncaughtExceptions);
             else
-                UnityEngine.Debug.LogWarning("[Palette:Crashlytics] Not installed");
+                UnityEngine.Debug.LogWarning($"{Tag} Not installed");
         }
 
         public static void LogException(Exception exception) => s_impl?.LogException(exception);

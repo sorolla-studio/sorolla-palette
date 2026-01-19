@@ -32,12 +32,14 @@ namespace Sorolla.Palette.Adapters
     /// </summary>
     public static class FirebaseAdapter
     {
+        const string Tag = "[Palette:Firebase]";
+
         private static IFirebaseAdapter s_impl;
 
         internal static void RegisterImpl(IFirebaseAdapter impl)
         {
             s_impl = impl;
-            UnityEngine.Debug.Log("[Palette:Firebase] Implementation registered");
+            UnityEngine.Debug.Log($"{Tag} Implementation registered");
         }
 
         public static bool IsReady => s_impl?.IsReady ?? false;
@@ -47,7 +49,7 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize();
             else
-                UnityEngine.Debug.LogWarning("[Palette:Firebase] Not installed");
+                UnityEngine.Debug.LogWarning($"{Tag} Not installed");
         }
 
         public static void TrackDesignEvent(string eventName, float value = 0)
@@ -82,12 +84,14 @@ namespace Sorolla.Palette.Adapters
     /// </summary>
     public static class FirebaseCoreManager
     {
+        const string Tag = "[Palette:FirebaseCore]";
+
         private static IFirebaseCoreManager s_impl;
 
         internal static void RegisterImpl(IFirebaseCoreManager impl)
         {
             s_impl = impl;
-            UnityEngine.Debug.Log("[Palette:FirebaseCore] Implementation registered");
+            UnityEngine.Debug.Log($"{Tag} Implementation registered");
         }
 
         public static bool IsInitializing => s_impl?.IsInitializing ?? false;

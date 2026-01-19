@@ -58,12 +58,14 @@ namespace Sorolla.Palette.Adapters
     /// </summary>
     public static class MaxAdapter
     {
+        const string Tag = "[Palette:MAX]";
+
         private static IMaxAdapter s_impl;
 
         internal static void RegisterImpl(IMaxAdapter impl)
         {
             s_impl = impl;
-            UnityEngine.Debug.Log("[Palette:MAX] Implementation registered");
+            UnityEngine.Debug.Log($"{Tag} Implementation registered");
 
             // Forward events from implementation
             impl.OnAdLoadingStateChanged += (type, loading) => OnAdLoadingStateChanged?.Invoke(type, loading);
@@ -109,7 +111,7 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize(rewardedId, interstitialId, bannerId, consent);
             else
-                UnityEngine.Debug.LogWarning("[Palette:MAX] Not installed");
+                UnityEngine.Debug.LogWarning($"{Tag} Not installed");
         }
 
         public static void ShowRewardedAd(Action onComplete, Action onFailed)
