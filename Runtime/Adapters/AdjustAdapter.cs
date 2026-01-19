@@ -9,6 +9,8 @@ namespace Sorolla.Palette.Adapters
     /// </summary>
     public struct AdRevenueInfo
     {
+        public const string DefaultSource = "applovin_max_sdk";
+
         public string Source;
         public double Revenue;
         public string Currency;

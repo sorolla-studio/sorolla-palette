@@ -393,7 +393,7 @@ namespace Sorolla.Palette.Adapters
 #if SOROLLA_ADJUST_ENABLED
             AdjustAdapter.TrackAdRevenue(new AdRevenueInfo
             {
-                Source = "applovin_max_sdk",
+                Source = AdRevenueInfo.DefaultSource,
                 Revenue = adInfo.Revenue,
                 Currency = "USD",
                 Network = adInfo.NetworkName,
