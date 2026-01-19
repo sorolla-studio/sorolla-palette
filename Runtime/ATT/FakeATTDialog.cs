@@ -10,6 +10,8 @@ namespace Sorolla.Palette.ATT
     /// </summary>
     public class FakeATTDialog : MonoBehaviour
     {
+        const string PrefabPath = "FakeATTDialog";
+
         [SerializeField] Button allowButton;
         [SerializeField] Button denyButton;
 
@@ -40,7 +42,7 @@ namespace Sorolla.Palette.ATT
         /// </summary>
         public static void Show(Action<bool> onDecision)
         {
-            var prefab = Resources.Load<GameObject>("FakeATTDialog");
+            var prefab = Resources.Load<GameObject>(PrefabPath);
             if (prefab == null)
             {
                 Debug.LogWarning("[Palette:ATT] FakeATTDialog prefab not found. Run Palette > ATT > Create Fake ATT Popup Prefab");

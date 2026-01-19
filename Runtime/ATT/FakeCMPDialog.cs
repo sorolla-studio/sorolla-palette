@@ -10,6 +10,8 @@ namespace Sorolla.Palette.ATT
     /// </summary>
     public class FakeCMPDialog : MonoBehaviour
     {
+        const string PrefabPath = "FakeCMPDialog";
+
         [SerializeField] Button acceptAllButton;
         [SerializeField] Button rejectAllButton;
 
@@ -40,7 +42,7 @@ namespace Sorolla.Palette.ATT
         /// </summary>
         public static void Show(Action<bool> onDecision)
         {
-            var prefab = Resources.Load<GameObject>("FakeCMPDialog");
+            var prefab = Resources.Load<GameObject>(PrefabPath);
             if (prefab == null)
             {
                 Debug.LogWarning("[Palette:CMP] FakeCMPDialog prefab not found. Run Palette > ATT > Create Fake CMP Popup Prefab");
