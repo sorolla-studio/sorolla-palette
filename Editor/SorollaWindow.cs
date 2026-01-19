@@ -14,7 +14,6 @@ namespace Sorolla.Palette.Editor
         // Cached GUIStyles - initialized once
         static GUIStyle s_headerTitleStyle;
         static GUIStyle s_headerSubtitleStyle;
-        static GUIStyle s_centeredBoldStyle;
         static GUIStyle s_statusGreenStyle;
         static GUIStyle s_statusYellowStyle;
         static GUIStyle s_statusRedStyle;
@@ -60,11 +59,7 @@ namespace Sorolla.Palette.Editor
 
             DrawHeader();
             EditorGUILayout.Space(10);
-
-            if (!SorollaSettings.IsConfigured)
-                DrawWelcomeScreen();
-            else
-                DrawMainUI();
+            DrawMainUI();
 
             EditorGUILayout.EndScrollView();
         }
@@ -79,7 +74,6 @@ namespace Sorolla.Palette.Editor
                 alignment = TextAnchor.MiddleCenter,
             };
             s_headerSubtitleStyle = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleCenter };
-            s_centeredBoldStyle = new GUIStyle(EditorStyles.boldLabel) { alignment = TextAnchor.MiddleCenter };
 
             s_statusGreenStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = ColorGreen } };
             s_statusYellowStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = ColorYellow } };
@@ -128,7 +122,11 @@ namespace Sorolla.Palette.Editor
         static void AutoOpenOnLoad() => EditorApplication.delayCall += () =>
         {
             if (!SorollaSettings.IsConfigured && !Application.isPlaying)
+            {
+                // Auto-select Prototype mode on fresh installs for better UX
+                SorollaSettings.SetPrototypeMode();
                 ShowWindow();
+            }
         };
 
         void DrawHeader()
@@ -136,26 +134,6 @@ namespace Sorolla.Palette.Editor
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             GUILayout.Label("Palette SDK", s_headerTitleStyle);
             GUILayout.Label($"v{Version} - Plug & Play Publisher Stack", s_headerSubtitleStyle);
-            EditorGUILayout.EndVertical();
-        }
-
-        void DrawWelcomeScreen()
-        {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            EditorGUILayout.Space(10);
-
-            GUILayout.Label("Welcome! Select a mode to get started:", s_centeredBoldStyle);
-            EditorGUILayout.Space(15);
-
-            if (GUILayout.Button("🧪  Prototype Mode\n(Facebook SDK for UA)", GUILayout.Height(45)))
-                SorollaSettings.SetPrototypeMode();
-
-            EditorGUILayout.Space(8);
-
-            if (GUILayout.Button("🚀  Full Mode\n(Adjust + MAX for Production)", GUILayout.Height(45)))
-                SorollaSettings.SetFullMode();
-
-            EditorGUILayout.Space(10);
             EditorGUILayout.EndVertical();
         }
 
