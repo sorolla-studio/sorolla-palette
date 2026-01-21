@@ -16,6 +16,7 @@ Solution: Triple-defense in SorollaBootstrapper.MakePersistent()
   1. Check HideFlags.DontSave before calling DontDestroyOnLoad
   2. Verify scene.IsValid() && scene.isLoaded
   3. Try-catch as final safety net
+  4. [DefaultExecutionOrder(-1000)] to initialize before client code
 Result: SDK works at all costs, no silent failures, no user intervention
 ```
 
