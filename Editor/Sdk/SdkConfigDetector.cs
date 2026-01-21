@@ -96,15 +96,19 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Checks if AppLovin MAX has a valid SDK key configured (in AppLovinSettings).
+        ///     Checks if AppLovin MAX has a valid SDK key configured (in SorollaConfig).
+        ///     The SDK key is auto-synced to AppLovinSettings when config changes.
         /// </summary>
         public static ConfigStatus GetMaxStatus(SorollaConfig config)
         {
             if (!SdkDetector.IsInstalled(SdkId.AppLovinMAX))
                 return ConfigStatus.NotInstalled;
 
-            // SDK key is now in AppLovinSettings (Integration Manager), not SorollaConfig
-            return MaxSettingsSanitizer.IsSdkKeyConfigured()
+            if (config == null)
+                return ConfigStatus.NotConfigured;
+
+            // Check SorollaConfig (single source of truth)
+            return !string.IsNullOrEmpty(config.maxSdkKey) && config.maxSdkKey.Length > 10
                 ? ConfigStatus.Configured
                 : ConfigStatus.NotConfigured;
         }
