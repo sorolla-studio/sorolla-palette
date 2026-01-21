@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
@@ -120,6 +121,16 @@ namespace Sorolla.Palette.Editor
             // Add all dependencies at once
             if (dependencies.Count > 0)
             {
+                // Clear Firebase cache if any Firebase packages are being installed
+                foreach (string packageId in dependencies.Keys)
+                {
+                    if (packageId.StartsWith("com.google.firebase"))
+                    {
+                        ClearFirebasePackageCache();
+                        break;
+                    }
+                }
+
                 ManifestManager.AddDependencies(dependencies);
                 Debug.Log($"[Palette] Added {dependencies.Count} package(s) to manifest.");
             }
@@ -174,6 +185,42 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
+        ///     Clear stale Firebase package cache to prevent "Directory not empty" errors.
+        ///     Unity Package Manager has issues when multiple packages reference the same git repo
+        ///     with different path parameters - stale .tmp directories can block new installations.
+        /// </summary>
+        static void ClearFirebasePackageCache()
+        {
+            string projectRoot = Directory.GetParent(Application.dataPath).FullName;
+            string cacheRoot = Path.Combine(projectRoot, "Library", "PackageCache");
+
+            if (!Directory.Exists(cacheRoot))
+                return;
+
+            try
+            {
+                // Clear stale .tmp directories (failed checkouts)
+                foreach (string tmpDir in Directory.GetDirectories(cacheRoot, ".tmp*"))
+                {
+                    Debug.Log($"[Palette] Clearing stale temp directory: {Path.GetFileName(tmpDir)}");
+                    Directory.Delete(tmpDir, true);
+                }
+
+                // Clear existing Firebase cache entries (forces fresh clone)
+                foreach (string dir in Directory.GetDirectories(cacheRoot, "com.google.firebase*"))
+                {
+                    Debug.Log($"[Palette] Clearing Firebase cache: {Path.GetFileName(dir)}");
+                    Directory.Delete(dir, true);
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[Palette] Could not clear package cache: {e.Message}");
+                // Non-fatal - installation may still succeed
+            }
+        }
+
+        /// <summary>
         ///     Install Firebase packages (App + Analytics + Crashlytics + Remote Config)
         ///     Also enables all Firebase modules in SorollaConfig for immediate use.
         /// </summary>
@@ -185,6 +232,9 @@ namespace Sorolla.Palette.Editor
             SdkInfo remoteConfigInfo = SdkRegistry.All[SdkId.FirebaseRemoteConfig];
 
             Debug.Log("[Palette] Installing Firebase (App + Analytics + Crashlytics + Remote Config)...");
+
+            // Clear stale cache to prevent "Directory not empty" errors from concurrent git clones
+            ClearFirebasePackageCache();
 
             ManifestManager.AddDependencies(new Dictionary<string, string>
             {
