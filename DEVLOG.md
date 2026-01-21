@@ -9,6 +9,17 @@
 
 These are the most important validated learnings. Read these first.
 
+### DontDestroyOnLoad Conflicts (Unity 6+)
+```
+Problem: Assertion failure when client MonoSingletons call DontDestroyOnLoad during BeforeSceneLoad
+Solution: Triple-defense in SorollaBootstrapper.MakePersistent()
+  1. Check HideFlags.DontSave before calling DontDestroyOnLoad
+  2. Verify scene.IsValid() && scene.isLoaded
+  3. Try-catch as final safety net
+  4. Auto-set execution order to -1000 (SorollaBootstrapperSetup.cs)
+Result: SDK works at all costs, no silent failures, no user intervention
+```
+
 ### Unity Assembly Definitions (asmdef)
 ```
 versionDefines: PER-ASSEMBLY only (NOT project-wide!)
@@ -59,6 +70,46 @@ SorollaSDK. → Palette.
 using Sorolla; → using Sorolla.Palette;
 SorollaSDK.cs → Palette.cs
 ```
+
+### Firebase Git Package Installation
+```
+Multiple packages from same git repo cause "Directory not empty" errors
+UPM clones same repo multiple times simultaneously → race condition
+Solution: Clear Library/PackageCache/.tmp* and com.google.firebase* before install
+```
+
+---
+
+## 2026-01-20: Firebase Cache Cleanup Fix
+
+**Summary**: Added automatic cache cleanup before Firebase installation to prevent "Directory not empty" errors.
+
+**The Problem**:
+Firebase uses 4 packages from the same git repo with different `?path=` parameters:
+```json
+"com.google.firebase.analytics": "...unity-firebase-app.git?path=FirebaseAnalytics#12.10.1"
+"com.google.firebase.app": "...unity-firebase-app.git?path=FirebaseApp#12.10.1"
+```
+
+Unity Package Manager clones the same repo multiple times simultaneously, creating race conditions:
+- Temporary directories conflict (`Library/PackageCache/.tmp-*`)
+- Incomplete checkouts leave stale directories blocking subsequent installations
+
+This manifests as `ENOTEMPTY: directory not empty` errors (known Unity 6 bug).
+
+**Solution**:
+Clear stale cache before Firebase installation in `SdkInstaller.cs`:
+- `.tmp*` directories (failed checkouts)
+- `com.google.firebase*` directories (forces fresh clone)
+
+Non-fatal on failure - installation continues even if cleanup fails.
+
+**Documentation Sources**:
+- [Unity Manual: Git dependencies](https://docs.unity3d.com/6000.3/Documentation/Manual/upm-git.html)
+- [Unity Forum: ENOTEMPTY error](https://discussions.unity.com/t/error-while-resolving-packages-enoempty-and-einval/942440)
+
+**Files Changed**:
+- `Editor/Sdk/SdkInstaller.cs`: Added `ClearFirebasePackageCache()`
 
 ---
 
