@@ -35,6 +35,7 @@ namespace Sorolla.Palette.Editor
             ConfigSync,
             AndroidManifest,
             MaxSettings,
+            AdjustSettings,
             Edm4uSettings
         }
 
@@ -47,6 +48,7 @@ namespace Sorolla.Palette.Editor
             [CheckCategory.ConfigSync] = "Config Sync",
             [CheckCategory.AndroidManifest] = "Android Manifest",
             [CheckCategory.MaxSettings] = "MAX Settings",
+            [CheckCategory.AdjustSettings] = "Adjust Settings",
             [CheckCategory.Edm4uSettings] = "EDM4U Settings"
         };
 
@@ -109,6 +111,7 @@ namespace Sorolla.Palette.Editor
                 results.AddRange(CheckConfigSync(dependencies));
                 results.AddRange(CheckAndroidManifest());
                 results.AddRange(CheckMaxSettings());
+                results.AddRange(CheckAdjustSettings());
                 results.AddRange(CheckEdm4uSettings());
             }
             catch (Exception e)
@@ -559,6 +562,63 @@ namespace Sorolla.Palette.Editor
 #else
             results.Add(new ValidationResult(ValidationStatus.Valid, "MAX not installed", category: CheckCategory.MaxSettings));
 #endif
+
+            return results;
+        }
+
+        /// <summary>
+        ///     Check Adjust SDK app token configuration (Full mode only)
+        /// </summary>
+        private static List<ValidationResult> CheckAdjustSettings()
+        {
+            var results = new List<ValidationResult>();
+
+            // Only check in Full mode
+            if (!SorollaSettings.IsConfigured || SorollaSettings.IsPrototype)
+            {
+                results.Add(new ValidationResult(ValidationStatus.Valid, "Adjust not required", category: CheckCategory.AdjustSettings));
+                return results;
+            }
+
+            if (!SdkDetector.IsInstalled(SdkId.Adjust))
+            {
+                results.Add(new ValidationResult(
+                    ValidationStatus.Error,
+                    "Adjust SDK is required in Full mode but not installed",
+                    "Open Palette > Configuration to install Adjust",
+                    CheckCategory.AdjustSettings
+                ));
+                return results;
+            }
+
+            var config = Resources.Load<SorollaConfig>("SorollaConfig");
+            if (config == null)
+            {
+                results.Add(new ValidationResult(
+                    ValidationStatus.Warning,
+                    "SorollaConfig not found - cannot validate Adjust app token",
+                    "Create config via Assets > Create > Palette > Config",
+                    CheckCategory.AdjustSettings
+                ));
+                return results;
+            }
+
+            var adjustStatus = SdkConfigDetector.GetAdjustStatus(config);
+            if (adjustStatus == SdkConfigDetector.ConfigStatus.NotConfigured)
+            {
+                results.Add(new ValidationResult(
+                    ValidationStatus.Error,
+                    "Adjust app token is not configured!\n" +
+                    "  Attribution tracking will not work without a valid app token.\n" +
+                    "  Enter your Adjust app token in Palette > Configuration.",
+                    "Open Palette > Configuration and enter Adjust app token",
+                    CheckCategory.AdjustSettings
+                ));
+            }
+            else
+            {
+                results.Add(new ValidationResult(ValidationStatus.Valid, "Adjust app token OK", category: CheckCategory.AdjustSettings));
+            }
 
             return results;
         }

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.PackageManager;
+using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 
 namespace Sorolla.Palette.Editor
@@ -41,6 +43,7 @@ namespace Sorolla.Palette.Editor
 
         // Instance state
         readonly List<string> _autoFixLog = new List<string>();
+        readonly HashSet<string> _installingPackages = new HashSet<string>();
         SorollaConfig _config;
         SerializedObject _serializedConfig;
         Vector2 _scrollPos;
@@ -50,6 +53,31 @@ namespace Sorolla.Palette.Editor
         {
             LoadOrCreateConfig();
             RunBuildValidation();
+            Events.registeringPackages += OnPackagesRegistering;
+            Events.registeredPackages += OnPackagesRegistered;
+        }
+
+        void OnDisable()
+        {
+            Events.registeringPackages -= OnPackagesRegistering;
+            Events.registeredPackages -= OnPackagesRegistered;
+        }
+
+        void OnPackagesRegistering(PackageRegistrationEventArgs args)
+        {
+            foreach (var package in args.added)
+                _installingPackages.Add(package.name);
+            Repaint();
+        }
+
+        void OnPackagesRegistered(PackageRegistrationEventArgs args)
+        {
+            foreach (var package in args.added)
+                _installingPackages.Remove(package.name);
+
+            // Re-run validation after packages are installed
+            EditorApplication.delayCall += RunBuildValidation;
+            Repaint();
         }
 
         void OnGUI()
@@ -139,6 +167,7 @@ namespace Sorolla.Palette.Editor
 
         void DrawMainUI()
         {
+            DrawPlayModeWarning();
             DrawModeSection();
             EditorGUILayout.Space(10);
             DrawSdkOverviewSection();
@@ -150,6 +179,17 @@ namespace Sorolla.Palette.Editor
             DrawInfoSection();
             EditorGUILayout.Space(8);
             DrawLinksSection();
+        }
+
+        void DrawPlayModeWarning()
+        {
+            if (!EditorApplication.isPlaying)
+                return;
+
+            EditorGUILayout.HelpBox(
+                "⚠️ Exit Play Mode to install or switch SDK modes. Package Manager does not resolve packages during Play Mode.",
+                MessageType.Warning);
+            EditorGUILayout.Space(5);
         }
 
         void DrawModeSection()
@@ -168,6 +208,7 @@ namespace Sorolla.Palette.Editor
             GUILayout.FlexibleSpace();
 
             SorollaMode otherMode = isPrototype ? SorollaMode.Full : SorollaMode.Prototype;
+            GUI.enabled = !EditorApplication.isPlaying;
             if (GUILayout.Button($"Switch to {otherMode}", GUILayout.Width(130)))
                 if (EditorUtility.DisplayDialog($"Switch to {otherMode} Mode?",
                     "This will install/uninstall SDKs as needed.", "Switch", "Cancel"))
@@ -176,6 +217,7 @@ namespace Sorolla.Palette.Editor
                     // Re-run validation after mode switch
                     EditorApplication.delayCall += RunBuildValidation;
                 }
+            GUI.enabled = true;
             EditorGUILayout.EndHorizontal();
             EditorGUILayout.EndVertical();
         }
@@ -294,8 +336,10 @@ namespace Sorolla.Palette.Editor
         struct SdkRowData
         {
             public string Name;
+            public string PackageId;
             public bool IsInstalled;
             public bool IsRequired;
+            public bool IsAutoInstalled;
             public SdkConfigDetector.ConfigStatus ConfigStatus;
             public string ConfigHint;
             public Action OnConfigure;
@@ -376,24 +420,34 @@ namespace Sorolla.Palette.Editor
         }
 
         void DrawSdkOverviewItem(SdkInfo sdk, SdkConfigDetector.ConfigStatus configStatus,
-            string configHint, Action openSettings, bool isRequired) => DrawSdkRow(new SdkRowData
+            string configHint, Action openSettings, bool isRequired)
         {
-            Name = sdk.Name,
-            IsInstalled = SdkDetector.IsInstalled(sdk),
-            IsRequired = isRequired,
-            ConfigStatus = configStatus,
-            ConfigHint = configHint,
-            OnConfigure = openSettings,
-            OnInstall = () => SdkInstaller.Install(sdk.Id),
-        });
+            bool isPrototype = SorollaSettings.IsPrototype;
+            bool isAutoInstalled = sdk.IsRequiredFor(isPrototype);
+
+            DrawSdkRow(new SdkRowData
+            {
+                Name = sdk.Name,
+                PackageId = sdk.PackageId,
+                IsInstalled = SdkDetector.IsInstalled(sdk),
+                IsRequired = isRequired,
+                IsAutoInstalled = isAutoInstalled,
+                ConfigStatus = configStatus,
+                ConfigHint = configHint,
+                OnConfigure = openSettings,
+                OnInstall = () => SdkInstaller.Install(sdk.Id),
+            });
+        }
 
         void DrawSdkRow(SdkRowData data)
         {
             EditorGUILayout.BeginHorizontal();
 
+            bool isInstalling = _installingPackages.Contains(data.PackageId);
+
             // Status icon
-            Color iconColor = data.IsInstalled ? ColorGreen : data.IsRequired ? ColorRed : ColorGray;
-            string iconText = data.IsInstalled ? "✓" : data.IsRequired ? "✗" : "○";
+            Color iconColor = data.IsInstalled ? ColorGreen : isInstalling ? ColorYellow : data.IsRequired ? ColorRed : ColorGray;
+            string iconText = data.IsInstalled ? "✓" : isInstalling ? "⏳" : data.IsRequired ? "✗" : "○";
             DrawIcon(iconText, iconColor);
 
             // Name
@@ -403,10 +457,15 @@ namespace Sorolla.Palette.Editor
             // Config status
             GUIStyle configStyle;
             string configText;
-            if (!data.IsInstalled)
+            if (isInstalling)
+            {
+                configStyle = s_configStyleYellow;
+                configText = "Installing...";
+            }
+            else if (!data.IsInstalled)
             {
                 configStyle = s_configStyleGray;
-                configText = "—";
+                configText = data.IsAutoInstalled ? "Auto-installs on mode switch" : "—";
             }
             else if (data.ConfigStatus == SdkConfigDetector.ConfigStatus.Configured)
             {
@@ -418,15 +477,17 @@ namespace Sorolla.Palette.Editor
                 configStyle = s_configStyleYellow;
                 configText = data.ConfigHint;
             }
-            GUILayout.Label(configText, configStyle, GUILayout.Width(120));
+            GUILayout.Label(configText, configStyle, GUILayout.Width(150));
 
             GUILayout.FlexibleSpace();
 
             // Action button
-            if (!data.IsInstalled && data.OnInstall != null)
+            if (!data.IsInstalled && !isInstalling && data.OnInstall != null && !data.IsAutoInstalled)
             {
+                GUI.enabled = !EditorApplication.isPlaying;
                 if (GUILayout.Button("Install", GUILayout.Width(70)))
                     data.OnInstall();
+                GUI.enabled = true;
             }
             else if (data.IsInstalled && data.ConfigStatus == SdkConfigDetector.ConfigStatus.NotConfigured && data.OnConfigure != null)
             {
@@ -446,12 +507,16 @@ namespace Sorolla.Palette.Editor
         {
             SdkInfo sdk = SdkRegistry.All[SdkId.AppLovinMAX];
             bool isInstalled = SdkDetector.IsInstalled(sdk);
+            bool isPrototype = SorollaSettings.IsPrototype;
+            bool isAutoInstalled = sdk.IsRequiredFor(isPrototype);
+            bool isInstalling = _installingPackages.Contains(sdk.PackageId);
 
             EditorGUILayout.BeginHorizontal();
 
             // Status icon
-            Color iconColor = isInstalled ? ColorGreen : isRequired ? ColorRed : ColorGray;
-            DrawIcon(isInstalled ? "✓" : isRequired ? "✗" : "○", iconColor);
+            Color iconColor = isInstalled ? ColorGreen : isInstalling ? ColorYellow : isRequired ? ColorRed : ColorGray;
+            string iconText = isInstalled ? "✓" : isInstalling ? "⏳" : isRequired ? "✗" : "○";
+            DrawIcon(iconText, iconColor);
 
             // SDK name
             string nameLabel = isRequired ? sdk.Name : $"{sdk.Name} (optional)";
@@ -460,10 +525,15 @@ namespace Sorolla.Palette.Editor
             // Config status
             GUIStyle configStyle;
             string configText;
-            if (!isInstalled)
+            if (isInstalling)
+            {
+                configStyle = s_configStyleYellow;
+                configText = "Installing...";
+            }
+            else if (!isInstalled)
             {
                 configStyle = s_configStyleGray;
-                configText = "—";
+                configText = isAutoInstalled ? "Auto-installs on mode switch" : "—";
             }
             else if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
             {
@@ -475,17 +545,19 @@ namespace Sorolla.Palette.Editor
                 configStyle = s_configStyleYellow;
                 configText = "Set SDK key";
             }
-            GUILayout.Label(configText, configStyle, GUILayout.Width(120));
+            GUILayout.Label(configText, configStyle, GUILayout.Width(150));
 
             GUILayout.FlexibleSpace();
 
             // Action buttons
-            if (!isInstalled)
+            if (!isInstalled && !isInstalling && !isAutoInstalled)
             {
+                GUI.enabled = !EditorApplication.isPlaying;
                 if (GUILayout.Button("Install", GUILayout.Width(70)))
                     SdkInstaller.Install(sdk.Id);
+                GUI.enabled = true;
             }
-            else if (GUILayout.Button("Edit", GUILayout.Width(50)))
+            else if (isInstalled && GUILayout.Button("Edit", GUILayout.Width(50)))
             {
                 SdkConfigDetector.OpenMaxSettings();
             }
@@ -498,20 +570,33 @@ namespace Sorolla.Palette.Editor
             bool isInstalled = SdkDetector.IsInstalled(SdkId.FirebaseAnalytics);
             var configStatus = SdkConfigDetector.GetFirebaseStatus(_config);
 
+            // Check if any Firebase package is installing
+            bool isInstalling = _installingPackages.Contains("com.google.firebase.app") ||
+                                _installingPackages.Contains("com.google.firebase.analytics") ||
+                                _installingPackages.Contains("com.google.firebase.crashlytics") ||
+                                _installingPackages.Contains("com.google.firebase.remote-config");
+
             EditorGUILayout.BeginHorizontal();
 
             // Status icon (Firebase is always required)
-            DrawIcon(isInstalled ? "✓" : "✗", isInstalled ? ColorGreen : ColorRed);
+            Color iconColor = isInstalled ? ColorGreen : isInstalling ? ColorYellow : ColorRed;
+            string iconText = isInstalled ? "✓" : isInstalling ? "⏳" : "✗";
+            DrawIcon(iconText, iconColor);
 
             GUILayout.Label("Firebase", GUILayout.Width(140));
 
             // Config status
             GUIStyle configStyle;
             string configText;
-            if (!isInstalled)
+            if (isInstalling)
+            {
+                configStyle = s_configStyleYellow;
+                configText = "Installing...";
+            }
+            else if (!isInstalled)
             {
                 configStyle = s_configStyleGray;
-                configText = "—";
+                configText = "Auto-installs on mode switch";
             }
             else if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
             {
@@ -523,16 +608,12 @@ namespace Sorolla.Palette.Editor
                 configStyle = s_configStyleYellow;
                 configText = "Add config files";
             }
-            GUILayout.Label(configText, configStyle, GUILayout.Width(120));
+            GUILayout.Label(configText, configStyle, GUILayout.Width(150));
 
             GUILayout.FlexibleSpace();
 
-            if (!isInstalled)
-            {
-                if (GUILayout.Button("Install", GUILayout.Width(70)))
-                    SdkInstaller.InstallFirebase();
-            }
-            else if (GUILayout.Button("Console", GUILayout.Width(70)))
+            // Firebase is Core (always auto-installed), so no manual install button
+            if (isInstalled && GUILayout.Button("Console", GUILayout.Width(70)))
             {
                 Application.OpenURL("https://console.firebase.google.com/");
             }
