@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using Sorolla.Palette.ATT;
 using UnityEngine;
@@ -13,6 +14,7 @@ namespace Sorolla.Palette
     ///     Handles iOS ATT before initializing SDKs.
     ///     In Editor, shows fake dialogs for testing.
     /// </summary>
+    [DefaultExecutionOrder(-1000)]
     public class SorollaBootstrapper : MonoBehaviour
     {
         const string ContextScreenPath = "ContextScreen";
@@ -41,10 +43,10 @@ namespace Sorolla.Palette
         }
 
         /// <summary>
-        /// Robust DontDestroyOnLoad with triple-defense:
-        /// 1. Check HideFlags to avoid redundant calls
-        /// 2. Try-catch to prevent assertion crashes
-        /// 3. Verify scene context before applying
+        ///     Robust DontDestroyOnLoad with triple-defense:
+        ///     1. Check HideFlags to avoid redundant calls
+        ///     2. Try-catch to prevent assertion crashes
+        ///     3. Verify scene context before applying
         /// </summary>
         static void MakePersistent(GameObject go)
         {
@@ -68,7 +70,7 @@ namespace Sorolla.Palette
                 DontDestroyOnLoad(go);
                 Debug.Log("[Palette] Successfully marked GameObject as persistent");
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 // This should never happen with the checks above, but provides absolute guarantee
                 Debug.LogError($"[Palette] DontDestroyOnLoad failed (non-fatal): {e.Message}");
