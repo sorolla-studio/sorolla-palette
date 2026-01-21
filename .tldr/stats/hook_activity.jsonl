@@ -1,0 +1,2 @@
+{"hook_name": "post-edit-notify", "invocations": 1, "successes": 1, "failures": 0, "metrics": {"edits_notified": 1, "reindexes_triggered": 0}, "timestamp": "2026-01-20T17:23:09.321738+00:00"}
+{"hook_name": "smart-search-router", "invocations": 1, "successes": 1, "failures": 0, "metrics": {"queries_routed": 1, "literal_queries": 1}, "timestamp": "2026-01-20T17:23:09.321738+00:00"}
