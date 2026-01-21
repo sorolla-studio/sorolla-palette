@@ -5,6 +5,27 @@
 
 ---
 
+## Recent Session Learnings
+
+### 2026-01-21 - DontDestroyOnLoad Fix & KISS Reminder
+
+**Problem Solved:** hungrysnake UIManager assertion failure during initialization
+
+**Solution Implemented:**
+1. Triple-defense `MakePersistent()` in SorollaBootstrapper
+2. `[DefaultExecutionOrder(-1000)]` attribute for timing guarantee
+
+**Key Learning:** Initially created 105-line auto-setup Editor script before realizing Unity's built-in `[DefaultExecutionOrder]` attribute was sufficient. **Overengineered due to defensive "what if" thinking instead of KISS.**
+
+**Commits:**
+- b670230: Added MakePersistent() + auto-setup script
+- 635c97d: Removed auto-setup script (overengineered)
+- 1c77409: Updated DEVLOG with DefaultExecutionOrder
+
+**Takeaway:** Always ask "what's the simplest solution?" before coding. Unity built-ins exist for a reason.
+
+---
+
 ## Quick Reference: Critical Learnings
 
 These are the most important validated learnings. Read these first.
