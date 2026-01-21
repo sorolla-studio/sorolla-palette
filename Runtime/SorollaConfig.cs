@@ -37,6 +37,9 @@ namespace Sorolla.Palette
         public bool isPrototypeMode = true;
 
         [Header("MAX Ad Units")]
+        [Tooltip("AppLovin MAX SDK Key (synced to AppLovinSettings)")]
+        public string maxSdkKey;
+
         [Tooltip("Rewarded ad unit IDs per platform")]
         public PlatformAdUnitId rewardedAdUnit;
 

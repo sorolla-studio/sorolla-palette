@@ -529,16 +529,29 @@ namespace Sorolla.Palette.Editor
 #if SOROLLA_MAX_INSTALLED
             var hasIssues = false;
 
-            // Check SDK key is configured in AppLovinSettings (Integration Manager)
-            if (!MaxSettingsSanitizer.IsSdkKeyConfigured())
+            var config = Resources.Load<SorollaConfig>("SorollaConfig");
+            if (config == null)
+            {
+                results.Add(new ValidationResult(
+                    ValidationStatus.Warning,
+                    "SorollaConfig not found - cannot validate MAX SDK key",
+                    "Create config via Assets > Create > Palette > Config",
+                    CheckCategory.MaxSettings
+                ));
+                return results;
+            }
+
+            // Check SDK key is configured in SorollaConfig (single source of truth)
+            var maxStatus = SdkConfigDetector.GetMaxStatus(config);
+            if (maxStatus == SdkConfigDetector.ConfigStatus.NotConfigured)
             {
                 hasIssues = true;
                 results.Add(new ValidationResult(
                     ValidationStatus.Error,
                     "AppLovin SDK key is not configured!\n" +
-                    "  SDK key must be set in AppLovin Integration Manager.\n" +
+                    "  SDK key must be set in Palette Configuration.\n" +
                     "  Ads will not work without a valid SDK key.",
-                    "Open AppLovin > Integration Manager and enter your SDK key",
+                    "Open Palette > Configuration and enter MAX SDK key",
                     CheckCategory.MaxSettings
                 ));
             }
@@ -558,7 +571,7 @@ namespace Sorolla.Palette.Editor
             }
 
             if (!hasIssues)
-                results.Add(new ValidationResult(ValidationStatus.Valid, "MAX settings OK", category: CheckCategory.MaxSettings));
+                results.Add(new ValidationResult(ValidationStatus.Valid, "MAX SDK key OK", category: CheckCategory.MaxSettings));
 #else
             results.Add(new ValidationResult(ValidationStatus.Valid, "MAX not installed", category: CheckCategory.MaxSettings));
 #endif

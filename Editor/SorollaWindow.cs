@@ -53,8 +53,77 @@ namespace Sorolla.Palette.Editor
         {
             LoadOrCreateConfig();
             RunBuildValidation();
+            SyncMaxSdkKey();
             Events.registeringPackages += OnPackagesRegistering;
             Events.registeredPackages += OnPackagesRegistered;
+        }
+
+        void SyncMaxSdkKey()
+        {
+            // Auto-sync MAX SDK key from SorollaConfig to AppLovinSettings
+            if (_config == null || !SdkDetector.IsInstalled(SdkId.AppLovinMAX))
+                return;
+
+            string configKey = _config.maxSdkKey ?? "";
+            string appLovinKey = MaxSettingsSanitizer.GetSdkKey() ?? "";
+
+            // Both empty - nothing to sync
+            if (string.IsNullOrEmpty(configKey) && string.IsNullOrEmpty(appLovinKey))
+                return;
+
+            // No conflict - sync normally
+            if (configKey == appLovinKey)
+            {
+                // Already synced
+                return;
+            }
+
+            // Conflict detected - let user choose (no cancel option)
+            if (!string.IsNullOrEmpty(configKey) && !string.IsNullOrEmpty(appLovinKey))
+            {
+                bool usePaletteConfig = EditorUtility.DisplayDialog(
+                    "MAX SDK Key Conflict",
+                    $"Found different MAX SDK keys:\n\n" +
+                    $"• Palette Configuration: {configKey.Substring(0, Math.Min(20, configKey.Length))}...\n" +
+                    $"• AppLovin Integration Manager: {appLovinKey.Substring(0, Math.Min(20, appLovinKey.Length))}...\n\n" +
+                    "Which value should be used?",
+                    "Use Palette Config",
+                    "Import from Integration Manager"
+                );
+
+                if (usePaletteConfig)
+                {
+                    // Overwrite AppLovinSettings with SorollaConfig
+                    MaxSettingsSanitizer.SetSdkKey(configKey);
+                    Debug.Log("[Palette] Synced MAX SDK key from Palette Config to AppLovinSettings");
+                }
+                else
+                {
+                    // Import from AppLovinSettings to SorollaConfig
+                    _config.maxSdkKey = appLovinKey;
+                    EditorUtility.SetDirty(_config);
+                    AssetDatabase.SaveAssets();
+                    Debug.Log("[Palette] Imported MAX SDK key from AppLovinSettings to Palette Config");
+                }
+
+                return;
+            }
+
+            // One side is empty - sync from the populated side
+            if (!string.IsNullOrEmpty(configKey))
+            {
+                // SorollaConfig has key, AppLovinSettings doesn't - sync to AppLovinSettings
+                MaxSettingsSanitizer.SetSdkKey(configKey);
+                Debug.Log("[Palette] Synced MAX SDK key to AppLovinSettings");
+            }
+            else if (!string.IsNullOrEmpty(appLovinKey))
+            {
+                // AppLovinSettings has key, SorollaConfig doesn't - import to SorollaConfig
+                _config.maxSdkKey = appLovinKey;
+                EditorUtility.SetDirty(_config);
+                AssetDatabase.SaveAssets();
+                Debug.Log("[Palette] Imported MAX SDK key from AppLovinSettings");
+            }
         }
 
         void OnDisable()
@@ -74,6 +143,12 @@ namespace Sorolla.Palette.Editor
         {
             foreach (var package in args.added)
                 _installingPackages.Remove(package.name);
+
+            // Sync MAX SDK key if MAX was just installed
+            if (args.added.Any(p => p.name == "com.applovin.mediation.ads"))
+            {
+                EditorApplication.delayCall += SyncMaxSdkKey;
+            }
 
             // Re-run validation after packages are installed
             EditorApplication.delayCall += RunBuildValidation;
@@ -249,6 +324,7 @@ namespace Sorolla.Palette.Editor
             // MAX Ad Units (Header comes from [Header] attribute on first property)
             if (showMax)
             {
+                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("maxSdkKey"), new GUIContent("SDK Key"));
                 EditorGUILayout.PropertyField(_serializedConfig.FindProperty("rewardedAdUnit"), new GUIContent("Rewarded"));
                 EditorGUILayout.PropertyField(_serializedConfig.FindProperty("interstitialAdUnit"), new GUIContent("Interstitial"));
                 EditorGUILayout.PropertyField(_serializedConfig.FindProperty("bannerAdUnit"), new GUIContent("Banner (Optional)"));
@@ -265,7 +341,15 @@ namespace Sorolla.Palette.Editor
             }
 
             if (_serializedConfig.ApplyModifiedProperties())
+            {
                 EditorUtility.SetDirty(_config);
+
+                // Auto-sync MAX SDK key to AppLovinSettings when config changes
+                if (showMax && !string.IsNullOrEmpty(_config.maxSdkKey))
+                {
+                    MaxSettingsSanitizer.SetSdkKey(_config.maxSdkKey);
+                }
+            }
 
             EditorGUILayout.EndVertical();
         }
