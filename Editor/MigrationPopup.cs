@@ -12,7 +12,7 @@ namespace Sorolla.Palette.Editor
         const float WindowWidth = 400f;
         const float WindowHeight = 280f;
 
-        public static void Show()
+        public static void Display()
         {
             var window = GetWindow<MigrationPopup>(true, "Sorolla SDK 3.1 - Firebase Required");
             window.minSize = new Vector2(WindowWidth, WindowHeight);

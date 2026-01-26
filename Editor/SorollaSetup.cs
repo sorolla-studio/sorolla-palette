@@ -82,7 +82,7 @@ namespace Sorolla.Palette.Editor
             if (!EditorPrefs.GetBool(FirebaseMigrationKey, false))
             {
                 EditorPrefs.SetBool(FirebaseMigrationKey, true);
-                EditorApplication.delayCall += MigrationPopup.Show;
+                EditorApplication.delayCall += MigrationPopup.Display;
             }
         }
 

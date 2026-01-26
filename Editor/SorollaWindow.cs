@@ -469,17 +469,17 @@ namespace Sorolla.Palette.Editor
                 true
             );
 
+            // Facebook (always required)
+            DrawSdkOverviewItem(
+                SdkRegistry.All[SdkId.Facebook],
+                fbStatus,
+                "Set App ID",
+                SdkConfigDetector.OpenFacebookSettings,
+                true
+            );
+
             if (isPrototype)
             {
-                // Facebook (required in Prototype)
-                DrawSdkOverviewItem(
-                    SdkRegistry.All[SdkId.Facebook],
-                    fbStatus,
-                    "Set App ID",
-                    SdkConfigDetector.OpenFacebookSettings,
-                    true
-                );
-
                 // MAX (optional in Prototype) - expandable for ad unit IDs
                 DrawMaxOverviewItem(maxStatus, false);
             }

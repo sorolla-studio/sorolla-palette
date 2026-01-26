@@ -81,7 +81,7 @@ iOS: Check ATT status → Show ContextScreen if needed
     ↓
 Palette.Initialize(consent)
     ├── GameAnalyticsAdapter.Initialize()      ← Always
-    ├── FacebookAdapter.Initialize()           ← Prototype only
+    ├── FacebookAdapter.Initialize()           ← Always
     ├── MaxAdapter.Initialize()                ← If configured
     │   └── OnSdkInitialized → AdjustAdapter.Initialize()
     ├── FirebaseAdapter.Initialize()           ← If enabled
@@ -234,13 +234,12 @@ For IL2CPP builds, we use a belt-and-suspenders approach:
 ## Mode System
 
 ### Prototype Mode
-- **Required**: GameAnalytics, Facebook SDK
+- **Required**: GameAnalytics, Facebook SDK, Firebase
 - **Optional**: AppLovin MAX
 - **Use case**: CPI tests, soft launches
 
 ### Full Mode
-- **Required**: GameAnalytics, AppLovin MAX, Adjust
-- **Not used**: Facebook SDK (Adjust handles attribution)
+- **Required**: GameAnalytics, Facebook SDK, AppLovin MAX, Adjust, Firebase
 - **Use case**: Production with monetization
 
 ### Switching Modes
@@ -286,7 +285,7 @@ public const string FIREBASE_VERSION = "12.10.1";
 Palette.TrackDesign("event:name")
     ├── GameAnalyticsAdapter.TrackDesignEvent()  ← Always
     ├── FirebaseAdapter.TrackDesignEvent()       ← If enabled
-    └── FacebookAdapter.TrackEvent()             ← Prototype only
+    └── FacebookAdapter.TrackEvent()             ← Always
 ```
 
 ### Ad Revenue

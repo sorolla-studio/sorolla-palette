@@ -33,7 +33,7 @@ namespace Sorolla.Palette
     public class SorollaConfig : ScriptableObject
     {
         [Header("Mode")]
-        [Tooltip("Prototype = GA + Facebook | Full = GA + MAX + Adjust")]
+        [Tooltip("Prototype = Core SDKs only | Full = Core SDKs + MAX + Adjust")]
         public bool isPrototypeMode = true;
 
         [Header("MAX Ad Units")]

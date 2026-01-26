@@ -10,9 +10,9 @@ namespace Sorolla.Palette.Editor
     {
         /// <summary>No mode selected yet (first run)</summary>
         None,
-        /// <summary>Prototype: GA + Facebook for rapid UA testing</summary>
+        /// <summary>Prototype: Core SDKs only (for rapid UA testing)</summary>
         Prototype,
-        /// <summary>Full: GA + MAX + Adjust for production</summary>
+        /// <summary>Full: Core SDKs + MAX + Adjust (for production)</summary>
         Full
     }
 
