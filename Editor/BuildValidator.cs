@@ -28,6 +28,7 @@ namespace Sorolla.Palette.Editor
 
         public enum CheckCategory
         {
+            RequiredSdks,
             VersionMismatches,
             ModeConsistency,
             ScopedRegistries,
@@ -41,6 +42,7 @@ namespace Sorolla.Palette.Editor
 
         public static readonly Dictionary<CheckCategory, string> CheckNames = new()
         {
+            [CheckCategory.RequiredSdks] = "Required SDKs",
             [CheckCategory.VersionMismatches] = "SDK Versions",
             [CheckCategory.ModeConsistency] = "Mode Consistency",
             [CheckCategory.ScopedRegistries] = "Scoped Registries",
@@ -104,6 +106,7 @@ namespace Sorolla.Palette.Editor
                     : new List<object>();
 
                 // Run all checks
+                results.AddRange(CheckRequiredSdks());
                 results.AddRange(CheckVersionMismatches(dependencies));
                 results.AddRange(CheckModeConsistency(dependencies));
                 results.AddRange(CheckScopedRegistries(dependencies, registries));
@@ -147,6 +150,45 @@ namespace Sorolla.Palette.Editor
                 fixes.Add("Disabled AppLovin Quality Service (prevents build failures)");
 
             return fixes;
+        }
+
+        /// <summary>
+        ///     Check that all required SDKs for the current mode are installed.
+        /// </summary>
+        private static List<ValidationResult> CheckRequiredSdks()
+        {
+            var results = new List<ValidationResult>();
+
+            if (!SorollaSettings.IsConfigured)
+            {
+                results.Add(new ValidationResult(ValidationStatus.Valid, "Mode not configured", category: CheckCategory.RequiredSdks));
+                return results;
+            }
+
+            var missing = new List<string>();
+            foreach (var sdk in SdkRegistry.GetRequired(SorollaSettings.IsPrototype))
+            {
+                if (!SdkDetector.IsInstalled(sdk))
+                    missing.Add(sdk.Name);
+            }
+
+            if (missing.Count > 0)
+            {
+                var modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
+                results.Add(new ValidationResult(
+                    ValidationStatus.Error,
+                    $"Missing required SDKs for {modeName} mode:\n  {string.Join(", ", missing)}",
+                    "Click Refresh to auto-install missing SDKs",
+                    CheckCategory.RequiredSdks
+                ));
+            }
+            else
+            {
+                var modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
+                results.Add(new ValidationResult(ValidationStatus.Valid, $"{modeName} mode SDKs OK", category: CheckCategory.RequiredSdks));
+            }
+
+            return results;
         }
 
         /// <summary>
@@ -590,13 +632,14 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Check Adjust SDK app token configuration (Full mode only)
+        ///     Check Adjust SDK app token configuration (Full mode only).
+        ///     Note: SDK installation is checked by CheckRequiredSdks().
         /// </summary>
         private static List<ValidationResult> CheckAdjustSettings()
         {
             var results = new List<ValidationResult>();
 
-            // Only check in Full mode
+            // Only check in Full mode when Adjust is installed
             if (!SorollaSettings.IsConfigured || SorollaSettings.IsPrototype)
             {
                 results.Add(new ValidationResult(ValidationStatus.Valid, "Adjust not required", category: CheckCategory.AdjustSettings));
@@ -605,12 +648,8 @@ namespace Sorolla.Palette.Editor
 
             if (!SdkDetector.IsInstalled(SdkId.Adjust))
             {
-                results.Add(new ValidationResult(
-                    ValidationStatus.Error,
-                    "Adjust SDK is required in Full mode but not installed",
-                    "Open Palette > Configuration to install Adjust",
-                    CheckCategory.AdjustSettings
-                ));
+                // Installation is checked by CheckRequiredSdks - just skip config check here
+                results.Add(new ValidationResult(ValidationStatus.Valid, "Adjust not installed", category: CheckCategory.AdjustSettings));
                 return results;
             }
 
