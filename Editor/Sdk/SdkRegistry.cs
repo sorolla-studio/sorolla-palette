@@ -147,7 +147,7 @@ namespace Sorolla.Palette.Editor
                 id: SdkId.Facebook,
                 name: "Facebook SDK",
                 packageId: "com.lacrearthur.facebook-sdk-for-unity",
-                requirement: SdkRequirement.PrototypeOnly,
+                requirement: SdkRequirement.Core,
                 detectionAssemblies: new[] { "Facebook.Unity" },
                 detectionTypes: new[] { "Facebook.Unity.FB, Facebook.Unity" },
                 installUrl: "https://github.com/LaCreArthur/facebook-unity-sdk-upm.git"

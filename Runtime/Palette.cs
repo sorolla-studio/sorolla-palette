@@ -198,9 +198,7 @@ namespace Sorolla.Palette
             GameAnalyticsAdapter.TrackDesignEvent(eventName, value);
 
 #if SOROLLA_FACEBOOK_ENABLED
-            var isPrototype = Config == null || Config.isPrototypeMode;
-            if (isPrototype)
-                FacebookAdapter.TrackEvent(eventName, value);
+            FacebookAdapter.TrackEvent(eventName, value);
 #endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
@@ -281,10 +279,9 @@ namespace Sorolla.Palette
             // GameAnalytics (always)
             GameAnalyticsAdapter.Initialize();
 
-            // Facebook (Prototype mode)
+            // Facebook (always)
 #if SOROLLA_FACEBOOK_ENABLED
-            if (isPrototype)
-                FacebookAdapter.Initialize(consent);
+            FacebookAdapter.Initialize(consent);
 #endif
 
             // MAX (if available) - Adjust will be initialized in MAX callback

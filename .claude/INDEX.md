@@ -2,6 +2,7 @@
 
 type: unity-package
 path: ~/unity-projects/unity-fastlane-ci/Packages/com.sorolla.sdk
+github: https://github.com/sorolla-studio/sorolla-palette.git
 keywords: [SDK, Unity, UPM, package, mobile, publisher, Palette, API, analytics, GameAnalytics, Facebook, Firebase, ads, AppLovin, MAX, mediation, rewarded, interstitial, banner, attribution, Adjust, privacy, ATT, GDPR, CMP, consent, Prototype, Full, stub, adapter, asmdef, assembly, IL2CPP, stripping, link.xml, Preserve, versionDefines, defineConstraints, SdkRegistry, SdkInstaller, BuildValidator, editor, Android, iOS, manifest, C#]
 
 ## Key Documents
@@ -32,6 +33,9 @@ keywords: [SDK, Unity, UPM, package, mobile, publisher, Palette, API, analytics,
 - `DEVLOG.md` - Critical validated learnings [learnings, decisions, gotchas]
 - `Documentation~/internal/architecture.md` - Complete technical reference [architecture, patterns, design]
 - `CLAUDE.md` - AI agent guidance [context, conventions]
+
+### Plans
+- `.claude/plans/max-version-checker.md` - MAX SDK auto-update checker plan [MAX, auto-update, versions, AppLovin]
 
 ## Architecture Patterns
 

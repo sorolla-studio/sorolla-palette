@@ -58,4 +58,4 @@ if (Palette.IsRewardedAdReady)
 | Mode | SDKs | Use Case |
 |------|------|----------|
 | **Prototype** | GameAnalytics, Facebook, Firebase | UA testing, soft launch |
-| **Full** | GameAnalytics, MAX, Adjust, Firebase | Production |
+| **Full** | GameAnalytics, Facebook, MAX, Adjust, Firebase | Production |

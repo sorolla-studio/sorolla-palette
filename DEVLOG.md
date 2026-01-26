@@ -7,6 +7,29 @@
 
 ## Recent Session Learnings
 
+### 2026-01-26 - Facebook SDK Now Core (Always Installed)
+
+**Summary:** Changed Facebook SDK from `PrototypeOnly` to `Core` requirement.
+
+**What Changed:**
+- `SdkRegistry.cs`: Facebook requirement `PrototypeOnly` → `Core`
+- `Palette.cs`: Facebook initializes in ALL modes (removed `if (isPrototype)` check)
+- `AndroidManifestSanitizer.cs`: Removed Facebook from orphan cleanup patterns (no longer uninstalled)
+- Updated mode documentation across README, CLAUDE.md, architecture.md, SorollaConfig, SorollaSettings
+
+**Rationale:**
+- Facebook provides valuable attribution data in both modes
+- Simplifies codebase (fewer conditional paths)
+- No downside to having Facebook always on
+
+**Mode Summary (Post-Change):**
+| Mode | Core SDKs |
+|------|-----------|
+| Prototype | GameAnalytics, Facebook, Firebase |
+| Full | GameAnalytics, Facebook, MAX, Adjust, Firebase |
+
+---
+
 ### 2026-01-21 - DontDestroyOnLoad Fix & KISS Reminder
 
 **Problem Solved:** hungrysnake UIManager assertion failure during initialization

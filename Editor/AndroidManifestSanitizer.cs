@@ -19,15 +19,9 @@ namespace Sorolla.Palette.Editor
             Path.Combine(Application.dataPath, "Plugins", "Android", "AndroidManifest.xml");
 
         // SDK-specific patterns to detect and remove
+        // Note: Only SDKs that can be uninstalled (FullOnly) need orphan cleanup
         private static readonly Dictionary<SdkId, string[]> SdkManifestPatterns = new()
         {
-            [SdkId.Facebook] = new[]
-            {
-                "com.facebook.unity",
-                "com.facebook.FacebookContentProvider",
-                "com.facebook.sdk",
-                "com.facebook.app"
-            },
             [SdkId.Adjust] = new[]
             {
                 "com.adjust.sdk"
