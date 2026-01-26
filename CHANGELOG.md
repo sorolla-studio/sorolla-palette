@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0] - 2026-01-26
+
+### Added
+- **Auto-install missing SDKs**: Clicking "Refresh" in Build Health or switching modes now auto-installs missing required SDKs
+  - Fixes edge case where Full mode was active but Adjust SDK was missing
+  - Only triggers on explicit user action (not on window open)
+- **MAX SDK version checker**: Build Health now validates MAX SDK version against expected version
+- **EDM4U duplicate detection**: Warns about duplicate External Dependency Manager installations
+
+### Changed
+- **Facebook SDK now Core**: Always installed in both Prototype and Full modes (was FullRequired)
+- **Improved SDK installation UX**: Better feedback during SDK install/uninstall operations
+- **Simplified editor UI**: Removed welcome screen, streamlined SorollaWindow
+
+### Fixed
+- **Unity 6 DontDestroyOnLoad**: Added robust handling to prevent assertion failures
+- **Code preservation**: Added `[Preserve]` attributes to prevent IL2CPP stripping
+- **Standardized log tags**: Consistent `[Palette]` prefix across all adapters
+
 ## [3.1.0] - 2026-01-13
 
 ### Changed
