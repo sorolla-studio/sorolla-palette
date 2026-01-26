@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.2] - 2026-01-26
+
+### Added
+- **GameAnalytics ILRD**: Automatic impression-level revenue tracking via `GameAnalyticsILRD.SubscribeMaxImpressions()`
+- **Firebase `ad_impression` events**: Ad revenue now logged to Firebase Analytics with full parameters (`ad_platform`, `ad_source`, `ad_format`, `ad_unit_name`, `value`, `currency`)
+- `FirebaseAdapter.TrackAdImpression()` public API for ad revenue tracking
+
+### Changed
+- Ad revenue now tracked to all three platforms: GameAnalytics (ILRD), Firebase (`ad_impression`), and Adjust
+- `TrackAdRevenue` now includes ad format (INTERSTITIAL/REWARDED) for better analytics segmentation
+
 ## [3.2.1] - 2026-01-26
 
 ### Fixed

@@ -193,6 +193,7 @@ namespace Sorolla.Palette.Adapters
 
             InitRewarded();
             InitInterstitial();
+            SubscribeILRD();
 
             OnSdkInitialized?.Invoke();
         }
@@ -288,7 +289,7 @@ namespace Sorolla.Palette.Adapters
             _onRewardFailed = null;
         }
 
-        void OnRewardedAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo) => TrackAdRevenue(adInfo);
+        void OnRewardedAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo) => TrackAdRevenue(adInfo, "REWARDED");
 
         void LoadRewarded()
         {
@@ -363,7 +364,7 @@ namespace Sorolla.Palette.Adapters
             LoadInterstitial();
         }
 
-        void OnInterstitialAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo) => TrackAdRevenue(adInfo);
+        void OnInterstitialAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo) => TrackAdRevenue(adInfo, "INTERSTITIAL");
 
         void LoadInterstitial()
         {
@@ -388,7 +389,22 @@ namespace Sorolla.Palette.Adapters
 
         #region Ad Revenue
 
-        void TrackAdRevenue(MaxSdkBase.AdInfo adInfo)
+        void SubscribeILRD()
+        {
+#if GAMEANALYTICS_INSTALLED
+            try
+            {
+                GameAnalyticsSDK.GameAnalyticsILRD.SubscribeMaxImpressions();
+                Debug.Log("[Palette:MAX] GameAnalytics ILRD subscribed");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[Palette:MAX] ILRD subscription failed: {e.Message}");
+            }
+#endif
+        }
+
+        void TrackAdRevenue(MaxSdkBase.AdInfo adInfo, string adFormat)
         {
 #if SOROLLA_ADJUST_ENABLED
             AdjustAdapter.TrackAdRevenue(new AdRevenueInfo
@@ -401,6 +417,16 @@ namespace Sorolla.Palette.Adapters
                 Placement = adInfo.Placement,
             });
 #endif
+
+            // Firebase ad_impression event
+            FirebaseAdapter.TrackAdImpression(
+                adPlatform: "applovin_max",
+                adSource: adInfo.NetworkName,
+                adFormat: adFormat,
+                adUnitName: adInfo.AdUnitIdentifier,
+                revenue: adInfo.Revenue,
+                currency: "USD"
+            );
         }
 
         #endregion

@@ -126,6 +126,24 @@ namespace Sorolla.Palette.Adapters
             QueueOrExecute(() => FirebaseAnalytics.SetUserProperty(name, value));
         }
 
+        public void TrackAdImpression(string adPlatform, string adSource, string adFormat, string adUnitName, double revenue, string currency)
+        {
+            QueueOrExecute(() =>
+            {
+                var parameters = new[]
+                {
+                    new Parameter("ad_platform", adPlatform ?? ""),
+                    new Parameter("ad_source", adSource ?? ""),
+                    new Parameter("ad_format", adFormat ?? ""),
+                    new Parameter("ad_unit_name", adUnitName ?? ""),
+                    new Parameter("value", revenue),
+                    new Parameter("currency", currency ?? "USD")
+                };
+
+                FirebaseAnalytics.LogEvent("ad_impression", parameters);
+            });
+        }
+
         private static string SanitizeEventName(string name)
         {
             if (string.IsNullOrEmpty(name)) return "unnamed_event";

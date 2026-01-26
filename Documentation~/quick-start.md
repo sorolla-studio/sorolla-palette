@@ -7,7 +7,7 @@ Get your prototype running in 10 minutes.
 ## 1. Install
 
 1. **Package Manager** → `+` → **Add package from git URL**
-2. Paste: `https://github.com/sorolla-studio/sorolla-palette.git#v3.2.1`
+2. Paste: `https://github.com/sorolla-studio/sorolla-palette.git#v3.2.2`
 3. **Configuration window** opens automatically
 
 ---
