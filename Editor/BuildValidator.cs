@@ -445,7 +445,8 @@ namespace Sorolla.Palette.Editor
         ///     Auto-fix config sync issues.
         ///     Returns true if any fixes were applied.
         /// </summary>
-        public static bool FixConfigSync()
+        /// <param name="installMissingSdks">If true, also install missing required SDKs. Use only on explicit user action.</param>
+        public static bool FixConfigSync(bool installMissingSdks = false)
         {
             var config = Resources.Load<SorollaConfig>("SorollaConfig");
             if (config == null)
@@ -459,6 +460,15 @@ namespace Sorolla.Palette.Editor
                 config.isPrototypeMode = SorollaSettings.IsPrototype;
                 changed = true;
                 Debug.Log($"{Tag} Auto-fixed: Synced config.isPrototypeMode to {SorollaSettings.IsPrototype}");
+            }
+
+            // Auto-install missing required SDKs (only on explicit user action)
+            if (installMissingSdks && SorollaSettings.IsConfigured && !SdkDetector.AreAllRequiredInstalled(SorollaSettings.IsPrototype))
+            {
+                var modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
+                Debug.Log($"{Tag} Auto-fixing: Installing missing required SDKs for {modeName} mode...");
+                SdkInstaller.InstallRequiredSdks(SorollaSettings.IsPrototype);
+                changed = true;
             }
 
             if (changed)
