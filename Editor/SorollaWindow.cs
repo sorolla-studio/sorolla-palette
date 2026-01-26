@@ -150,8 +150,8 @@ namespace Sorolla.Palette.Editor
                 EditorApplication.delayCall += SyncMaxSdkKey;
             }
 
-            // Re-run validation after packages are installed
-            EditorApplication.delayCall += RunBuildValidation;
+            // Re-run validation after packages are installed (no auto-install, just detect)
+            EditorApplication.delayCall += () => RunBuildValidation();
             Repaint();
         }
 
@@ -289,8 +289,8 @@ namespace Sorolla.Palette.Editor
                     "This will install/uninstall SDKs as needed.", "Switch", "Cancel"))
                 {
                     SorollaSettings.SetMode(otherMode);
-                    // Re-run validation after mode switch
-                    EditorApplication.delayCall += RunBuildValidation;
+                    // Re-run validation after mode switch (with SDK install since it's explicit user action)
+                    EditorApplication.delayCall += () => RunBuildValidation(installMissingSdks: true);
                 }
             GUI.enabled = true;
             EditorGUILayout.EndHorizontal();
@@ -709,13 +709,17 @@ namespace Sorolla.Palette.Editor
 
         #region Build Health
 
-        void RunBuildValidation()
+        /// <summary>
+        ///     Run build validation checks and auto-fixes.
+        /// </summary>
+        /// <param name="installMissingSdks">If true, also install missing required SDKs. Use only on explicit user action.</param>
+        void RunBuildValidation(bool installMissingSdks = false)
         {
             _autoFixLog.Clear();
 
             // Auto-fix: Sync config with installed SDKs before validation
-            if (BuildValidator.FixConfigSync())
-                _autoFixLog.Add("Synced SorollaConfig with installed SDKs");
+            if (BuildValidator.FixConfigSync(installMissingSdks))
+                _autoFixLog.Add("Synced config / installed missing SDKs");
 
             // Run all sanitizers (single source of truth)
             _autoFixLog.AddRange(BuildValidator.RunAutoFixes());
@@ -743,7 +747,7 @@ namespace Sorolla.Palette.Editor
                 GUILayout.Label($"{errors} Issue(s)", s_statusRedStyle);
 
             if (GUILayout.Button("Refresh", GUILayout.Width(60)))
-                RunBuildValidation();
+                RunBuildValidation(installMissingSdks: true);
 
             EditorGUILayout.EndHorizontal();
 
