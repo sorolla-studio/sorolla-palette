@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+**Navigation:** See `.claude/INDEX.md` for keywords and file routing.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## SDK Overview
@@ -101,7 +103,7 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 | Mode | Required SDKs | Optional | Use Case |
 |------|---------------|----------|----------|
 | Prototype | GameAnalytics, Facebook, Firebase | MAX | CPI tests, soft launch |
-| Full | GameAnalytics, MAX, Adjust, Firebase | — | Production |
+| Full | GameAnalytics, Facebook, MAX, Adjust, Firebase | — | Production |
 
 Mode stored in EditorPrefs, runtime config in `Resources/SorollaConfig.asset`.
 
