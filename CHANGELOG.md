@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.1] - 2026-01-26
+
+### Fixed
+- **Build Health now shows missing required SDKs**: Error displayed when SDKs like Facebook are not installed
+- **Improved Adjust Settings messages**: Clearer status when Adjust is not required or not installed
+
 ## [3.2.0] - 2026-01-26
 
 ### Added
