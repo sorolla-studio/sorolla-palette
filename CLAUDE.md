@@ -107,24 +107,19 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 
 Mode stored in EditorPrefs, runtime config in `Resources/SorollaConfig.asset`.
 
-## Versioning
+## Release Checklist
 
-### Single Source of Truth
-- `package.json` → `"version": "X.Y.Z"` (the only place to update version number)
+**Files to update:**
+| File | What to change |
+|------|----------------|
+| `package.json` | `"version": "X.Y.Z"` |
+| `CHANGELOG.md` | Add `## [X.Y.Z] - YYYY-MM-DD` section |
+| `README.md` | Install URL `...git#vX.Y.Z` |
+| `Documentation~/quick-start.md` | Install URL `...git#vX.Y.Z` |
 
-### Version Display
-- `Editor/SorollaWindow.cs` → Reads from `package.json` via `PackageManager.PackageInfo.FindForAssembly()`
-
-### Documentation References (update on release)
-- `README.md` → Install URL: `...git#vX.Y.Z`
-- `Documentation~/quick-start.md` → Install URL: `...git#vX.Y.Z`
-- `CHANGELOG.md` → Add release notes with date
-
-### Release Checklist
-1. Update `package.json` version
-2. Update `CHANGELOG.md` with release notes
-3. Update install URLs in `README.md` and `quick-start.md`
-4. Commit: `chore: bump version to X.Y.Z`
-5. Tag: `git tag -a vX.Y.Z -m "vX.Y.Z - Release title"`
-6. Push: `git push origin master --tags`
-7. Create GitHub release: `gh release create vX.Y.Z --title "vX.Y.Z - Title" --notes "..."`
+**Commands:**
+```bash
+git add -A && git commit -m "chore: bump version to X.Y.Z"
+git tag -a vX.Y.Z -m "vX.Y.Z - Short description"
+git push origin master --tags
+```
