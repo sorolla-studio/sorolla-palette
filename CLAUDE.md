@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Navigation:** See `.claude/INDEX.md` for keywords and file routing.
+**Entry Point:** Read `.claude/INDEX.md` FIRST for context, then drill into specific docs as needed.
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -89,7 +89,7 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 | `Editor/Sdk/SdkRegistry.cs` | Single source of truth for SDK metadata |
 | `Editor/BuildValidator.cs` | Pre-build validation |
 | `Editor/SorollaWindow.cs` | Configuration UI |
-| `DEVLOG.md` | Validated learnings - check first |
+| `DEVLOG.md` | Historical learnings - consult when debugging |
 
 ## Namespaces
 
