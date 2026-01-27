@@ -1,5 +1,6 @@
 # Index: Sorolla SDK
 
+version: 3.2.2
 type: unity-package
 path: ~/unity-projects/unity-fastlane-ci/Packages/com.sorolla.sdk
 github: https://github.com/sorolla-studio/sorolla-palette.git
@@ -30,7 +31,8 @@ keywords: [SDK, Unity, UPM, package, mobile, publisher, Palette, API, analytics,
 - `Editor/MaxSettingsSanitizer.cs` - Disable Quality Service [MAX, settings, 401 error]
 
 ### Documentation
-- `DEVLOG.md` - Critical validated learnings [learnings, decisions, gotchas]
+- `LEARNINGS.md` - Greppable facts via `/reflect` [quick lookup, tagged]
+- `DEVLOG.md` - Chronological session history [debugging, past decisions]
 - `Documentation~/internal/architecture.md` - Complete technical reference [architecture, patterns, design]
 - `CLAUDE.md` - AI agent guidance [context, conventions]
 
