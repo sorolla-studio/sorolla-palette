@@ -7,12 +7,18 @@ namespace Sorolla.Palette
 {
     public class SorollaLoadingOverlay : MonoBehaviour
     {
+        const float PollIntervalSeconds = 0.2f;
+
         static SorollaLoadingOverlay s_instance;
+
         GameObject _canvasObject;
         Text _loadingText;
+        WaitForSeconds _pollWait;
+        Coroutine _waitRoutine;
 
         void Awake()
         {
+            _pollWait = new WaitForSeconds(PollIntervalSeconds);
             CreateUI();
             InternalHide();
         }
@@ -32,7 +38,11 @@ namespace Sorolla.Palette
         {
             EnsureInstance();
             Show();
-            s_instance.StartCoroutine(s_instance.WaitForAdRoutine(isReadyCheck, onReady, onFailed, timeout));
+
+            if (s_instance._waitRoutine != null)
+                s_instance.StopCoroutine(s_instance._waitRoutine);
+
+            s_instance._waitRoutine = s_instance.StartCoroutine(s_instance.WaitForAdRoutine(isReadyCheck, onReady, onFailed, timeout));
         }
 
         static void EnsureInstance()
@@ -59,22 +69,25 @@ namespace Sorolla.Palette
 
         IEnumerator WaitForAdRoutine(Func<bool> isReadyCheck, Action onReady, Action onFailed, float timeout)
         {
-            float elapsed = 0;
+            float elapsed = 0f;
             while (elapsed < timeout)
             {
                 if (isReadyCheck())
                 {
                     Hide();
                     onReady?.Invoke();
+                    _waitRoutine = null;
                     yield break;
                 }
-                yield return new WaitForSeconds(0.2f);
-                elapsed += 0.2f;
+
+                yield return _pollWait;
+                elapsed += PollIntervalSeconds;
             }
 
             Hide();
             Debug.LogWarning("[Palette:LoadingOverlay] Ad load timeout");
             onFailed?.Invoke();
+            _waitRoutine = null;
         }
 
         void CreateUI()
@@ -99,6 +112,7 @@ namespace Sorolla.Palette
             bgObj.transform.SetParent(_canvasObject.transform, false);
             var bgImage = bgObj.AddComponent<Image>();
             bgImage.color = new Color(0, 0, 0, 0.7f);
+            bgImage.raycastTarget = false; // overlay must NOT block game inputs
             bgImage.rectTransform.anchorMin = Vector2.zero;
             bgImage.rectTransform.anchorMax = Vector2.one;
             bgImage.rectTransform.sizeDelta = Vector2.zero;
@@ -111,9 +125,15 @@ namespace Sorolla.Palette
             _loadingText.fontSize = 30;
             _loadingText.color = Color.white;
             _loadingText.alignment = TextAnchor.MiddleCenter;
+            _loadingText.raycastTarget = false; // overlay must NOT block game inputs
             _loadingText.rectTransform.anchorMin = Vector2.zero;
             _loadingText.rectTransform.anchorMax = Vector2.one;
             _loadingText.rectTransform.sizeDelta = Vector2.zero;
+        }
+
+        void OnDestroy()
+        {
+            if (s_instance == this) s_instance = null;
         }
     }
 }

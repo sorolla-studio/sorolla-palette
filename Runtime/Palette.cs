@@ -493,7 +493,7 @@ namespace Sorolla.Palette
         }
 
 
-        static void OnMaxAdLoadingStateChanged(AdType adType, bool isLoading)
+        static void OnMaxAdLoadingStateChanged(Adapters.AdType adType, bool isLoading)
         {
             if (isLoading)
                 SorollaLoadingOverlay.Show($"Loading {adType} ad...");
