@@ -53,8 +53,8 @@ namespace Sorolla.Palette
         [Tooltip("Adjust App Token")]
         public string adjustAppToken;
 
-        [Tooltip("Use Sandbox environment for testing (disable for production builds)")]
-        public bool adjustSandboxMode = true;
+        [Tooltip("Use Sandbox environment for testing")]
+        public bool adjustSandboxMode;
 
         // Note: Firebase modules (Analytics, Crashlytics, Remote Config) are always enabled
         // when Firebase is installed. No toggles needed as of v3.1.0.
