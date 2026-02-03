@@ -22,6 +22,8 @@ namespace Sorolla.Palette.Adapters
         string _rewardedId;
 
         bool _rewardedReady;
+        bool _userWaitingForRewarded;
+        bool _userWaitingForInterstitial;
 
         MaxSdkBase.SdkConfiguration _sdkConfig;
 
@@ -257,13 +259,21 @@ namespace Sorolla.Palette.Adapters
         void OnRewardedAdLoaded(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
             _rewardedReady = true;
-            OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, false);
+            if (_userWaitingForRewarded)
+            {
+                _userWaitingForRewarded = false;
+                OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, false);
+            }
         }
 
         void OnRewardedAdLoadFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo)
         {
             _rewardedReady = false;
-            OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, false);
+            if (_userWaitingForRewarded)
+            {
+                _userWaitingForRewarded = false;
+                OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, false);
+            }
             LoadRewarded();
         }
 
@@ -293,7 +303,9 @@ namespace Sorolla.Palette.Adapters
 
         void LoadRewarded()
         {
-            OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, true);
+            // Only show overlay when user is actively waiting for an ad
+            if (_userWaitingForRewarded)
+                OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, true);
             MaxSdk.LoadRewardedAd(_rewardedId);
         }
 
@@ -338,13 +350,21 @@ namespace Sorolla.Palette.Adapters
         void OnInterstitialAdLoaded(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
             _interstitialReady = true;
-            OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, false);
+            if (_userWaitingForInterstitial)
+            {
+                _userWaitingForInterstitial = false;
+                OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, false);
+            }
         }
 
         void OnInterstitialAdLoadFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo)
         {
             _interstitialReady = false;
-            OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, false);
+            if (_userWaitingForInterstitial)
+            {
+                _userWaitingForInterstitial = false;
+                OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, false);
+            }
             LoadInterstitial();
         }
 
@@ -368,7 +388,9 @@ namespace Sorolla.Palette.Adapters
 
         void LoadInterstitial()
         {
-            OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, true);
+            // Only show overlay when user is actively waiting for an ad
+            if (_userWaitingForInterstitial)
+                OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, true);
             MaxSdk.LoadInterstitial(_interstitialId);
         }
 
