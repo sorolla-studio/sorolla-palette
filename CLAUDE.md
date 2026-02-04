@@ -75,6 +75,12 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 - `MaxSdk.SetSdkKey()` is deprecated - SDK reads from settings automatically
 - Quality Service causes 401 build failures - auto-disabled by sanitizer
 
+**Consent Flow (CMP-First)**:
+- MAX handles consent flow automatically: CMP (UMP) → ATT (iOS)
+- Enable in Integration Manager: Terms & Privacy Policy Flow + iOS ATT
+- SorollaBootstrapper just calls `Palette.Initialize()` - no manual ATT handling
+- This order improves ATT opt-in rates via psychological priming
+
 **EDM4U + Unity 6**:
 - Bundles Gradle 5.1.1, incompatible with Java 17+ (Unity 6 default)
 - First resolution may fail, works after mode selection triggers re-resolve
@@ -95,7 +101,7 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 
 - `Sorolla.Palette` - Public API (`Palette` static class)
 - `Sorolla.Palette.Adapters` - SDK wrappers (stubs + impls)
-- `Sorolla.Palette.ATT` - iOS privacy (ContextScreenView, FakeATTDialog)
+- `Sorolla.Palette.ATT` - iOS privacy utils (legacy, kept for soft prompts)
 - `Sorolla.Palette.Editor` - Editor tools
 
 ## Mode System
