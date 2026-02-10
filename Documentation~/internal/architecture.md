@@ -234,8 +234,8 @@ For IL2CPP builds, we use a belt-and-suspenders approach:
 ## Mode System
 
 ### Prototype Mode
-- **Required**: GameAnalytics, Facebook SDK, Firebase
-- **Optional**: AppLovin MAX
+- **Required**: GameAnalytics, Facebook SDK
+- **Optional**: AppLovin MAX, Firebase
 - **Use case**: CPI tests, soft launches
 
 ### Full Mode
@@ -268,7 +268,7 @@ public enum SdkId {
     FirebaseApp, FirebaseAnalytics, FirebaseCrashlytics, FirebaseRemoteConfig
 }
 
-public enum SdkRequirement { Core, PrototypeOnly, FullOnly, Optional }
+public enum SdkRequirement { Core, PrototypeOnly, FullOnly, FullRequired, Optional }
 
 // Version constants
 public const string GA_VERSION = "7.10.6";

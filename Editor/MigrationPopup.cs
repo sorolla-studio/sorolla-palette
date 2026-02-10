@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Sorolla.Palette.Editor
 {
     /// <summary>
-    ///     One-time migration popup for v3.1.0 Firebase mandatory upgrade.
+    ///     One-time migration popup for v3.1.0 Firebase upgrade.
     ///     Guides users through Firebase setup after SDK upgrade.
     /// </summary>
     public class MigrationPopup : EditorWindow
@@ -30,7 +30,7 @@ namespace Sorolla.Palette.Editor
                 fontSize = 14,
                 alignment = TextAnchor.MiddleCenter
             };
-            EditorGUILayout.LabelField("Firebase is now required for all modes.", headerStyle);
+            EditorGUILayout.LabelField("Firebase is now required in Full mode.", headerStyle);
 
             EditorGUILayout.Space(5);
 

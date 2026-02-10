@@ -1,3 +1,4 @@
+#if SOROLLA_DEV
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -172,3 +173,4 @@ namespace Sorolla.Palette.Editor
         }
     }
 }
+#endif

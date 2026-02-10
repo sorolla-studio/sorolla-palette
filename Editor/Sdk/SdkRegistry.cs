@@ -105,11 +105,11 @@ namespace Sorolla.Palette.Editor
         // ============================================================
         // VERSION CONSTANTS - Update these when upgrading SDK versions
         // ============================================================
-        public const string EDM_VERSION = "1.2.186";
+        public const string EDM_VERSION = "1.2.187";
         public const string GA_VERSION = "7.10.6";
         public const string MAX_VERSION = "8.5.0";
         public const string FB_VERSION = "18.0.1";
-        public const string FIREBASE_VERSION = "12.10.1";
+        public const string FIREBASE_VERSION = "13.7.0";
 
         public static readonly IReadOnlyDictionary<SdkId, SdkInfo> All = new Dictionary<SdkId, SdkInfo>
         {
@@ -175,7 +175,7 @@ namespace Sorolla.Palette.Editor
                 id: SdkId.FirebaseApp,
                 name: "Firebase App",
                 packageId: "com.google.firebase.app",
-                requirement: SdkRequirement.Core,
+                requirement: SdkRequirement.FullRequired,
                 detectionAssemblies: new[] { "Firebase.App" },
                 detectionTypes: new[] { "Firebase.FirebaseApp, Firebase.App" },
                 installUrl: "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseApp#" + FIREBASE_VERSION
@@ -184,7 +184,7 @@ namespace Sorolla.Palette.Editor
                 id: SdkId.FirebaseAnalytics,
                 name: "Firebase Analytics",
                 packageId: "com.google.firebase.analytics",
-                requirement: SdkRequirement.Core,
+                requirement: SdkRequirement.FullRequired,
                 detectionAssemblies: new[] { "Firebase.Analytics" },
                 detectionTypes: new[] { "Firebase.Analytics.FirebaseAnalytics, Firebase.Analytics" },
                 installUrl: "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseAnalytics#" + FIREBASE_VERSION
@@ -193,7 +193,7 @@ namespace Sorolla.Palette.Editor
                 id: SdkId.FirebaseCrashlytics,
                 name: "Firebase Crashlytics",
                 packageId: "com.google.firebase.crashlytics",
-                requirement: SdkRequirement.Core,
+                requirement: SdkRequirement.FullRequired,
                 detectionAssemblies: new[] { "Firebase.Crashlytics" },
                 detectionTypes: new[] { "Firebase.Crashlytics.Crashlytics, Firebase.Crashlytics" },
                 installUrl: "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseCrashlytics#" + FIREBASE_VERSION
@@ -202,7 +202,7 @@ namespace Sorolla.Palette.Editor
                 id: SdkId.FirebaseRemoteConfig,
                 name: "Firebase Remote Config",
                 packageId: "com.google.firebase.remote-config",
-                requirement: SdkRequirement.Core,
+                requirement: SdkRequirement.FullRequired,
                 detectionAssemblies: new[] { "Firebase.RemoteConfig" },
                 detectionTypes: new[] { "Firebase.RemoteConfig.FirebaseRemoteConfig, Firebase.RemoteConfig" },
                 installUrl: "https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseRemoteConfig#" + FIREBASE_VERSION

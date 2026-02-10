@@ -218,9 +218,6 @@ namespace Sorolla.Palette.Editor
             window.Show();
         }
 
-        [MenuItem("Palette/Tools/Validate Build")]
-        public static void ValidateBuild() => ShowWindow();
-
         [InitializeOnLoadMethod]
         static void AutoOpenOnLoad() => EditorApplication.delayCall += () =>
         {
@@ -314,9 +311,6 @@ namespace Sorolla.Palette.Editor
             bool isPrototype = SorollaSettings.IsPrototype;
             bool showMax = SdkDetector.IsInstalled(SdkId.AppLovinMAX);
             bool showAdjust = !isPrototype && SdkDetector.IsInstalled(SdkId.Adjust);
-
-            if (!showMax && !showAdjust)
-                return;
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             GUILayout.Label("SDK Keys", EditorStyles.boldLabel);
@@ -497,7 +491,7 @@ namespace Sorolla.Palette.Editor
                 );
             }
 
-            // Firebase (required in all modes)
+            // Firebase (required in Full, optional in Prototype)
             DrawFirebaseOverviewItem();
 
             EditorGUILayout.EndVertical();
@@ -652,6 +646,8 @@ namespace Sorolla.Palette.Editor
         void DrawFirebaseOverviewItem()
         {
             bool isInstalled = SdkDetector.IsInstalled(SdkId.FirebaseAnalytics);
+            bool isPrototype = SorollaSettings.IsPrototype;
+            bool isRequired = !isPrototype; // Required in Full, optional in Prototype
             var configStatus = SdkConfigDetector.GetFirebaseStatus(_config);
 
             // Check if any Firebase package is installing
@@ -662,12 +658,13 @@ namespace Sorolla.Palette.Editor
 
             EditorGUILayout.BeginHorizontal();
 
-            // Status icon (Firebase is always required)
-            Color iconColor = isInstalled ? ColorGreen : isInstalling ? ColorYellow : ColorRed;
-            string iconText = isInstalled ? "✓" : isInstalling ? "⏳" : "✗";
+            // Status icon (mode-aware)
+            Color iconColor = isInstalled ? ColorGreen : isInstalling ? ColorYellow : isRequired ? ColorRed : ColorGray;
+            string iconText = isInstalled ? "✓" : isInstalling ? "⏳" : isRequired ? "✗" : "○";
             DrawIcon(iconText, iconColor);
 
-            GUILayout.Label("Firebase", GUILayout.Width(140));
+            string nameLabel = isRequired ? "Firebase" : "Firebase (optional)";
+            GUILayout.Label(nameLabel, GUILayout.Width(140));
 
             // Config status
             GUIStyle configStyle;
@@ -680,7 +677,7 @@ namespace Sorolla.Palette.Editor
             else if (!isInstalled)
             {
                 configStyle = s_configStyleGray;
-                configText = "Auto-installs on mode switch";
+                configText = isRequired ? "Auto-installs on mode switch" : "—";
             }
             else if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
             {
@@ -696,8 +693,20 @@ namespace Sorolla.Palette.Editor
 
             GUILayout.FlexibleSpace();
 
-            // Firebase is Core (always auto-installed), so no manual install button
-            if (isInstalled && GUILayout.Button("Console", GUILayout.Width(70)))
+            // Install button in Prototype mode (optional, manual install)
+            if (!isInstalled && !isInstalling && isPrototype)
+            {
+                GUI.enabled = !EditorApplication.isPlaying;
+                if (GUILayout.Button("Install", GUILayout.Width(70)))
+                {
+                    SdkInstaller.Install(SdkId.FirebaseApp);
+                    SdkInstaller.Install(SdkId.FirebaseAnalytics);
+                    SdkInstaller.Install(SdkId.FirebaseCrashlytics);
+                    SdkInstaller.Install(SdkId.FirebaseRemoteConfig);
+                }
+                GUI.enabled = true;
+            }
+            else if (isInstalled && GUILayout.Button("Console", GUILayout.Width(70)))
             {
                 Application.OpenURL("https://console.firebase.google.com/");
             }

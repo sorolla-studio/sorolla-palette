@@ -2,7 +2,7 @@
 
 Analytics, Crashlytics, and Remote Config.
 
-> Firebase is **required** as of SDK v3.1. Packages are auto-installed.
+> Firebase is **required in Full mode** and **optional in Prototype mode**. In Full mode, packages are auto-installed.
 
 ---
 

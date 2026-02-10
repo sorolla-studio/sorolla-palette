@@ -1,8 +1,8 @@
 # CLAUDE.md
 
-**Entry Point:** Read `.claude/INDEX.md` FIRST for context, then drill into specific docs as needed.
-
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+**Entry Point:** Read `.claude/INDEX.md` FIRST for context, then drill into specific docs as needed.
 
 ## SDK Overview
 
@@ -16,10 +16,8 @@ This is a **standalone Git repository** (not part of the parent Unity project):
 
 | Menu Path | Purpose |
 |-----------|---------|
-| Palette > Configuration | Mode setup, SDK installation |
-| Palette > Tools > Validate Build | Pre-build validation (also runs automatically) |
-| Palette > Tools > Sanitize Android Manifest | Remove orphaned SDK entries |
-| Palette > Tools > Check MAX Settings | Disable Quality Service |
+| Palette > Configuration | Mode setup, SDK installation, build health |
+| Palette > Run Setup (Force) | Re-run initial setup (troubleshooting) |
 
 ## Validation & Build
 
@@ -30,7 +28,9 @@ This is a **standalone Git repository** (not part of the parent Unity project):
 - Sanitizes AndroidManifest.xml (auto-fix for orphaned entries)
 - Validates MAX SDK key in AppLovinSettings
 
-## Architecture: Stub + Implementation Pattern
+## Architecture
+
+### Stub + Implementation Pattern (UPM-based SDKs)
 
 Optional SDK adapters use separate assemblies to avoid "assembly not found" errors:
 
@@ -46,16 +46,33 @@ Adapters/
 
 **Key insight**: `versionDefines` are **per-assembly only** (not project-wide). Each implementation asmdef must define its own symbols.
 
+### Two Define Symbol Systems
+
+The SDK uses **two complementary systems** for conditional compilation:
+
+1. **Per-assembly `versionDefines`** (in `.asmdef` files) — detects package presence and sets symbols scoped to that assembly only. Used with `defineConstraints` to skip entire assembly compilation.
+
+2. **Global scripting defines** (`DefineSymbols.cs`) — detects packages via `Client.List()` on domain reload and sets `PlayerSettings` defines (`SOROLLA_MAX_ENABLED`, `APPLOVIN_MAX_INSTALLED`, `ADJUST_SDK_INSTALLED`, `FIREBASE_*_INSTALLED`). These are project-wide and used by `Palette.cs` with `#if` blocks.
+
+Both are needed: per-assembly prevents compilation of impl assemblies when SDKs are missing; global defines gate code in the main Palette assembly.
+
+### Auto-Sync Systems (Editor)
+
+- **`SdkVersionSync.cs`** — `[InitializeOnLoad]`, runs on every domain reload. Compares installed manifest.json versions against `SdkRegistry` constants. Auto-updates stale entries (catches SDK upgrades that bump `SdkRegistry` but leave old manifest entries).
+- **`MaxVersionChecker.cs`** — `[InitializeOnLoadMethod]`, runs once per editor session. Queries AppLovin registry for latest MAX version, prompts Update/Skip/Later dialog.
+
 ### Adding a New SDK Adapter
 
+**UPM-based SDK (has a Unity package):**
 1. Add to `SdkRegistry.cs` (ID, package name, version, scope, requirement)
 2. Create stub in `Adapters/XxxAdapter.cs` with `IXxxAdapter` interface
 3. Create impl folder `Adapters/Xxx/` with:
    - `Sorolla.Adapters.Xxx.asmdef` (with defineConstraints + versionDefines)
    - `AssemblyInfo.cs` with `[assembly: AlwaysLinkAssembly]`
    - `XxxAdapterImpl.cs` with `[Preserve]` and `[RuntimeInitializeOnLoadMethod]`
-4. Add initialization call in `Palette.Initialize()`
-5. Add UI section in `SorollaWindow.cs`
+4. Add define mapping in `DefineSymbols.cs` if `Palette.cs` needs `#if` access
+5. Add initialization call in `Palette.Initialize()`
+6. Add UI section in `SorollaWindow.cs`
 
 ### IL2CPP Stripping Protection
 
@@ -64,7 +81,7 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 - `[Preserve]` on class and Register method - Marks as roots
 - `link.xml` in Assets/ - Fallback (NOT auto-included from packages)
 
-## Critical Learnings (from devlog.md)
+## Critical Learnings (from DEVLOG.md)
 
 **Unity asmdef**:
 - `versionDefines` + `defineConstraints` BOTH needed for optional assemblies
@@ -79,11 +96,10 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 - MAX handles consent flow automatically: CMP (UMP) → ATT (iOS)
 - Enable in Integration Manager: Terms & Privacy Policy Flow + iOS ATT
 - SorollaBootstrapper just calls `Palette.Initialize()` - no manual ATT handling
-- This order improves ATT opt-in rates via psychological priming
 
 **EDM4U + Unity 6**:
 - Bundles Gradle 5.1.1, incompatible with Java 17+ (Unity 6 default)
-- First resolution may fail, works after mode selection triggers re-resolve
+- First resolution may fail, works after restart (EDM4U auto-recovers via Gradle template mode)
 
 ## Key Files
 
@@ -92,8 +108,11 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 | `Runtime/Palette.cs` | Main public API (static class) |
 | `Runtime/SorollaBootstrapper.cs` | Auto-init via [RuntimeInitializeOnLoadMethod] |
 | `Runtime/SorollaConfig.cs` | ScriptableObject in Resources/ |
-| `Editor/Sdk/SdkRegistry.cs` | Single source of truth for SDK metadata |
+| `Editor/Sdk/SdkRegistry.cs` | Single source of truth for SDK metadata + versions |
+| `Editor/Sdk/SdkVersionSync.cs` | Auto-updates manifest versions on domain reload |
+| `Editor/Sdk/DefineSymbols.cs` | Global scripting defines based on installed packages |
 | `Editor/BuildValidator.cs` | Pre-build validation |
+| `Editor/MaxVersionChecker.cs` | Auto-check for MAX SDK updates per session |
 | `Editor/SorollaWindow.cs` | Configuration UI |
 | `DEVLOG.md` | Historical learnings - consult when debugging |
 
@@ -108,7 +127,7 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 
 | Mode | Required SDKs | Optional | Use Case |
 |------|---------------|----------|----------|
-| Prototype | GameAnalytics, Facebook, Firebase | MAX | CPI tests, soft launch |
+| Prototype | GameAnalytics, Facebook | MAX, Firebase | CPI tests, soft launch |
 | Full | GameAnalytics, Facebook, MAX, Adjust, Firebase | — | Production |
 
 Mode stored in EditorPrefs, runtime config in `Resources/SorollaConfig.asset`.

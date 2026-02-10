@@ -14,7 +14,7 @@ Common issues and solutions for Sorolla SDK integration.
 | Remote config returns defaults | Ensure values are **published** in console | [→](#remote-config) |
 | Firebase errors | Verify config files match bundle ID | [→](#firebase-issues) |
 | Build failing | Check **Build Health** in Configuration window | [→](#build-health) |
-| Runtime crash on Android | Run `Palette > Tools > Sanitize Android Manifest` | [→](#android-specific-issues) |
+| Runtime crash on Android | Open `Palette > Configuration`, check Build Health | [→](#android-specific-issues) |
 | iOS provisioning errors | Open Xcode, enable "Automatically manage signing" | [→](#ios-specific-issues) |
 
 ---
@@ -188,9 +188,19 @@ pod --version
 1. Open `Palette > Configuration` window
 2. Check the **Build Health** section
 3. If "Android Manifest" shows an error, it will be auto-fixed on next validation
-4. Or manually run: `Palette > Tools > Sanitize Android Manifest`
+4. Or open `Palette > Configuration` and click Refresh in Build Health
 
 The Build Health validator automatically detects and removes orphaned manifest entries before builds.
+
+### Gradle/Java Error on First Import
+
+**Error**: `NoClassDefFoundError: org.codehaus.groovy.vmplugin.v7.Java7` or similar Gradle/Java stacktrace on first Android resolve.
+
+**Cause**: EDM4U bundles Gradle 5.1.1 which only supports Java 8-12. Unity 6+ uses Java 17+ by default. On first import, EDM4U may auto-resolve before Palette configures it to use Unity's Gradle.
+
+**Fix**: This is cosmetic — restart Unity and it resolves automatically. Palette configures EDM4U to use Unity's Gradle templates on every domain reload. If the error persists:
+1. Run `Palette > Run Setup (Force)`
+2. Or manually enable Gradle templates: `Assets > External Dependency Manager > Android Resolver > Settings` → check all "Patch ... Template" options
 
 ### Gradle Version Mismatch
 

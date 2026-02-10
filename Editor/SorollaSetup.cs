@@ -15,7 +15,7 @@ namespace Sorolla.Palette.Editor
     [InitializeOnLoad]
     public static class SorollaSetup
     {
-        const string SetupVersion = "v7"; // v3.1.0: Firebase mandatory
+        const string SetupVersion = "v7"; // v3.1.0: Firebase required in Full, optional in Prototype
 
         static SorollaSetup()
         {
@@ -76,9 +76,8 @@ namespace Sorolla.Palette.Editor
 
             EditorPrefs.SetBool(SetupKey, true);
             Debug.Log("[Palette] Setup complete. Package Manager will resolve dependencies.");
-            Debug.Log("[Palette] Open Palette > Configuration to select a mode.");
 
-            // v3.1.0: Show migration popup once for Firebase mandatory upgrade
+            // v3.1.0: Show migration popup once for Firebase upgrade
             if (!EditorPrefs.GetBool(FirebaseMigrationKey, false))
             {
                 EditorPrefs.SetBool(FirebaseMigrationKey, true);
@@ -121,16 +120,35 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Configure EDM4U (External Dependency Manager) to use Unity's Gradle templates.
-        ///     This fixes Java 17+ compatibility issues in Unity 6+ while remaining compatible with Unity 2022 LTS.
-        ///     EDM4U bundles Gradle 5.1.1 which doesn't work with Java 17+.
-        ///     By enabling template patching, EDM4U uses Unity's Gradle instead.
+        ///     Configure EDM4U Gradle settings during initial setup.
+        ///     Delegates to Edm4uGradleConfig which also runs on every domain reload.
         /// </summary>
         static void ConfigureEdm4uGradleSettings()
         {
+            Edm4uGradleConfig.ConfigureGradleTemplateMode();
+        }
+    }
+
+    /// <summary>
+    ///     Ensures EDM4U Gradle template mode on every domain reload.
+    ///     Separate from SorollaSetup to avoid the one-time setup gate — EDM4U may load
+    ///     after SorollaSetup runs on first import, causing a race condition where the
+    ///     bundled Gradle 5.1.1 is used instead of Unity's Gradle (Java 17+ incompatible).
+    ///     This is idempotent (checks before setting) so running every reload is safe.
+    /// </summary>
+    [InitializeOnLoad]
+    internal static class Edm4uGradleConfig
+    {
+        static Edm4uGradleConfig()
+        {
+            EditorApplication.delayCall += ConfigureGradleTemplateMode;
+        }
+
+        internal static void ConfigureGradleTemplateMode()
+        {
             // Find EDM4U's SettingsDialog type via reflection (avoids hard dependency)
             Type settingsType = null;
-            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 settingsType = assembly.GetType("GooglePlayServices.SettingsDialog");
                 if (settingsType != null)
@@ -138,10 +156,7 @@ namespace Sorolla.Palette.Editor
             }
 
             if (settingsType == null)
-            {
-                // EDM4U not installed yet - will be configured on next setup run after EDM4U imports
-                return;
-            }
+                return; // EDM4U not loaded yet
 
             try
             {
@@ -173,9 +188,7 @@ namespace Sorolla.Palette.Editor
                 }
 
                 if (changed)
-                {
                     Debug.Log("[Palette] Configured EDM4U to use Unity's Gradle templates (Java 17+ compatibility).");
-                }
             }
             catch (Exception e)
             {

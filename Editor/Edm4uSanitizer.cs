@@ -2,9 +2,43 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEngine;
 
 namespace Sorolla.Palette.Editor
 {
+    /// <summary>
+    ///     Intercepts the EDM4U Gradle/Java 17+ error on first import and logs a helpful message.
+    ///     EDM4U bundles Gradle 5.1.1 which fails with Java 17+ (Unity 6+). The error is cosmetic —
+    ///     Edm4uGradleConfig fixes the settings on domain reload, so the next resolve works fine.
+    /// </summary>
+    [InitializeOnLoad]
+    static class Edm4uGradleErrorInterceptor
+    {
+        static Edm4uGradleErrorInterceptor()
+        {
+            Application.logMessageReceived += OnLogMessage;
+        }
+
+        static void OnLogMessage(string message, string stackTrace, LogType type)
+        {
+            if (type != LogType.Error && type != LogType.Exception)
+                return;
+
+            if (!message.Contains("org.codehaus.groovy.vmplugin") &&
+                !message.Contains("NoClassDefFoundError") &&
+                !(message.Contains("Gradle") && message.Contains("Java")))
+                return;
+
+            Debug.LogWarning(
+                "[Palette] Known issue: EDM4U's bundled Gradle is incompatible with Java 17+.\n" +
+                "This error is cosmetic — restart Unity and it will resolve automatically.\n" +
+                "If it persists, run Palette > Run Setup (Force).");
+
+            // Unsubscribe after first detection to avoid spam
+            Application.logMessageReceived -= OnLogMessage;
+        }
+    }
+
     /// <summary>
     ///     Detects EDM4U (External Dependency Manager) configuration issues.
     ///     Detection only - no auto-fixes. Users resolve issues manually.
