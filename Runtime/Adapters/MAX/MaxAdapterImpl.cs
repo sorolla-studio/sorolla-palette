@@ -470,6 +470,9 @@ namespace Sorolla.Palette.Adapters
             });
 #endif
 
+            // TikTok ad revenue (always call — stub no-ops if not initialized)
+            TikTokAdapter.TrackAdRevenue(adInfo.Revenue, "USD");
+
             // Firebase ad_impression event
             FirebaseAdapter.TrackAdImpression(
                 adPlatform: "applovin_max",
