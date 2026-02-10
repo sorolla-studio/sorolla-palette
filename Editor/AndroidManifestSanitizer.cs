@@ -28,6 +28,11 @@ namespace Sorolla.Palette.Editor
             }
         };
 
+        /// <summary>
+        ///     The correct main activity class for Unity 6 LTS (GameActivity backend).
+        /// </summary>
+        private const string Unity6MainActivity = "com.unity3d.player.UnityPlayerGameActivity";
+
         private static readonly XNamespace AndroidNs = "http://schemas.android.com/apk/res/android";
 
         /// <summary>
@@ -164,6 +169,76 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
+        ///     Detect if the launcher activity uses the wrong class name.
+        ///     Returns the wrong class name if found, or null if correct.
+        /// </summary>
+        /// <remarks>
+        ///     Unity 6 App UI package sets the activity to AppUIGameActivity,
+        ///     but without that package installed the app crashes on launch.
+        ///     The correct activity for standard Unity 6 is UnityPlayerGameActivity.
+        /// </remarks>
+        public static string DetectWrongMainActivity()
+        {
+            if (!File.Exists(AndroidManifestPath))
+                return null;
+
+            try
+            {
+                var doc = XDocument.Load(AndroidManifestPath);
+                var application = doc.Root?.Element("application");
+                if (application == null)
+                    return null;
+
+                // Find the launcher activity (has intent-filter with LAUNCHER category)
+                var launcherActivity = application.Elements("activity")
+                    .FirstOrDefault(a => a.Elements("intent-filter")
+                        .Any(f => f.Elements("category")
+                            .Any(c => c.Attribute(AndroidNs + "name")?.Value ==
+                                      "android.intent.category.LAUNCHER")));
+
+                if (launcherActivity == null)
+                    return null;
+
+                var activityName = launcherActivity.Attribute(AndroidNs + "name")?.Value;
+                if (activityName != null && activityName != Unity6MainActivity)
+                    return activityName;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"{Tag} Failed to detect main activity: {e.Message}");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        ///     Fix the launcher activity class name to the correct Unity 6 value.
+        /// </summary>
+        private static bool FixMainActivity(XDocument doc)
+        {
+            var application = doc.Root?.Element("application");
+            if (application == null)
+                return false;
+
+            var launcherActivity = application.Elements("activity")
+                .FirstOrDefault(a => a.Elements("intent-filter")
+                    .Any(f => f.Elements("category")
+                        .Any(c => c.Attribute(AndroidNs + "name")?.Value ==
+                                  "android.intent.category.LAUNCHER")));
+
+            if (launcherActivity == null)
+                return false;
+
+            var nameAttr = launcherActivity.Attribute(AndroidNs + "name");
+            if (nameAttr == null || nameAttr.Value == Unity6MainActivity)
+                return false;
+
+            Debug.Log($"{Tag} Fixing main activity: {nameAttr.Value} → {Unity6MainActivity}");
+            nameAttr.Value = Unity6MainActivity;
+            return true;
+        }
+
+        /// <summary>
         ///     Remove orphaned SDK entries and duplicate activities from AndroidManifest.xml
         /// </summary>
         public static bool Sanitize()
@@ -176,10 +251,11 @@ namespace Sorolla.Palette.Editor
 
             var orphaned = DetectOrphanedEntries();
             var duplicates = DetectDuplicateActivities();
+            var wrongActivity = DetectWrongMainActivity();
 
-            if (orphaned.Count == 0 && duplicates.Count == 0)
+            if (orphaned.Count == 0 && duplicates.Count == 0 && wrongActivity == null)
             {
-                Debug.Log($"{Tag} No orphaned entries or duplicate activities found");
+                Debug.Log($"{Tag} No orphaned entries, duplicate activities, or wrong main activity found");
                 return false;
             }
 
@@ -200,6 +276,13 @@ namespace Sorolla.Palette.Editor
                 {
                     Debug.Log($"{Tag} Removing {duplicates.Count} duplicate activity declaration(s)");
                     modified |= RemoveDuplicateActivities(doc);
+                }
+
+                // Fix wrong main activity class name
+                if (wrongActivity != null)
+                {
+                    Debug.Log($"{Tag} Fixing wrong main activity: {wrongActivity}");
+                    modified |= FixMainActivity(doc);
                 }
 
                 if (modified)
@@ -268,56 +351,5 @@ namespace Sorolla.Palette.Editor
             return modified;
         }
 
-        /// <summary>
-        ///     Menu item to manually sanitize manifest
-        /// </summary>
-        [MenuItem("Palette/Tools/Sanitize Android Manifest")]
-        public static void SanitizeMenuItem()
-        {
-            var orphaned = DetectOrphanedEntries();
-            var duplicates = DetectDuplicateActivities();
-
-            if (orphaned.Count == 0 && duplicates.Count == 0)
-            {
-                EditorUtility.DisplayDialog(
-                    "Manifest Sanitizer",
-                    "No issues found in AndroidManifest.xml",
-                    "OK"
-                );
-                return;
-            }
-
-            // Build message describing issues found
-            var issues = new List<string>();
-
-            if (orphaned.Count > 0)
-            {
-                var sdkNames = string.Join(", ", orphaned.Select(o => SdkRegistry.All[o.sdk].Name));
-                issues.Add($"Orphaned SDK entries: {sdkNames}");
-            }
-
-            if (duplicates.Count > 0)
-                issues.Add($"Duplicate activities: {string.Join(", ", duplicates)}");
-
-            var confirm = EditorUtility.DisplayDialog(
-                "Manifest Sanitizer",
-                $"Found issues in AndroidManifest.xml:\n\n" +
-                $"{string.Join("\n", issues.Select(i => $"• {i}"))}\n\n" +
-                "These issues can cause build failures or runtime crashes.\n\n" +
-                "Fix these issues?",
-                "Yes, Fix",
-                "Cancel"
-            );
-
-            if (confirm)
-            {
-                Sanitize();
-                EditorUtility.DisplayDialog(
-                    "Manifest Sanitizer",
-                    "AndroidManifest.xml has been sanitized.\nA backup was created.",
-                    "OK"
-                );
-            }
-        }
     }
 }

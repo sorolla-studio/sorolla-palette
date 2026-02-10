@@ -238,24 +238,5 @@ namespace Sorolla.Palette.Editor
             }
         }
 
-        /// <summary>
-        ///     Menu item for manual version check. Clears skip state and forces fresh check.
-        /// </summary>
-        [MenuItem("Palette/Tools/Check MAX Updates")]
-        public static void CheckForUpdatesMenuItem()
-        {
-            // Reset session flag to force check
-            s_checkedThisSession = false;
-
-            // Clear skipped version for manual check
-            var skipped = EditorPrefs.GetString(PrefKeySkippedVersion, "");
-            if (!string.IsNullOrEmpty(skipped))
-            {
-                EditorPrefs.DeleteKey(PrefKeySkippedVersion);
-                Debug.Log($"{Tag} Cleared skipped version ({skipped})");
-            }
-
-            CheckForUpdatesAsync();
-        }
     }
 }

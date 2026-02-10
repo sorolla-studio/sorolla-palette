@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.0] - 2026-02-10
+
+### Changed
+- **Firebase is now optional in Prototype mode**: Only required in Full mode, can be manually installed in Prototype via UI
+- **Mode table updated**: Prototype mode lists Firebase as optional, Full mode still requires it
+- **SDK Overview UI**: Firebase row now shows Install button in Prototype mode, mode-aware required/optional labels
+
+### Added
+- **SdkVersionSync**: Auto-syncs installed SDK versions with `SdkRegistry` constants on domain reload
+- **MAX version checker**: Queries AppLovin registry for latest MAX version, prompts Update/Skip/Later once per session
+- **Firebase config sub-rows**: Build Health shows individual google-services.json / GoogleService-Info.plist status
+
+### Fixed
+- **Build validator**: Improved Firebase coherence checks for optional Firebase in Prototype mode
+- **Migration popup**: Updated messaging for Firebase-optional flow
+- **EDM4U sanitizer**: Better handling of dependency resolution edge cases
+
 ## [3.2.2] - 2026-01-26
 
 ### Added

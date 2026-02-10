@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -11,8 +12,7 @@ namespace Sorolla.Palette.Editor
 {
     /// <summary>
     ///     Pre-build validation for SDK conflicts, version mismatches, and configuration issues.
-    ///     Menu: Palette > Tools > Validate Build
-    ///     Also runs automatically before builds via IPreprocessBuildWithReport.
+    ///     Runs automatically before builds via IPreprocessBuildWithReport.
     /// </summary>
     public static class BuildValidator
     {
@@ -136,12 +136,15 @@ namespace Sorolla.Palette.Editor
             // AndroidManifest sanitization
             var orphaned = AndroidManifestSanitizer.DetectOrphanedEntries();
             var duplicates = AndroidManifestSanitizer.DetectDuplicateActivities();
-            if (orphaned.Count > 0 || duplicates.Count > 0)
+            var wrongActivity = AndroidManifestSanitizer.DetectWrongMainActivity();
+            if (orphaned.Count > 0 || duplicates.Count > 0 || wrongActivity != null)
             {
                 foreach (var (sdkId, _) in orphaned)
                     fixes.Add($"Removed {SdkRegistry.All[sdkId].Name} entries from AndroidManifest.xml");
                 if (duplicates.Count > 0)
                     fixes.Add($"Removed {duplicates.Count} duplicate activity declaration(s)");
+                if (wrongActivity != null)
+                    fixes.Add($"Fixed main activity: {wrongActivity} → UnityPlayerGameActivity");
                 AndroidManifestSanitizer.Sanitize();
             }
 
@@ -431,14 +434,20 @@ namespace Sorolla.Palette.Editor
             {
                 results.Add(new ValidationResult(ValidationStatus.Valid, "Firebase modules OK", category: CheckCategory.FirebaseCoherence));
             }
-            else
+            else if (!SorollaSettings.IsPrototype)
             {
+                // Firebase missing in Full mode — warn
                 results.Add(new ValidationResult(
                     ValidationStatus.Warning,
-                    "Firebase not installed (required)",
-                    "Firebase is required as of v3.1. Run setup or open Palette > Configuration.",
+                    "Firebase not installed (required in Full mode)",
+                    "Run setup or open Palette > Configuration to install Firebase.",
                     CheckCategory.FirebaseCoherence
                 ));
+            }
+            else
+            {
+                // Firebase missing in Prototype mode — silently valid (optional)
+                results.Add(new ValidationResult(ValidationStatus.Valid, "Firebase not installed (optional in Prototype)", category: CheckCategory.FirebaseCoherence));
             }
 
             return results;
@@ -544,7 +553,7 @@ namespace Sorolla.Palette.Editor
                         $"AndroidManifest.xml has {sdkName} entries but SDK is not installed!\n" +
                         $"  Found patterns: {string.Join(", ", entries)}\n" +
                         "  This WILL crash at runtime.",
-                        "Run Palette > Tools > Sanitize Android Manifest",
+                        "Open Palette > Configuration and click Refresh in Build Health",
                         CheckCategory.AndroidManifest
                     ));
                 }
@@ -560,7 +569,23 @@ namespace Sorolla.Palette.Editor
                     $"AndroidManifest.xml has duplicate activity declarations!\n" +
                     $"  Duplicates: {string.Join(", ", duplicates)}\n" +
                     "  This WILL cause build failures.",
-                    "Run Palette > Tools > Sanitize Android Manifest",
+                    "Open Palette > Configuration and click Refresh in Build Health",
+                    CheckCategory.AndroidManifest
+                ));
+            }
+
+            // Check for wrong main activity class (e.g. AppUIGameActivity instead of UnityPlayerGameActivity)
+            var wrongActivity = AndroidManifestSanitizer.DetectWrongMainActivity();
+            if (wrongActivity != null)
+            {
+                hasIssues = true;
+                results.Add(new ValidationResult(
+                    ValidationStatus.Error,
+                    $"AndroidManifest.xml has wrong main activity!\n" +
+                    $"  Found: {wrongActivity}\n" +
+                    $"  Expected: com.unity3d.player.UnityPlayerGameActivity\n" +
+                    "  The app WILL crash on launch.",
+                    "Open Palette > Configuration and click Refresh in Build Health",
                     CheckCategory.AndroidManifest
                 ));
             }
@@ -617,7 +642,7 @@ namespace Sorolla.Palette.Editor
                     "AppLovin Quality Service is enabled.\n" +
                     "  This can cause 401 errors and build failures.\n" +
                     "  Quality Service is optional - ads work without it.",
-                    "Run Palette > Tools > Check MAX Settings to disable",
+                    "Open Palette > Configuration and click Refresh in Build Health",
                     CheckCategory.MaxSettings
                 ));
             }
@@ -686,23 +711,81 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Check for duplicate EDM4U installations (common with .unitypackage imports)
+        ///     Check for duplicate EDM4U installations and Gradle template mode configuration.
         /// </summary>
         private static List<ValidationResult> CheckEdm4uSettings()
         {
-            var duplicates = Edm4uSanitizer.DetectDuplicateInstallations();
-            if (duplicates.Count == 0)
-                return new List<ValidationResult>
-                {
-                    new(ValidationStatus.Valid, "No duplicate EDM4U", category: CheckCategory.Edm4uSettings)
-                };
+            var results = new List<ValidationResult>();
+            var hasIssues = false;
 
-            return duplicates.Select(dup => new ValidationResult(
-                ValidationStatus.Warning,
-                dup,
-                "Remove duplicate EDM4U from Assets/ folder",
-                CheckCategory.Edm4uSettings
-            )).ToList();
+            // Check for duplicate installations
+            var duplicates = Edm4uSanitizer.DetectDuplicateInstallations();
+            if (duplicates.Count > 0)
+            {
+                hasIssues = true;
+                results.AddRange(duplicates.Select(dup => new ValidationResult(
+                    ValidationStatus.Warning,
+                    dup,
+                    "Remove duplicate EDM4U from Assets/ folder",
+                    CheckCategory.Edm4uSettings
+                )));
+            }
+
+            // Check Gradle template mode (prevents Java 17+ compatibility issues)
+            var gradleCheck = CheckEdm4uGradleMode();
+            if (gradleCheck != null)
+            {
+                hasIssues = true;
+                results.Add(gradleCheck);
+            }
+
+            if (!hasIssues)
+                results.Add(new ValidationResult(ValidationStatus.Valid, "EDM4U settings OK", category: CheckCategory.Edm4uSettings));
+
+            return results;
+        }
+
+        /// <summary>
+        ///     Check that EDM4U is configured for Gradle template mode.
+        ///     Without this, EDM4U uses its bundled Gradle 5.1.1 which is incompatible with Java 17+ (Unity 6+).
+        /// </summary>
+        private static ValidationResult CheckEdm4uGradleMode()
+        {
+            // Find EDM4U's SettingsDialog type via reflection
+            Type settingsType = null;
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                settingsType = assembly.GetType("GooglePlayServices.SettingsDialog");
+                if (settingsType != null)
+                    break;
+            }
+
+            if (settingsType == null)
+                return null; // EDM4U not installed, nothing to check
+
+            try
+            {
+                const BindingFlags staticFlags = BindingFlags.Public | BindingFlags.Static;
+                var mainTemplateProp = settingsType.GetProperty("PatchMainTemplateGradle", staticFlags);
+
+                if (mainTemplateProp != null && !(bool)mainTemplateProp.GetValue(null))
+                {
+                    return new ValidationResult(
+                        ValidationStatus.Warning,
+                        "EDM4U not configured for Gradle templates.\n" +
+                        "  This causes Java 17+ compatibility errors on Android resolve.\n" +
+                        "  Unity 6+ requires Gradle template mode.",
+                        "Run Palette > Run Setup (Force)",
+                        CheckCategory.Edm4uSettings
+                    );
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"{Tag} Could not check EDM4U Gradle mode: {e.Message}");
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -805,7 +888,7 @@ namespace Sorolla.Palette.Editor
 
                 throw new BuildFailedException(
                     $"Build validation failed with {errors.Count} error(s). " +
-                    "Run Palette > Tools > Validate Build for details."
+                    "Open Palette > Configuration for details."
                 );
             }
 

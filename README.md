@@ -8,7 +8,7 @@ Plug-and-play mobile publisher SDK for Unity. Zero-config initialization with au
 ## Install
 
 1. **Package Manager** → `+` → **Add package from git URL**
-2. Paste: `https://github.com/sorolla-studio/sorolla-palette.git#v3.2.2`
+2. Paste: `https://github.com/sorolla-studio/sorolla-palette.git#v3.3.0`
 3. Configuration window opens → Follow setup
 
 ## Quick Start
@@ -57,5 +57,7 @@ if (Palette.IsRewardedAdReady)
 
 | Mode | SDKs | Use Case |
 |------|------|----------|
-| **Prototype** | GameAnalytics, Facebook, Firebase | UA testing, soft launch |
+| **Prototype** | GameAnalytics, Facebook | UA testing, soft launch |
 | **Full** | GameAnalytics, Facebook, MAX, Adjust, Firebase | Production |
+
+> Firebase is optional in Prototype mode. Install it manually if needed for analytics/crashlytics.

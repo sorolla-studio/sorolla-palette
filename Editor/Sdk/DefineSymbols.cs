@@ -47,7 +47,9 @@ namespace Sorolla.Palette.Editor
         ///     Detect installed SDK packages and set their global defines.
         ///     This ensures defineConstraints work correctly in builds.
         /// </summary>
+#if SOROLLA_DEV
         [MenuItem("Sorolla/Refresh SDK Defines")]
+#endif
         public static void RefreshSdkDefines()
         {
             var listRequest = Client.List(true, false);

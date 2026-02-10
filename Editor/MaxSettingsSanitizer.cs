@@ -223,53 +223,5 @@ namespace Sorolla.Palette.Editor
 #endif
         }
 
-        /// <summary>
-        ///     Menu item to check MAX settings status
-        /// </summary>
-        [MenuItem("Palette/Tools/Check MAX Settings")]
-        public static void CheckMaxSettingsMenuItem()
-        {
-#if SOROLLA_MAX_INSTALLED
-            var qsEnabled = IsQualityServiceEnabled();
-
-            if (qsEnabled)
-            {
-                var disable = EditorUtility.DisplayDialog(
-                    "MAX Settings Check",
-                    "AppLovin Quality Service is ENABLED.\n\n" +
-                    "This feature can cause 401 errors and build failures " +
-                    "if not properly configured in the AppLovin dashboard.\n\n" +
-                    "Quality Service is optional - ads work without it.\n\n" +
-                    "Disable Quality Service?",
-                    "Yes, Disable",
-                    "Keep Enabled"
-                );
-
-                if (disable)
-                {
-                    Sanitize();
-                    EditorUtility.DisplayDialog(
-                        "MAX Settings Check",
-                        "Quality Service has been disabled.",
-                        "OK"
-                    );
-                }
-            }
-            else
-            {
-                EditorUtility.DisplayDialog(
-                    "MAX Settings Check",
-                    "AppLovin Quality Service is disabled.\nNo issues detected.",
-                    "OK"
-                );
-            }
-#else
-            EditorUtility.DisplayDialog(
-                "MAX Settings Check",
-                "AppLovin MAX is not installed.",
-                "OK"
-            );
-#endif
-        }
     }
 }

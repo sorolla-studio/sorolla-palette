@@ -189,7 +189,7 @@ namespace Sorolla.Palette.Editor
         ///     Unity Package Manager has issues when multiple packages reference the same git repo
         ///     with different path parameters - stale .tmp directories can block new installations.
         /// </summary>
-        static void ClearFirebasePackageCache()
+        internal static void ClearFirebasePackageCache()
         {
             string projectRoot = Directory.GetParent(Application.dataPath).FullName;
             string cacheRoot = Path.Combine(projectRoot, "Library", "PackageCache");

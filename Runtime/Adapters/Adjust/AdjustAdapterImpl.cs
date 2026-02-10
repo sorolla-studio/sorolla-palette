@@ -59,8 +59,13 @@ namespace Sorolla.Palette.Adapters
 
         public void TrackAdRevenue(AdRevenueInfo info)
         {
-            if (!_init) return;
+            if (!_init)
+            {
+                Debug.LogWarning($"[Palette:Adjust] TrackAdRevenue called before init! Revenue: {info.Revenue} {info.Currency}");
+                return;
+            }
 
+            Debug.Log($"[Palette:Adjust] TrackAdRevenue: {info.Revenue} {info.Currency} from {info.Network}");
             var adRevenue = new AdjustAdRevenue(info.Source ?? AdRevenueInfo.DefaultSource);
             adRevenue.SetRevenue(info.Revenue, info.Currency ?? "USD");
             adRevenue.AdRevenueNetwork = info.Network;
