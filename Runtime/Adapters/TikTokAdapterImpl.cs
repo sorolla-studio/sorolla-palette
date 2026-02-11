@@ -31,6 +31,8 @@ namespace Sorolla.Palette.Adapters
                 using var config = new AndroidJavaObject("com.tiktok.TikTokBusinessSdk$TTConfig", app);
                 config.Call<AndroidJavaObject>("setAppId", appId);
                 config.Call<AndroidJavaObject>("setTTAppId", tiktokAppId);
+                if (Debug.isDebugBuild)
+                    config.Call<AndroidJavaObject>("openDebugMode");
                 // autoStart defaults to true — no call needed
 
                 using var sdkClass = new AndroidJavaClass("com.tiktok.TikTokBusinessSdk");
