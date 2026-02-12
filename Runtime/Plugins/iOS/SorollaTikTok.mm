@@ -13,48 +13,27 @@ static Class _GetTikTokClass(NSString *name) {
     return cls;
 }
 
-/// Helper: create a TikTokBaseEvent via reflection and track it with trackTTEvent:
+/// Helper: track event via [TikTokBusiness trackEvent:] / [TikTokBusiness trackEvent:withProperties:]
 static void _TrackTTEvent(NSString *eventName, NSDictionary *properties) {
     if (!_tiktokAvailable) return;
 
-    Class eventClass = _GetTikTokClass(@"TikTokBaseEvent");
-    if (!eventClass) return;
-
-    // TikTokBaseEvent *event = [[TikTokBaseEvent alloc] initWithEventName:eventName]
-    SEL initEventSel = NSSelectorFromString(@"initWithEventName:");
-    if (![eventClass instancesRespondToSelector:initEventSel]) {
-        NSLog(@"[Palette:TikTok] TikTokBaseEvent missing initWithEventName:");
-        return;
-    }
-    id event = [[eventClass alloc] performSelector:initEventSel withObject:eventName];
-    if (!event) return;
-
-    // Add properties via addPropertyWithKey:value:
-    if (properties) {
-        SEL addPropSel = NSSelectorFromString(@"addPropertyWithKey:value:");
-        if ([event respondsToSelector:addPropSel]) {
-            for (NSString *key in properties) {
-                NSMethodSignature *sig = [event methodSignatureForSelector:addPropSel];
-                NSInvocation *inv = [NSInvocation invocationWithMethodSignature:sig];
-                [inv setSelector:addPropSel];
-                NSString *k = key;
-                id v = properties[key];
-                [inv setArgument:&k atIndex:2];
-                [inv setArgument:&v atIndex:3];
-                [inv invokeWithTarget:event];
-            }
-        }
-    }
-
-    // [TikTokBusiness trackTTEvent:event]
     Class bizClass = _GetTikTokClass(@"TikTokBusiness");
     if (!bizClass) return;
 
-    SEL trackSel = NSSelectorFromString(@"trackTTEvent:");
-    if ([bizClass respondsToSelector:trackSel]) {
-        [bizClass performSelector:trackSel withObject:event];
+    if (properties && properties.count > 0) {
+        SEL trackSel = NSSelectorFromString(@"trackEvent:withProperties:");
+        if ([bizClass respondsToSelector:trackSel]) {
+            [bizClass performSelector:trackSel withObject:eventName withObject:properties];
+        } else {
+            NSLog(@"[Palette:TikTok] TikTokBusiness missing trackEvent:withProperties:");
+        }
     } else {
-        NSLog(@"[Palette:TikTok] TikTokBusiness missing trackTTEvent:");
+        SEL trackSel = NSSelectorFromString(@"trackEvent:");
+        if ([bizClass respondsToSelector:trackSel]) {
+            [bizClass performSelector:trackSel withObject:eventName];
+        } else {
+            NSLog(@"[Palette:TikTok] TikTokBusiness missing trackEvent:");
+        }
     }
 }
 
@@ -146,53 +125,14 @@ void _SorollaTikTok_TrackPurchase(double value, const char* currency) {
 }
 
 void _SorollaTikTok_TrackAdRevenue(double value, const char* currency, const char* networkName) {
-    if (!_tiktokAvailable) return;
-
-    // Use dedicated TikTokAdRevenueEvent (SDK >= 1.5.0) for proper ad revenue schema
-    Class adRevClass = _GetTikTokClass(@"TikTokAdRevenueEvent");
-    if (!adRevClass) {
-        // Fallback to base event if class not found (SDK < 1.5.0)
-        NSDictionary *props = @{
-            @"value": [NSString stringWithFormat:@"%.6f", value],
-            @"currency": [NSString stringWithUTF8String:currency]
-        };
-        _TrackTTEvent(@"ImpressionLevelAdRevenue", props);
-        return;
-    }
-
-    NSMutableDictionary *adRevenue = [NSMutableDictionary dictionary];
-    [adRevenue setObject:@(value) forKey:@"revenue"];
-    [adRevenue setObject:[NSString stringWithUTF8String:currency] forKey:@"currency"];
+    NSMutableDictionary *props = [NSMutableDictionary dictionary];
+    [props setObject:@(value) forKey:@"revenue"];
+    [props setObject:[NSString stringWithUTF8String:currency] forKey:@"currency"];
     if (networkName) {
-        [adRevenue setObject:@"applovin_max_sdk" forKey:@"device_ad_mediation_platform"];
-        [adRevenue setObject:[NSString stringWithUTF8String:networkName] forKey:@"network_name"];
+        [props setObject:@"applovin_max_sdk" forKey:@"device_ad_mediation_platform"];
+        [props setObject:[NSString stringWithUTF8String:networkName] forKey:@"network_name"];
     }
-
-    // [[TikTokAdRevenueEvent alloc] initWithAdRevenue:adRevenue eventId:nil]
-    SEL initSel = NSSelectorFromString(@"initWithAdRevenue:eventId:");
-    if (![adRevClass instancesRespondToSelector:initSel]) {
-        NSLog(@"[Palette:TikTok] TikTokAdRevenueEvent missing initWithAdRevenue:eventId:");
-        return;
-    }
-
-    NSMethodSignature *sig = [adRevClass instanceMethodSignatureForSelector:initSel];
-    NSInvocation *inv = [NSInvocation invocationWithMethodSignature:sig];
-    [inv setSelector:initSel];
-    NSMutableDictionary *dict = adRevenue;
-    id nilEventId = nil;
-    [inv setArgument:&dict atIndex:2];
-    [inv setArgument:&nilEventId atIndex:3];
-    [inv invokeWithTarget:[adRevClass alloc]];
-
-    __unsafe_unretained id event = nil;
-    [inv getReturnValue:&event];
-    if (!event) return;
-
-    // [TikTokBusiness trackTTEvent:event]
-    Class bizClass = _GetTikTokClass(@"TikTokBusiness");
-    SEL trackSel = NSSelectorFromString(@"trackTTEvent:");
-    if (bizClass && [bizClass respondsToSelector:trackSel])
-        [bizClass performSelector:trackSel withObject:event];
+    _TrackTTEvent(@"ImpressionLevelAdRevenue", props);
 }
 
 } // extern "C"
