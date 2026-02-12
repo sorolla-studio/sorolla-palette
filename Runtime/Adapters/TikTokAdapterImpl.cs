@@ -22,27 +22,34 @@ namespace Sorolla.Palette.Adapters
         public void Initialize(string appId, string tiktokAppId, string accessToken)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
-            try
+            // Capture Unity-thread-only values before switching to Android UI thread
+            var debugBuild = Debug.isDebugBuild;
+            // TikTok SDK requires initialization on Android's UI thread
+            var runnable = new AndroidJavaRunnable(() =>
             {
-                using var activity = new AndroidJavaClass("com.unity3d.player.UnityPlayer")
-                    .GetStatic<AndroidJavaObject>("currentActivity");
-                using var app = activity.Call<AndroidJavaObject>("getApplication");
-                // TTConfig is inner class of TikTokBusinessSdk
-                using var config = new AndroidJavaObject("com.tiktok.TikTokBusinessSdk$TTConfig", app);
-                config.Call<AndroidJavaObject>("setAppId", appId);
-                config.Call<AndroidJavaObject>("setTTAppId", tiktokAppId);
-                if (Debug.isDebugBuild)
-                    config.Call<AndroidJavaObject>("openDebugMode");
-                // autoStart defaults to true — no call needed
+                try
+                {
+                    using var activity = new AndroidJavaClass("com.unity3d.player.UnityPlayer")
+                        .GetStatic<AndroidJavaObject>("currentActivity");
+                    using var app = activity.Call<AndroidJavaObject>("getApplication");
+                    using var config = new AndroidJavaObject("com.tiktok.TikTokBusinessSdk$TTConfig", app);
+                    config.Call<AndroidJavaObject>("setAppId", appId);
+                    config.Call<AndroidJavaObject>("setTTAppId", tiktokAppId);
+                    if (debugBuild)
+                        config.Call<AndroidJavaObject>("openDebugMode");
 
-                using var sdkClass = new AndroidJavaClass("com.tiktok.TikTokBusinessSdk");
-                sdkClass.CallStatic("initializeSdk", config);
-                Debug.Log($"{Tag} Initialized (Android, appId: {appId}, ttAppId: {tiktokAppId})");
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"{Tag} Android init failed: {e.Message}");
-            }
+                    using var sdkClass = new AndroidJavaClass("com.tiktok.TikTokBusinessSdk");
+                    sdkClass.CallStatic("initializeSdk", config);
+                    Debug.Log($"{Tag} Initialized (Android, appId: {appId}, ttAppId: {tiktokAppId})");
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"{Tag} Android init failed: {e.Message}");
+                }
+            });
+            using var uiActivity = new AndroidJavaClass("com.unity3d.player.UnityPlayer")
+                .GetStatic<AndroidJavaObject>("currentActivity");
+            uiActivity.Call("runOnUiThread", runnable);
 #elif UNITY_IOS && !UNITY_EDITOR
             _SorollaTikTok_Initialize(appId, tiktokAppId, accessToken);
             Debug.Log($"{Tag} Initialized (iOS, appId: {appId}, ttAppId: {tiktokAppId})");
