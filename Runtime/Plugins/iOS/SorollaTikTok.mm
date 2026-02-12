@@ -60,7 +60,7 @@ static void _TrackTTEvent(NSString *eventName, NSDictionary *properties) {
 
 extern "C" {
 
-void _SorollaTikTok_Initialize(const char* appId, const char* tiktokAppId, const char* accessToken) {
+void _SorollaTikTok_Initialize(const char* appId, const char* tiktokAppId, const char* accessToken, BOOL debugBuild) {
     NSString *appIdStr = [NSString stringWithUTF8String:appId];
     NSString *tiktokAppIdStr = [NSString stringWithUTF8String:tiktokAppId];
     NSString *accessTokenStr = [NSString stringWithUTF8String:accessToken];
@@ -101,6 +101,23 @@ void _SorollaTikTok_Initialize(const char* appId, const char* tiktokAppId, const
         [autoInv invokeWithTarget:config];
     }
 
+    // Debug mode + verbose logging for development builds
+    if (debugBuild) {
+        SEL debugSel = NSSelectorFromString(@"enableDebugMode");
+        if ([config respondsToSelector:debugSel])
+            [config performSelector:debugSel];
+
+        SEL logLevelSel = NSSelectorFromString(@"setLogLevel:");
+        if ([config respondsToSelector:logLevelSel]) {
+            NSInteger debugLevel = 1; // TikTokLogLevelDebug
+            NSInvocation *logInv = [NSInvocation invocationWithMethodSignature:
+                [config methodSignatureForSelector:logLevelSel]];
+            [logInv setSelector:logLevelSel];
+            [logInv setArgument:&debugLevel atIndex:2];
+            [logInv invokeWithTarget:config];
+        }
+    }
+
     // [TikTokBusiness initializeSdk:config]
     Class bizClass = _GetTikTokClass(@"TikTokBusiness");
     if (!bizClass) return;
@@ -109,7 +126,7 @@ void _SorollaTikTok_Initialize(const char* appId, const char* tiktokAppId, const
     if ([bizClass respondsToSelector:initSdkSel]) {
         [bizClass performSelector:initSdkSel withObject:config];
         _tiktokAvailable = YES;
-        NSLog(@"[Palette:TikTok] iOS SDK initialized");
+        NSLog(@"[Palette:TikTok] iOS SDK initialized%s", debugBuild ? " (debug)" : "");
     } else {
         NSLog(@"[Palette:TikTok] TikTokBusiness missing initializeSdk:");
     }
@@ -128,12 +145,54 @@ void _SorollaTikTok_TrackPurchase(double value, const char* currency) {
     _TrackTTEvent(@"Purchase", props);
 }
 
-void _SorollaTikTok_TrackAdRevenue(double value, const char* currency) {
-    NSDictionary *props = @{
-        @"value": [NSString stringWithFormat:@"%.6f", value],
-        @"currency": [NSString stringWithUTF8String:currency]
-    };
-    _TrackTTEvent(@"ImpressionLevelAdRevenue", props);
+void _SorollaTikTok_TrackAdRevenue(double value, const char* currency, const char* networkName) {
+    if (!_tiktokAvailable) return;
+
+    // Use dedicated TikTokAdRevenueEvent (SDK >= 1.5.0) for proper ad revenue schema
+    Class adRevClass = _GetTikTokClass(@"TikTokAdRevenueEvent");
+    if (!adRevClass) {
+        // Fallback to base event if class not found (SDK < 1.5.0)
+        NSDictionary *props = @{
+            @"value": [NSString stringWithFormat:@"%.6f", value],
+            @"currency": [NSString stringWithUTF8String:currency]
+        };
+        _TrackTTEvent(@"ImpressionLevelAdRevenue", props);
+        return;
+    }
+
+    NSMutableDictionary *adRevenue = [NSMutableDictionary dictionary];
+    [adRevenue setObject:@(value) forKey:@"revenue"];
+    [adRevenue setObject:[NSString stringWithUTF8String:currency] forKey:@"currency"];
+    if (networkName) {
+        [adRevenue setObject:@"applovin_max_sdk" forKey:@"device_ad_mediation_platform"];
+        [adRevenue setObject:[NSString stringWithUTF8String:networkName] forKey:@"network_name"];
+    }
+
+    // [[TikTokAdRevenueEvent alloc] initWithAdRevenue:adRevenue eventId:nil]
+    SEL initSel = NSSelectorFromString(@"initWithAdRevenue:eventId:");
+    if (![adRevClass instancesRespondToSelector:initSel]) {
+        NSLog(@"[Palette:TikTok] TikTokAdRevenueEvent missing initWithAdRevenue:eventId:");
+        return;
+    }
+
+    NSMethodSignature *sig = [adRevClass instanceMethodSignatureForSelector:initSel];
+    NSInvocation *inv = [NSInvocation invocationWithMethodSignature:sig];
+    [inv setSelector:initSel];
+    NSMutableDictionary *dict = adRevenue;
+    id nilEventId = nil;
+    [inv setArgument:&dict atIndex:2];
+    [inv setArgument:&nilEventId atIndex:3];
+    [inv invokeWithTarget:[adRevClass alloc]];
+
+    __unsafe_unretained id event = nil;
+    [inv getReturnValue:&event];
+    if (!event) return;
+
+    // [TikTokBusiness trackTTEvent:event]
+    Class bizClass = _GetTikTokClass(@"TikTokBusiness");
+    SEL trackSel = NSSelectorFromString(@"trackTTEvent:");
+    if (bizClass && [bizClass respondsToSelector:trackSel])
+        [bizClass performSelector:trackSel withObject:event];
 }
 
 } // extern "C"

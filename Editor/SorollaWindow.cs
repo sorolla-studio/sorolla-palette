@@ -728,8 +728,8 @@ namespace Sorolla.Palette.Editor
 
         void DrawTikTokOverviewItem()
         {
-            bool hasAppId = _config != null && !string.IsNullOrEmpty(_config.tiktokAppId)
-                            && !string.IsNullOrEmpty(_config.tiktokEmAppId);
+            bool hasAppId = _config?.tiktokAppId?.IsConfigured == true
+                            && _config?.tiktokEmAppId?.IsConfigured == true;
 
             EditorGUILayout.BeginHorizontal();
 

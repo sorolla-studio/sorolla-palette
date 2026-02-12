@@ -5,7 +5,8 @@ namespace Sorolla.Palette.Adapters
         void Initialize(string appId, string tiktokAppId, string accessToken);
         void TrackEvent(string eventName);
         void TrackPurchase(double value, string currency);
-        void TrackAdRevenue(double value, string currency);
+        void TrackAdRevenue(double value, string currency, string networkName,
+            string adFormat, string adUnitId, string placement);
     }
 
     /// <summary>
@@ -56,10 +57,11 @@ namespace Sorolla.Palette.Adapters
                 s_impl.TrackPurchase(value, currency);
         }
 
-        public static void TrackAdRevenue(double value, string currency = "USD")
+        public static void TrackAdRevenue(double value, string currency = "USD", string networkName = null,
+            string adFormat = null, string adUnitId = null, string placement = null)
         {
             if (s_initialized)
-                s_impl.TrackAdRevenue(value, currency);
+                s_impl.TrackAdRevenue(value, currency, networkName, adFormat, adUnitId, placement);
         }
     }
 }
