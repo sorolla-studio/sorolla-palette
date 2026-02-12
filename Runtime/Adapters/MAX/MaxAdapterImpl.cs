@@ -471,7 +471,8 @@ namespace Sorolla.Palette.Adapters
 #endif
 
             // TikTok ad revenue (always call — stub no-ops if not initialized)
-            TikTokAdapter.TrackAdRevenue(adInfo.Revenue, "USD");
+            TikTokAdapter.TrackAdRevenue(adInfo.Revenue, "USD", adInfo.NetworkName,
+                adFormat, adInfo.AdUnitIdentifier, adInfo.Placement);
 
             // Firebase ad_impression event
             FirebaseAdapter.TrackAdImpression(

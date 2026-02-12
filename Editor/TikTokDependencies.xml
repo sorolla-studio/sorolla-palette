@@ -5,11 +5,14 @@
 -->
 <dependencies>
   <androidPackages>
-    <androidPackage spec="com.github.tiktok:tiktok-business-android-sdk:1.3.1">
+    <androidPackage spec="com.github.tiktok:tiktok-business-android-sdk:1.6.0">
       <repositories>
         <repository>https://jitpack.io</repository>
       </repositories>
     </androidPackage>
+    <!-- Required transitive deps per TikTok docs (section 1.1) -->
+    <androidPackage spec="androidx.lifecycle:lifecycle-process:2.3.1" />
+    <androidPackage spec="androidx.lifecycle:lifecycle-common-java8:2.3.1" />
   </androidPackages>
 
   <iosPods>

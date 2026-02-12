@@ -311,10 +311,10 @@ namespace Sorolla.Palette
 #endif
 
             // TikTok (if configured — requires both App IDs)
-            if (!string.IsNullOrEmpty(Config?.tiktokAppId) && !string.IsNullOrEmpty(Config?.tiktokEmAppId))
+            if (!string.IsNullOrEmpty(Config?.tiktokAppId?.Current) && !string.IsNullOrEmpty(Config?.tiktokEmAppId?.Current))
             {
                 Debug.Log($"{Tag} Initializing TikTok...");
-                TikTokAdapter.Initialize(Config.tiktokEmAppId, Config.tiktokAppId, Config.tiktokAccessToken);
+                TikTokAdapter.Initialize(Config.tiktokEmAppId.Current, Config.tiktokAppId.Current, Config.tiktokAccessToken?.Current ?? "");
             }
 
             IsInitialized = true;
