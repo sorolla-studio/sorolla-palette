@@ -2,10 +2,6 @@
     "name": "Sorolla.Adapters.Firebase",
     "rootNamespace": "Sorolla.Adapters",
     "references": [
-        "Firebase.App",
-        "Firebase.Analytics",
-        "Firebase.Crashlytics",
-        "Firebase.RemoteConfig",
         "Sorolla.Adapters"
     ],
     "includePlatforms": [],
