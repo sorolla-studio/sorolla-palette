@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.1] - 2026-02-18
+
+### Fixed
+- **iOS ATT prompt in Prototype mode**: Standalone ATT dialog now shows automatically when MAX is not installed. Fixes App Store rejection for apps without AppLovin MAX.
+
 ## [3.3.0] - 2026-02-10
 
 ### Changed
