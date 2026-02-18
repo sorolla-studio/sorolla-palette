@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.0] - 2026-02-18
+
+### Added
+- **TikTok Business SDK integration**: Native Bridge pattern — config-driven init, no compilation impact when unconfigured. Android (JNI) + iOS (Objective-C runtime). Supports `identify`, `track`, and custom events.
+- **ProGuard rules for TikTok**: `-keep class com.tiktok.**` shipped in SDK package for release Android builds
+- **SdkVersionSync editor utility**: Auto-updates stale manifest entries on domain reload
+
+### Fixed
+- **Firebase asmdef references**: Switched to `precompiledReferences` for custom Firebase UPM compatibility
+- **GameActivityTheme.androidlib**: Fixes Unity 6000.3.x Android build failures
+- **iOS ATT regression**: Restored `com.unity.ads.ios-support` dependency and correct namespace
+- **SorollaTikTok.mm.meta**: Added explicit PluginImporter with iOS-only platform settings
+
 ## [3.3.1] - 2026-02-18
 
 ### Fixed

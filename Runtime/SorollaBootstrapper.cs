@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 #if UNITY_IOS
-using UnityEngine.iOS;
+using Unity.Advertisement.IosSupport;
 #endif
 
 namespace Sorolla.Palette
