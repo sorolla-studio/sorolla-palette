@@ -1,6 +1,9 @@
 using System;
 using System.Collections;
 using UnityEngine;
+#if UNITY_IOS
+using UnityEngine.iOS;
+#endif
 
 namespace Sorolla.Palette
 {
@@ -72,11 +75,26 @@ namespace Sorolla.Palette
 
         IEnumerator Initialize()
         {
-            // MAX SDK handles consent flow automatically:
-            // 1. Regional check (GDPR detection)
-            // 2. UMP consent form (if GDPR region)
-            // 3. ATT prompt (iOS, after CMP)
-            // This achieves CMP-first flow for better ATT opt-in rates.
+#if UNITY_IOS && !UNITY_EDITOR
+    #if !(SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED)
+            // No MAX → handle ATT manually (native dialog only, no soft prompt)
+            ATTrackingStatusBinding.RequestAuthorizationTracking();
+
+            var status = ATTrackingStatusBinding.GetAuthorizationTrackingStatus();
+            while (status == ATTrackingStatusBinding.AuthorizationTrackingStatus.NOT_DETERMINED)
+            {
+                yield return new WaitForSeconds(0.5f);
+                status = ATTrackingStatusBinding.GetAuthorizationTrackingStatus();
+            }
+
+            bool consent = status == ATTrackingStatusBinding.AuthorizationTrackingStatus.AUTHORIZED;
+            Debug.Log($"[Palette] Standalone ATT: {status} (consent={consent})");
+            Palette.Initialize(consent);
+            yield break;
+    #endif
+#endif
+            // MAX installed: it handles CMP → ATT automatically
+            // Non-iOS / Editor: no ATT needed
             Palette.Initialize(consent: true);
             yield break;
         }
