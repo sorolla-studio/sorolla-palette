@@ -334,6 +334,15 @@ namespace Sorolla.Palette.Editor
                 EditorGUI.indentLevel--;
             }
 
+            // TikTok (any mode)
+            EditorGUILayout.Space(5);
+            GUILayout.Label("TikTok", EditorStyles.boldLabel);
+            EditorGUI.indentLevel++;
+            EditorGUILayout.PropertyField(_serializedConfig.FindProperty("tiktokAppId"), new GUIContent("TikTok App ID"));
+            EditorGUILayout.PropertyField(_serializedConfig.FindProperty("tiktokEmAppId"), new GUIContent("App ID (EM)"));
+            EditorGUILayout.PropertyField(_serializedConfig.FindProperty("tiktokAccessToken"), new GUIContent("Access Token"));
+            EditorGUI.indentLevel--;
+
             if (_serializedConfig.ApplyModifiedProperties())
             {
                 EditorUtility.SetDirty(_config);
@@ -493,6 +502,9 @@ namespace Sorolla.Palette.Editor
 
             // Firebase (required in Full, optional in Prototype)
             DrawFirebaseOverviewItem();
+
+            // TikTok (optional in all modes)
+            DrawTikTokOverviewItem();
 
             EditorGUILayout.EndVertical();
         }
@@ -709,6 +721,45 @@ namespace Sorolla.Palette.Editor
             else if (isInstalled && GUILayout.Button("Console", GUILayout.Width(70)))
             {
                 Application.OpenURL("https://console.firebase.google.com/");
+            }
+
+            EditorGUILayout.EndHorizontal();
+        }
+
+        void DrawTikTokOverviewItem()
+        {
+            bool hasAppId = _config?.tiktokAppId?.IsConfigured == true
+                            && _config?.tiktokEmAppId?.IsConfigured == true;
+
+            EditorGUILayout.BeginHorizontal();
+
+            // Status icon (always optional)
+            Color iconColor = hasAppId ? ColorGreen : ColorGray;
+            string iconText = hasAppId ? "✓" : "○";
+            DrawIcon(iconText, iconColor);
+
+            GUILayout.Label("TikTok (optional)", GUILayout.Width(140));
+
+            // Config status
+            GUIStyle configStyle;
+            string configText;
+            if (hasAppId)
+            {
+                configStyle = s_configStyleGreen;
+                configText = "✓ Configured";
+            }
+            else
+            {
+                configStyle = s_configStyleGray;
+                configText = "Set App ID below";
+            }
+            GUILayout.Label(configText, configStyle, GUILayout.Width(150));
+
+            GUILayout.FlexibleSpace();
+
+            if (hasAppId && GUILayout.Button("Dashboard", GUILayout.Width(70)))
+            {
+                Application.OpenURL("https://business.tiktok.com/");
             }
 
             EditorGUILayout.EndHorizontal();

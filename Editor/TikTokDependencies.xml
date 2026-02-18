@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TikTok Business SDK Native Dependencies for Sorolla SDK
+  Resolved by EDM4U (External Dependency Manager) automatically.
+-->
+<dependencies>
+  <androidPackages>
+    <androidPackage spec="com.github.tiktok:tiktok-business-android-sdk:1.6.0">
+      <repositories>
+        <repository>https://jitpack.io</repository>
+      </repositories>
+    </androidPackage>
+    <!-- Required transitive deps per TikTok docs (section 1.1) -->
+    <androidPackage spec="androidx.lifecycle:lifecycle-process:2.3.1" />
+    <androidPackage spec="androidx.lifecycle:lifecycle-common-java8:2.3.1" />
+  </androidPackages>
+
+  <iosPods>
+    <iosPod name="TikTokBusinessSDK" version="~> 0.1.19" />
+  </iosPods>
+</dependencies>

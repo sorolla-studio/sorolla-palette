@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## SDK Overview
 
-**Sorolla SDK** is a plug-and-play mobile publisher SDK for Unity. It wraps GameAnalytics, Facebook, AppLovin MAX, Adjust, and Firebase behind a unified `Palette` API.
+**Sorolla SDK** is a plug-and-play mobile publisher SDK for Unity. It wraps GameAnalytics, Facebook, AppLovin MAX, Adjust, Firebase, and TikTok behind a unified `Palette` API.
 
 This is a **standalone Git repository** (not part of the parent Unity project):
 - Repo: https://github.com/sorolla-studio/sorolla-palette
@@ -46,6 +46,10 @@ Adapters/
 
 **Key insight**: `versionDefines` are **per-assembly only** (not project-wide). Each implementation asmdef must define its own symbols.
 
+### Native Bridge Pattern (non-UPM SDKs)
+
+For SDKs without UPM packages (e.g., TikTok), the impl lives alongside the stub — no separate asmdef, no `defineConstraints`. The impl uses platform-specific `#if UNITY_ANDROID`/`#if UNITY_IOS` blocks with JNI (Android) or `[DllImport]` (iOS). Native .aar/.framework files go in `Runtime/Plugins/`. The adapter is always compiled but no-ops if config fields are empty.
+
 ### Two Define Symbol Systems
 
 The SDK uses **two complementary systems** for conditional compilation:
@@ -73,6 +77,14 @@ Both are needed: per-assembly prevents compilation of impl assemblies when SDKs 
 4. Add define mapping in `DefineSymbols.cs` if `Palette.cs` needs `#if` access
 5. Add initialization call in `Palette.Initialize()`
 6. Add UI section in `SorollaWindow.cs`
+
+**Native-bridge SDK (no Unity package, e.g., TikTok):**
+1. Create stub `Adapters/XxxAdapter.cs` with `IXxxAdapter` interface
+2. Create impl `Adapters/XxxAdapterImpl.cs` using `#if UNITY_ANDROID`/`#if UNITY_IOS` platform guards
+3. Add native libs to `Runtime/Plugins/Android/` and `Runtime/Plugins/iOS/`
+4. Add config fields to `SorollaConfig.cs`
+5. Add conditional init in `Palette.Initialize()` (guarded by config field presence, not defines)
+6. If Android needs dependencies, add `TikTokDependencies.xml` for EDM4U
 
 ### IL2CPP Stripping Protection
 
@@ -129,6 +141,8 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 |------|---------------|----------|----------|
 | Prototype | GameAnalytics, Facebook | MAX, Firebase | CPI tests, soft launch |
 | Full | GameAnalytics, Facebook, MAX, Adjust, Firebase | — | Production |
+
+TikTok is mode-independent — enabled when config fields are populated, disabled when empty.
 
 Mode stored in EditorPrefs, runtime config in `Resources/SorollaConfig.asset`.
 

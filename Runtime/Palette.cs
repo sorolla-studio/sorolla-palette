@@ -310,6 +310,13 @@ namespace Sorolla.Palette
             FirebaseRemoteConfigAdapter.Initialize(autoFetch: true);
 #endif
 
+            // TikTok (if configured — requires both App IDs)
+            if (!string.IsNullOrEmpty(Config?.tiktokAppId?.Current) && !string.IsNullOrEmpty(Config?.tiktokEmAppId?.Current))
+            {
+                Debug.Log($"{Tag} Initializing TikTok...");
+                TikTokAdapter.Initialize(Config.tiktokEmAppId.Current, Config.tiktokAppId.Current, Config.tiktokAccessToken?.Current ?? "");
+            }
+
             IsInitialized = true;
             OnInitialized?.Invoke();
             Debug.Log($"{Tag} Ready!");

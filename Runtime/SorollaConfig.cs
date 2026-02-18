@@ -56,6 +56,16 @@ namespace Sorolla.Palette
         [Tooltip("Use Sandbox environment for testing")]
         public bool adjustSandboxMode;
 
+        [Header("TikTok")]
+        [Tooltip("TikTok App ID from Events Manager (long numeric ID). Leave empty to disable.")]
+        public PlatformAdUnitId tiktokAppId;
+
+        [Tooltip("App ID from TikTok Events Manager (maps to SDK appId parameter)")]
+        public PlatformAdUnitId tiktokEmAppId;
+
+        [Tooltip("App Secret (Access Token) from Events Manager.")]
+        public PlatformAdUnitId tiktokAccessToken;
+
         // Note: Firebase modules (Analytics, Crashlytics, Remote Config) are always enabled
         // when Firebase is installed. No toggles needed as of v3.1.0.
     }
