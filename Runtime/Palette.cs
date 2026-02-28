@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using UnityEngine;
@@ -9,6 +10,38 @@ using GameAnalyticsSDK;
 
 namespace Sorolla.Palette
 {
+    [Serializable]
+    struct IapReceipt
+    {
+        public string Store;
+        public string TransactionID;
+        public string Payload;
+    }
+
+    [Serializable]
+    struct GooglePlayPayload
+    {
+        public string json;
+        public string signature;
+    }
+
+    [Serializable]
+    struct GooglePlayReceiptData
+    {
+        public string purchaseToken;
+    }
+
+    struct ParsedReceipt
+    {
+        public string Store;
+        // Android
+        public string GoogleJson;
+        public string GoogleSignature;
+        public string GooglePurchaseToken;
+        // iOS
+        public string IosReceipt;
+    }
+
     /// <summary>
     ///     Progression status for tracking level/stage events.
     /// </summary>
@@ -228,6 +261,166 @@ namespace Sorolla.Palette
 #if FIREBASE_ANALYTICS_INSTALLED
             FirebaseAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId);
 #endif
+        }
+
+        #endregion
+
+        #region Analytics - Purchase Events
+
+        /// <summary>
+        ///     Track a successful IAP purchase across all installed SDKs.
+        ///     Call from your Unity IAP ProcessPurchase/OnPurchasePending callback.
+        /// </summary>
+        /// <param name="productId">IAP product ID ("gems_500")</param>
+        /// <param name="price">Localized price (4.99)</param>
+        /// <param name="currency">ISO 4217 currency code ("USD")</param>
+        /// <param name="transactionId">Unity IAP transaction ID</param>
+        /// <param name="receipt">Raw Unity IAP receipt JSON (enables server-side validation). Null is OK.</param>
+        /// <param name="itemType">GA business event category</param>
+        /// <param name="cartType">GA cart type ("main_shop", "end_of_level")</param>
+        public static void TrackPurchase(
+            string productId,
+            double price,
+            string currency,
+            string transactionId,
+            string receipt = null,
+            string itemType = "iap",
+            string cartType = "default")
+        {
+            if (!EnsureInit()) return;
+
+            currency = string.IsNullOrEmpty(currency) ? "USD" : currency;
+            int amountInCents = (int)Math.Round(price * 100);
+
+            ParsedReceipt? parsed = ParseReceipt(receipt);
+
+            // 1. GameAnalytics — business event with platform-specific receipt validation
+#if GAMEANALYTICS_INSTALLED
+            if (parsed.HasValue && parsed.Value.Store == "GooglePlay" && !string.IsNullOrEmpty(parsed.Value.GoogleJson))
+            {
+                GameAnalyticsAdapter.TrackBusinessEventGooglePlay(currency, amountInCents, itemType, productId, cartType,
+                    parsed.Value.GoogleJson, parsed.Value.GoogleSignature);
+            }
+            else if (parsed.HasValue && parsed.Value.Store == "AppleAppStore" && !string.IsNullOrEmpty(parsed.Value.IosReceipt))
+            {
+                GameAnalyticsAdapter.TrackBusinessEventIOS(currency, amountInCents, itemType, productId, cartType,
+                    parsed.Value.IosReceipt);
+            }
+            else
+            {
+                GameAnalyticsAdapter.TrackBusinessEvent(currency, amountInCents, itemType, productId, cartType);
+            }
+#endif
+
+            // 2. Facebook — purchase event with content enrichment
+#if SOROLLA_FACEBOOK_ENABLED
+            var fbParams = new Dictionary<string, object>
+            {
+                { "fb_content_id", productId },
+                { "fb_content_type", "product" },
+            };
+            if (!string.IsNullOrEmpty(transactionId))
+                fbParams["transaction_id"] = transactionId;
+            FacebookAdapter.TrackPurchase((float)price, currency, fbParams);
+#endif
+
+            // 3. Firebase — GA4 purchase event
+#if FIREBASE_ANALYTICS_INSTALLED
+            FirebaseAdapter.TrackPurchase(productId, price, currency, transactionId);
+#endif
+
+            // 4. Adjust — purchase verification (if event token configured)
+#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+            if (Config != null && !string.IsNullOrEmpty(Config.adjustPurchaseEventToken))
+            {
+                string deduplicationId = transactionId ?? Guid.NewGuid().ToString();
+#if UNITY_IOS
+                if (parsed.HasValue && !string.IsNullOrEmpty(parsed.Value.Store))
+                {
+                    AdjustAdapter.TrackPurchaseIOS(Config.adjustPurchaseEventToken, price, currency,
+                        productId, transactionId, deduplicationId);
+                }
+                else
+                {
+                    AdjustAdapter.TrackPurchaseSimple(Config.adjustPurchaseEventToken, price, currency, deduplicationId);
+                }
+#elif UNITY_ANDROID
+                if (parsed.HasValue && !string.IsNullOrEmpty(parsed.Value.GooglePurchaseToken))
+                {
+                    AdjustAdapter.TrackPurchaseAndroid(Config.adjustPurchaseEventToken, price, currency,
+                        productId, parsed.Value.GooglePurchaseToken, deduplicationId);
+                }
+                else
+                {
+                    AdjustAdapter.TrackPurchaseSimple(Config.adjustPurchaseEventToken, price, currency, deduplicationId);
+                }
+#else
+                AdjustAdapter.TrackPurchaseSimple(Config.adjustPurchaseEventToken, price, currency, deduplicationId);
+#endif
+            }
+#endif
+
+            // 5. TikTok — purchase event (runtime guard, no compile-time dependency)
+            TikTokAdapter.TrackPurchase(price, currency);
+
+            Debug.Log($"{Tag} TrackPurchase: {productId} {price} {currency} (txn: {transactionId})");
+        }
+
+        /// <summary>
+        ///     Track a failed IAP purchase for funnel analysis.
+        /// </summary>
+        /// <param name="productId">IAP product ID that failed</param>
+        /// <param name="failureReason">Reason for failure ("user_cancelled", "network_error", etc.)</param>
+        public static void TrackPurchaseFailed(string productId, string failureReason)
+        {
+            if (!EnsureInit()) return;
+
+            string eventId = $"purchase_failed:{productId}:{failureReason}";
+
+#if GAMEANALYTICS_INSTALLED
+            GameAnalyticsAdapter.TrackDesignEvent(eventId);
+#endif
+
+#if FIREBASE_ANALYTICS_INSTALLED
+            FirebaseAdapter.TrackDesignEvent($"purchase_failed_{productId}", 0);
+#endif
+
+            Debug.Log($"{Tag} TrackPurchaseFailed: {productId} reason={failureReason}");
+        }
+
+        static ParsedReceipt? ParseReceipt(string receipt)
+        {
+            if (string.IsNullOrEmpty(receipt)) return null;
+
+            try
+            {
+                var outer = JsonUtility.FromJson<IapReceipt>(receipt);
+                var result = new ParsedReceipt { Store = outer.Store };
+
+                if (outer.Store == "GooglePlay" && !string.IsNullOrEmpty(outer.Payload))
+                {
+                    var payload = JsonUtility.FromJson<GooglePlayPayload>(outer.Payload);
+                    result.GoogleJson = payload.json;
+                    result.GoogleSignature = payload.signature;
+
+                    if (!string.IsNullOrEmpty(payload.json))
+                    {
+                        var receiptData = JsonUtility.FromJson<GooglePlayReceiptData>(payload.json);
+                        result.GooglePurchaseToken = receiptData.purchaseToken;
+                    }
+                }
+                else if (outer.Store == "AppleAppStore")
+                {
+                    result.IosReceipt = outer.Payload;
+                }
+
+                return result;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"{Tag} Failed to parse receipt: {e.Message}");
+                return null;
+            }
         }
 
         #endregion

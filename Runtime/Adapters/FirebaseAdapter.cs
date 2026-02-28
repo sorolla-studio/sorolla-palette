@@ -13,6 +13,7 @@ namespace Sorolla.Palette.Adapters
         void TrackProgressionEvent(string status, string p1, string p2, string p3, int score);
         void TrackResourceEvent(string flowType, string currency, float amount, string itemType, string itemId);
         void TrackAdImpression(string adPlatform, string adSource, string adFormat, string adUnitName, double revenue, string currency);
+        void TrackPurchase(string productId, double price, string currency, string transactionId);
         void SetUserId(string userId);
         void SetUserProperty(string name, string value);
     }
@@ -81,6 +82,11 @@ namespace Sorolla.Palette.Adapters
         public static void TrackAdImpression(string adPlatform, string adSource, string adFormat, string adUnitName, double revenue, string currency = "USD")
         {
             s_impl?.TrackAdImpression(adPlatform, adSource, adFormat, adUnitName, revenue, currency);
+        }
+
+        public static void TrackPurchase(string productId, double price, string currency, string transactionId)
+        {
+            s_impl?.TrackPurchase(productId, price, currency, transactionId);
         }
     }
 

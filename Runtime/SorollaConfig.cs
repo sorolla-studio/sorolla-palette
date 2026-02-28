@@ -56,6 +56,9 @@ namespace Sorolla.Palette
         [Tooltip("Use Sandbox environment for testing")]
         public bool adjustSandboxMode;
 
+        [Tooltip("Event token for IAP purchases (from Adjust dashboard). Leave empty to skip Adjust purchase tracking.")]
+        public string adjustPurchaseEventToken;
+
         [Header("TikTok")]
         [Tooltip("TikTok App ID from Events Manager (long numeric ID). Leave empty to disable.")]
         public PlatformAdUnitId tiktokAppId;
