@@ -144,6 +144,20 @@ namespace Sorolla.Palette.Adapters
             });
         }
 
+        public void TrackPurchase(string productId, double price, string currency, string transactionId)
+        {
+            QueueOrExecute(() =>
+            {
+                FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventPurchase, new[]
+                {
+                    new Parameter(FirebaseAnalytics.ParameterCurrency, currency ?? "USD"),
+                    new Parameter(FirebaseAnalytics.ParameterValue, price),
+                    new Parameter(FirebaseAnalytics.ParameterTransactionID, transactionId ?? ""),
+                    new Parameter(FirebaseAnalytics.ParameterItemID, productId ?? ""),
+                });
+            });
+        }
+
         private static string SanitizeEventName(string name)
         {
             if (string.IsNullOrEmpty(name)) return "unnamed_event";

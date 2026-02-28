@@ -103,5 +103,42 @@ namespace Sorolla.Palette.Adapters
             if (!_init) return;
             Adjust.GetIdfa(callback);
         }
+
+        public void TrackPurchaseIOS(string eventToken, double amount, string currency, string productId, string transactionId, string deduplicationId)
+        {
+            if (!_init) return;
+            var e = new AdjustEvent(eventToken);
+            e.SetRevenue(amount, currency);
+            e.ProductId = productId;
+            e.TransactionId = transactionId;
+            e.DeduplicationId = deduplicationId;
+            Adjust.VerifyAndTrackAppStorePurchase(e, verificationResult =>
+            {
+                Debug.Log($"[Palette:Adjust] iOS purchase verification: status={verificationResult.VerificationStatus}, message={verificationResult.Message}");
+            });
+        }
+
+        public void TrackPurchaseAndroid(string eventToken, double amount, string currency, string productId, string purchaseToken, string deduplicationId)
+        {
+            if (!_init) return;
+            var e = new AdjustEvent(eventToken);
+            e.SetRevenue(amount, currency);
+            e.ProductId = productId;
+            e.PurchaseToken = purchaseToken;
+            e.DeduplicationId = deduplicationId;
+            Adjust.VerifyAndTrackPlayStorePurchase(e, verificationResult =>
+            {
+                Debug.Log($"[Palette:Adjust] Android purchase verification: status={verificationResult.VerificationStatus}, message={verificationResult.Message}");
+            });
+        }
+
+        public void TrackPurchaseSimple(string eventToken, double amount, string currency, string deduplicationId)
+        {
+            if (!_init) return;
+            var e = new AdjustEvent(eventToken);
+            e.SetRevenue(amount, currency);
+            e.DeduplicationId = deduplicationId;
+            Adjust.TrackEvent(e);
+        }
     }
 }

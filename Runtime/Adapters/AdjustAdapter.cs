@@ -28,6 +28,9 @@ namespace Sorolla.Palette.Adapters
         void TrackEvent(string eventToken);
         void TrackRevenue(string eventToken, double amount, string currency);
         void TrackAdRevenue(AdRevenueInfo info);
+        void TrackPurchaseIOS(string eventToken, double amount, string currency, string productId, string transactionId, string deduplicationId);
+        void TrackPurchaseAndroid(string eventToken, double amount, string currency, string productId, string purchaseToken, string deduplicationId);
+        void TrackPurchaseSimple(string eventToken, double amount, string currency, string deduplicationId);
         void SetUserId(string userId);
         void GetAttribution(Action<object> callback);
         void GetAdid(Action<string> callback);
@@ -71,6 +74,21 @@ namespace Sorolla.Palette.Adapters
         public static void TrackAdRevenue(AdRevenueInfo info)
         {
             s_impl?.TrackAdRevenue(info);
+        }
+
+        public static void TrackPurchaseIOS(string eventToken, double amount, string currency, string productId, string transactionId, string deduplicationId)
+        {
+            s_impl?.TrackPurchaseIOS(eventToken, amount, currency, productId, transactionId, deduplicationId);
+        }
+
+        public static void TrackPurchaseAndroid(string eventToken, double amount, string currency, string productId, string purchaseToken, string deduplicationId)
+        {
+            s_impl?.TrackPurchaseAndroid(eventToken, amount, currency, productId, purchaseToken, deduplicationId);
+        }
+
+        public static void TrackPurchaseSimple(string eventToken, double amount, string currency, string deduplicationId)
+        {
+            s_impl?.TrackPurchaseSimple(eventToken, amount, currency, deduplicationId);
         }
 
         public static void SetUserId(string userId)

@@ -81,12 +81,33 @@ namespace Sorolla.Palette
             GameAnalytics.NewResourceEvent(flowType, currency, amount, itemType, itemId);
         }
 
+        public static void TrackBusinessEvent(string currency, int amountInCents, string itemType, string itemId, string cartType)
+        {
+            if (!EnsureInit()) return;
+            GameAnalytics.NewBusinessEvent(currency, amountInCents, itemType, itemId, cartType);
+        }
+
+        public static void TrackBusinessEventGooglePlay(string currency, int amountInCents, string itemType, string itemId, string cartType, string receipt, string signature)
+        {
+            if (!EnsureInit()) return;
+            GameAnalytics.NewBusinessEventGooglePlay(currency, amountInCents, itemType, itemId, cartType, receipt, signature);
+        }
+
+        public static void TrackBusinessEventIOS(string currency, int amountInCents, string itemType, string itemId, string cartType, string receipt)
+        {
+            if (!EnsureInit()) return;
+            GameAnalytics.NewBusinessEventIOS(currency, amountInCents, itemType, itemId, cartType, receipt);
+        }
+
         public static string GetRemoteConfigValue(string key, string defaultValue = "") =>
             s_init && IsRemoteConfigReady() ? GameAnalytics.GetRemoteConfigsValueAsString(key, defaultValue) : defaultValue;
 #else
         public static void TrackProgressionEvent(string status, string p1, string p2 = null, string p3 = null, int score = 0) { }
         public static void TrackDesignEvent(string eventName, float value = 0) { }
         public static void TrackResourceEvent(string flowType, string currency, float amount, string itemType, string itemId) { }
+        public static void TrackBusinessEvent(string currency, int amountInCents, string itemType, string itemId, string cartType) { }
+        public static void TrackBusinessEventGooglePlay(string currency, int amountInCents, string itemType, string itemId, string cartType, string receipt, string signature) { }
+        public static void TrackBusinessEventIOS(string currency, int amountInCents, string itemType, string itemId, string cartType, string receipt) { }
         public static string GetRemoteConfigValue(string key, string defaultValue = "") => defaultValue;
 #endif
     }
