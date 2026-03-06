@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.1] - 2026-03-06
+
+### Fixed
+- **GameAnalyticsAdapter**: Added `#if UNITY_ANDROID` guard to `TrackBusinessEventGooglePlay` — previously called an Android-only GA API on all platforms (would fail in Editor/iOS). Falls back to generic `NewBusinessEvent` on non-Android.
+- **SorollaBootstrapper**: Fixed iOS ATT dialog silently dropping when called too early. Added 1-frame + 1-second delay before `RequestAuthorizationTracking`. Switched to callback-based wait (was polling status in a loop). Skips request if status is already determined.
+
 ## [3.4.0] - 2026-02-18
 
 ### Added

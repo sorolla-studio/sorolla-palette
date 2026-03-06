@@ -90,13 +90,23 @@ namespace Sorolla.Palette
         public static void TrackBusinessEventGooglePlay(string currency, int amountInCents, string itemType, string itemId, string cartType, string receipt, string signature)
         {
             if (!EnsureInit()) return;
+#if UNITY_ANDROID
             GameAnalytics.NewBusinessEventGooglePlay(currency, amountInCents, itemType, itemId, cartType, receipt, signature);
+#else
+            // Fallback to generic business event on non-Android platforms
+            GameAnalytics.NewBusinessEvent(currency, amountInCents, itemType, itemId, cartType);
+#endif
         }
 
         public static void TrackBusinessEventIOS(string currency, int amountInCents, string itemType, string itemId, string cartType, string receipt)
         {
             if (!EnsureInit()) return;
+#if UNITY_IOS
             GameAnalytics.NewBusinessEventIOS(currency, amountInCents, itemType, itemId, cartType, receipt);
+#else
+            // Fallback to generic business event on non-iOS platforms
+            GameAnalytics.NewBusinessEvent(currency, amountInCents, itemType, itemId, cartType);
+#endif
         }
 
         public static string GetRemoteConfigValue(string key, string defaultValue = "") =>
