@@ -78,17 +78,29 @@ namespace Sorolla.Palette
 #if UNITY_IOS && !UNITY_EDITOR
     #if !(SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED)
             // No MAX → handle ATT manually (native dialog only, no soft prompt)
-            ATTrackingStatusBinding.RequestAuthorizationTracking();
+            // Wait for the app to be fully visible before requesting ATT.
+            // Calling too early (before window scene is active) causes iOS to
+            // silently drop the request and return NOT_DETERMINED without showing the dialog.
+            yield return null; // let first frame render
+            yield return new WaitForSeconds(1f); // ensure app has focus
 
-            var status = ATTrackingStatusBinding.GetAuthorizationTrackingStatus();
-            while (status == ATTrackingStatusBinding.AuthorizationTrackingStatus.NOT_DETERMINED)
+            var currentStatus = ATTrackingStatusBinding.GetAuthorizationTrackingStatus();
+            if (currentStatus == ATTrackingStatusBinding.AuthorizationTrackingStatus.NOT_DETERMINED)
             {
-                yield return new WaitForSeconds(0.5f);
-                status = ATTrackingStatusBinding.GetAuthorizationTrackingStatus();
+                bool attResponseReceived = false;
+                ATTrackingStatusBinding.RequestAuthorizationTracking(status =>
+                {
+                    attResponseReceived = true;
+                });
+
+                // Wait for the user to respond to the ATT dialog
+                while (!attResponseReceived)
+                    yield return null;
             }
 
-            bool consent = status == ATTrackingStatusBinding.AuthorizationTrackingStatus.AUTHORIZED;
-            Debug.Log($"[Palette] Standalone ATT: {status} (consent={consent})");
+            var finalStatus = ATTrackingStatusBinding.GetAuthorizationTrackingStatus();
+            bool consent = finalStatus == ATTrackingStatusBinding.AuthorizationTrackingStatus.AUTHORIZED;
+            Debug.Log($"[Palette] Standalone ATT: {finalStatus} (consent={consent})");
             Palette.Initialize(consent);
             yield break;
     #endif
