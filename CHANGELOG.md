@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.2] - 2026-03-10
+
+### Fixed
+- **ATT: Removed `com.unity.ads.ios-support` dependency**: Replaced with native Objective-C bridge (`ATTBridge.cs` + `SorollaATT.mm`). Root cause of compilation failures when the package was absent — previous patches addressed symptoms but not the hard asmdef reference. Zero-dependency pattern, same as TikTok.
+- **SorollaBootstrapper persistence**: Removed over-engineered `MakePersistent` scene validity check that could *prevent* `DontDestroyOnLoad` at `BeforeSceneLoad` timing. Added `EnsurePersistent()` fallback in `Start()` — guarantees the SDK survives fast scene transitions (e.g. splash screens that unload immediately).
+- **Double-init warning**: `Palette.Initialize()` now tells developers to remove manual calls instead of a generic "Already initialized" message.
+
+### Removed
+- **Firebase migration popup**: The v3.1.0 one-time popup about Firebase being required is no longer relevant for new developers.
+
 ## [3.4.1] - 2026-03-06
 
 ### Fixed

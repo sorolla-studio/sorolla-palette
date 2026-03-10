@@ -459,7 +459,7 @@ namespace Sorolla.Palette
         {
             if (IsInitialized)
             {
-                Debug.LogWarning($"{Tag} Already initialized.");
+                Debug.LogWarning($"{Tag} Already initialized. Remove any manual Palette.Initialize() call — the SDK auto-initializes via SorollaBootstrapper.");
                 return;
             }
 
