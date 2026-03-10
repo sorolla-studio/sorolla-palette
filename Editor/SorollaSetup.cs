@@ -22,7 +22,6 @@ namespace Sorolla.Palette.Editor
             EditorApplication.delayCall += RunSetup;
         }
         static string SetupKey => $"Sorolla_Setup_{SetupVersion}_{Application.dataPath.GetHashCode()}";
-        static string FirebaseMigrationKey => $"Sorolla_Firebase31_{Application.dataPath.GetHashCode()}";
 
         [MenuItem("Palette/Run Setup (Force)")]
         public static void ForceRunSetup()
@@ -77,12 +76,6 @@ namespace Sorolla.Palette.Editor
             EditorPrefs.SetBool(SetupKey, true);
             Debug.Log("[Palette] Setup complete. Package Manager will resolve dependencies.");
 
-            // v3.1.0: Show migration popup once for Firebase upgrade
-            if (!EditorPrefs.GetBool(FirebaseMigrationKey, false))
-            {
-                EditorPrefs.SetBool(FirebaseMigrationKey, true);
-                EditorApplication.delayCall += MigrationPopup.Display;
-            }
         }
 
         /// <summary>

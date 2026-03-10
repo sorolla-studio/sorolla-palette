@@ -21,7 +21,11 @@ namespace Sorolla.Palette
                 s_instance = null;
         }
 
-        void Start() => StartCoroutine(Initialize());
+        void Start()
+        {
+            EnsurePersistent();
+            StartCoroutine(Initialize());
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void AutoInit()
@@ -35,29 +39,8 @@ namespace Sorolla.Palette
             s_instance = go.AddComponent<SorollaBootstrapper>();
         }
 
-        /// <summary>
-        ///     Robust DontDestroyOnLoad with triple-defense:
-        ///     1. Check HideFlags to avoid redundant calls
-        ///     2. Try-catch to prevent assertion crashes
-        ///     3. Verify scene context before applying
-        /// </summary>
         static void MakePersistent(GameObject go)
         {
-            // Layer 1: Check if already marked as DontDestroyOnLoad via HideFlags
-            if ((go.hideFlags & HideFlags.DontSave) == HideFlags.DontSave)
-            {
-                Debug.Log("[Palette] GameObject already persistent, skipping DontDestroyOnLoad");
-                return;
-            }
-
-            // Layer 2: Verify we're in a valid scene context
-            if (!go.scene.IsValid() || !go.scene.isLoaded)
-            {
-                Debug.LogWarning("[Palette] Invalid scene context, deferring DontDestroyOnLoad");
-                return;
-            }
-
-            // Layer 3: Try-catch as final safety net
             try
             {
                 DontDestroyOnLoad(go);
@@ -65,9 +48,28 @@ namespace Sorolla.Palette
             }
             catch (Exception e)
             {
-                // This should never happen with the checks above, but provides absolute guarantee
-                Debug.LogError($"[Palette] DontDestroyOnLoad failed (non-fatal): {e.Message}");
-                // SDK continues to function even if persistence fails
+                // At BeforeSceneLoad, scene context may not be ready on some platforms.
+                // EnsurePersistent() in Start() will retry when the scene is valid.
+                Debug.LogWarning($"[Palette] DontDestroyOnLoad deferred to Start(): {e.Message}");
+            }
+        }
+
+        /// <summary>
+        ///     Fallback: if MakePersistent failed at BeforeSceneLoad (scene not ready),
+        ///     retry now that we're in Start() with a valid scene context.
+        /// </summary>
+        void EnsurePersistent()
+        {
+            if (gameObject.scene.name == "DontDestroyOnLoad") return;
+
+            try
+            {
+                DontDestroyOnLoad(gameObject);
+                Debug.Log("[Palette] Successfully marked GameObject as persistent (deferred)");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[Palette] Failed to persist SDK GameObject: {e.Message}");
             }
         }
 
