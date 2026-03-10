@@ -1,9 +1,6 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
-#if UNITY_IOS && UNITY_IOS_SUPPORT_INSTALLED && !UNITY_EDITOR
-using Unity.Advertisement.IosSupport;
-#endif
 
 namespace Sorolla.Palette.ATT
 {
@@ -35,10 +32,9 @@ namespace Sorolla.Palette.ATT
         /// </summary>
         public void RequestAuthorizationTracking()
         {
-#if UNITY_IOS && UNITY_IOS_SUPPORT_INSTALLED && !UNITY_EDITOR
+#if UNITY_IOS && !UNITY_EDITOR
             Debug.Log("[Palette:ATT] Requesting iOS ATT dialog.");
-            ATTrackingStatusBinding.RequestAuthorizationTracking();
-            SentTrackingAuthorizationRequest?.Invoke();
+            ATTBridge.RequestAuthorization(_ => SentTrackingAuthorizationRequest?.Invoke());
 #else
             // Editor, Android, and other platforms: show fake ATT for testing
             Debug.Log("[Palette:ATT] Showing Fake ATT dialog (non-iOS).");

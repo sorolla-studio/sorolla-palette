@@ -2,9 +2,6 @@ using Sorolla.Palette.ATT;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-#if UNITY_IOS && !UNITY_EDITOR && UNITY_IOS_SUPPORT_INSTALLED
-using Unity.Advertisement.IosSupport;
-#endif
 
 namespace Sorolla.Palette.DebugUI
 {
@@ -43,7 +40,7 @@ namespace Sorolla.Palette.DebugUI
             openSettingsButton.onClick.AddListener(HandleOpenSettings);
             showATTButton.gameObject.SetActive(false);
             resetConsentButton.gameObject.SetActive(false);
-#if UNITY_IOS && UNITY_IOS_SUPPORT_INSTALLED
+#if UNITY_IOS
             UpdateATTStatus();
             attStatusContainer.SetActive(true);
 #else
@@ -62,16 +59,16 @@ namespace Sorolla.Palette.DebugUI
 #endif
         }
 
-#if UNITY_IOS && UNITY_IOS_SUPPORT_INSTALLED && !UNITY_EDITOR
+#if UNITY_IOS && !UNITY_EDITOR
         void UpdateATTStatus()
         {
-            var status = ATTrackingStatusBinding.GetAuthorizationTrackingStatus();
+            var status = ATTBridge.GetStatus();
             string statusStr = status switch
             {
-                ATTrackingStatusBinding.AuthorizationTrackingStatus.AUTHORIZED => "Authorized",
-                ATTrackingStatusBinding.AuthorizationTrackingStatus.DENIED => "Denied",
-                ATTrackingStatusBinding.AuthorizationTrackingStatus.NOT_DETERMINED => "Not Determined",
-                ATTrackingStatusBinding.AuthorizationTrackingStatus.RESTRICTED => "Restricted",
+                ATTBridge.AuthorizationStatus.Authorized => "Authorized",
+                ATTBridge.AuthorizationStatus.Denied => "Denied",
+                ATTBridge.AuthorizationStatus.NotDetermined => "Not Determined",
+                ATTBridge.AuthorizationStatus.Restricted => "Restricted",
                 _ => "Unknown"
             };
             attStatusText.text = $"{statusStr}";

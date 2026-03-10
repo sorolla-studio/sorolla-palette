@@ -1,9 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
-#if UNITY_IOS
-using Unity.Advertisement.IosSupport;
-#endif
+using Sorolla.Palette.ATT;
 
 namespace Sorolla.Palette
 {
@@ -84,11 +82,11 @@ namespace Sorolla.Palette
             yield return null; // let first frame render
             yield return new WaitForSeconds(1f); // ensure app has focus
 
-            var currentStatus = ATTrackingStatusBinding.GetAuthorizationTrackingStatus();
-            if (currentStatus == ATTrackingStatusBinding.AuthorizationTrackingStatus.NOT_DETERMINED)
+            var currentStatus = ATTBridge.GetStatus();
+            if (currentStatus == ATTBridge.AuthorizationStatus.NotDetermined)
             {
                 bool attResponseReceived = false;
-                ATTrackingStatusBinding.RequestAuthorizationTracking(status =>
+                ATTBridge.RequestAuthorization(_ =>
                 {
                     attResponseReceived = true;
                 });
@@ -98,8 +96,8 @@ namespace Sorolla.Palette
                     yield return null;
             }
 
-            var finalStatus = ATTrackingStatusBinding.GetAuthorizationTrackingStatus();
-            bool consent = finalStatus == ATTrackingStatusBinding.AuthorizationTrackingStatus.AUTHORIZED;
+            var finalStatus = ATTBridge.GetStatus();
+            bool consent = finalStatus == ATTBridge.AuthorizationStatus.Authorized;
             Debug.Log($"[Palette] Standalone ATT: {finalStatus} (consent={consent})");
             Palette.Initialize(consent);
             yield break;
