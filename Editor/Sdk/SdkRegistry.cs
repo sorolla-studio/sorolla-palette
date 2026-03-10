@@ -8,7 +8,6 @@ namespace Sorolla.Palette.Editor
     public enum SdkId
     {
         GameAnalytics,
-        IosSupport,
         Facebook,
         AppLovinMAX,
         Adjust,
@@ -132,16 +131,6 @@ namespace Sorolla.Palette.Editor
                 detectionTypes: new[] { "GameAnalyticsSDK.GameAnalytics, GameAnalyticsSDK" },
                 version: GA_VERSION,
                 scope: "com.gameanalytics"
-            ),
-            [SdkId.IosSupport] = new SdkInfo(
-                id: SdkId.IosSupport,
-                name: "iOS Support (ATT)",
-                packageId: "com.unity.ads.ios-support",
-                requirement: SdkRequirement.Core,
-                detectionAssemblies: new[] { "Unity.Advertisement.IosSupport" },
-                detectionTypes: new[] { "Unity.Advertisement.IosSupport.ATTrackingStatusBinding, Unity.Advertisement.IosSupport" },
-                version: "1.2.0"
-                // No scope needed - Unity registry
             ),
             [SdkId.Facebook] = new SdkInfo(
                 id: SdkId.Facebook,

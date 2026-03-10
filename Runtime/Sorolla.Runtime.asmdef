@@ -3,8 +3,7 @@
     "rootNamespace": "Sorolla",
     "references": [
         "GameAnalyticsSDK",
-        "Sorolla.Adapters",
-        "Unity.Advertisement.IosSupport"
+        "Sorolla.Adapters"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -41,11 +40,6 @@
             "define": "SOROLLA_ADJUST_ENABLED"
         },
 
-        {
-            "name": "com.unity.ads.ios-support",
-            "expression": "",
-            "define": "UNITY_IOS_SUPPORT_INSTALLED"
-        },
         {
             "name": "com.google.firebase.analytics",
             "expression": "",
