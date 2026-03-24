@@ -19,11 +19,11 @@ namespace Sorolla.Palette.Adapters
         [Preserve]
         static void Register() => TikTokAdapter.RegisterImpl(new TikTokAdapterImpl());
 
-        public void Initialize(string appId, string tiktokAppId, string accessToken)
+        public void Initialize(string appId, string tiktokAppId, string accessToken, bool debugMode)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
             // Capture Unity-thread-only values before switching to Android UI thread
-            var debugBuild = Debug.isDebugBuild;
+            var debugBuild = debugMode;
             // TikTok SDK requires initialization on Android's UI thread
             var runnable = new AndroidJavaRunnable(() =>
             {
@@ -46,7 +46,7 @@ namespace Sorolla.Palette.Adapters
                     using var sdkClass = new AndroidJavaClass("com.tiktok.TikTokBusinessSdk");
                     sdkClass.CallStatic("initializeSdk", config);
                     sdkClass.CallStatic("startTrack");
-                    Debug.Log($"{Tag} Initialized (Android, appId: {appId}, ttAppId: {tiktokAppId})");
+                    Debug.Log($"{Tag} Initialized (Android)");
                 }
                 catch (System.Exception e)
                 {
@@ -57,10 +57,10 @@ namespace Sorolla.Palette.Adapters
                 .GetStatic<AndroidJavaObject>("currentActivity");
             uiActivity.Call("runOnUiThread", runnable);
 #elif UNITY_IOS && !UNITY_EDITOR
-            _SorollaTikTok_Initialize(appId, tiktokAppId, accessToken, Debug.isDebugBuild);
-            Debug.Log($"{Tag} Initialized (iOS, appId: {appId}, ttAppId: {tiktokAppId})");
+            _SorollaTikTok_Initialize(appId, tiktokAppId, accessToken, debugMode);
+            Debug.Log($"{Tag} Initialized (iOS)");
 #else
-            Debug.Log($"{Tag} Editor mode - init skipped (appId: {appId}, ttAppId: {tiktokAppId})");
+            Debug.Log($"{Tag} Editor mode - init skipped");
 #endif
         }
 
