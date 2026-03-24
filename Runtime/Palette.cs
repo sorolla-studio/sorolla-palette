@@ -277,7 +277,7 @@ namespace Sorolla.Palette
             Debug.Log($"{Tag} Initializing ({(isPrototype ? "Prototype" : "Full")} mode, consent: {consent})...");
 
             // GameAnalytics (always)
-            GameAnalyticsAdapter.Initialize();
+            GameAnalyticsAdapter.Initialize(consent);
 
             // Facebook (always)
 #if SOROLLA_FACEBOOK_ENABLED
@@ -297,7 +297,7 @@ namespace Sorolla.Palette
             // Firebase modules (always enabled when installed)
 #if FIREBASE_ANALYTICS_INSTALLED
             Debug.Log($"{Tag} Initializing Firebase Analytics...");
-            FirebaseAdapter.Initialize();
+            FirebaseAdapter.Initialize(consent);
 #endif
 
 #if FIREBASE_CRASHLYTICS_INSTALLED
@@ -314,7 +314,7 @@ namespace Sorolla.Palette
             if (!string.IsNullOrEmpty(Config?.tiktokAppId?.Current) && !string.IsNullOrEmpty(Config?.tiktokEmAppId?.Current))
             {
                 Debug.Log($"{Tag} Initializing TikTok...");
-                TikTokAdapter.Initialize(Config.tiktokEmAppId.Current, Config.tiktokAppId.Current, Config.tiktokAccessToken?.Current ?? "");
+                TikTokAdapter.Initialize(Config.tiktokEmAppId.Current, Config.tiktokAppId.Current, Config.tiktokAccessToken?.Current ?? "", Config.tiktokDebugMode);
             }
 
             IsInitialized = true;
@@ -478,6 +478,9 @@ namespace Sorolla.Palette
             // Subscribe to SDK initialized event to init Adjust (per MAX docs)
             MaxAdapter.OnSdkInitialized += OnMaxSdkInitialized;
 
+            // Subscribe to consent status changes from MAX CMP (UMP) to propagate to other adapters
+            MaxAdapter.OnConsentStatusChanged += OnMaxConsentChanged;
+
             // SDK key is read from AppLovinSettings (configured in Integration Manager)
             MaxAdapter.Initialize(
                 Config.rewardedAdUnit.Current,
@@ -496,6 +499,19 @@ namespace Sorolla.Palette
             {
                 InitializeAdjust();
             }
+#endif
+        }
+
+        static void OnMaxConsentChanged(Adapters.ConsentStatus status)
+        {
+            bool consent = status == Adapters.ConsentStatus.Obtained || status == Adapters.ConsentStatus.NotApplicable;
+            if (HasConsent == consent) return;
+
+            HasConsent = consent;
+            Debug.Log($"{Tag} Consent updated by MAX CMP: {status} → propagating to adapters");
+            GameAnalyticsAdapter.UpdateConsent(consent);
+#if FIREBASE_ANALYTICS_INSTALLED
+            FirebaseAdapter.UpdateConsent(consent);
 #endif
         }
 

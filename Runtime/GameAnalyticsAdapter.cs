@@ -15,7 +15,7 @@ namespace Sorolla.Palette
         const string Tag = "[Palette:GA]";
         static bool s_init;
 
-        public static void Initialize()
+        public static void Initialize(bool consent)
         {
             if (s_init) return;
 
@@ -24,15 +24,25 @@ namespace Sorolla.Palette
             {
                 Debug.Log($"{Tag} Already initialized externally");
                 s_init = true;
+                GameAnalytics.SetEnabledEventSubmission(consent);
                 return;
             }
 
-            Debug.Log($"{Tag} Initializing...");
+            Debug.Log($"{Tag} Initializing (event submission: {consent})...");
             GameAnalytics.Initialize();
+            GameAnalytics.SetEnabledEventSubmission(consent);
             s_init = true;
 #else
             Debug.LogWarning($"{Tag} SDK not installed");
             s_init = true;
+#endif
+        }
+
+        public static void UpdateConsent(bool consent)
+        {
+#if GAMEANALYTICS_INSTALLED
+            if (!EnsureInit()) return;
+            GameAnalytics.SetEnabledEventSubmission(consent);
 #endif
         }
 

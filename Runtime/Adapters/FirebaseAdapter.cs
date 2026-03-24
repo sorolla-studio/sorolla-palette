@@ -8,7 +8,8 @@ namespace Sorolla.Palette.Adapters
     internal interface IFirebaseAdapter
     {
         bool IsReady { get; }
-        void Initialize();
+        void Initialize(bool consent);
+        void UpdateConsent(bool consent);
         void TrackDesignEvent(string eventName, float value);
         void TrackProgressionEvent(string status, string p1, string p2, string p3, int score);
         void TrackResourceEvent(string flowType, string currency, float amount, string itemType, string itemId);
@@ -45,12 +46,17 @@ namespace Sorolla.Palette.Adapters
 
         public static bool IsReady => s_impl?.IsReady ?? false;
 
-        public static void Initialize()
+        public static void Initialize(bool consent)
         {
             if (s_impl != null)
-                s_impl.Initialize();
+                s_impl.Initialize(consent);
             else
                 UnityEngine.Debug.LogWarning($"{Tag} Not installed");
+        }
+
+        public static void UpdateConsent(bool consent)
+        {
+            s_impl?.UpdateConsent(consent);
         }
 
         public static void TrackDesignEvent(string eventName, float value = 0)

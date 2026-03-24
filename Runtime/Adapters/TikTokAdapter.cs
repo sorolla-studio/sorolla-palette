@@ -2,7 +2,7 @@ namespace Sorolla.Palette.Adapters
 {
     internal interface ITikTokAdapter
     {
-        void Initialize(string appId, string tiktokAppId, string accessToken);
+        void Initialize(string appId, string tiktokAppId, string accessToken, bool debugMode);
         void TrackEvent(string eventName);
         void TrackPurchase(double value, string currency);
         void TrackAdRevenue(double value, string currency, string networkName,
@@ -26,7 +26,7 @@ namespace Sorolla.Palette.Adapters
             UnityEngine.Debug.Log($"{Tag} Implementation registered");
         }
 
-        public static void Initialize(string appId, string tiktokAppId, string accessToken)
+        public static void Initialize(string appId, string tiktokAppId, string accessToken, bool debugMode = false)
         {
             if (s_initialized)
             {
@@ -36,7 +36,7 @@ namespace Sorolla.Palette.Adapters
 
             if (s_impl != null)
             {
-                s_impl.Initialize(appId, tiktokAppId, accessToken);
+                s_impl.Initialize(appId, tiktokAppId, accessToken, debugMode);
                 s_initialized = true;
             }
             else
