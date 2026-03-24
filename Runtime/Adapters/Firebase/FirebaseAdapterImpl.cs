@@ -14,6 +14,7 @@ namespace Sorolla.Palette.Adapters
         const string Tag = "[Palette:Firebase]";
         private bool _initRequested;
         private bool _ready;
+        private bool _consent;
         private readonly Queue<System.Action> _pendingEvents = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -26,16 +27,18 @@ namespace Sorolla.Palette.Adapters
 
         public bool IsReady => _ready;
 
-        public void Initialize()
+        public void Initialize(bool consent)
         {
             if (_initRequested) return;
             _initRequested = true;
+            _consent = consent;
 
             FirebaseCoreManager.Initialize(available =>
             {
                 if (available)
                 {
-                    Debug.Log($"{Tag} Initialized");
+                    FirebaseAnalytics.SetAnalyticsCollectionEnabled(_consent);
+                    Debug.Log($"{Tag} Initialized (analytics collection: {_consent})");
                     _ready = true;
                     FlushPendingEvents();
                 }
@@ -44,6 +47,13 @@ namespace Sorolla.Palette.Adapters
                     Debug.LogError($"{Tag} Firebase not available");
                 }
             });
+        }
+
+        public void UpdateConsent(bool consent)
+        {
+            _consent = consent;
+            if (_ready)
+                FirebaseAnalytics.SetAnalyticsCollectionEnabled(consent);
         }
 
         private void FlushPendingEvents()
