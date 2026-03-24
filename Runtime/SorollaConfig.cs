@@ -66,6 +66,9 @@ namespace Sorolla.Palette
         [Tooltip("App Secret (Access Token) from Events Manager.")]
         public PlatformAdUnitId tiktokAccessToken;
 
+        [Tooltip("Enable TikTok SDK debug logging. Do NOT enable in distributed builds.")]
+        public bool tiktokDebugMode;
+
         // Note: Firebase modules (Analytics, Crashlytics, Remote Config) are always enabled
         // when Firebase is installed. No toggles needed as of v3.1.0.
     }
