@@ -37,7 +37,8 @@ namespace Sorolla.Palette.Editor
             AndroidManifest,
             MaxSettings,
             AdjustSettings,
-            Edm4uSettings
+            Edm4uSettings,
+            GradleConfig
         }
 
         public static readonly Dictionary<CheckCategory, string> CheckNames = new()
@@ -51,7 +52,8 @@ namespace Sorolla.Palette.Editor
             [CheckCategory.AndroidManifest] = "Android Manifest",
             [CheckCategory.MaxSettings] = "MAX Settings",
             [CheckCategory.AdjustSettings] = "Adjust Settings",
-            [CheckCategory.Edm4uSettings] = "EDM4U Settings"
+            [CheckCategory.Edm4uSettings] = "EDM4U Settings",
+            [CheckCategory.GradleConfig] = "Gradle Configuration"
         };
 
         public class ValidationResult
@@ -116,6 +118,7 @@ namespace Sorolla.Palette.Editor
                 results.AddRange(CheckMaxSettings());
                 results.AddRange(CheckAdjustSettings());
                 results.AddRange(CheckEdm4uSettings());
+                results.AddRange(CheckGradleConfig());
             }
             catch (Exception e)
             {
@@ -144,13 +147,47 @@ namespace Sorolla.Palette.Editor
                 if (duplicates.Count > 0)
                     fixes.Add($"Removed {duplicates.Count} duplicate activity declaration(s)");
                 if (wrongActivity != null)
-                    fixes.Add($"Fixed main activity: {wrongActivity} → UnityPlayerGameActivity");
+                    fixes.Add($"Fixed main activity: {wrongActivity} → {AndroidManifestSanitizer.GetExpectedMainActivity()}");
                 AndroidManifestSanitizer.Sanitize();
             }
 
             // MAX settings sanitization
             if (MaxSettingsSanitizer.Sanitize())
                 fixes.Add("Disabled AppLovin Quality Service (prevents build failures)");
+
+            // Gradle config auto-fixes (Android only)
+            if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android)
+            {
+                // compileOptions: Java 11 → 17 (both mainTemplate and launcherTemplate)
+                foreach (var templatePath in GradleTemplatePaths)
+                {
+                    if (!File.Exists(templatePath)) continue;
+                    var gradle = File.ReadAllText(templatePath);
+                    if (gradle.Contains("VERSION_11") && (gradle.Contains("sourceCompatibility") || gradle.Contains("targetCompatibility")))
+                    {
+                        gradle = gradle.Replace("VERSION_11", "VERSION_17");
+                        File.WriteAllText(templatePath, gradle);
+                        fixes.Add($"Upgraded {Path.GetFileName(templatePath)} compileOptions: Java 11 → 17 (required by Firebase/MAX/Kotlin)");
+                    }
+                }
+
+                // Auto-detect JDK 17+ and write org.gradle.java.home (Unity 2022 only — Unity 6+ bundles JDK 17)
+#if !UNITY_6000_0_OR_NEWER
+                if (File.Exists(GradlePropertiesPath))
+                {
+                    var props = File.ReadAllText(GradlePropertiesPath);
+                    if (!props.Contains("org.gradle.java.home"))
+                    {
+                        var jdkPath = GradleJdkDetector.FindJdk17OrNewer();
+                        if (jdkPath != null)
+                        {
+                            File.AppendAllText(GradlePropertiesPath, $"\norg.gradle.java.home={jdkPath}\n");
+                            fixes.Add($"Set org.gradle.java.home={jdkPath} (Unity {Application.unityVersion} bundles JDK 11, need 17+)");
+                        }
+                    }
+                }
+#endif
+            }
 
             return fixes;
         }
@@ -332,6 +369,18 @@ namespace Sorolla.Palette.Editor
                     ));
                 }
 
+                // Check FullOnly SDKs missing in Full mode
+                if (sdk.Requirement == SdkRequirement.FullOnly && !isPrototype && !isInstalled)
+                {
+                    hasIssues = true;
+                    results.Add(new ValidationResult(
+                        ValidationStatus.Error,
+                        $"{sdk.Name} is required in Full mode but not installed",
+                        "Install the SDK or switch to Prototype mode",
+                        CheckCategory.ModeConsistency
+                    ));
+                }
+
                 // Check FullOnly SDKs in Prototype mode
                 if (sdk.Requirement == SdkRequirement.FullOnly && isPrototype && isInstalled)
                 {
@@ -496,8 +545,12 @@ namespace Sorolla.Palette.Editor
         ///     Auto-fix config sync issues.
         ///     Returns true if any fixes were applied.
         /// </summary>
-        /// <param name="installMissingSdks">If true, also install missing required SDKs. Use only on explicit user action.</param>
-        public static bool FixConfigSync(bool installMissingSdks = false)
+        /// <summary>
+        ///     Auto-fix config sync issues and install missing required SDKs.
+        ///     Always installs missing SDKs — the user should never be in a state
+        ///     where required SDKs are missing for the configured mode.
+        /// </summary>
+        public static bool FixConfigSync()
         {
             var config = Resources.Load<SorollaConfig>("SorollaConfig");
             if (config == null)
@@ -513,8 +566,8 @@ namespace Sorolla.Palette.Editor
                 Debug.Log($"{Tag} Auto-fixed: Synced config.isPrototypeMode to {SorollaSettings.IsPrototype}");
             }
 
-            // Auto-install missing required SDKs (only on explicit user action)
-            if (installMissingSdks && SorollaSettings.IsConfigured && !SdkDetector.AreAllRequiredInstalled(SorollaSettings.IsPrototype))
+            // Auto-install missing required SDKs
+            if (SorollaSettings.IsConfigured && !SdkDetector.AreAllRequiredInstalled(SorollaSettings.IsPrototype))
             {
                 var modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
                 Debug.Log($"{Tag} Auto-fixing: Installing missing required SDKs for {modeName} mode...");
@@ -583,7 +636,7 @@ namespace Sorolla.Palette.Editor
                     ValidationStatus.Error,
                     $"AndroidManifest.xml has wrong main activity!\n" +
                     $"  Found: {wrongActivity}\n" +
-                    $"  Expected: com.unity3d.player.UnityPlayerGameActivity\n" +
+                    $"  Expected: {AndroidManifestSanitizer.GetExpectedMainActivity()}\n" +
                     "  The app WILL crash on launch.",
                     "Open Palette > Configuration and click Refresh in Build Health",
                     CheckCategory.AndroidManifest
@@ -786,6 +839,93 @@ namespace Sorolla.Palette.Editor
             }
 
             return null;
+        }
+
+        // ── Gradle Configuration ──────────────────────────────────────────
+
+        private const int RequiredJavaVersion = 17;
+        private static readonly string MainTemplatePath =
+            Path.Combine(Application.dataPath, "Plugins", "Android", "mainTemplate.gradle");
+        private static readonly string LauncherTemplatePath =
+            Path.Combine(Application.dataPath, "Plugins", "Android", "launcherTemplate.gradle");
+        private static readonly string GradlePropertiesPath =
+            Path.Combine(Application.dataPath, "Plugins", "Android", "gradleTemplate.properties");
+        private static readonly string[] GradleTemplatePaths = { MainTemplatePath, LauncherTemplatePath };
+
+        /// <summary>
+        ///     Validate Gradle configuration for Java 17 compatibility.
+        ///     Firebase 23.x, AppLovin MAX 13.x, and Kotlin 2.x all require Java 17 bytecode.
+        ///     Unity 2022 bundles JDK 11 — Gradle must be pointed at JDK 17+ or dexing fails.
+        /// </summary>
+        private static List<ValidationResult> CheckGradleConfig()
+        {
+            var results = new List<ValidationResult>();
+
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
+            {
+                results.Add(new ValidationResult(ValidationStatus.Valid, "Gradle checks skipped (not Android)", category: CheckCategory.GradleConfig));
+                return results;
+            }
+
+            var hasIssues = false;
+
+            // Check compileOptions in both Gradle templates
+            foreach (var templatePath in GradleTemplatePaths)
+            {
+                if (!File.Exists(templatePath)) continue;
+                var gradle = File.ReadAllText(templatePath);
+                if (gradle.Contains("VERSION_11") && (gradle.Contains("sourceCompatibility") || gradle.Contains("targetCompatibility")))
+                {
+                    hasIssues = true;
+                    var fileName = Path.GetFileName(templatePath);
+                    results.Add(new ValidationResult(
+                        ValidationStatus.Error,
+                        $"{fileName} has Java 11 compileOptions!\n" +
+                        $"  Firebase 23.x, AppLovin MAX 13.x, and Kotlin 2.x require Java {RequiredJavaVersion}.\n" +
+                        $"  Change sourceCompatibility and targetCompatibility to VERSION_{RequiredJavaVersion}.",
+                        "Open Palette > Configuration and click Refresh in Build Health",
+                        CheckCategory.GradleConfig
+                    ));
+                }
+            }
+
+            // Check org.gradle.java.home in gradleTemplate.properties
+            if (File.Exists(GradlePropertiesPath))
+            {
+                var props = File.ReadAllText(GradlePropertiesPath);
+                if (!props.Contains("org.gradle.java.home"))
+                {
+                    // Unity 2022 bundles JDK 11 — need explicit JDK 17+ override
+#if !UNITY_6000_0_OR_NEWER
+                    hasIssues = true;
+                    results.Add(new ValidationResult(
+                        ValidationStatus.Error,
+                        "gradleTemplate.properties missing org.gradle.java.home!\n" +
+                        $"  Unity {Application.unityVersion} bundles JDK 11 which cannot dex Java {RequiredJavaVersion} bytecode.\n" +
+                        $"  Add org.gradle.java.home pointing to a JDK {RequiredJavaVersion}+ installation.\n" +
+                        "  Without this, ALL Firebase/MAX/Kotlin deps will fail to dex.",
+                        "Install JDK 17 and add org.gradle.java.home to gradleTemplate.properties",
+                        CheckCategory.GradleConfig
+                    ));
+#endif
+                }
+            }
+            else
+            {
+                hasIssues = true;
+                results.Add(new ValidationResult(
+                    ValidationStatus.Warning,
+                    "gradleTemplate.properties not found.\n" +
+                    "  Enable Custom Gradle Properties Template in Player Settings > Publishing Settings.",
+                    "Enable Custom Gradle Properties Template",
+                    CheckCategory.GradleConfig
+                ));
+            }
+
+            if (!hasIssues)
+                results.Add(new ValidationResult(ValidationStatus.Valid, "Gradle config OK", category: CheckCategory.GradleConfig));
+
+            return results;
         }
 
         /// <summary>

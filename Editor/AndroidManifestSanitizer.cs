@@ -29,9 +29,17 @@ namespace Sorolla.Palette.Editor
         };
 
         /// <summary>
-        ///     The correct main activity class for Unity 6 LTS (GameActivity backend).
+        ///     The correct main activity class depends on Unity version:
+        ///     Unity 6+ uses GameActivity backend (UnityPlayerGameActivity),
+        ///     Unity 2022 and earlier use the classic UnityPlayerActivity.
         /// </summary>
-        private const string Unity6MainActivity = "com.unity3d.player.UnityPlayerGameActivity";
+#if UNITY_6000_0_OR_NEWER
+        private const string ExpectedMainActivity = "com.unity3d.player.UnityPlayerGameActivity";
+#else
+        private const string ExpectedMainActivity = "com.unity3d.player.UnityPlayerActivity";
+#endif
+
+        public static string GetExpectedMainActivity() => ExpectedMainActivity;
 
         private static readonly XNamespace AndroidNs = "http://schemas.android.com/apk/res/android";
 
@@ -200,7 +208,7 @@ namespace Sorolla.Palette.Editor
                     return null;
 
                 var activityName = launcherActivity.Attribute(AndroidNs + "name")?.Value;
-                if (activityName != null && activityName != Unity6MainActivity)
+                if (activityName != null && activityName != ExpectedMainActivity)
                     return activityName;
             }
             catch (System.Exception e)
@@ -230,11 +238,11 @@ namespace Sorolla.Palette.Editor
                 return false;
 
             var nameAttr = launcherActivity.Attribute(AndroidNs + "name");
-            if (nameAttr == null || nameAttr.Value == Unity6MainActivity)
+            if (nameAttr == null || nameAttr.Value == ExpectedMainActivity)
                 return false;
 
-            Debug.Log($"{Tag} Fixing main activity: {nameAttr.Value} → {Unity6MainActivity}");
-            nameAttr.Value = Unity6MainActivity;
+            Debug.Log($"{Tag} Fixing main activity: {nameAttr.Value} → {ExpectedMainActivity}");
+            nameAttr.Value = ExpectedMainActivity;
             return true;
         }
 
