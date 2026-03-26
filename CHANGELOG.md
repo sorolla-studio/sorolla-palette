@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.5.0] - 2026-03-24
+
+### Fixed
+- **GDPR consent propagation**: GameAnalytics and Firebase Analytics now receive consent flags at init and dynamically when MAX CMP (UMP) resolves. Previously both initialized unconditionally regardless of consent status.
+- **TikTok credential logging**: Removed app IDs and TikTok app IDs from Debug.Log output during initialization
+- **TikTok debug mode**: Decoupled from `Debug.isDebugBuild` — now controlled via explicit `tiktokDebugMode` toggle in SorollaConfig. Prevents verbose TikTok logging in distributed beta builds.
+
+### Changed
+- **AppLovin MAX SDK**: Updated from 8.5.0 to 8.6.1
+- `GameAnalyticsAdapter.Initialize()` now accepts `bool consent` and calls `SetEnabledEventSubmission`
+- `FirebaseAdapter.Initialize()` now accepts `bool consent` and calls `SetAnalyticsCollectionEnabled`
+- `Palette` subscribes to `MaxAdapter.OnConsentStatusChanged` to propagate consent updates to GA and Firebase after CMP resolves
+
+### Added
+- `GameAnalyticsAdapter.UpdateConsent(bool)` — runtime consent update for GA event submission
+- `FirebaseAdapter.UpdateConsent(bool)` — runtime consent update for Firebase analytics collection
+- `SorollaConfig.tiktokDebugMode` field — explicit opt-in for TikTok SDK debug logging
+
 ## [3.4.0] - 2026-02-18
 
 ### Added

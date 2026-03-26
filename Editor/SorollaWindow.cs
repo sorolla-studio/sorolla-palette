@@ -286,8 +286,8 @@ namespace Sorolla.Palette.Editor
                     "This will install/uninstall SDKs as needed.", "Switch", "Cancel"))
                 {
                     SorollaSettings.SetMode(otherMode);
-                    // Re-run validation after mode switch (with SDK install since it's explicit user action)
-                    EditorApplication.delayCall += () => RunBuildValidation(installMissingSdks: true);
+                    // Re-run validation after mode switch
+                    EditorApplication.delayCall += () => RunBuildValidation();
                 }
             GUI.enabled = true;
             EditorGUILayout.EndHorizontal();
@@ -772,13 +772,12 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Run build validation checks and auto-fixes.
         /// </summary>
-        /// <param name="installMissingSdks">If true, also install missing required SDKs. Use only on explicit user action.</param>
-        void RunBuildValidation(bool installMissingSdks = false)
+        void RunBuildValidation()
         {
             _autoFixLog.Clear();
 
-            // Auto-fix: Sync config with installed SDKs before validation
-            if (BuildValidator.FixConfigSync(installMissingSdks))
+            // Auto-fix: Sync config and install missing required SDKs
+            if (BuildValidator.FixConfigSync())
                 _autoFixLog.Add("Synced config / installed missing SDKs");
 
             // Run all sanitizers (single source of truth)
@@ -807,7 +806,7 @@ namespace Sorolla.Palette.Editor
                 GUILayout.Label($"{errors} Issue(s)", s_statusRedStyle);
 
             if (GUILayout.Button("Refresh", GUILayout.Width(60)))
-                RunBuildValidation(installMissingSdks: true);
+                RunBuildValidation();
 
             EditorGUILayout.EndHorizontal();
 
