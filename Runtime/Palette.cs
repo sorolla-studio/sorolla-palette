@@ -232,6 +232,33 @@ namespace Sorolla.Palette
 
         #endregion
 
+        #region Analytics - Purchase
+
+        /// <summary>
+        ///     Track an in-app purchase. Fans out to all active attribution adapters
+        ///     (Adjust, TikTok, Facebook) and Firebase Analytics.
+        /// </summary>
+        /// <param name="amount">Purchase amount (e.g. 4.99)</param>
+        /// <param name="currency">ISO 4217 currency code (default: USD)</param>
+        public static void TrackPurchase(double amount, string currency = "USD")
+        {
+            if (!EnsureInit()) return;
+
+#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+            if (!string.IsNullOrEmpty(Config?.adjustPurchaseEventToken))
+                AdjustAdapter.TrackRevenue(Config.adjustPurchaseEventToken, amount, currency);
+#endif
+
+            if (!string.IsNullOrEmpty(Config?.tiktokAppId?.Current))
+                TikTokAdapter.TrackPurchase(amount, currency);
+
+#if SOROLLA_FACEBOOK_ENABLED
+            FacebookAdapter.TrackPurchase((float)amount, currency);
+#endif
+        }
+
+        #endregion
+
         #region Attribution
 
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
