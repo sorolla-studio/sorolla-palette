@@ -90,22 +90,26 @@ namespace Sorolla.Palette.Adapters
         {
             QueueOrExecute(() =>
             {
+                string eventName = status == "start" ? "level_start" : "level_end";
+
                 var parameters = new List<Parameter>
                 {
-                    new("status", status),
-                    new("progression_01", p1 ?? "")
+                    new("level_name", p1 ?? "")
                 };
 
+                if (eventName == "level_end")
+                    parameters.Add(new Parameter("success", status == "complete" ? "true" : "false"));
+
                 if (!string.IsNullOrEmpty(p2))
-                    parameters.Add(new Parameter("progression_02", p2));
+                    parameters.Add(new Parameter("level_category", p2));
 
                 if (!string.IsNullOrEmpty(p3))
-                    parameters.Add(new Parameter("progression_03", p3));
+                    parameters.Add(new Parameter("level_subcategory", p3));
 
                 if (score > 0)
                     parameters.Add(new Parameter("score", score));
 
-                FirebaseAnalytics.LogEvent("progression", parameters.ToArray());
+                FirebaseAnalytics.LogEvent(eventName, parameters.ToArray());
             });
         }
 
@@ -113,16 +117,17 @@ namespace Sorolla.Palette.Adapters
         {
             QueueOrExecute(() =>
             {
+                string eventName = flowType == "source" ? "earn_item" : "spend_item";
+
                 var parameters = new[]
                 {
-                    new Parameter("flow_type", flowType),
-                    new Parameter("currency", currency),
-                    new Parameter("amount", amount),
-                    new Parameter("item_type", itemType),
+                    new Parameter("item_name", currency),
+                    new Parameter("value", amount),
+                    new Parameter("placement", itemType),
                     new Parameter("item_id", itemId)
                 };
 
-                FirebaseAnalytics.LogEvent("resource_flow", parameters);
+                FirebaseAnalytics.LogEvent(eventName, parameters);
             });
         }
 
