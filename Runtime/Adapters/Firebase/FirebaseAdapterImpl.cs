@@ -90,14 +90,16 @@ namespace Sorolla.Palette.Adapters
         {
             QueueOrExecute(() =>
             {
-                string eventName = status == "start" ? "level_start" : "level_end";
+                string eventName = status == "start"
+                    ? FirebaseAnalytics.EventLevelStart
+                    : FirebaseAnalytics.EventLevelEnd;
 
                 var parameters = new List<Parameter>
                 {
-                    new("level_name", p1 ?? "")
+                    new(FirebaseAnalytics.ParameterLevelName, p1 ?? "")
                 };
 
-                if (eventName == "level_end")
+                if (eventName == FirebaseAnalytics.EventLevelEnd)
                     parameters.Add(new Parameter("success", status == "complete" ? "true" : "false"));
 
                 if (!string.IsNullOrEmpty(p2))
@@ -107,7 +109,7 @@ namespace Sorolla.Palette.Adapters
                     parameters.Add(new Parameter("level_subcategory", p3));
 
                 if (score > 0)
-                    parameters.Add(new Parameter("score", score));
+                    parameters.Add(new Parameter(FirebaseAnalytics.ParameterScore, score));
 
                 FirebaseAnalytics.LogEvent(eventName, parameters.ToArray());
             });
@@ -117,17 +119,20 @@ namespace Sorolla.Palette.Adapters
         {
             QueueOrExecute(() =>
             {
-                string eventName = flowType == "source" ? "earn_item" : "spend_item";
+                string eventName = flowType == "source"
+                    ? FirebaseAnalytics.EventEarnVirtualCurrency
+                    : FirebaseAnalytics.EventSpendVirtualCurrency;
 
-                var parameters = new[]
+                var parameters = new List<Parameter>
                 {
-                    new Parameter("item_name", currency),
-                    new Parameter("value", amount),
-                    new Parameter("placement", itemType),
-                    new Parameter("item_id", itemId)
+                    new(FirebaseAnalytics.ParameterVirtualCurrencyName, currency),
+                    new(FirebaseAnalytics.ParameterValue, amount)
                 };
 
-                FirebaseAnalytics.LogEvent(eventName, parameters);
+                if (flowType != "source" && !string.IsNullOrEmpty(itemId))
+                    parameters.Add(new Parameter("item_name", itemId));
+
+                FirebaseAnalytics.LogEvent(eventName, parameters.ToArray());
             });
         }
 
