@@ -28,18 +28,32 @@ namespace Sorolla.Palette.Editor
             }
         };
 
-        /// <summary>
-        ///     The correct main activity class depends on Unity version:
-        ///     Unity 6+ uses GameActivity backend (UnityPlayerGameActivity),
-        ///     Unity 2022 and earlier use the classic UnityPlayerActivity.
-        /// </summary>
-#if UNITY_6000_0_OR_NEWER
-        private const string ExpectedMainActivity = "com.unity3d.player.UnityPlayerGameActivity";
-#else
-        private const string ExpectedMainActivity = "com.unity3d.player.UnityPlayerActivity";
-#endif
+        private const string ActivityClass = "com.unity3d.player.UnityPlayerActivity";
+        private const string GameActivityClass = "com.unity3d.player.UnityPlayerGameActivity";
 
-        public static string GetExpectedMainActivity() => ExpectedMainActivity;
+        /// <summary>
+        ///     The correct main activity depends on the Application Entry point selected
+        ///     in Player Settings (Android tab). We read the serialized property directly
+        ///     to work across all Unity versions without enum API differences.
+        /// </summary>
+        public static string GetExpectedMainActivity()
+        {
+            // androidApplicationEntry: 0 = Activity, 1 = GameActivity
+            try
+            {
+                var settings = Unsupported.GetSerializedAssetInterfaceSingleton("PlayerSettings");
+                var so = new SerializedObject(settings);
+                var prop = so.FindProperty("androidApplicationEntry");
+                if (prop != null && prop.intValue == 1)
+                    return GameActivityClass;
+            }
+            catch (System.Exception)
+            {
+                // Property doesn't exist on older Unity versions - fall through
+            }
+
+            return ActivityClass;
+        }
 
         private static readonly XNamespace AndroidNs = "http://schemas.android.com/apk/res/android";
 
@@ -208,7 +222,7 @@ namespace Sorolla.Palette.Editor
                     return null;
 
                 var activityName = launcherActivity.Attribute(AndroidNs + "name")?.Value;
-                if (activityName != null && activityName != ExpectedMainActivity)
+                if (activityName != null && activityName != GetExpectedMainActivity())
                     return activityName;
             }
             catch (System.Exception e)
@@ -238,11 +252,12 @@ namespace Sorolla.Palette.Editor
                 return false;
 
             var nameAttr = launcherActivity.Attribute(AndroidNs + "name");
-            if (nameAttr == null || nameAttr.Value == ExpectedMainActivity)
+            var expected = GetExpectedMainActivity();
+            if (nameAttr == null || nameAttr.Value == expected)
                 return false;
 
-            Debug.Log($"{Tag} Fixing main activity: {nameAttr.Value} → {ExpectedMainActivity}");
-            nameAttr.Value = ExpectedMainActivity;
+            Debug.Log($"{Tag} Fixing main activity: {nameAttr.Value} → {expected}");
+            nameAttr.Value = expected;
             return true;
         }
 
