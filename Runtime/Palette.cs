@@ -259,6 +259,39 @@ namespace Sorolla.Palette
 
         #endregion
 
+        #region Debug UI
+
+        public static event Action OnShowDebuggerRequested;
+        public static event Action OnHideDebuggerRequested;
+        public static event Action OnToggleDebuggerRequested;
+
+        /// <summary>Shows the Sorolla debug panel. Requires DebugUI sample imported and prefab in scene.</summary>
+        public static void ShowDebugger()
+        {
+            if (OnShowDebuggerRequested == null)
+            {
+                Debug.LogWarning($"{Tag} Debug UI not available. Import the DebugUI sample and add the prefab to your scene.");
+                return;
+            }
+            OnShowDebuggerRequested.Invoke();
+        }
+
+        /// <summary>Hides the Sorolla debug panel.</summary>
+        public static void HideDebugger() => OnHideDebuggerRequested?.Invoke();
+
+        /// <summary>Toggles the Sorolla debug panel visibility.</summary>
+        public static void ToggleDebugger()
+        {
+            if (OnToggleDebuggerRequested == null)
+            {
+                Debug.LogWarning($"{Tag} Debug UI not available. Import the DebugUI sample and add the prefab to your scene.");
+                return;
+            }
+            OnToggleDebuggerRequested.Invoke();
+        }
+
+        #endregion
+
         #region Attribution
 
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
