@@ -18,6 +18,27 @@ namespace Sorolla.Palette.Editor
         private static string AndroidManifestPath =>
             Path.Combine(Application.dataPath, "Plugins", "Android", "AndroidManifest.xml");
 
+        private static string LauncherManifestPath =>
+            Path.Combine(Application.dataPath, "Plugins", "Android", "LauncherManifest.xml");
+
+        /// <summary>
+        ///     Check if the project uses a custom launcher manifest (Unity 6 split module architecture).
+        /// </summary>
+        private static bool UsesCustomLauncherManifest()
+        {
+            try
+            {
+                var settings = Unsupported.GetSerializedAssetInterfaceSingleton("PlayerSettings");
+                var so = new SerializedObject(settings);
+                var prop = so.FindProperty("useCustomLauncherManifest");
+                return prop != null && prop.boolValue;
+            }
+            catch (System.Exception)
+            {
+                return false;
+            }
+        }
+
         // SDK-specific patterns to detect and remove
         // Note: Only SDKs that can be uninstalled (FullOnly) need orphan cleanup
         private static readonly Dictionary<SdkId, string[]> SdkManifestPatterns = new()
@@ -35,17 +56,18 @@ namespace Sorolla.Palette.Editor
         ///     The correct main activity depends on the Application Entry point selected
         ///     in Player Settings (Android tab). We read the serialized property directly
         ///     to work across all Unity versions without enum API differences.
+        ///     Bitmask: 1 = Activity (legacy), 2 = GameActivity, 3 = both.
+        ///     If GameActivity bit is set (value & 2), returns GameActivity; otherwise Activity.
         /// </summary>
         public static string GetExpectedMainActivity()
         {
-            // androidApplicationEntry: 0 = Activity, 1 = GameActivity
             try
             {
                 var settings = Unsupported.GetSerializedAssetInterfaceSingleton("PlayerSettings");
                 var so = new SerializedObject(settings);
                 var prop = so.FindProperty("androidApplicationEntry");
-                if (prop != null && prop.intValue == 1)
-                    return GameActivityClass;
+                if (prop != null)
+                    return (prop.intValue & 2) != 0 ? GameActivityClass : ActivityClass;
             }
             catch (System.Exception)
             {
@@ -259,6 +281,128 @@ namespace Sorolla.Palette.Editor
             Debug.Log($"{Tag} Fixing main activity: {nameAttr.Value} → {expected}");
             nameAttr.Value = expected;
             return true;
+        }
+
+        /// <summary>
+        ///     Detect if LauncherManifest.xml is missing the launcher activity when useCustomLauncherManifest is enabled.
+        ///     Returns a description of the issue, or null if OK.
+        /// </summary>
+        public static string DetectLauncherManifestIssue()
+        {
+            if (!UsesCustomLauncherManifest())
+                return null;
+
+            if (!File.Exists(LauncherManifestPath))
+                return "useCustomLauncherManifest is enabled but LauncherManifest.xml does not exist";
+
+            try
+            {
+                var doc = XDocument.Load(LauncherManifestPath);
+                var application = doc.Root?.Element("application");
+                if (application == null)
+                    return "LauncherManifest.xml has no <application> element";
+
+                var launcherActivity = application.Elements("activity")
+                    .FirstOrDefault(a => a.Elements("intent-filter")
+                        .Any(f => f.Elements("category")
+                            .Any(c => c.Attribute(AndroidNs + "name")?.Value ==
+                                      "android.intent.category.LAUNCHER")));
+
+                if (launcherActivity == null)
+                    return "LauncherManifest.xml has no activity with MAIN/LAUNCHER intent filter - app will not launch";
+
+                var activityName = launcherActivity.Attribute(AndroidNs + "name")?.Value;
+                var expected = GetExpectedMainActivity();
+                if (activityName != null && activityName != expected)
+                    return $"LauncherManifest.xml has wrong activity class: {activityName} (expected {expected})";
+            }
+            catch (System.Exception e)
+            {
+                return $"Failed to parse LauncherManifest.xml: {e.Message}";
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        ///     Fix LauncherManifest.xml to have the correct launcher activity.
+        /// </summary>
+        public static bool FixLauncherManifest()
+        {
+            if (!UsesCustomLauncherManifest() || !File.Exists(LauncherManifestPath))
+                return false;
+
+            try
+            {
+                XNamespace tools = "http://schemas.android.com/tools";
+                var doc = XDocument.Load(LauncherManifestPath);
+                var application = doc.Root?.Element("application");
+                if (application == null)
+                    return false;
+
+                var expected = GetExpectedMainActivity();
+                var isGameActivity = expected == GameActivityClass;
+                var theme = isGameActivity ? "@style/BaseUnityGameActivityTheme" : "@style/UnityThemeSelector";
+
+                // Find existing launcher activity
+                var launcherActivity = application.Elements("activity")
+                    .FirstOrDefault(a => a.Elements("intent-filter")
+                        .Any(f => f.Elements("category")
+                            .Any(c => c.Attribute(AndroidNs + "name")?.Value ==
+                                      "android.intent.category.LAUNCHER")));
+
+                if (launcherActivity != null)
+                {
+                    // Fix existing activity
+                    var nameAttr = launcherActivity.Attribute(AndroidNs + "name");
+                    if (nameAttr != null && nameAttr.Value == expected)
+                        return false; // Already correct
+
+                    if (nameAttr != null)
+                    {
+                        Debug.Log($"{Tag} Fixing LauncherManifest.xml activity: {nameAttr.Value} -> {expected}");
+                        nameAttr.Value = expected;
+                    }
+
+                    launcherActivity.SetAttributeValue(AndroidNs + "theme", theme);
+                }
+                else
+                {
+                    // Add launcher activity
+                    Debug.Log($"{Tag} Adding launcher activity to LauncherManifest.xml: {expected}");
+                    var activity = new XElement("activity",
+                        new XAttribute(AndroidNs + "name", expected),
+                        new XAttribute(AndroidNs + "theme", theme),
+                        new XAttribute(AndroidNs + "enabled", "true"),
+                        new XAttribute(AndroidNs + "exported", "true"),
+                        new XAttribute(tools + "replace", "android:enabled"),
+                        new XElement("intent-filter",
+                            new XElement("action", new XAttribute(AndroidNs + "name", "android.intent.action.MAIN")),
+                            new XElement("category", new XAttribute(AndroidNs + "name", "android.intent.category.LAUNCHER"))
+                        ),
+                        new XElement("meta-data",
+                            new XAttribute(AndroidNs + "name", "unityplayer.UnityActivity"),
+                            new XAttribute(AndroidNs + "value", "true")
+                        ),
+                        new XElement("meta-data",
+                            new XAttribute(AndroidNs + "name", "android.app.lib_name"),
+                            new XAttribute(AndroidNs + "value", "game")
+                        )
+                    );
+                    application.Add(activity);
+                }
+
+                var backupPath = LauncherManifestPath + ".backup";
+                File.Copy(LauncherManifestPath, backupPath, true);
+                doc.Save(LauncherManifestPath);
+                Debug.Log($"{Tag} LauncherManifest.xml fixed (backup at {backupPath})");
+                return true;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"{Tag} Failed to fix LauncherManifest.xml: {e.Message}");
+                return false;
+            }
         }
 
         /// <summary>
