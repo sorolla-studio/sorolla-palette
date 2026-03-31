@@ -151,6 +151,14 @@ namespace Sorolla.Palette.Editor
                 AndroidManifestSanitizer.Sanitize();
             }
 
+            // LauncherManifest sanitization (Unity 6 split module architecture)
+            var launcherIssue = AndroidManifestSanitizer.DetectLauncherManifestIssue();
+            if (launcherIssue != null)
+            {
+                if (AndroidManifestSanitizer.FixLauncherManifest())
+                    fixes.Add($"Fixed LauncherManifest.xml: {launcherIssue}");
+            }
+
             // MAX settings sanitization
             if (MaxSettingsSanitizer.Sanitize())
                 fixes.Add("Disabled AppLovin Quality Service (prevents build failures)");
@@ -638,6 +646,20 @@ namespace Sorolla.Palette.Editor
                     $"  Found: {wrongActivity}\n" +
                     $"  Expected: {AndroidManifestSanitizer.GetExpectedMainActivity()}\n" +
                     "  The app WILL crash on launch.",
+                    "Open Palette > Configuration and click Refresh in Build Health",
+                    CheckCategory.AndroidManifest
+                ));
+            }
+
+            // Check LauncherManifest.xml (Unity 6 split module architecture)
+            var launcherIssue = AndroidManifestSanitizer.DetectLauncherManifestIssue();
+            if (launcherIssue != null)
+            {
+                hasIssues = true;
+                results.Add(new ValidationResult(
+                    ValidationStatus.Error,
+                    $"LauncherManifest.xml issue: {launcherIssue}\n" +
+                    "  The app will install but fail to launch.",
                     "Open Palette > Configuration and click Refresh in Build Health",
                     CheckCategory.AndroidManifest
                 ));
