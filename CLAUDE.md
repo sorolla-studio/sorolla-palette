@@ -98,7 +98,8 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 **Unity asmdef**:
 - `versionDefines` + `defineConstraints` BOTH needed for optional assemblies
 - `defineConstraints` prevents compilation when symbol not set
-- `defineConstraints` does NOT support `||` (boolean OR) in a single string - Unity silently treats unrecognized expressions as satisfied. Use a single symbol per constraint entry.
+- `defineConstraints` does NOT support `||` (boolean OR) in a single string - Unity silently treats unrecognized expressions as satisfied
+- **`defineConstraints` must use per-assembly-only symbols** - they check both `versionDefines` AND global PlayerSettings defines. If `DefineSymbols.cs` sets a global define (e.g., during package auto-install), the constraint passes even when the package DLLs aren't present yet. All impl asmdefs use `SOROLLA_*_ASMDEF_OK` symbols that only exist as `versionDefines`.
 
 **MAX SDK**:
 - SDK key is in AppLovinSettings (Integration Manager), NOT SorollaConfig
