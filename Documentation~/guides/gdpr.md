@@ -30,13 +30,14 @@ Privacy compliance for EU users and iOS App Tracking Transparency.
 ## 2. Unity Setup
 
 1. Open **AppLovin** → **Integration Manager**
-2. Enable **MAX Terms and Privacy Policy Flow**
-3. Set **Privacy Policy URL** (your company's policy)
-4. Set **User Tracking Usage Description**:
+2. Under **Mediated Networks**, install **Google Ad Manager** (or Google AdMob). This is required - MAX uses the Google Mobile Ads SDK to render the UMP consent form. Without it, only the MAX privacy popup appears, not the GDPR CMP dialog.
+3. Enable **MAX Terms and Privacy Policy Flow**
+4. Set **Privacy Policy URL** (your company's policy)
+5. Set **User Tracking Usage Description**:
    ```
    This identifier will be used to deliver personalized ads to you.
    ```
-5. Click **Save**
+6. Click **Save**
 
 ## 3. Add Privacy Button
 
@@ -104,7 +105,7 @@ Palette.ShowPrivacyOptions(onComplete: () => { });
 
 | Issue | Solution |
 |-------|----------|
-| Dialog not showing | Verify GDPR message is **published** in AdMob |
+| Dialog not showing | Verify GDPR message is **published** in AdMob AND Google Ad Manager adapter is installed in MAX Integration Manager |
 | ATT not appearing | iOS 14.5+ only, shows once per install |
 | Consent always denied | Check Privacy Policy URL is valid |
 | Ads not loading after consent | Wait for consent callback to complete |

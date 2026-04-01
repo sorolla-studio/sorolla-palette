@@ -57,6 +57,9 @@ keywords: [SDK, Unity, UPM, package, mobile, publisher, Palette, API, analytics,
 - `Documentation~/internal/architecture.md` - Complete technical reference [architecture, patterns, design]
 - `CLAUDE.md` - AI agent guidance [context, conventions]
 
+### Checklists
+- `.claude/release-checklist.md` - Full mode release verification [release, QA, onboarding, checklist, verify]
+
 ### Plans
 - `.claude/plans/max-version-checker.md` - MAX SDK auto-update checker plan [MAX, auto-update, versions, AppLovin]
 

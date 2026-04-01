@@ -60,70 +60,15 @@ namespace Sorolla.Palette.Editor
 
         void SyncMaxSdkKey()
         {
-            // Auto-sync MAX SDK key from SorollaConfig to AppLovinSettings
-            if (_config == null || !SdkDetector.IsInstalled(SdkId.AppLovinMAX))
+            if (!SdkDetector.IsInstalled(SdkId.AppLovinMAX))
                 return;
 
-            string configKey = _config.maxSdkKey ?? "";
-            string appLovinKey = MaxSettingsSanitizer.GetSdkKey() ?? "";
-
-            // Both empty - nothing to sync
-            if (string.IsNullOrEmpty(configKey) && string.IsNullOrEmpty(appLovinKey))
+            string currentKey = MaxSettingsSanitizer.GetSdkKey() ?? "";
+            if (currentKey == PaletteConstants.MaxSdkKey)
                 return;
 
-            // No conflict - sync normally
-            if (configKey == appLovinKey)
-            {
-                // Already synced
-                return;
-            }
-
-            // Conflict detected - let user choose (no cancel option)
-            if (!string.IsNullOrEmpty(configKey) && !string.IsNullOrEmpty(appLovinKey))
-            {
-                bool usePaletteConfig = EditorUtility.DisplayDialog(
-                    "MAX SDK Key Conflict",
-                    $"Found different MAX SDK keys:\n\n" +
-                    $"• Palette Configuration: {configKey.Substring(0, Math.Min(20, configKey.Length))}...\n" +
-                    $"• AppLovin Integration Manager: {appLovinKey.Substring(0, Math.Min(20, appLovinKey.Length))}...\n\n" +
-                    "Which value should be used?",
-                    "Use Palette Config",
-                    "Import from Integration Manager"
-                );
-
-                if (usePaletteConfig)
-                {
-                    // Overwrite AppLovinSettings with SorollaConfig
-                    MaxSettingsSanitizer.SetSdkKey(configKey);
-                    Debug.Log("[Palette] Synced MAX SDK key from Palette Config to AppLovinSettings");
-                }
-                else
-                {
-                    // Import from AppLovinSettings to SorollaConfig
-                    _config.maxSdkKey = appLovinKey;
-                    EditorUtility.SetDirty(_config);
-                    AssetDatabase.SaveAssets();
-                    Debug.Log("[Palette] Imported MAX SDK key from AppLovinSettings to Palette Config");
-                }
-
-                return;
-            }
-
-            // One side is empty - sync from the populated side
-            if (!string.IsNullOrEmpty(configKey))
-            {
-                // SorollaConfig has key, AppLovinSettings doesn't - sync to AppLovinSettings
-                MaxSettingsSanitizer.SetSdkKey(configKey);
-                Debug.Log("[Palette] Synced MAX SDK key to AppLovinSettings");
-            }
-            else if (!string.IsNullOrEmpty(appLovinKey))
-            {
-                // AppLovinSettings has key, SorollaConfig doesn't - import to SorollaConfig
-                _config.maxSdkKey = appLovinKey;
-                EditorUtility.SetDirty(_config);
-                AssetDatabase.SaveAssets();
-                Debug.Log("[Palette] Imported MAX SDK key from AppLovinSettings");
-            }
+            MaxSettingsSanitizer.SetSdkKey(PaletteConstants.MaxSdkKey);
+            Debug.Log("[Palette] Set MAX SDK key in AppLovinSettings");
         }
 
         void OnDisable()
@@ -286,8 +231,8 @@ namespace Sorolla.Palette.Editor
                     "This will install/uninstall SDKs as needed.", "Switch", "Cancel"))
                 {
                     SorollaSettings.SetMode(otherMode);
-                    // Re-run validation after mode switch (with SDK install since it's explicit user action)
-                    EditorApplication.delayCall += () => RunBuildValidation(installMissingSdks: true);
+                    // Re-run validation after mode switch
+                    EditorApplication.delayCall += () => RunBuildValidation();
                 }
             GUI.enabled = true;
             EditorGUILayout.EndHorizontal();
@@ -318,7 +263,6 @@ namespace Sorolla.Palette.Editor
             // MAX Ad Units (Header comes from [Header] attribute on first property)
             if (showMax)
             {
-                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("maxSdkKey"), new GUIContent("SDK Key"));
                 EditorGUILayout.PropertyField(_serializedConfig.FindProperty("rewardedAdUnit"), new GUIContent("Rewarded"));
                 EditorGUILayout.PropertyField(_serializedConfig.FindProperty("interstitialAdUnit"), new GUIContent("Interstitial"));
                 EditorGUILayout.PropertyField(_serializedConfig.FindProperty("bannerAdUnit"), new GUIContent("Banner (Optional)"));
@@ -334,23 +278,26 @@ namespace Sorolla.Palette.Editor
                 EditorGUI.indentLevel--;
             }
 
-            // TikTok (any mode)
-            EditorGUILayout.Space(5);
-            GUILayout.Label("TikTok", EditorStyles.boldLabel);
-            EditorGUI.indentLevel++;
-            EditorGUILayout.PropertyField(_serializedConfig.FindProperty("tiktokAppId"), new GUIContent("TikTok App ID"));
-            EditorGUILayout.PropertyField(_serializedConfig.FindProperty("tiktokEmAppId"), new GUIContent("App ID (EM)"));
-            EditorGUILayout.PropertyField(_serializedConfig.FindProperty("tiktokAccessToken"), new GUIContent("Access Token"));
-            EditorGUI.indentLevel--;
+            // TikTok (optional - shown only when enabled in SDK Overview)
+            if (_config.enableTikTok)
+            {
+                EditorGUILayout.Space(5);
+                GUILayout.Label("TikTok", EditorStyles.boldLabel);
+                EditorGUI.indentLevel++;
+                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("tiktokAppId"), new GUIContent("TikTok App ID"));
+                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("tiktokEmAppId"), new GUIContent("App ID (EM)"));
+                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("tiktokAccessToken"), new GUIContent("Access Token"));
+                EditorGUI.indentLevel--;
+            }
 
             if (_serializedConfig.ApplyModifiedProperties())
             {
                 EditorUtility.SetDirty(_config);
 
                 // Auto-sync MAX SDK key to AppLovinSettings when config changes
-                if (showMax && !string.IsNullOrEmpty(_config.maxSdkKey))
+                if (showMax)
                 {
-                    MaxSettingsSanitizer.SetSdkKey(_config.maxSdkKey);
+                    MaxSettingsSanitizer.SetSdkKey(PaletteConstants.MaxSdkKey);
                 }
             }
 
@@ -728,22 +675,34 @@ namespace Sorolla.Palette.Editor
 
         void DrawTikTokOverviewItem()
         {
-            bool hasAppId = _config?.tiktokAppId?.IsConfigured == true
+            bool enabled = _config.enableTikTok;
+            bool hasAppId = enabled && _config?.tiktokAppId?.IsConfigured == true
                             && _config?.tiktokEmAppId?.IsConfigured == true;
 
             EditorGUILayout.BeginHorizontal();
 
-            // Status icon (always optional)
+            // Status icon
             Color iconColor = hasAppId ? ColorGreen : ColorGray;
             string iconText = hasAppId ? "✓" : "○";
             DrawIcon(iconText, iconColor);
 
-            GUILayout.Label("TikTok (optional)", GUILayout.Width(140));
+            // Enable toggle
+            bool newEnabled = EditorGUILayout.ToggleLeft("TikTok (optional)", enabled, GUILayout.Width(140));
+            if (newEnabled != enabled)
+            {
+                _config.enableTikTok = newEnabled;
+                EditorUtility.SetDirty(_config);
+            }
 
             // Config status
             GUIStyle configStyle;
             string configText;
-            if (hasAppId)
+            if (!enabled)
+            {
+                configStyle = s_configStyleGray;
+                configText = "Disabled";
+            }
+            else if (hasAppId)
             {
                 configStyle = s_configStyleGreen;
                 configText = "✓ Configured";
@@ -772,13 +731,12 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Run build validation checks and auto-fixes.
         /// </summary>
-        /// <param name="installMissingSdks">If true, also install missing required SDKs. Use only on explicit user action.</param>
-        void RunBuildValidation(bool installMissingSdks = false)
+        void RunBuildValidation()
         {
             _autoFixLog.Clear();
 
-            // Auto-fix: Sync config with installed SDKs before validation
-            if (BuildValidator.FixConfigSync(installMissingSdks))
+            // Auto-fix: Sync config and install missing required SDKs
+            if (BuildValidator.FixConfigSync())
                 _autoFixLog.Add("Synced config / installed missing SDKs");
 
             // Run all sanitizers (single source of truth)
@@ -807,7 +765,7 @@ namespace Sorolla.Palette.Editor
                 GUILayout.Label($"{errors} Issue(s)", s_statusRedStyle);
 
             if (GUILayout.Button("Refresh", GUILayout.Width(60)))
-                RunBuildValidation(installMissingSdks: true);
+                RunBuildValidation();
 
             EditorGUILayout.EndHorizontal();
 

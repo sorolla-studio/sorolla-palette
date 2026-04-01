@@ -105,9 +105,15 @@ namespace Sorolla.Palette
             yield break;
     #endif
 #endif
-            // MAX installed: it handles CMP → ATT automatically
-            // Non-iOS / Editor: no ATT needed
+            // MAX installed: CMP → ATT handled by MAX during its async init.
+            // Pass consent: false so downstream SDKs don't send pre-consent data.
+            // Consent is elevated to true after MAX resolves CMP (OnMaxConsentChanged).
+            // Non-iOS / Editor without MAX: no ATT needed, default to true.
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            Palette.Initialize(consent: false);
+#else
             Palette.Initialize(consent: true);
+#endif
             yield break;
         }
     }
