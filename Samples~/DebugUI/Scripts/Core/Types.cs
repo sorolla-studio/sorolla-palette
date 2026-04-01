@@ -38,6 +38,7 @@ namespace Sorolla.Palette.DebugUI
         Firebase,
         MAX,
         Adjust,
+        TikTok,
     }
 
     public enum ToastType

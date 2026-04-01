@@ -37,9 +37,6 @@ namespace Sorolla.Palette
         public bool isPrototypeMode = true;
 
         [Header("MAX Ad Units")]
-        [Tooltip("AppLovin MAX SDK Key (synced to AppLovinSettings)")]
-        public string maxSdkKey;
-
         [Tooltip("Rewarded ad unit IDs per platform")]
         public PlatformAdUnitId rewardedAdUnit;
 
@@ -56,10 +53,14 @@ namespace Sorolla.Palette
         [Tooltip("Use Sandbox environment for testing")]
         public bool adjustSandboxMode;
 
-        [Tooltip("Event token for IAP purchases (from Adjust dashboard). Leave empty to skip Adjust purchase tracking.")]
+        [Tooltip("Adjust event token for purchase/revenue tracking (from Adjust Dashboard)")]
         public string adjustPurchaseEventToken;
 
-        [Header("TikTok")]
+        [Header("TikTok (Optional)")]
+        [Tooltip("Enable TikTok Business SDK integration")]
+        public bool enableTikTok;
+
+
         [Tooltip("TikTok App ID from Events Manager (long numeric ID). Leave empty to disable.")]
         public PlatformAdUnitId tiktokAppId;
 

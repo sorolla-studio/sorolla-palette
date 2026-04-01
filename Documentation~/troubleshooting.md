@@ -192,15 +192,98 @@ pod --version
 
 The Build Health validator automatically detects and removes orphaned manifest entries before builds.
 
+### Wrong Main Activity Class
+
+**Error**: `ClassNotFoundException: com.unity3d.player.UnityPlayerGameActivity` (or `UnityPlayerActivity`) at launch.
+
+**Cause**: The AndroidManifest.xml declares an activity class that doesn't match the project's Application Entry Point setting in Player Settings.
+
+**Background**: `androidApplicationEntry` in ProjectSettings.asset is a bitmask:
+- `1` = Activity (legacy `UnityPlayerActivity`)
+- `2` = GameActivity (`UnityPlayerGameActivity`) - Unity 6 default for new projects
+- `3` = both
+
+Unity only compiles the selected entry point class into the APK. If the manifest references the wrong one, the class won't exist at runtime.
+
+**Common triggers**:
+- Upgrading from Unity 2022 to Unity 6 (preserves `Activity` setting but manifest patchers may assume `GameActivity`)
+- Third-party SDK manifest patchers using `#if UNITY_2023_1_OR_NEWER` instead of reading the actual PlayerSettings value
+
+**Fix**:
+1. Check Player Settings > Android > Other Settings > Application Entry Point
+2. Ensure AndroidManifest.xml activity class matches:
+   - Activity: `com.unity3d.player.UnityPlayerActivity`
+   - GameActivity: `com.unity3d.player.UnityPlayerGameActivity`
+3. If using `useCustomLauncherManifest`, check `LauncherManifest.xml` matches too
+4. Run `Palette > Configuration` - Build Health will detect and fix mismatches
+
+### LauncherManifest.xml Missing Activity (Unity 6)
+
+**Error**: `DeploymentOperationFailedException: No activity in the manifest with action MAIN and category LAUNCHER`
+
+**Cause**: When `useCustomLauncherManifest` is enabled in Player Settings, Unity uses `LauncherManifest.xml` for the launcher Gradle module. If this file lacks a launcher activity declaration, the app installs but cannot launch.
+
+**Background**: Unity 6 uses a split Gradle module structure:
+- `AndroidManifest.xml` -> `unityLibrary` module (library)
+- `LauncherManifest.xml` -> `launcher` module
+
+Unity generates `android:enabled="false"` on the non-selected activity in the library manifest. The launcher manifest must override this.
+
+**Fix**: Ensure `LauncherManifest.xml` declares the correct activity with the launcher intent filter:
+```xml
+<activity android:name="com.unity3d.player.UnityPlayerGameActivity"
+          android:theme="@style/BaseUnityGameActivityTheme"
+          android:enabled="true"
+          android:exported="true"
+          tools:replace="android:enabled">
+    <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+    </intent-filter>
+    <meta-data android:name="unityplayer.UnityActivity" android:value="true" />
+    <meta-data android:name="android.app.lib_name" android:value="game" />
+</activity>
+```
+
+Replace `UnityPlayerGameActivity`/`BaseUnityGameActivityTheme` with `UnityPlayerActivity`/`UnityThemeSelector` if using legacy Activity mode.
+
+**Note**: Unity's deployment checker may still report this error even when the APK is correct, because it reads source manifests rather than the Gradle-merged result. If the build succeeds, try installing the APK manually via `adb install`.
+
+### R8/AGP Version Mismatch
+
+**Error**: `NoSuchMethodError: setBuildMetadataConsumer` or similar R8 crash during dexing.
+
+**Cause**: A pinned R8 version in `baseProjectTemplate.gradle` conflicts with the AGP version.
+
+**Background**:
+- Unity 2022 (AGP 7.4.2): Needs R8 8.1.56+ pin for Kotlin 2.0 metadata from libraries like AppLovin SDK 13.x and Firebase 23.x
+- Unity 6 (AGP 8.10.0): Bundled R8 already handles Kotlin 2.0 - the pin must be REMOVED
+
+**Fix**:
+1. Open `Assets/Plugins/Android/baseProjectTemplate.gradle`
+2. If upgrading TO Unity 6: remove the entire `buildscript { ... }` block that pins R8
+3. If on Unity 2022 with Kotlin 2.0 libraries: add the R8 pin:
+```gradle
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools:r8:8.1.56"
+    }
+}
+```
+
 ### Gradle/Java Error on First Import
 
 **Error**: `NoClassDefFoundError: org.codehaus.groovy.vmplugin.v7.Java7` or similar Gradle/Java stacktrace on first Android resolve.
 
 **Cause**: EDM4U bundles Gradle 5.1.1 which only supports Java 8-12. Unity 6+ uses Java 17+ by default. On first import, EDM4U may auto-resolve before Palette configures it to use Unity's Gradle.
 
-**Fix**: This is cosmetic — restart Unity and it resolves automatically. Palette configures EDM4U to use Unity's Gradle templates on every domain reload. If the error persists:
+**Fix**: This is cosmetic - restart Unity and it resolves automatically. Palette configures EDM4U to use Unity's Gradle templates on every domain reload. If the error persists:
 1. Run `Palette > Run Setup (Force)`
-2. Or manually enable Gradle templates: `Assets > External Dependency Manager > Android Resolver > Settings` → check all "Patch ... Template" options
+2. Or manually enable Gradle templates: `Assets > External Dependency Manager > Android Resolver > Settings` -> check all "Patch ... Template" options
 
 ### Gradle Version Mismatch
 

@@ -39,6 +39,10 @@ namespace Sorolla.Palette.DebugUI
         {
             SetVisible(showOnStart);
             EnsureEventSystem();
+
+            Palette.OnShowDebuggerRequested += () => SetVisible(true);
+            Palette.OnHideDebuggerRequested += () => SetVisible(false);
+            Palette.OnToggleDebuggerRequested += TogglePanel;
         }
 
         void EnsureEventSystem()

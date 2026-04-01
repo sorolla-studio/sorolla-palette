@@ -2,11 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.6.0] - 2026-04-01
+
+### Added
+- **`Palette.TrackPurchase(amount, currency)`**: Unified purchase tracking that fans out to Adjust, TikTok, Facebook, and Firebase in one call
+- **`Palette.ShowDebugger()`**: Public API to open Debug UI programmatically + drop-in `Sorolla Debugger.prefab` (DontDestroyOnLoad, triple-tap or API)
+- **TikTok Debug UI card**: Shows TikTok SDK status, config fields, and test event buttons
+- **Editor tests**: AndroidManifestSanitizer and BuildValidator test suites with fixture manifests
+- **Android build compatibility guide**: Unity version matrix, R8/AGP, split manifests, `androidApplicationEntry` bitmask
+- **External studio onboarding docs**: Restructured `switching-to-full.md` with RACI matrix, identifier cross-reference table, QA preflight checklist, consent ordering. Added `index.md` landing page, `guides/tiktok.md`, internal dashboard setup runbook.
+
+### Fixed
+- **SDK initialization deferred until MAX consent resolves**: `Palette.IsInitialized` and `OnInitialized` now fire after MAX CMP completes, preventing pre-consent data from reaching downstream SDKs. `SorollaBootstrapper` passes `consent:false` when MAX is installed.
+- **Google Ad Manager required for UMP consent**: MAX needs a Google mediated network adapter (Ad Manager or AdMob) installed in Integration Manager for the UMP form to render. Without it, only the MAX privacy popup appeared - GDPR CMP dialog was silently missing. Documented across gdpr.md, switching-to-full.md, CLAUDE.md, and internal runbook.
+- **Firebase event names**: Remapped to GA4 official constants (`level_start`, `level_end`, `level_up`, `earn_virtual_currency`, `spend_virtual_currency`)
+- **GameActivity detection**: Uses `SerializedObject` to read `androidApplicationEntry` for Unity 2022-6 compatibility (was using compile-time version checks)
+- **`DexingArtifactTransform` fix**: Guarded to Unity < 6 only (AGP 8.10.0 doesn't need it)
+
+### Changed
+- **BuildValidator hardened**: R8/AGP version checks, `androidApplicationEntry` validation, LauncherManifest activity detection
+- **AndroidManifestSanitizer**: Activity-class detection and LauncherManifest fixes for Unity 6 split manifest architecture
+- **GDPR duplication removed**: `switching-to-full.md` links to `guides/gdpr.md` instead of reproducing it
+- Removed Phase 1 test scaffolding, kept studio-value features
+- Added `PaletteConstants` for shared string literals
+
+## [3.5.0] - 2026-03-24
+
+### Fixed
+- **GDPR consent propagation**: GameAnalytics and Firebase Analytics now receive consent flags at init and dynamically when MAX CMP (UMP) resolves. Previously both initialized unconditionally regardless of consent status.
+- **TikTok credential logging**: Removed app IDs and TikTok app IDs from Debug.Log output during initialization
+- **TikTok debug mode**: Decoupled from `Debug.isDebugBuild` — now controlled via explicit `tiktokDebugMode` toggle in SorollaConfig. Prevents verbose TikTok logging in distributed beta builds.
+
+### Changed
+- **AppLovin MAX SDK**: Updated from 8.5.0 to 8.6.1
+- `GameAnalyticsAdapter.Initialize()` now accepts `bool consent` and calls `SetEnabledEventSubmission`
+- `FirebaseAdapter.Initialize()` now accepts `bool consent` and calls `SetAnalyticsCollectionEnabled`
+- `Palette` subscribes to `MaxAdapter.OnConsentStatusChanged` to propagate consent updates to GA and Firebase after CMP resolves
+
+### Added
+- `GameAnalyticsAdapter.UpdateConsent(bool)` — runtime consent update for GA event submission
+- `FirebaseAdapter.UpdateConsent(bool)` — runtime consent update for Firebase analytics collection
+- `SorollaConfig.tiktokDebugMode` field — explicit opt-in for TikTok SDK debug logging
+
 ## [3.4.2] - 2026-03-10
 
 ### Fixed
-- **ATT: Removed `com.unity.ads.ios-support` dependency**: Replaced with native Objective-C bridge (`ATTBridge.cs` + `SorollaATT.mm`). Root cause of compilation failures when the package was absent — previous patches addressed symptoms but not the hard asmdef reference. Zero-dependency pattern, same as TikTok.
-- **SorollaBootstrapper persistence**: Removed over-engineered `MakePersistent` scene validity check that could *prevent* `DontDestroyOnLoad` at `BeforeSceneLoad` timing. Added `EnsurePersistent()` fallback in `Start()` — guarantees the SDK survives fast scene transitions (e.g. splash screens that unload immediately).
+- **ATT: Removed `com.unity.ads.ios-support` dependency**: Replaced with native Objective-C bridge (`ATTBridge.cs` + `SorollaATT.mm`). Root cause of compilation failures when the package was absent - previous patches addressed symptoms but not the hard asmdef reference. Zero-dependency pattern, same as TikTok.
+- **SorollaBootstrapper persistence**: Removed over-engineered `MakePersistent` scene validity check that could *prevent* `DontDestroyOnLoad` at `BeforeSceneLoad` timing. Added `EnsurePersistent()` fallback in `Start()` - guarantees the SDK survives fast scene transitions (e.g. splash screens that unload immediately).
 - **Double-init warning**: `Palette.Initialize()` now tells developers to remove manual calls instead of a generic "Already initialized" message.
 
 ### Removed
@@ -15,7 +57,7 @@ All notable changes to this project will be documented in this file.
 ## [3.4.1] - 2026-03-06
 
 ### Fixed
-- **GameAnalyticsAdapter**: Added `#if UNITY_ANDROID` guard to `TrackBusinessEventGooglePlay` — previously called an Android-only GA API on all platforms (would fail in Editor/iOS). Falls back to generic `NewBusinessEvent` on non-Android.
+- **GameAnalyticsAdapter**: Added `#if UNITY_ANDROID` guard to `TrackBusinessEventGooglePlay` - previously called an Android-only GA API on all platforms (would fail in Editor/iOS). Falls back to generic `NewBusinessEvent` on non-Android.
 - **SorollaBootstrapper**: Fixed iOS ATT dialog silently dropping when called too early. Added 1-frame + 1-second delay before `RequestAuthorizationTracking`. Switched to callback-based wait (was polling status in a loop). Skips request if status is already determined.
 
 ## [3.4.0] - 2026-02-18

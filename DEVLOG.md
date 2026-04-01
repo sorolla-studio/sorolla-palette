@@ -7,6 +7,26 @@
 
 ## Recent Session Learnings
 
+### 2026-03-30 - Firebase Event Remapping + Unified Purchase Tracking
+
+**Summary:** Remapped Firebase analytics events from GA-style names to GA4 official game events. Added `Palette.TrackPurchase()` to unify attribution calls.
+
+**What Changed:**
+- `FirebaseAdapterImpl.TrackProgressionEvent`: `"progression"` → `EventLevelStart`/`EventLevelEnd`, `progression_01` → `ParameterLevelName`, added `success` param
+- `FirebaseAdapterImpl.TrackResourceEvent`: `"resource_flow"` → `EventEarnVirtualCurrency`/`EventSpendVirtualCurrency`, params remapped to GA4 schema
+- `Palette.TrackPurchase(amount, currency)`: New unified method fans out to Adjust, TikTok, Facebook
+- `SorollaConfig.adjustPurchaseEventToken`: New config field for Adjust revenue event token
+- Consolidated test controllers into SDK DebugUI sample (deleted standalone AdjustTestController, TikTokTestController)
+- Added `TikTokCardController` to DebugUI, added `TikTok` to `LogSource` enum
+
+**Key Decisions:**
+- Use `FirebaseAnalytics.Event*`/`Parameter*` constants instead of string literals - ensures forward compat with GA4
+- GA-specific params (itemType/itemId split) dropped on Firebase side - GA4 only has `item_name`
+- Purchase attribution stays opt-in per adapter (Adjust requires event token in config, TikTok requires app ID)
+- `level_category`/`level_subcategory` are custom params (no GA4 equivalent for progression_02/03)
+
+**Gotcha:** Always check GA4's official recommended game events before inventing custom event names. We shipped `earn_item`/`spend_item` then had to fix to `earn_virtual_currency`/`spend_virtual_currency`.
+
 ### 2026-02-09 - Firebase 13.7.0 Upgrade + EDM4U Gradle/Java Incompatibility
 
 **Summary:** Upgraded Firebase UPM fork from 12.10.1 → 13.7.0. EDM4U Android resolver fails on first run due to Gradle/Java version mismatch.

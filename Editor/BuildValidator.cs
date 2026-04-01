@@ -37,7 +37,8 @@ namespace Sorolla.Palette.Editor
             AndroidManifest,
             MaxSettings,
             AdjustSettings,
-            Edm4uSettings
+            Edm4uSettings,
+            GradleConfig
         }
 
         public static readonly Dictionary<CheckCategory, string> CheckNames = new()
@@ -51,7 +52,8 @@ namespace Sorolla.Palette.Editor
             [CheckCategory.AndroidManifest] = "Android Manifest",
             [CheckCategory.MaxSettings] = "MAX Settings",
             [CheckCategory.AdjustSettings] = "Adjust Settings",
-            [CheckCategory.Edm4uSettings] = "EDM4U Settings"
+            [CheckCategory.Edm4uSettings] = "EDM4U Settings",
+            [CheckCategory.GradleConfig] = "Gradle Configuration"
         };
 
         public class ValidationResult
@@ -116,6 +118,8 @@ namespace Sorolla.Palette.Editor
                 results.AddRange(CheckMaxSettings());
                 results.AddRange(CheckAdjustSettings());
                 results.AddRange(CheckEdm4uSettings());
+                results.AddRange(CheckGradleConfig());
+                results.AddRange(CheckR8AgpConfig());
             }
             catch (Exception e)
             {
@@ -144,13 +148,77 @@ namespace Sorolla.Palette.Editor
                 if (duplicates.Count > 0)
                     fixes.Add($"Removed {duplicates.Count} duplicate activity declaration(s)");
                 if (wrongActivity != null)
-                    fixes.Add($"Fixed main activity: {wrongActivity} → UnityPlayerGameActivity");
+                    fixes.Add($"Fixed main activity: {wrongActivity} → {AndroidManifestSanitizer.GetExpectedMainActivity()}");
                 AndroidManifestSanitizer.Sanitize();
+            }
+
+            // LauncherManifest sanitization (Unity 6 split module architecture)
+            var launcherIssue = AndroidManifestSanitizer.DetectLauncherManifestIssue();
+            if (launcherIssue != null)
+            {
+                if (AndroidManifestSanitizer.FixLauncherManifest())
+                    fixes.Add($"Fixed LauncherManifest.xml: {launcherIssue}");
             }
 
             // MAX settings sanitization
             if (MaxSettingsSanitizer.Sanitize())
                 fixes.Add("Disabled AppLovin Quality Service (prevents build failures)");
+
+            // Gradle config auto-fixes (Android only)
+            if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android)
+            {
+                // compileOptions: Java 11 → 17 (both mainTemplate and launcherTemplate)
+                foreach (var templatePath in GradleTemplatePaths)
+                {
+                    if (!File.Exists(templatePath)) continue;
+                    var gradle = File.ReadAllText(templatePath);
+                    if (gradle.Contains("VERSION_11") && (gradle.Contains("sourceCompatibility") || gradle.Contains("targetCompatibility")))
+                    {
+                        gradle = gradle.Replace("VERSION_11", "VERSION_17");
+                        File.WriteAllText(templatePath, gradle);
+                        fixes.Add($"Upgraded {Path.GetFileName(templatePath)} compileOptions: Java 11 → 17 (required by Firebase/MAX/Kotlin)");
+                    }
+                }
+
+                // R8 pin removal (Unity 6 only - AGP 8.x bundles modern R8, pin causes NoSuchMethodError)
+#if UNITY_6000_0_OR_NEWER
+                if (File.Exists(BaseProjectTemplatePath))
+                {
+                    var baseGradle = File.ReadAllText(BaseProjectTemplatePath);
+                    if (baseGradle.Contains("com.android.tools:r8"))
+                    {
+                        var backupPath = BaseProjectTemplatePath + ".backup";
+                        File.Copy(BaseProjectTemplatePath, backupPath, true);
+
+                        // Remove the buildscript { ... } block using brace matching
+                        var cleaned = RemoveBuildscriptBlock(baseGradle);
+                        if (cleaned != baseGradle)
+                        {
+                            File.WriteAllText(BaseProjectTemplatePath, cleaned);
+                            fixes.Add("Removed R8 version pin from baseProjectTemplate.gradle - incompatible with AGP 8.x (backup created)");
+                            Debug.Log($"{Tag} Removed R8 pin from baseProjectTemplate.gradle (backup at {backupPath})");
+                        }
+                    }
+                }
+#endif
+
+                // Auto-detect JDK 17+ and write org.gradle.java.home (Unity 2022 only - Unity 6+ bundles JDK 17)
+#if !UNITY_6000_0_OR_NEWER
+                if (File.Exists(GradlePropertiesPath))
+                {
+                    var props = File.ReadAllText(GradlePropertiesPath);
+                    if (!props.Contains("org.gradle.java.home"))
+                    {
+                        var jdkPath = GradleJdkDetector.FindJdk17OrNewer();
+                        if (jdkPath != null)
+                        {
+                            File.AppendAllText(GradlePropertiesPath, $"\norg.gradle.java.home={jdkPath}\n");
+                            fixes.Add($"Set org.gradle.java.home={jdkPath} (Unity {Application.unityVersion} bundles JDK 11, need 17+)");
+                        }
+                    }
+                }
+#endif
+            }
 
             return fixes;
         }
@@ -332,6 +400,18 @@ namespace Sorolla.Palette.Editor
                     ));
                 }
 
+                // Check FullOnly SDKs missing in Full mode
+                if (sdk.Requirement == SdkRequirement.FullOnly && !isPrototype && !isInstalled)
+                {
+                    hasIssues = true;
+                    results.Add(new ValidationResult(
+                        ValidationStatus.Error,
+                        $"{sdk.Name} is required in Full mode but not installed",
+                        "Install the SDK or switch to Prototype mode",
+                        CheckCategory.ModeConsistency
+                    ));
+                }
+
                 // Check FullOnly SDKs in Prototype mode
                 if (sdk.Requirement == SdkRequirement.FullOnly && isPrototype && isInstalled)
                 {
@@ -496,8 +576,12 @@ namespace Sorolla.Palette.Editor
         ///     Auto-fix config sync issues.
         ///     Returns true if any fixes were applied.
         /// </summary>
-        /// <param name="installMissingSdks">If true, also install missing required SDKs. Use only on explicit user action.</param>
-        public static bool FixConfigSync(bool installMissingSdks = false)
+        /// <summary>
+        ///     Auto-fix config sync issues and install missing required SDKs.
+        ///     Always installs missing SDKs — the user should never be in a state
+        ///     where required SDKs are missing for the configured mode.
+        /// </summary>
+        public static bool FixConfigSync()
         {
             var config = Resources.Load<SorollaConfig>("SorollaConfig");
             if (config == null)
@@ -513,8 +597,8 @@ namespace Sorolla.Palette.Editor
                 Debug.Log($"{Tag} Auto-fixed: Synced config.isPrototypeMode to {SorollaSettings.IsPrototype}");
             }
 
-            // Auto-install missing required SDKs (only on explicit user action)
-            if (installMissingSdks && SorollaSettings.IsConfigured && !SdkDetector.AreAllRequiredInstalled(SorollaSettings.IsPrototype))
+            // Auto-install missing required SDKs
+            if (SorollaSettings.IsConfigured && !SdkDetector.AreAllRequiredInstalled(SorollaSettings.IsPrototype))
             {
                 var modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
                 Debug.Log($"{Tag} Auto-fixing: Installing missing required SDKs for {modeName} mode...");
@@ -583,8 +667,22 @@ namespace Sorolla.Palette.Editor
                     ValidationStatus.Error,
                     $"AndroidManifest.xml has wrong main activity!\n" +
                     $"  Found: {wrongActivity}\n" +
-                    $"  Expected: com.unity3d.player.UnityPlayerGameActivity\n" +
+                    $"  Expected: {AndroidManifestSanitizer.GetExpectedMainActivity()}\n" +
                     "  The app WILL crash on launch.",
+                    "Open Palette > Configuration and click Refresh in Build Health",
+                    CheckCategory.AndroidManifest
+                ));
+            }
+
+            // Check LauncherManifest.xml (Unity 6 split module architecture)
+            var launcherIssue = AndroidManifestSanitizer.DetectLauncherManifestIssue();
+            if (launcherIssue != null)
+            {
+                hasIssues = true;
+                results.Add(new ValidationResult(
+                    ValidationStatus.Error,
+                    $"LauncherManifest.xml issue: {launcherIssue}\n" +
+                    "  The app will install but fail to launch.",
                     "Open Palette > Configuration and click Refresh in Build Health",
                     CheckCategory.AndroidManifest
                 ));
@@ -788,6 +886,201 @@ namespace Sorolla.Palette.Editor
             return null;
         }
 
+        // ── Gradle Configuration ──────────────────────────────────────────
+
+        private const int RequiredJavaVersion = 17;
+        private static readonly string MainTemplatePath =
+            Path.Combine(Application.dataPath, "Plugins", "Android", "mainTemplate.gradle");
+        private static readonly string LauncherTemplatePath =
+            Path.Combine(Application.dataPath, "Plugins", "Android", "launcherTemplate.gradle");
+        private static readonly string GradlePropertiesPath =
+            Path.Combine(Application.dataPath, "Plugins", "Android", "gradleTemplate.properties");
+        private static readonly string BaseProjectTemplatePath =
+            Path.Combine(Application.dataPath, "Plugins", "Android", "baseProjectTemplate.gradle");
+        private static readonly string[] GradleTemplatePaths = { MainTemplatePath, LauncherTemplatePath };
+
+        /// <summary>
+        ///     Validate Gradle configuration for Java 17 compatibility.
+        ///     Firebase 23.x, AppLovin MAX 13.x, and Kotlin 2.x all require Java 17 bytecode.
+        ///     Unity 2022 bundles JDK 11 — Gradle must be pointed at JDK 17+ or dexing fails.
+        /// </summary>
+        private static List<ValidationResult> CheckGradleConfig()
+        {
+            var results = new List<ValidationResult>();
+
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
+            {
+                results.Add(new ValidationResult(ValidationStatus.Valid, "Gradle checks skipped (not Android)", category: CheckCategory.GradleConfig));
+                return results;
+            }
+
+            var hasIssues = false;
+
+            // Check compileOptions in both Gradle templates
+            foreach (var templatePath in GradleTemplatePaths)
+            {
+                if (!File.Exists(templatePath)) continue;
+                var gradle = File.ReadAllText(templatePath);
+                if (gradle.Contains("VERSION_11") && (gradle.Contains("sourceCompatibility") || gradle.Contains("targetCompatibility")))
+                {
+                    hasIssues = true;
+                    var fileName = Path.GetFileName(templatePath);
+                    results.Add(new ValidationResult(
+                        ValidationStatus.Error,
+                        $"{fileName} has Java 11 compileOptions!\n" +
+                        $"  Firebase 23.x, AppLovin MAX 13.x, and Kotlin 2.x require Java {RequiredJavaVersion}.\n" +
+                        $"  Change sourceCompatibility and targetCompatibility to VERSION_{RequiredJavaVersion}.",
+                        "Open Palette > Configuration and click Refresh in Build Health",
+                        CheckCategory.GradleConfig
+                    ));
+                }
+            }
+
+            // Check org.gradle.java.home in gradleTemplate.properties
+            if (File.Exists(GradlePropertiesPath))
+            {
+                var props = File.ReadAllText(GradlePropertiesPath);
+                if (!props.Contains("org.gradle.java.home"))
+                {
+                    // Unity 2022 bundles JDK 11 — need explicit JDK 17+ override
+#if !UNITY_6000_0_OR_NEWER
+                    hasIssues = true;
+                    results.Add(new ValidationResult(
+                        ValidationStatus.Error,
+                        "gradleTemplate.properties missing org.gradle.java.home!\n" +
+                        $"  Unity {Application.unityVersion} bundles JDK 11 which cannot dex Java {RequiredJavaVersion} bytecode.\n" +
+                        $"  Add org.gradle.java.home pointing to a JDK {RequiredJavaVersion}+ installation.\n" +
+                        "  Without this, ALL Firebase/MAX/Kotlin deps will fail to dex.",
+                        "Install JDK 17 and add org.gradle.java.home to gradleTemplate.properties",
+                        CheckCategory.GradleConfig
+                    ));
+#endif
+                }
+            }
+            else
+            {
+                hasIssues = true;
+                results.Add(new ValidationResult(
+                    ValidationStatus.Warning,
+                    "gradleTemplate.properties not found.\n" +
+                    "  Enable Custom Gradle Properties Template in Player Settings > Publishing Settings.",
+                    "Enable Custom Gradle Properties Template",
+                    CheckCategory.GradleConfig
+                ));
+            }
+
+            if (!hasIssues)
+                results.Add(new ValidationResult(ValidationStatus.Valid, "Gradle config OK", category: CheckCategory.GradleConfig));
+
+            return results;
+        }
+
+        /// <summary>
+        ///     Remove the buildscript { ... } block from a Gradle file using brace matching.
+        ///     Returns the original string if no buildscript block is found.
+        /// </summary>
+        internal static string RemoveBuildscriptBlock(string gradle)
+        {
+            var idx = gradle.IndexOf("buildscript", StringComparison.Ordinal);
+            if (idx < 0) return gradle;
+
+            // Find opening brace
+            var braceStart = gradle.IndexOf('{', idx);
+            if (braceStart < 0) return gradle;
+
+            // Match closing brace
+            var depth = 1;
+            var pos = braceStart + 1;
+            while (pos < gradle.Length && depth > 0)
+            {
+                if (gradle[pos] == '{') depth++;
+                else if (gradle[pos] == '}') depth--;
+                pos++;
+            }
+
+            if (depth != 0) return gradle; // Unbalanced braces, don't touch
+
+            // Include any trailing newlines
+            while (pos < gradle.Length && (gradle[pos] == '\n' || gradle[pos] == '\r'))
+                pos++;
+
+            // Include any leading whitespace/newlines before "buildscript"
+            var blockStart = idx;
+            while (blockStart > 0 && (gradle[blockStart - 1] == ' ' || gradle[blockStart - 1] == '\t' ||
+                                       gradle[blockStart - 1] == '\n' || gradle[blockStart - 1] == '\r'))
+                blockStart--;
+
+            return gradle.Substring(0, blockStart) + gradle.Substring(pos);
+        }
+
+        // ── R8 / AGP Compatibility ────────────────────────────────────────
+
+        /// <summary>
+        ///     Check for R8 version pins and Kotlin stdlib forcing that conflict with the current AGP version.
+        ///     Unity 2022 (AGP 7.4.2) needs R8 8.1.56+ pin for Kotlin 2.0 metadata.
+        ///     Unity 6 (AGP 8.x) bundles modern R8 - the pin must be removed.
+        /// </summary>
+        private static List<ValidationResult> CheckR8AgpConfig()
+        {
+            var results = new List<ValidationResult>();
+
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
+            {
+                results.Add(new ValidationResult(ValidationStatus.Valid, "R8/AGP checks skipped (not Android)", category: CheckCategory.GradleConfig));
+                return results;
+            }
+
+            var hasIssues = false;
+
+            // Check R8 pin in baseProjectTemplate.gradle
+            if (File.Exists(BaseProjectTemplatePath))
+            {
+                var gradle = File.ReadAllText(BaseProjectTemplatePath);
+                if (gradle.Contains("com.android.tools:r8"))
+                {
+#if UNITY_6000_0_OR_NEWER
+                    hasIssues = true;
+                    results.Add(new ValidationResult(
+                        ValidationStatus.Error,
+                        "baseProjectTemplate.gradle has an R8 version pin!\n" +
+                        "  AGP 8.x bundles modern R8 that handles Kotlin 2.0 natively.\n" +
+                        "  The pin causes NoSuchMethodError during dexing.\n" +
+                        "  Remove the buildscript { ... } block from baseProjectTemplate.gradle.",
+                        "Open Palette > Configuration and click Refresh in Build Health",
+                        CheckCategory.GradleConfig
+                    ));
+#endif
+                    // Unity 2022: R8 pin is expected and correct - no warning needed
+                }
+            }
+
+            // Check Kotlin stdlib version forcing in mainTemplate.gradle
+            if (File.Exists(MainTemplatePath))
+            {
+                var gradle = File.ReadAllText(MainTemplatePath);
+                if (gradle.Contains("kotlin-stdlib") && gradle.Contains("useVersion"))
+                {
+#if UNITY_6000_0_OR_NEWER
+                    hasIssues = true;
+                    results.Add(new ValidationResult(
+                        ValidationStatus.Warning,
+                        "mainTemplate.gradle forces Kotlin stdlib to an older version.\n" +
+                        "  AGP 8.x handles Kotlin 2.0 metadata natively.\n" +
+                        "  Consider removing the resolutionStrategy block.",
+                        "Remove the resolutionStrategy.eachDependency block for kotlin-stdlib",
+                        CheckCategory.GradleConfig
+                    ));
+#endif
+                    // Unity 2022: Kotlin forcing is expected and correct - no warning needed
+                }
+            }
+
+            if (!hasIssues)
+                results.Add(new ValidationResult(ValidationStatus.Valid, "R8/AGP config OK", category: CheckCategory.GradleConfig));
+
+            return results;
+        }
+
         /// <summary>
         ///     Read and parse manifest.json
         /// </summary>
@@ -863,11 +1156,44 @@ namespace Sorolla.Palette.Editor
     }
 
     /// <summary>
+    ///     Surface Build Health issues in the console on domain reload so studios see problems
+    ///     early, even if they don't open the Palette Configuration window.
+    /// </summary>
+    [InitializeOnLoad]
+    static class BuildHealthConsoleNotifier
+    {
+        static BuildHealthConsoleNotifier()
+        {
+            EditorApplication.delayCall += CheckHealthOnReload;
+        }
+
+        private static void CheckHealthOnReload()
+        {
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android &&
+                EditorUserBuildSettings.activeBuildTarget != BuildTarget.iOS)
+                return;
+
+            try
+            {
+                var results = BuildValidator.RunAllChecks();
+                var errorCount = results.Count(r => r.Status == BuildValidator.ValidationStatus.Error);
+                if (errorCount > 0)
+                    Debug.LogWarning(
+                        $"[Palette] Build Health: {errorCount} issue(s) detected. Open Palette > Configuration to review.");
+            }
+            catch
+            {
+                // Silently ignore - domain reload timing can cause transient failures
+            }
+        }
+    }
+
+    /// <summary>
     ///     Auto-run validation before builds
     /// </summary>
     public class BuildValidatorPreprocessor : IPreprocessBuildWithReport
     {
-        public int callbackOrder => 0;
+        public int callbackOrder => -100;
 
         public void OnPreprocessBuild(BuildReport report)
         {
