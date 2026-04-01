@@ -38,7 +38,8 @@ namespace Sorolla.Palette.Editor
             MaxSettings,
             AdjustSettings,
             Edm4uSettings,
-            GradleConfig
+            GradleConfig,
+            FirebaseConfig
         }
 
         public static readonly Dictionary<CheckCategory, string> CheckNames = new()
@@ -53,7 +54,8 @@ namespace Sorolla.Palette.Editor
             [CheckCategory.MaxSettings] = "MAX Settings",
             [CheckCategory.AdjustSettings] = "Adjust Settings",
             [CheckCategory.Edm4uSettings] = "EDM4U Settings",
-            [CheckCategory.GradleConfig] = "Gradle Configuration"
+            [CheckCategory.GradleConfig] = "Gradle Configuration",
+            [CheckCategory.FirebaseConfig] = "Firebase Config Files"
         };
 
         public class ValidationResult
@@ -113,6 +115,7 @@ namespace Sorolla.Palette.Editor
                 results.AddRange(CheckModeConsistency(dependencies));
                 results.AddRange(CheckScopedRegistries(dependencies, registries));
                 results.AddRange(CheckFirebaseCoherence(dependencies));
+                results.AddRange(CheckFirebaseConfigFiles(dependencies));
                 results.AddRange(CheckConfigSync(dependencies));
                 results.AddRange(CheckAndroidManifest());
                 results.AddRange(CheckMaxSettings());
@@ -528,6 +531,49 @@ namespace Sorolla.Palette.Editor
             {
                 // Firebase missing in Prototype mode — silently valid (optional)
                 results.Add(new ValidationResult(ValidationStatus.Valid, "Firebase not installed (optional in Prototype)", category: CheckCategory.FirebaseCoherence));
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        ///     Check Firebase config files (google-services.json / GoogleService-Info.plist) for active build target.
+        /// </summary>
+        private static List<ValidationResult> CheckFirebaseConfigFiles(Dictionary<string, object> dependencies)
+        {
+            var results = new List<ValidationResult>();
+            const CheckCategory category = CheckCategory.FirebaseConfig;
+
+            var hasFirebase = dependencies.ContainsKey(SdkRegistry.All[SdkId.FirebaseAnalytics].PackageId);
+            if (!hasFirebase)
+            {
+                results.Add(new ValidationResult(ValidationStatus.Valid, "Firebase not installed, config check skipped", category: category));
+                return results;
+            }
+
+            var target = EditorUserBuildSettings.activeBuildTarget;
+
+            if (target == BuildTarget.Android && !SdkConfigDetector.IsFirebaseAndroidConfigured())
+            {
+                results.Add(new ValidationResult(
+                    ValidationStatus.Error,
+                    "google-services.json not found",
+                    "Download from Firebase Console > Project Settings > Android app and place in Assets/",
+                    category
+                ));
+            }
+            else if (target == BuildTarget.iOS && !SdkConfigDetector.IsFirebaseIOSConfigured())
+            {
+                results.Add(new ValidationResult(
+                    ValidationStatus.Error,
+                    "GoogleService-Info.plist not found",
+                    "Download from Firebase Console > Project Settings > iOS app and place in Assets/",
+                    category
+                ));
+            }
+            else
+            {
+                results.Add(new ValidationResult(ValidationStatus.Valid, "Firebase config files present", category: category));
             }
 
             return results;

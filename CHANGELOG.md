@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.6.1] - 2026-04-01
+
+### Fixed
+- **Firebase Editor Play mode**: Clear error message instead of cryptic `TypeInitializationException` when native plugin unavailable in Editor (does not affect device builds)
+- **BuildValidator**: Checks for `google-services.json` (Android) / `GoogleService-Info.plist` (iOS) when Firebase is installed, blocks build with actionable error if missing
+
 ## [3.6.0] - 2026-04-01
 
 ### Added
