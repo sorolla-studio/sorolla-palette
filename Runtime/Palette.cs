@@ -288,7 +288,7 @@ namespace Sorolla.Palette
                 Debug.LogWarning($"{Tag} Debug UI not available. Import the DebugUI sample and add the prefab to your scene.");
                 return;
             }
-            OnToggleDebuggerRequested.Invoke()
+            OnToggleDebuggerRequested.Invoke();
         }
 
         #endregion
