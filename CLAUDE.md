@@ -178,15 +178,17 @@ git push origin master --tags
 
 ## Git Policy
 
-**This is a Unity project. Never use `git add -A`, `git add .`, or stage files without reviewing each one by name.**
+**This is a distributed SDK consumed by external studios via UPM git URL.** Every commit to master is a potential release. Every tagged version ships directly to studio projects. There is no review gate between a push and a studio pulling `#vX.Y.Z`. The quality bar is production distribution, not personal project hygiene.
 
-Unity auto-modifies files just by opening the editor: `.asset` files (Addressables, URP settings, editor prefs), `.dll.meta` (serialization UID changes), scene files (reflection probes, lighting), Library state. These must never be included in a feature commit unless they are explicitly part of the change.
+**Never use `git add -A`, `git add .`, or stage files without reviewing each one by name.**
 
 **Required workflow for every commit:**
 1. `git status` - review the full list of changed files
-2. Separate signal from noise: identify which files are part of the change vs Unity editor auto-touches
+2. Identify which files are part of the change. Question everything that isn't obviously related.
 3. `git add file1 file2 file3` - stage by explicit name only
 4. `git diff --cached --stat` - verify staged files before committing
 5. If unsure whether a file belongs, leave it out
 
-A missing file is trivial to add. A dirty commit requires a reset and force push.
+**When working in studio game repos** (e.g., Sweep Collector, Happy Snake), the same rule applies with extra care: Unity auto-modifies `.asset`, `.dll.meta`, and scene files just by opening the editor. These must never leak into feature commits.
+
+A missing file is trivial to add. A dirty commit to a distributed SDK requires a reset, force push, and tag move - and any studio that already pulled the tag gets broken.
