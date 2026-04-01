@@ -88,10 +88,11 @@ If TikTok campaign tracking is needed, enter `tiktokAppId`, `tiktokEmAppId`, and
 Consent must be configured in the right order:
 
 1. **First:** Publish GDPR consent message in AdMob (must be live before the app launches)
-2. **Then:** Configure MAX consent flow in Unity
-3. **Then:** Build and test
+2. **Then:** Install **Google Ad Manager** (or Google AdMob) mediated network in MAX Integration Manager. MAX needs the Google Mobile Ads SDK to render the UMP consent form - without it, the CMP dialog silently won't appear.
+3. **Then:** Configure MAX consent flow in Unity
+4. **Then:** Build and test
 
-Reversing this order causes a silent failure - the app runs, ads load, but the GDPR dialog never appears for EU users.
+Reversing this order or skipping step 2 causes a silent failure - the app runs, ads load, but the GDPR dialog never appears for EU users.
 
 [Full GDPR/ATT Guide](guides/gdpr.md) - covers AdMob setup, MAX Integration Manager, privacy button code, and testing.
 

@@ -129,8 +129,9 @@ Do NOT create a duplicate app. Facebook deduplicates by package name/bundle ID -
 This order matters. Reversing it causes silent failure (app works, GDPR dialog never shows):
 
 1. **AdMob:** Privacy & Messaging > GDPR > create message > enable ad partners (AppLovin, AdMob, Meta, Unity) > **Publish**
-2. **MAX Integration Manager:** enable Terms and Privacy Policy Flow > set Privacy Policy URL > set ATT Usage Description > Save
-3. **Build and test**
+2. **MAX Integration Manager:** install **Google Ad Manager** (or Google AdMob) under Mediated Networks (required for UMP consent form to render)
+3. **MAX Integration Manager:** enable Terms and Privacy Policy Flow > set Privacy Policy URL > set ATT Usage Description > Save
+4. **Build and test**
 
 ---
 
