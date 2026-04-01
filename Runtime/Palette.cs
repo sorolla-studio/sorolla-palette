@@ -377,9 +377,15 @@ namespace Sorolla.Palette
                 TikTokAdapter.Initialize(Config.tiktokEmAppId.Current, Config.tiktokAppId.Current, Config.tiktokAccessToken?.Current ?? "", Config.tiktokDebugMode);
             }
 
+            // When MAX is installed, defer IsInitialized until MAX consent resolves
+            // (set in OnMaxSdkInitialized). Without MAX, we're ready now.
+#if !(SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED)
             IsInitialized = true;
             OnInitialized?.Invoke();
             Debug.Log($"{Tag} Ready!");
+#else
+            Debug.Log($"{Tag} Waiting for MAX consent resolution...");
+#endif
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -551,6 +557,17 @@ namespace Sorolla.Palette
 
         static void OnMaxSdkInitialized()
         {
+            // MAX CMP has resolved. Propagate real consent to SDKs that started with false.
+            bool consent = MaxAdapter.ConsentStatus == Adapters.ConsentStatus.Obtained
+                        || MaxAdapter.ConsentStatus == Adapters.ConsentStatus.NotApplicable;
+            HasConsent = consent;
+            Debug.Log($"{Tag} MAX consent resolved: {MaxAdapter.ConsentStatus} (consent={consent})");
+
+            GameAnalyticsAdapter.UpdateConsent(consent);
+#if FIREBASE_ANALYTICS_INSTALLED
+            FirebaseAdapter.UpdateConsent(consent);
+#endif
+
             // Per MAX SDK docs: Initialize other SDKs (like Adjust) INSIDE the MAX callback
             // to ensure proper consent flow handling
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
@@ -560,6 +577,10 @@ namespace Sorolla.Palette
                 InitializeAdjust();
             }
 #endif
+
+            IsInitialized = true;
+            OnInitialized?.Invoke();
+            Debug.Log($"{Tag} Ready!");
         }
 
         static void OnMaxConsentChanged(Adapters.ConsentStatus status)
