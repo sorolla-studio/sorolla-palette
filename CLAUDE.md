@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a **standalone Git repository** (not part of the parent Unity project):
 - Repo: https://github.com/sorolla-studio/sorolla-palette
-- Commits: `git add . && git commit -m "message"` (run from this directory)
+- Commits run from this directory (see Git Policy below)
 
 ## Editor Commands
 
@@ -170,7 +170,23 @@ Mode stored in EditorPrefs, runtime config in `Resources/SorollaConfig.asset`.
 
 **Commands:**
 ```bash
-git add -A && git commit -m "chore: bump version to X.Y.Z"
+git add package.json CHANGELOG.md README.md Documentation~/quick-start.md
+git commit -m "chore: bump version to X.Y.Z"
 git tag -a vX.Y.Z -m "vX.Y.Z - Short description"
 git push origin master --tags
 ```
+
+## Git Policy
+
+**This is a Unity project. Never use `git add -A`, `git add .`, or stage files without reviewing each one by name.**
+
+Unity auto-modifies files just by opening the editor: `.asset` files (Addressables, URP settings, editor prefs), `.dll.meta` (serialization UID changes), scene files (reflection probes, lighting), Library state. These must never be included in a feature commit unless they are explicitly part of the change.
+
+**Required workflow for every commit:**
+1. `git status` - review the full list of changed files
+2. Separate signal from noise: identify which files are part of the change vs Unity editor auto-touches
+3. `git add file1 file2 file3` - stage by explicit name only
+4. `git diff --cached --stat` - verify staged files before committing
+5. If unsure whether a file belongs, leave it out
+
+A missing file is trivial to add. A dirty commit requires a reset and force push.
