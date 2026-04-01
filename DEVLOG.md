@@ -7,6 +7,27 @@
 
 ## Recent Session Learnings
 
+### 2026-04-01 - v3.6.0 Release: Firebase androidlib + asmdef defineConstraints
+
+**Summary:** Merged feat/tiktok into master, released v3.6.0. Two bugs surfaced when Sweep Collector switched from local symlink to UPM git URL.
+
+**Bug 1: Firebase asmdef `defineConstraints` OR syntax**
+- `Sorolla.Adapters.Firebase.asmdef` had `"FIREBASE_ANALYTICS_INSTALLED || FIREBASE_CRASHLYTICS_INSTALLED || FIREBASE_REMOTE_CONFIG_INSTALLED"`
+- Unity `defineConstraints` does NOT support `||` in a single string - it silently treats unrecognized expressions as always-true
+- With local symlink, Firebase DLLs were always discoverable so it compiled fine even though the constraint was broken
+- Via UPM git URL without Firebase installed: CS0246 errors because the assembly compiled but couldn't find Firebase types
+- **Fix:** Single constraint `"FIREBASE_ANALYTICS_INSTALLED"` (all Firebase packages are always installed as a bundle)
+
+**Bug 2: Firebase Android crash - missing androidlib folders**
+- `Firebase.Editor.dll` auto-generates `Assets/Plugins/Android/FirebaseApp.androidlib/` on domain reload
+- Contains `res/values/google-services.xml` (processed from `google-services.json`)
+- Also generates `FirebaseCrashlytics.androidlib/` and `Assets/GeneratedLocalRepo/`
+- Without these, Android crash at launch: "Default FirebaseApp failed to initialize because no default options were found"
+- The `**APPLY_PLUGINS**` placeholder in mainTemplate.gradle resolves to empty without these
+- **Fix:** Domain reload in Unity after Firebase packages resolve, then Force Resolve if needed
+
+**Root cause for both:** Testing with local symlinks masks issues that only surface with real UPM resolution. Always test package changes via git URL, not just symlink.
+
 ### 2026-03-30 - Firebase Event Remapping + Unified Purchase Tracking
 
 **Summary:** Remapped Firebase analytics events from GA-style names to GA4 official game events. Added `Palette.TrackPurchase()` to unify attribution calls.
