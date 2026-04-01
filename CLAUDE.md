@@ -98,6 +98,7 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 **Unity asmdef**:
 - `versionDefines` + `defineConstraints` BOTH needed for optional assemblies
 - `defineConstraints` prevents compilation when symbol not set
+- `defineConstraints` does NOT support `||` (boolean OR) in a single string - Unity silently treats unrecognized expressions as satisfied. Use a single symbol per constraint entry.
 
 **MAX SDK**:
 - SDK key is in AppLovinSettings (Integration Manager), NOT SorollaConfig
@@ -109,6 +110,16 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 - **Requires Google Ad Manager (or AdMob) mediated network installed in MAX Integration Manager** - without it, MAX has no Google Mobile Ads SDK bridge and the UMP consent form silently won't render
 - Enable in Integration Manager: Terms & Privacy Policy Flow + iOS ATT
 - SorollaBootstrapper just calls `Palette.Initialize()` - no manual ATT handling
+
+**Firebase Android Build Pipeline**:
+- `Firebase.Editor.dll` auto-generates `Assets/Plugins/Android/FirebaseApp.androidlib/` from `google-services.json` on domain reload
+- This folder contains `res/values/google-services.xml` with processed Firebase config (API keys, project ID, etc.)
+- `FirebaseCrashlytics.androidlib/` is also generated (build ID, Unity version)
+- Also generates `Assets/GeneratedLocalRepo/` (local Maven repo for Gradle)
+- **Without these folders, Android builds crash at launch**: "Default FirebaseApp failed to initialize because no default options were found"
+- The `**APPLY_PLUGINS**` placeholder in `mainTemplate.gradle` is populated by Firebase Editor to inject `com.google.gms.google-services` plugin
+- Common triggers for missing androidlib: switching from symlink to UPM git URL, clean import, deleting Library folder
+- Fix: domain reload in Unity, then `Assets > External Dependency Manager > Android Resolver > Force Resolve` if still missing
 
 **EDM4U + Unity 6**:
 - Bundles Gradle 5.1.1, incompatible with Java 17+ (Unity 6 default)
