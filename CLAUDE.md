@@ -106,6 +106,7 @@ Three layers required for `[RuntimeInitializeOnLoadMethod]` to work in IL2CPP bu
 
 **Consent Flow (CMP-First)**:
 - MAX handles consent flow automatically: CMP (UMP) → ATT (iOS)
+- **Requires Google Ad Manager (or AdMob) mediated network installed in MAX Integration Manager** - without it, MAX has no Google Mobile Ads SDK bridge and the UMP consent form silently won't render
 - Enable in Integration Manager: Terms & Privacy Policy Flow + iOS ATT
 - SorollaBootstrapper just calls `Palette.Initialize()` - no manual ATT handling
 
