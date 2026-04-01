@@ -1,0 +1,19 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools:r8:8.1.56"
+    }
+}
+
+plugins {
+    id 'com.android.application' version '8.10.0' apply false
+    id 'com.android.library' version '8.10.0' apply false
+    **BUILD_SCRIPT_DEPS**
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
