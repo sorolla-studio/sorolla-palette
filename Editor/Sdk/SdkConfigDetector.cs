@@ -107,10 +107,8 @@ namespace Sorolla.Palette.Editor
             if (config == null)
                 return ConfigStatus.NotConfigured;
 
-            // Check SorollaConfig (single source of truth)
-            return !string.IsNullOrEmpty(config.maxSdkKey) && config.maxSdkKey.Length > 10
-                ? ConfigStatus.Configured
-                : ConfigStatus.NotConfigured;
+            // SDK key is embedded in PaletteConstants, always configured
+            return ConfigStatus.Configured;
         }
 
         /// <summary>

@@ -119,6 +119,7 @@ namespace Sorolla.Palette.Editor
                 results.AddRange(CheckAdjustSettings());
                 results.AddRange(CheckEdm4uSettings());
                 results.AddRange(CheckGradleConfig());
+                results.AddRange(CheckR8AgpConfig());
             }
             catch (Exception e)
             {
@@ -179,7 +180,29 @@ namespace Sorolla.Palette.Editor
                     }
                 }
 
-                // Auto-detect JDK 17+ and write org.gradle.java.home (Unity 2022 only — Unity 6+ bundles JDK 17)
+                // R8 pin removal (Unity 6 only - AGP 8.x bundles modern R8, pin causes NoSuchMethodError)
+#if UNITY_6000_0_OR_NEWER
+                if (File.Exists(BaseProjectTemplatePath))
+                {
+                    var baseGradle = File.ReadAllText(BaseProjectTemplatePath);
+                    if (baseGradle.Contains("com.android.tools:r8"))
+                    {
+                        var backupPath = BaseProjectTemplatePath + ".backup";
+                        File.Copy(BaseProjectTemplatePath, backupPath, true);
+
+                        // Remove the buildscript { ... } block using brace matching
+                        var cleaned = RemoveBuildscriptBlock(baseGradle);
+                        if (cleaned != baseGradle)
+                        {
+                            File.WriteAllText(BaseProjectTemplatePath, cleaned);
+                            fixes.Add("Removed R8 version pin from baseProjectTemplate.gradle - incompatible with AGP 8.x (backup created)");
+                            Debug.Log($"{Tag} Removed R8 pin from baseProjectTemplate.gradle (backup at {backupPath})");
+                        }
+                    }
+                }
+#endif
+
+                // Auto-detect JDK 17+ and write org.gradle.java.home (Unity 2022 only - Unity 6+ bundles JDK 17)
 #if !UNITY_6000_0_OR_NEWER
                 if (File.Exists(GradlePropertiesPath))
                 {
@@ -872,6 +895,8 @@ namespace Sorolla.Palette.Editor
             Path.Combine(Application.dataPath, "Plugins", "Android", "launcherTemplate.gradle");
         private static readonly string GradlePropertiesPath =
             Path.Combine(Application.dataPath, "Plugins", "Android", "gradleTemplate.properties");
+        private static readonly string BaseProjectTemplatePath =
+            Path.Combine(Application.dataPath, "Plugins", "Android", "baseProjectTemplate.gradle");
         private static readonly string[] GradleTemplatePaths = { MainTemplatePath, LauncherTemplatePath };
 
         /// <summary>
@@ -951,6 +976,112 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
+        ///     Remove the buildscript { ... } block from a Gradle file using brace matching.
+        ///     Returns the original string if no buildscript block is found.
+        /// </summary>
+        internal static string RemoveBuildscriptBlock(string gradle)
+        {
+            var idx = gradle.IndexOf("buildscript", StringComparison.Ordinal);
+            if (idx < 0) return gradle;
+
+            // Find opening brace
+            var braceStart = gradle.IndexOf('{', idx);
+            if (braceStart < 0) return gradle;
+
+            // Match closing brace
+            var depth = 1;
+            var pos = braceStart + 1;
+            while (pos < gradle.Length && depth > 0)
+            {
+                if (gradle[pos] == '{') depth++;
+                else if (gradle[pos] == '}') depth--;
+                pos++;
+            }
+
+            if (depth != 0) return gradle; // Unbalanced braces, don't touch
+
+            // Include any trailing newlines
+            while (pos < gradle.Length && (gradle[pos] == '\n' || gradle[pos] == '\r'))
+                pos++;
+
+            // Include any leading whitespace/newlines before "buildscript"
+            var blockStart = idx;
+            while (blockStart > 0 && (gradle[blockStart - 1] == ' ' || gradle[blockStart - 1] == '\t' ||
+                                       gradle[blockStart - 1] == '\n' || gradle[blockStart - 1] == '\r'))
+                blockStart--;
+
+            return gradle.Substring(0, blockStart) + gradle.Substring(pos);
+        }
+
+        // ── R8 / AGP Compatibility ────────────────────────────────────────
+
+        /// <summary>
+        ///     Check for R8 version pins and Kotlin stdlib forcing that conflict with the current AGP version.
+        ///     Unity 2022 (AGP 7.4.2) needs R8 8.1.56+ pin for Kotlin 2.0 metadata.
+        ///     Unity 6 (AGP 8.x) bundles modern R8 - the pin must be removed.
+        /// </summary>
+        private static List<ValidationResult> CheckR8AgpConfig()
+        {
+            var results = new List<ValidationResult>();
+
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
+            {
+                results.Add(new ValidationResult(ValidationStatus.Valid, "R8/AGP checks skipped (not Android)", category: CheckCategory.GradleConfig));
+                return results;
+            }
+
+            var hasIssues = false;
+
+            // Check R8 pin in baseProjectTemplate.gradle
+            if (File.Exists(BaseProjectTemplatePath))
+            {
+                var gradle = File.ReadAllText(BaseProjectTemplatePath);
+                if (gradle.Contains("com.android.tools:r8"))
+                {
+#if UNITY_6000_0_OR_NEWER
+                    hasIssues = true;
+                    results.Add(new ValidationResult(
+                        ValidationStatus.Error,
+                        "baseProjectTemplate.gradle has an R8 version pin!\n" +
+                        "  AGP 8.x bundles modern R8 that handles Kotlin 2.0 natively.\n" +
+                        "  The pin causes NoSuchMethodError during dexing.\n" +
+                        "  Remove the buildscript { ... } block from baseProjectTemplate.gradle.",
+                        "Open Palette > Configuration and click Refresh in Build Health",
+                        CheckCategory.GradleConfig
+                    ));
+#endif
+                    // Unity 2022: R8 pin is expected and correct - no warning needed
+                }
+            }
+
+            // Check Kotlin stdlib version forcing in mainTemplate.gradle
+            if (File.Exists(MainTemplatePath))
+            {
+                var gradle = File.ReadAllText(MainTemplatePath);
+                if (gradle.Contains("kotlin-stdlib") && gradle.Contains("useVersion"))
+                {
+#if UNITY_6000_0_OR_NEWER
+                    hasIssues = true;
+                    results.Add(new ValidationResult(
+                        ValidationStatus.Warning,
+                        "mainTemplate.gradle forces Kotlin stdlib to an older version.\n" +
+                        "  AGP 8.x handles Kotlin 2.0 metadata natively.\n" +
+                        "  Consider removing the resolutionStrategy block.",
+                        "Remove the resolutionStrategy.eachDependency block for kotlin-stdlib",
+                        CheckCategory.GradleConfig
+                    ));
+#endif
+                    // Unity 2022: Kotlin forcing is expected and correct - no warning needed
+                }
+            }
+
+            if (!hasIssues)
+                results.Add(new ValidationResult(ValidationStatus.Valid, "R8/AGP config OK", category: CheckCategory.GradleConfig));
+
+            return results;
+        }
+
+        /// <summary>
         ///     Read and parse manifest.json
         /// </summary>
         private static Dictionary<string, object> ReadManifest()
@@ -1025,11 +1156,44 @@ namespace Sorolla.Palette.Editor
     }
 
     /// <summary>
+    ///     Surface Build Health issues in the console on domain reload so studios see problems
+    ///     early, even if they don't open the Palette Configuration window.
+    /// </summary>
+    [InitializeOnLoad]
+    static class BuildHealthConsoleNotifier
+    {
+        static BuildHealthConsoleNotifier()
+        {
+            EditorApplication.delayCall += CheckHealthOnReload;
+        }
+
+        private static void CheckHealthOnReload()
+        {
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android &&
+                EditorUserBuildSettings.activeBuildTarget != BuildTarget.iOS)
+                return;
+
+            try
+            {
+                var results = BuildValidator.RunAllChecks();
+                var errorCount = results.Count(r => r.Status == BuildValidator.ValidationStatus.Error);
+                if (errorCount > 0)
+                    Debug.LogWarning(
+                        $"[Palette] Build Health: {errorCount} issue(s) detected. Open Palette > Configuration to review.");
+            }
+            catch
+            {
+                // Silently ignore - domain reload timing can cause transient failures
+            }
+        }
+    }
+
+    /// <summary>
     ///     Auto-run validation before builds
     /// </summary>
     public class BuildValidatorPreprocessor : IPreprocessBuildWithReport
     {
-        public int callbackOrder => 0;
+        public int callbackOrder => -100;
 
         public void OnPreprocessBuild(BuildReport report)
         {

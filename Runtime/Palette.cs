@@ -249,7 +249,7 @@ namespace Sorolla.Palette
                 AdjustAdapter.TrackRevenue(Config.adjustPurchaseEventToken, amount, currency);
 #endif
 
-            if (!string.IsNullOrEmpty(Config?.tiktokAppId?.Current))
+            if (Config.enableTikTok && !string.IsNullOrEmpty(Config?.tiktokAppId?.Current))
                 TikTokAdapter.TrackPurchase(amount, currency);
 
 #if SOROLLA_FACEBOOK_ENABLED
@@ -370,8 +370,8 @@ namespace Sorolla.Palette
             FirebaseRemoteConfigAdapter.Initialize(autoFetch: true);
 #endif
 
-            // TikTok (if configured — requires both App IDs)
-            if (!string.IsNullOrEmpty(Config?.tiktokAppId?.Current) && !string.IsNullOrEmpty(Config?.tiktokEmAppId?.Current))
+            // TikTok (optional — requires enableTikTok + both App IDs)
+            if (Config.enableTikTok && !string.IsNullOrEmpty(Config?.tiktokAppId?.Current) && !string.IsNullOrEmpty(Config?.tiktokEmAppId?.Current))
             {
                 Debug.Log($"{Tag} Initializing TikTok...");
                 TikTokAdapter.Initialize(Config.tiktokEmAppId.Current, Config.tiktokAppId.Current, Config.tiktokAccessToken?.Current ?? "", Config.tiktokDebugMode);

@@ -228,29 +228,39 @@ namespace Sorolla.Palette.Editor
 
             try
             {
-                var doc = XDocument.Load(AndroidManifestPath);
-                var application = doc.Root?.Element("application");
-                if (application == null)
-                    return null;
-
-                // Find the launcher activity (has intent-filter with LAUNCHER category)
-                var launcherActivity = application.Elements("activity")
-                    .FirstOrDefault(a => a.Elements("intent-filter")
-                        .Any(f => f.Elements("category")
-                            .Any(c => c.Attribute(AndroidNs + "name")?.Value ==
-                                      "android.intent.category.LAUNCHER")));
-
-                if (launcherActivity == null)
-                    return null;
-
-                var activityName = launcherActivity.Attribute(AndroidNs + "name")?.Value;
-                if (activityName != null && activityName != GetExpectedMainActivity())
-                    return activityName;
+                var xmlContent = File.ReadAllText(AndroidManifestPath);
+                return DetectWrongMainActivityInXml(xmlContent, GetExpectedMainActivity());
             }
             catch (System.Exception e)
             {
                 Debug.LogError($"{Tag} Failed to detect main activity: {e.Message}");
             }
+
+            return null;
+        }
+
+        /// <summary>
+        ///     Pure XML detection logic - testable without file I/O or PlayerSettings.
+        /// </summary>
+        internal static string DetectWrongMainActivityInXml(string xmlContent, string expectedActivity)
+        {
+            var doc = XDocument.Parse(xmlContent);
+            var application = doc.Root?.Element("application");
+            if (application == null)
+                return null;
+
+            var launcherActivity = application.Elements("activity")
+                .FirstOrDefault(a => a.Elements("intent-filter")
+                    .Any(f => f.Elements("category")
+                        .Any(c => c.Attribute(AndroidNs + "name")?.Value ==
+                                  "android.intent.category.LAUNCHER")));
+
+            if (launcherActivity == null)
+                return null;
+
+            var activityName = launcherActivity.Attribute(AndroidNs + "name")?.Value;
+            if (activityName != null && activityName != expectedActivity)
+                return activityName;
 
             return null;
         }
@@ -297,29 +307,37 @@ namespace Sorolla.Palette.Editor
 
             try
             {
-                var doc = XDocument.Load(LauncherManifestPath);
-                var application = doc.Root?.Element("application");
-                if (application == null)
-                    return "LauncherManifest.xml has no <application> element";
-
-                var launcherActivity = application.Elements("activity")
-                    .FirstOrDefault(a => a.Elements("intent-filter")
-                        .Any(f => f.Elements("category")
-                            .Any(c => c.Attribute(AndroidNs + "name")?.Value ==
-                                      "android.intent.category.LAUNCHER")));
-
-                if (launcherActivity == null)
-                    return "LauncherManifest.xml has no activity with MAIN/LAUNCHER intent filter - app will not launch";
-
-                var activityName = launcherActivity.Attribute(AndroidNs + "name")?.Value;
-                var expected = GetExpectedMainActivity();
-                if (activityName != null && activityName != expected)
-                    return $"LauncherManifest.xml has wrong activity class: {activityName} (expected {expected})";
+                var xmlContent = File.ReadAllText(LauncherManifestPath);
+                return DetectLauncherManifestIssueInXml(xmlContent, GetExpectedMainActivity());
             }
             catch (System.Exception e)
             {
                 return $"Failed to parse LauncherManifest.xml: {e.Message}";
             }
+        }
+
+        /// <summary>
+        ///     Pure XML detection logic - testable without file I/O or PlayerSettings.
+        /// </summary>
+        internal static string DetectLauncherManifestIssueInXml(string xmlContent, string expectedActivity)
+        {
+            var doc = XDocument.Parse(xmlContent);
+            var application = doc.Root?.Element("application");
+            if (application == null)
+                return "LauncherManifest.xml has no <application> element";
+
+            var launcherActivity = application.Elements("activity")
+                .FirstOrDefault(a => a.Elements("intent-filter")
+                    .Any(f => f.Elements("category")
+                        .Any(c => c.Attribute(AndroidNs + "name")?.Value ==
+                                  "android.intent.category.LAUNCHER")));
+
+            if (launcherActivity == null)
+                return "LauncherManifest.xml has no activity with MAIN/LAUNCHER intent filter - app will not launch";
+
+            var activityName = launcherActivity.Attribute(AndroidNs + "name")?.Value;
+            if (activityName != null && activityName != expectedActivity)
+                return $"LauncherManifest.xml has wrong activity class: {activityName} (expected {expectedActivity})";
 
             return null;
         }
