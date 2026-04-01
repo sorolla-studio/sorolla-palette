@@ -19,9 +19,14 @@
     ],
     "autoReferenced": true,
     "defineConstraints": [
-        "FIREBASE_ANALYTICS_INSTALLED"
+        "SOROLLA_FIREBASE_ASMDEF_OK"
     ],
     "versionDefines": [
+        {
+            "name": "com.google.firebase.analytics",
+            "expression": "",
+            "define": "SOROLLA_FIREBASE_ASMDEF_OK"
+        },
         {
             "name": "com.google.firebase.analytics",
             "expression": "",

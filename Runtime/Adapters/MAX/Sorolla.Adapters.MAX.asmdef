@@ -13,9 +13,14 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [
-        "APPLOVIN_MAX_INSTALLED"
+        "SOROLLA_MAX_ASMDEF_OK"
     ],
     "versionDefines": [
+        {
+            "name": "com.applovin.mediation.ads",
+            "expression": "",
+            "define": "SOROLLA_MAX_ASMDEF_OK"
+        },
         {
             "name": "com.applovin.mediation.ads",
             "expression": "",

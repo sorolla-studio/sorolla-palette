@@ -12,9 +12,14 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [
-        "SOROLLA_ADJUST_ENABLED"
+        "SOROLLA_ADJUST_ASMDEF_OK"
     ],
     "versionDefines": [
+        {
+            "name": "com.adjust.sdk",
+            "expression": "",
+            "define": "SOROLLA_ADJUST_ASMDEF_OK"
+        },
         {
             "name": "com.adjust.sdk",
             "expression": "",
