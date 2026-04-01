@@ -72,7 +72,12 @@ namespace Sorolla.Palette.Adapters
             }
             catch (Exception ex)
             {
-                Debug.LogError($"{Tag} Exception: {ex.Message}");
+                if (ex is TypeInitializationException || ex.InnerException is TypeInitializationException)
+                    Debug.LogError($"{Tag} Firebase native library not available in Editor. " +
+                        "This does not affect Android/iOS device builds.");
+                else
+                    Debug.LogError($"{Tag} Exception: {ex.Message}");
+
                 _initialized = true;
                 _available = false;
                 InvokePendingCallbacks(false);
