@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Sorolla.Palette.Adapters
 {
@@ -10,9 +11,12 @@ namespace Sorolla.Palette.Adapters
         bool IsReady { get; }
         void Initialize(bool consent);
         void UpdateConsent(bool consent);
+        void TrackEvent(string eventName, Dictionary<string, object> parameters);
         void TrackDesignEvent(string eventName, float value);
-        void TrackProgressionEvent(string status, string p1, string p2, string p3, int score);
-        void TrackResourceEvent(string flowType, string currency, float amount, string itemType, string itemId);
+        void TrackProgressionEvent(string status, string p1, string p2, string p3, int score,
+            Dictionary<string, object> extraParams);
+        void TrackResourceEvent(string flowType, string currency, float amount, string itemType, string itemId,
+            Dictionary<string, object> extraParams);
         void TrackAdImpression(string adPlatform, string adSource, string adFormat, string adUnitName, double revenue, string currency);
         void TrackPurchase(string productId, double price, string currency, string transactionId);
         void SetUserId(string userId);
@@ -60,19 +64,26 @@ namespace Sorolla.Palette.Adapters
             s_impl?.UpdateConsent(consent);
         }
 
+        public static void TrackEvent(string eventName, Dictionary<string, object> parameters = null)
+        {
+            s_impl?.TrackEvent(eventName, parameters);
+        }
+
         public static void TrackDesignEvent(string eventName, float value = 0)
         {
             s_impl?.TrackDesignEvent(eventName, value);
         }
 
-        public static void TrackProgressionEvent(string status, string p1, string p2 = null, string p3 = null, int score = 0)
+        public static void TrackProgressionEvent(string status, string p1, string p2 = null, string p3 = null,
+            int score = 0, Dictionary<string, object> extraParams = null)
         {
-            s_impl?.TrackProgressionEvent(status, p1, p2, p3, score);
+            s_impl?.TrackProgressionEvent(status, p1, p2, p3, score, extraParams);
         }
 
-        public static void TrackResourceEvent(string flowType, string currency, float amount, string itemType, string itemId)
+        public static void TrackResourceEvent(string flowType, string currency, float amount, string itemType,
+            string itemId, Dictionary<string, object> extraParams = null)
         {
-            s_impl?.TrackResourceEvent(flowType, currency, amount, itemType, itemId);
+            s_impl?.TrackResourceEvent(flowType, currency, amount, itemType, itemId, extraParams);
         }
 
         public static void SetUserId(string userId)

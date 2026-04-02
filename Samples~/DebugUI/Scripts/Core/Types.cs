@@ -62,6 +62,7 @@ namespace Sorolla.Palette.DebugUI
         GodMode,
         CaptureUnityLogs,
         BannerAds,
+        AutoActivateConfig,
     }
 
     // Data structures

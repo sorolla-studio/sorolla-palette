@@ -9,28 +9,82 @@ namespace Sorolla.Palette.DebugUI
 {
     /// <summary>
     ///     Displays remote config key-value pairs from Firebase.
-    ///     If keys array is empty, auto-discovers all keys from Remote Config.
+    ///     Supports real-time updates, in-app defaults, and manual activation.
     /// </summary>
     public class RemoteConfigDisplay : UIComponentBase
     {
         [SerializeField] GameObject configRowPrefab;
         [SerializeField] Transform container;
         [SerializeField] Button fetchButton;
+        [SerializeField] Button setDefaultsButton;
+        [SerializeField] Button activateButton;
 
         [Header("Config Keys (leave empty to show all)")]
         [SerializeField] string[] _keysToDisplay;
 
         readonly List<GameObject> _rows = new List<GameObject>();
 
-        void Awake() => fetchButton.onClick.AddListener(HandleFetchClicked);
+        void Awake()
+        {
+            fetchButton.onClick.AddListener(HandleFetchClicked);
+            if (setDefaultsButton != null)
+                setDefaultsButton.onClick.AddListener(HandleSetDefaultsClicked);
+            if (activateButton != null)
+                activateButton.onClick.AddListener(HandleActivateClicked);
+        }
 
-        void OnDestroy() => fetchButton.onClick.RemoveListener(HandleFetchClicked);
+        void OnDestroy()
+        {
+            fetchButton.onClick.RemoveListener(HandleFetchClicked);
+            if (setDefaultsButton != null)
+                setDefaultsButton.onClick.RemoveListener(HandleSetDefaultsClicked);
+            if (activateButton != null)
+                activateButton.onClick.RemoveListener(HandleActivateClicked);
+        }
+
+        protected override void SubscribeToEvents()
+        {
+            Palette.OnRemoteConfigUpdated += HandleRemoteConfigUpdated;
+            SorollaDebugEvents.OnToggleChanged += HandleToggleChanged;
+        }
+
+        protected override void UnsubscribeFromEvents()
+        {
+            Palette.OnRemoteConfigUpdated -= HandleRemoteConfigUpdated;
+            SorollaDebugEvents.OnToggleChanged -= HandleToggleChanged;
+        }
 
         void Start()
         {
             container.gameObject.SetActive(false);
+            UpdateActivateButtonVisibility();
             if (Palette.IsRemoteConfigReady())
                 RefreshConfigDisplay();
+        }
+
+        void HandleToggleChanged(ToggleType type, bool value)
+        {
+            if (type != ToggleType.AutoActivateConfig) return;
+
+            Palette.AutoActivateRemoteConfigUpdates = value;
+            UpdateActivateButtonVisibility();
+            DebugPanelManager.Instance?.Log(
+                $"Auto-activate config: {(value ? "ON" : "OFF")}", LogSource.Firebase);
+        }
+
+        void UpdateActivateButtonVisibility()
+        {
+            if (activateButton != null)
+                activateButton.gameObject.SetActive(!Palette.AutoActivateRemoteConfigUpdates);
+        }
+
+        void HandleRemoteConfigUpdated(IReadOnlyCollection<string> updatedKeys)
+        {
+            int count = updatedKeys?.Count ?? 0;
+            DebugPanelManager.Instance?.Log(
+                $"Real-time config update ({count} keys)", LogSource.Firebase);
+            SorollaDebugEvents.RaiseShowToast($"Config updated ({count} keys)", ToastType.Info);
+            RefreshConfigDisplay();
         }
 
         void HandleFetchClicked()
@@ -57,6 +111,38 @@ namespace Sorolla.Palette.DebugUI
             }
         }
 
+        void HandleSetDefaultsClicked()
+        {
+            Palette.SetRemoteConfigDefaults(new Dictionary<string, object>
+            {
+                { "welcome_msg", "Hello!" },
+                { "max_retries", 3 },
+                { "feature_flag", true }
+            });
+
+            DebugPanelManager.Instance?.Log("Set RC defaults (3 values)", LogSource.Firebase);
+            SorollaDebugEvents.RaiseShowToast("Defaults set", ToastType.Success);
+            RefreshConfigDisplay();
+        }
+
+        async void HandleActivateClicked()
+        {
+            DebugPanelManager.Instance?.Log("Activating config...", LogSource.Firebase);
+            bool result = await Palette.ActivateRemoteConfigAsync();
+
+            if (result)
+            {
+                SorollaDebugEvents.RaiseShowToast("Config activated", ToastType.Success);
+                DebugPanelManager.Instance?.Log("Config activated successfully", LogSource.Firebase);
+                RefreshConfigDisplay();
+            }
+            else
+            {
+                SorollaDebugEvents.RaiseShowToast("Activation failed", ToastType.Error);
+                DebugPanelManager.Instance?.Log("Config activation failed", LogSource.Firebase, LogLevel.Error);
+            }
+        }
+
         void RefreshConfigDisplay()
         {
             ClearRows();
@@ -73,7 +159,7 @@ namespace Sorolla.Palette.DebugUI
 
             foreach (string key in keys)
             {
-                string value = FirebaseRemoteConfigAdapter.GetString(key, "—");
+                string value = FirebaseRemoteConfigAdapter.GetString(key, "\u2014");
                 AddConfigRow(key, value);
             }
 

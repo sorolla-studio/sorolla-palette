@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using UnityEngine;
@@ -163,15 +164,44 @@ namespace Sorolla.Palette
         /// <summary>Event fired when SDK initialization completes</summary>
         public static event Action OnInitialized;
 
+        #region Analytics - Custom Events
+
+        /// <summary>
+        ///     Track a custom structured event with arbitrary parameters.
+        ///     Firebase receives full structured params. GA receives best-effort design event.
+        ///     Use GA4 recommended event names where possible (e.g. "post_score", "tutorial_begin").
+        /// </summary>
+        /// <param name="eventName">GA4-compatible event name (lowercase, underscores, max 40 chars)</param>
+        /// <param name="parameters">Structured params. Supported types: string, int, long, float, double, bool, enum.</param>
+        public static void TrackEvent(string eventName, Dictionary<string, object> parameters = null)
+        {
+            if (!EnsureInit()) return;
+            if (!ValidateEvent(ref eventName, parameters)) return;
+
+#if FIREBASE_ANALYTICS_INSTALLED
+            FirebaseAdapter.TrackEvent(eventName, parameters);
+#endif
+
+            // GA best-effort: design event with first numeric value
+            GameAnalyticsAdapter.TrackDesignEvent(eventName, ExtractFirstNumericValue(parameters));
+        }
+
+        #endregion
+
         #region Analytics - Progression
 
         /// <summary>
         ///     Track a progression event (level start, complete, fail).
+        ///     Firebase mapping: Start -> level_start, Complete -> level_end, Fail -> level_fail.
         /// </summary>
+        /// <param name="extraParams">Optional structured params for Firebase (e.g. world, game_mode, duration_sec).
+        ///     Ignored by GameAnalytics. Supported types: string, int, long, float, double, bool, enum.</param>
         public static void TrackProgression(ProgressionStatus status, string progression01,
-            string progression02 = null, string progression03 = null, int score = 0)
+            string progression02 = null, string progression03 = null, int score = 0,
+            Dictionary<string, object> extraParams = null)
         {
             if (!EnsureInit()) return;
+            if (extraParams != null && !ValidateParams(extraParams)) return;
 
 #if GAMEANALYTICS_INSTALLED
             GAProgressionStatus gaStatus = ToGA(status);
@@ -181,7 +211,7 @@ namespace Sorolla.Palette
 #endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
-            FirebaseAdapter.TrackProgressionEvent(status.ToString().ToLower(), progression01, progression02, progression03, score);
+            FirebaseAdapter.TrackProgressionEvent(status.ToString().ToLower(), progression01, progression02, progression03, score, extraParams);
 #endif
         }
 
@@ -192,15 +222,12 @@ namespace Sorolla.Palette
         /// <summary>
         ///     Track a design event (custom analytics).
         /// </summary>
+        [System.Obsolete("Use Palette.TrackEvent(eventName, parameters) for structured custom events with Firebase/BigQuery support.")]
         public static void TrackDesign(string eventName, float value = 0)
         {
             if (!EnsureInit()) return;
 
             GameAnalyticsAdapter.TrackDesignEvent(eventName, value);
-
-#if SOROLLA_FACEBOOK_ENABLED
-            FacebookAdapter.TrackEvent(eventName, value);
-#endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
             FirebaseAdapter.TrackDesignEvent(eventName, value);
@@ -213,11 +240,15 @@ namespace Sorolla.Palette
 
         /// <summary>
         ///     Track a resource event (economy source/sink).
+        ///     Firebase mapping: Source -> earn_virtual_currency, Sink -> spend_virtual_currency.
         /// </summary>
+        /// <param name="extraParams">Optional structured params for Firebase (e.g. source, level, world).
+        ///     Ignored by GameAnalytics. Supported types: string, int, long, float, double, bool, enum.</param>
         public static void TrackResource(ResourceFlowType flowType, string currency, float amount,
-            string itemType, string itemId)
+            string itemType, string itemId, Dictionary<string, object> extraParams = null)
         {
             if (!EnsureInit()) return;
+            if (extraParams != null && !ValidateParams(extraParams)) return;
 
 #if GAMEANALYTICS_INSTALLED
             GAResourceFlowType gaFlow = ToGA(flowType);
@@ -227,7 +258,7 @@ namespace Sorolla.Palette
 #endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
-            FirebaseAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId);
+            FirebaseAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId, extraParams);
 #endif
         }
 
@@ -236,12 +267,15 @@ namespace Sorolla.Palette
         #region Analytics - Purchase
 
         /// <summary>
-        ///     Track an in-app purchase. Fans out to all active attribution adapters
-        ///     (Adjust, TikTok, Facebook) and Firebase Analytics.
+        ///     Track an in-app purchase. Fans out to Adjust, TikTok, and Firebase Analytics.
+        ///     Do not double-log if you rely on automatic store-side collection.
         /// </summary>
         /// <param name="amount">Purchase amount (e.g. 4.99)</param>
         /// <param name="currency">ISO 4217 currency code (default: USD)</param>
-        public static void TrackPurchase(double amount, string currency = "USD")
+        /// <param name="productId">Store product ID for Firebase deduplication</param>
+        /// <param name="transactionId">Transaction ID for Firebase deduplication</param>
+        public static void TrackPurchase(double amount, string currency = "USD",
+            string productId = null, string transactionId = null)
         {
             if (!EnsureInit()) return;
 
@@ -253,8 +287,46 @@ namespace Sorolla.Palette
             if (Config.enableTikTok && !string.IsNullOrEmpty(Config?.tiktokAppId?.Current))
                 TikTokAdapter.TrackPurchase(amount, currency);
 
-#if SOROLLA_FACEBOOK_ENABLED
-            FacebookAdapter.TrackPurchase((float)amount, currency);
+#if FIREBASE_ANALYTICS_INSTALLED
+            FirebaseAdapter.TrackPurchase(productId, amount, currency, transactionId);
+#endif
+        }
+
+        #endregion
+
+        #region User Identity
+
+        /// <summary>
+        ///     Set the user ID for analytics, crash reporting, and attribution.
+        ///     Pass null to clear.
+        /// </summary>
+        public static void SetUserId(string userId)
+        {
+            if (!EnsureInit()) return;
+
+#if FIREBASE_ANALYTICS_INSTALLED
+            FirebaseAdapter.SetUserId(userId);
+#endif
+
+#if FIREBASE_CRASHLYTICS_INSTALLED
+            FirebaseCrashlyticsAdapter.SetCustomKey("user_id", userId ?? "");
+#endif
+
+#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+            AdjustAdapter.SetUserId(userId);
+#endif
+        }
+
+        /// <summary>
+        ///     Set a user property for Firebase Analytics segmentation and audience building.
+        ///     Register custom properties in Firebase Console > Analytics > User Properties.
+        /// </summary>
+        public static void SetUserProperty(string name, string value)
+        {
+            if (!EnsureInit()) return;
+
+#if FIREBASE_ANALYTICS_INSTALLED
+            FirebaseAdapter.SetUserProperty(name, value);
 #endif
         }
 
@@ -493,6 +565,62 @@ namespace Sorolla.Palette
             return strValue != null && bool.TryParse(strValue, out bool r) ? r : defaultValue;
         }
 
+        /// <summary>
+        ///     Set in-app defaults for Remote Config. Works before or after initialization.
+        ///     Values are used when no fetched or cached value exists.
+        /// </summary>
+        public static void SetRemoteConfigDefaults(Dictionary<string, object> defaults)
+        {
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+            FirebaseRemoteConfigAdapter.SetDefaults(defaults);
+#endif
+        }
+
+        /// <summary>
+        ///     When true (default), real-time Remote Config updates are activated immediately.
+        ///     Set false for games where mid-session config changes would be jarring.
+        ///     Use ActivateRemoteConfigAsync() for manual control when disabled.
+        /// </summary>
+        public static bool AutoActivateRemoteConfigUpdates
+        {
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+            get => FirebaseRemoteConfigAdapter.AutoActivateUpdates;
+            set => FirebaseRemoteConfigAdapter.AutoActivateUpdates = value;
+#else
+            get => true;
+            set { }
+#endif
+        }
+
+        /// <summary>
+        ///     Manually activate fetched Remote Config values.
+        ///     Use when AutoActivateRemoteConfigUpdates is false.
+        /// </summary>
+        public static System.Threading.Tasks.Task<bool> ActivateRemoteConfigAsync()
+        {
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+            return FirebaseRemoteConfigAdapter.ActivateAsync();
+#else
+            return System.Threading.Tasks.Task.FromResult(false);
+#endif
+        }
+
+        /// <summary>
+        ///     Fired when a real-time Remote Config update is received.
+        ///     Includes the set of updated keys so games can decide whether to react.
+        ///     If AutoActivateRemoteConfigUpdates is true, values are already activated when this fires.
+        /// </summary>
+        public static event Action<IReadOnlyCollection<string>> OnRemoteConfigUpdated
+        {
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+            add => FirebaseRemoteConfigAdapter.OnConfigUpdated += value;
+            remove => FirebaseRemoteConfigAdapter.OnConfigUpdated -= value;
+#else
+            add { }
+            remove { }
+#endif
+        }
+
         #endregion
 
         #region Error Logging
@@ -653,6 +781,138 @@ namespace Sorolla.Palette
             _ => GAResourceFlowType.Source,
         };
 #endif
+
+        const int MaxEventNameLength = 40;
+        const int MaxParamNameLength = 40;
+        const int MaxParamsPerEvent = 25;
+
+        static readonly string[] s_reservedPrefixes = { "firebase_", "google_", "ga_" };
+
+        /// <summary>
+        ///     Validate and sanitize an event name and its parameters.
+        ///     Returns false if the event should be rejected entirely.
+        /// </summary>
+        static bool ValidateEvent(ref string eventName, Dictionary<string, object> parameters)
+        {
+            string originalName = eventName;
+            eventName = SanitizeEventName(eventName);
+            if (eventName == null)
+            {
+                Debug.LogError($"{Tag} Event rejected: '{originalName}' is empty or invalid after sanitization. Use lowercase letters, digits, and underscores (max {MaxEventNameLength} chars).");
+                return false;
+            }
+
+            foreach (var prefix in s_reservedPrefixes)
+            {
+                if (eventName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    string suggested = eventName.Substring(prefix.Length);
+                    Debug.LogError($"{Tag} Event rejected: '{eventName}' uses reserved prefix '{prefix}'. Remove the prefix (e.g. '{suggested}') or use a different name.");
+                    return false;
+                }
+            }
+
+            if (parameters != null && !ValidateParams(parameters))
+                return false;
+
+            return true;
+        }
+
+        /// <summary>
+        ///     Validate parameter names, types, and count.
+        ///     Returns false if the event should be rejected entirely.
+        /// </summary>
+        static bool ValidateParams(Dictionary<string, object> parameters)
+        {
+            if (parameters.Count > MaxParamsPerEvent)
+            {
+                Debug.LogError($"{Tag} Event rejected: {parameters.Count} params exceeds max {MaxParamsPerEvent}. Remove {parameters.Count - MaxParamsPerEvent} param(s).");
+                return false;
+            }
+
+            foreach (var kvp in parameters)
+            {
+                var sanitizedKey = SanitizeParameterName(kvp.Key);
+                if (sanitizedKey == null)
+                {
+                    Debug.LogError($"{Tag} Event rejected: param name '{kvp.Key}' is invalid after sanitization. Use lowercase letters, digits, and underscores (max {MaxParamNameLength} chars).");
+                    return false;
+                }
+
+                if (!IsSupportedParamType(kvp.Value))
+                {
+                    string typeName = kvp.Value?.GetType().Name ?? "null";
+                    Debug.LogError($"{Tag} Event rejected: param '{kvp.Key}' has unsupported type '{typeName}'. Convert to one of: string, int, long, float, double, bool, enum.");
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        static string SanitizeEventName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+
+            var sanitized = name.Replace(":", "_").Replace("-", "_").Replace(" ", "_").Replace(".", "_");
+
+            var result = new System.Text.StringBuilder();
+            foreach (var c in sanitized)
+            {
+                if (char.IsLetterOrDigit(c) || c == '_')
+                    result.Append(c);
+            }
+
+            if (result.Length > 0 && !char.IsLetter(result[0]))
+                result.Insert(0, 'e');
+
+            if (result.Length > MaxEventNameLength)
+                return result.ToString(0, MaxEventNameLength);
+
+            return result.Length > 0 ? result.ToString() : null;
+        }
+
+        static string SanitizeParameterName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+
+            var sanitized = name.Replace(":", "_").Replace("-", "_").Replace(" ", "_").Replace(".", "_");
+
+            var result = new System.Text.StringBuilder();
+            foreach (var c in sanitized)
+            {
+                if (char.IsLetterOrDigit(c) || c == '_')
+                    result.Append(c);
+            }
+
+            if (result.Length > MaxParamNameLength)
+                return result.ToString(0, MaxParamNameLength);
+
+            return result.Length > 0 ? result.ToString() : null;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static bool IsSupportedParamType(object value) =>
+            value is string or int or long or float or double or bool or Enum;
+
+        /// <summary>
+        ///     Extract the first numeric value from parameters for GA best-effort design event.
+        /// </summary>
+        static float ExtractFirstNumericValue(Dictionary<string, object> parameters)
+        {
+            if (parameters == null) return 0f;
+            foreach (var kvp in parameters)
+            {
+                switch (kvp.Value)
+                {
+                    case int i: return i;
+                    case long l: return l;
+                    case float f: return f;
+                    case double d: return (float)d;
+                }
+            }
+            return 0f;
+        }
 
         #endregion
     }

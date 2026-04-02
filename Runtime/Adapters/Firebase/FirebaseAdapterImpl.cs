@@ -73,11 +73,35 @@ namespace Sorolla.Palette.Adapters
                 _pendingEvents.Enqueue(action);
         }
 
+        public void TrackEvent(string eventName, Dictionary<string, object> parameters)
+        {
+            // Defensive copy - caller may modify dict after this call
+            var paramsCopy = parameters != null ? new Dictionary<string, object>(parameters) : null;
+
+            QueueOrExecute(() =>
+            {
+                var sanitized = SanitizeEventName(eventName);
+                if (sanitized == null) return;
+
+                if (paramsCopy == null || paramsCopy.Count == 0)
+                {
+                    FirebaseAnalytics.LogEvent(sanitized);
+                    return;
+                }
+
+                var firebaseParams = BuildFirebaseParams(paramsCopy);
+                if (firebaseParams == null) return;
+
+                FirebaseAnalytics.LogEvent(sanitized, firebaseParams);
+            });
+        }
+
         public void TrackDesignEvent(string eventName, float value)
         {
             QueueOrExecute(() =>
             {
                 var sanitized = SanitizeEventName(eventName);
+                if (sanitized == null) return;
 
                 if (value != 0)
                     FirebaseAnalytics.LogEvent(sanitized, "value", value);
@@ -86,37 +110,51 @@ namespace Sorolla.Palette.Adapters
             });
         }
 
-        public void TrackProgressionEvent(string status, string p1, string p2, string p3, int score)
+        public void TrackProgressionEvent(string status, string p1, string p2, string p3, int score,
+            Dictionary<string, object> extraParams)
         {
+            // Defensive copy
+            var extraCopy = extraParams != null ? new Dictionary<string, object>(extraParams) : null;
+
             QueueOrExecute(() =>
             {
-                string eventName = status == "start"
-                    ? FirebaseAnalytics.EventLevelStart
-                    : FirebaseAnalytics.EventLevelEnd;
+                // Firebase mapping: Start -> level_start, Complete -> level_end, Fail -> level_fail
+                string eventName;
+                if (status == "start")
+                    eventName = FirebaseAnalytics.EventLevelStart;
+                else if (status == "complete")
+                    eventName = FirebaseAnalytics.EventLevelEnd;
+                else
+                    eventName = "level_fail";
 
                 var parameters = new List<Parameter>
                 {
-                    new(FirebaseAnalytics.ParameterLevelName, p1 ?? "")
+                    new(FirebaseAnalytics.ParameterLevelName, BuildCanonicalLevelName(p1, p2, p3))
                 };
-
-                if (eventName == FirebaseAnalytics.EventLevelEnd)
-                    parameters.Add(new Parameter("success", status == "complete" ? "true" : "false"));
-
-                if (!string.IsNullOrEmpty(p2))
-                    parameters.Add(new Parameter("level_category", p2));
-
-                if (!string.IsNullOrEmpty(p3))
-                    parameters.Add(new Parameter("level_subcategory", p3));
 
                 if (score > 0)
                     parameters.Add(new Parameter(FirebaseAnalytics.ParameterScore, score));
+
+                // Merge extra params (skip collisions with base params)
+                if (extraCopy != null)
+                {
+                    var reservedKeys = new HashSet<string>
+                    {
+                        FirebaseAnalytics.ParameterLevelName, FirebaseAnalytics.ParameterScore
+                    };
+                    MergeExtraParams(parameters, extraCopy, reservedKeys);
+                }
 
                 FirebaseAnalytics.LogEvent(eventName, parameters.ToArray());
             });
         }
 
-        public void TrackResourceEvent(string flowType, string currency, float amount, string itemType, string itemId)
+        public void TrackResourceEvent(string flowType, string currency, float amount, string itemType, string itemId,
+            Dictionary<string, object> extraParams)
         {
+            // Defensive copy
+            var extraCopy = extraParams != null ? new Dictionary<string, object>(extraParams) : null;
+
             QueueOrExecute(() =>
             {
                 string eventName = flowType == "source"
@@ -131,6 +169,18 @@ namespace Sorolla.Palette.Adapters
 
                 if (flowType != "source" && !string.IsNullOrEmpty(itemId))
                     parameters.Add(new Parameter("item_name", itemId));
+
+                // Merge extra params (skip collisions with base params)
+                if (extraCopy != null)
+                {
+                    var reservedKeys = new HashSet<string>
+                    {
+                        FirebaseAnalytics.ParameterVirtualCurrencyName,
+                        FirebaseAnalytics.ParameterValue,
+                        "item_name"
+                    };
+                    MergeExtraParams(parameters, extraCopy, reservedKeys);
+                }
 
                 FirebaseAnalytics.LogEvent(eventName, parameters.ToArray());
             });
@@ -178,9 +228,85 @@ namespace Sorolla.Palette.Adapters
             });
         }
 
+        #region Helpers
+
+        /// <summary>
+        ///     Build deterministic level_name from progression parts.
+        ///     e.g. ("World3", "Level12", null) -> "world3_level12"
+        /// </summary>
+        private static string BuildCanonicalLevelName(string p1, string p2, string p3)
+        {
+            if (string.IsNullOrEmpty(p1)) return "";
+            var name = p1.ToLowerInvariant();
+            if (!string.IsNullOrEmpty(p2)) name += "_" + p2.ToLowerInvariant();
+            if (!string.IsNullOrEmpty(p3)) name += "_" + p3.ToLowerInvariant();
+            return name;
+        }
+
+        /// <summary>
+        ///     Convert a Dictionary param value to a Firebase Parameter.
+        ///     Only supports: string, int, long, float, double, bool, enum.
+        /// </summary>
+        private static Parameter ToFirebaseParameter(string key, object value)
+        {
+            // Sanitize param name
+            var sanitizedKey = SanitizeParamName(key);
+            if (sanitizedKey == null) return null;
+
+            return value switch
+            {
+                string s => new Parameter(sanitizedKey, s.Length > 100 ? s[..100] : s),
+                int i => new Parameter(sanitizedKey, (long)i),
+                long l => new Parameter(sanitizedKey, l),
+                float f => new Parameter(sanitizedKey, (double)f),
+                double d => new Parameter(sanitizedKey, d),
+                bool b => new Parameter(sanitizedKey, b ? 1L : 0L),
+                System.Enum e => new Parameter(sanitizedKey, e.ToString()),
+                _ => null // Should not reach here - Palette validates before calling
+            };
+        }
+
+        /// <summary>
+        ///     Build Firebase Parameter array from validated dictionary.
+        /// </summary>
+        private static Parameter[] BuildFirebaseParams(Dictionary<string, object> parameters)
+        {
+            var result = new List<Parameter>(parameters.Count);
+            foreach (var kvp in parameters)
+            {
+                var param = ToFirebaseParameter(kvp.Key, kvp.Value);
+                if (param != null)
+                    result.Add(param);
+            }
+            return result.ToArray();
+        }
+
+        /// <summary>
+        ///     Merge extra params into an existing parameter list, skipping reserved keys.
+        /// </summary>
+        private static void MergeExtraParams(List<Parameter> target, Dictionary<string, object> extra,
+            HashSet<string> reservedKeys)
+        {
+            foreach (var kvp in extra)
+            {
+                var sanitizedKey = SanitizeParamName(kvp.Key);
+                if (sanitizedKey == null) continue;
+
+                if (reservedKeys.Contains(sanitizedKey))
+                {
+                    Debug.LogWarning($"{Tag} Extra param '{kvp.Key}' collides with base param - skipped");
+                    continue;
+                }
+
+                var param = ToFirebaseParameter(kvp.Key, kvp.Value);
+                if (param != null)
+                    target.Add(param);
+            }
+        }
+
         private static string SanitizeEventName(string name)
         {
-            if (string.IsNullOrEmpty(name)) return "unnamed_event";
+            if (string.IsNullOrEmpty(name)) return null;
 
             var sanitized = name.Replace(":", "_").Replace("-", "_").Replace(" ", "_").Replace(".", "_");
 
@@ -197,7 +323,28 @@ namespace Sorolla.Palette.Adapters
             if (result.Length > 40)
                 return result.ToString(0, 40);
 
-            return result.Length > 0 ? result.ToString() : "unnamed_event";
+            return result.Length > 0 ? result.ToString() : null;
         }
+
+        private static string SanitizeParamName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+
+            var sanitized = name.Replace(":", "_").Replace("-", "_").Replace(" ", "_").Replace(".", "_");
+
+            var result = new System.Text.StringBuilder();
+            foreach (var c in sanitized)
+            {
+                if (char.IsLetterOrDigit(c) || c == '_')
+                    result.Append(c);
+            }
+
+            if (result.Length > 40)
+                return result.ToString(0, 40);
+
+            return result.Length > 0 ? result.ToString() : null;
+        }
+
+        #endregion
     }
 }
