@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Firebase.Extensions;
 using Firebase.RemoteConfig;
 using UnityEngine;
@@ -29,6 +31,8 @@ namespace Sorolla.Palette.Adapters
         }
 
         public bool IsReady { get; private set; }
+        public bool AutoActivateUpdates { get; set; } = true;
+        public event Action<IReadOnlyCollection<string>> OnConfigUpdated;
 
         public void Initialize(Dictionary<string, object> defaults, bool autoFetch)
         {
@@ -80,6 +84,13 @@ namespace Sorolla.Palette.Adapters
                 });
             }
 
+            // Cached values are available immediately after init - mark ready
+            IsReady = true;
+
+            // Wire real-time listener
+            FirebaseRemoteConfig.DefaultInstance.OnConfigUpdateListener += OnConfigUpdateReceived;
+            Application.quitting += OnApplicationQuitting;
+
             if (_pendingFetchCallback != null)
             {
                 var callback = _pendingFetchCallback;
@@ -88,12 +99,65 @@ namespace Sorolla.Palette.Adapters
             }
             else if (_pendingAutoFetch)
             {
+                // Background fetch for next session - don't block on it
                 FetchAndActivate(null);
+            }
+        }
+
+        private void OnConfigUpdateReceived(object sender, ConfigUpdateEventArgs args)
+        {
+            if (args.Error != RemoteConfigError.None)
+            {
+                Debug.LogWarning($"{Tag} Real-time update error: {args.Error}");
+                return;
+            }
+
+            var updatedKeys = args.UpdatedKeys?.ToList() ?? new List<string>();
+            Debug.Log($"{Tag} Real-time update received ({updatedKeys.Count} keys)");
+
+            if (AutoActivateUpdates)
+            {
+                FirebaseRemoteConfig.DefaultInstance.ActivateAsync().ContinueWithOnMainThread(task =>
+                {
+                    if (task.IsFaulted)
+                        Debug.LogError($"{Tag} Auto-activate failed: {task.Exception?.Message}");
+                    else
+                        OnConfigUpdated?.Invoke(updatedKeys.AsReadOnly());
+                });
             }
             else
             {
-                IsReady = true;
+                // Notify with keys but don't activate - game decides when
+                OnConfigUpdated?.Invoke(updatedKeys.AsReadOnly());
             }
+        }
+
+        private void OnApplicationQuitting()
+        {
+            if (_init)
+            {
+                FirebaseRemoteConfig.DefaultInstance.OnConfigUpdateListener -= OnConfigUpdateReceived;
+            }
+        }
+
+        public void SetDefaults(Dictionary<string, object> defaults)
+        {
+            if (defaults == null || defaults.Count == 0) return;
+
+            if (!_init)
+            {
+                // Store for when init completes
+                _pendingDefaults = defaults;
+                return;
+            }
+
+            FirebaseRemoteConfig.DefaultInstance.SetDefaultsAsync(defaults).ContinueWithOnMainThread(task =>
+            {
+                if (task.IsFaulted)
+                    Debug.LogError($"{Tag} Failed to set defaults: {task.Exception}");
+                else
+                    Debug.Log($"{Tag} Defaults set ({defaults.Count} values)");
+            });
         }
 
         public void FetchAndActivate(Action<bool> onComplete)
@@ -117,7 +181,6 @@ namespace Sorolla.Palette.Adapters
             FirebaseRemoteConfig.DefaultInstance.FetchAndActivateAsync().ContinueWithOnMainThread(task =>
             {
                 _fetching = false;
-                IsReady = true;
 
                 if (task.IsFaulted)
                 {
@@ -129,6 +192,27 @@ namespace Sorolla.Palette.Adapters
                 Debug.Log($"{Tag} Fetch complete (activated: {task.Result})");
                 onComplete?.Invoke(true);
             });
+        }
+
+        public Task<bool> ActivateAsync()
+        {
+            if (!_init) return Task.FromResult(false);
+
+            var tcs = new TaskCompletionSource<bool>();
+            FirebaseRemoteConfig.DefaultInstance.ActivateAsync().ContinueWithOnMainThread(task =>
+            {
+                if (task.IsFaulted)
+                {
+                    Debug.LogError($"{Tag} Activate failed: {task.Exception?.Message}");
+                    tcs.SetResult(false);
+                }
+                else
+                {
+                    Debug.Log($"{Tag} Config activated");
+                    tcs.SetResult(true);
+                }
+            });
+            return tcs.Task;
         }
 
         public string GetString(string key, string defaultValue)
