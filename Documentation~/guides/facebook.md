@@ -1,6 +1,6 @@
 # Facebook SDK Setup
 
-Attribution for UA campaigns.
+Install attribution for prototype UA campaigns via Meta. Facebook SDK handles minimal install tracking only - no purchase or in-app event dispatching.
 
 ---
 

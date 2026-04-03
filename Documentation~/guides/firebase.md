@@ -45,8 +45,16 @@ The Configuration window shows status under **Build Health** → **Firebase Cohe
 Events are automatically sent to both Firebase and GameAnalytics:
 
 ```csharp
-Palette.TrackDesign("tutorial:complete");
-Palette.TrackProgression(ProgressionStatus.Complete, "Level_01");
+// Structured custom event (Firebase gets full params, GA gets best-effort)
+Palette.TrackEvent("booster_used", new Dictionary<string, object>
+{
+    { "booster_id", "speed_2x" },
+    { "level", 12 }
+});
+
+// Progression with extra Firebase context
+Palette.TrackProgression(ProgressionStatus.Complete, "Level_01", score: 1500,
+    extraParams: new Dictionary<string, object> { { "duration_sec", 45 } });
 ```
 
 ### Crashlytics
@@ -55,22 +63,46 @@ Crashes are captured automatically. For manual logging:
 
 ```csharp
 Palette.LogCrashlytics("User started level 5");
-Palette.SetCrashlyticsKey("level", 5);
+Palette.SetCrashlyticsKey("level", "5");
 Palette.LogException(ex); // Log handled exceptions
 ```
 
 ### Remote Config
 
-Unified API that checks Firebase first, then GameAnalytics, then default:
+Unified API that checks Firebase first, then GameAnalytics, then in-app defaults:
 
 ```csharp
+// Set fallback values
+Palette.SetRemoteConfigDefaults(new Dictionary<string, object>
+{
+    { "difficulty", 1.0f },
+    { "new_feature", false }
+});
+
 Palette.FetchRemoteConfig(success => {
     float difficulty = Palette.GetRemoteConfigFloat("difficulty", 1.0f);
     bool feature = Palette.GetRemoteConfigBool("new_feature", false);
 });
 ```
 
-Create parameters in Firebase Console → **Remote Config** → **Publish changes**.
+Create parameters in Firebase Console -> **Remote Config** -> **Publish changes**.
+
+### Real-Time Remote Config
+
+Config changes stream to the app instantly, no restart needed:
+
+```csharp
+// React to live changes
+Palette.OnRemoteConfigUpdated += (changedKeys) =>
+{
+    if (changedKeys.Contains("difficulty"))
+        UpdateDifficulty();
+};
+
+// For competitive games: defer activation to between rounds
+Palette.AutoActivateRemoteConfigUpdates = false;
+await Palette.ActivateRemoteConfigAsync();
+```
 
 ---
 

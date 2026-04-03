@@ -1,14 +1,12 @@
 # Architecture Guide
 
-Technical reference for contributors and AI agents working on the Sorolla SDK.
-
-> **AI Agents**: For quick orientation, skip to [Quick Reference](#quick-reference) at the end.
+Technical reference for contributors working on the Sorolla SDK.
 
 ---
 
 ## Overview
 
-**Sorolla SDK** is a plug-and-play mobile publisher SDK for Unity. It wraps GameAnalytics, Facebook, AppLovin MAX, Adjust, and Firebase behind a unified API.
+**Sorolla SDK** is a plug-and-play mobile publisher SDK for Unity. It wraps GameAnalytics, Facebook, AppLovin MAX, Adjust, Firebase, and TikTok behind a unified `Palette` API.
 
 ### Design Principles
 
@@ -37,6 +35,8 @@ Runtime/
 │   ├── FirebaseCrashlyticsAdapter.cs  ← Stub
 │   ├── FirebaseRemoteConfigAdapter.cs ← Stub
 │   ├── FirebaseCoreManager.cs      ← Stub
+│   ├── TikTokAdapter.cs           ← Stub (native bridge pattern)
+│   ├── TikTokAdapterImpl.cs       ← Impl (JNI/DllImport, always compiled)
 │   ├── Firebase/                   ← Separate assembly (defineConstraints)
 │   │   ├── Sorolla.Adapters.Firebase.asmdef
 │   │   ├── FirebaseAdapterImpl.cs
@@ -111,7 +111,7 @@ Unity resolves assembly references **before** evaluating `#if` preprocessor bloc
 
 **Stub (always compiles)** - `Adapters/XxxAdapter.cs`:
 ```csharp
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     internal interface IXxxAdapter
     {
@@ -144,7 +144,7 @@ namespace Sorolla.Adapters
 using ThirdPartySDK;
 using UnityEngine.Scripting;
 
-namespace Sorolla.Adapters
+namespace Sorolla.Palette.Adapters
 {
     [Preserve]
     internal class XxxAdapterImpl : IXxxAdapter
@@ -280,12 +280,19 @@ public const string FIREBASE_VERSION = "12.10.1";
 
 ## Data Flow
 
-### Event Tracking
+### Event Tracking (v3.7.0+)
 ```
-Palette.TrackDesign("event:name")
-    ├── GameAnalyticsAdapter.TrackDesignEvent()  ← Always
-    ├── FirebaseAdapter.TrackDesignEvent()       ← If enabled
-    └── FacebookAdapter.TrackEvent()             ← Always
+Palette.TrackEvent("post_score", { score: 1200, level: "world1" })
+    ├── FirebaseAdapter.TrackEvent()             ← Full structured params
+    └── GameAnalyticsAdapter.TrackDesignEvent()  ← Best-effort (name + first numeric value)
+
+Palette.TrackProgression(Complete, "World1", "Level3", extraParams: { duration_sec: 45 })
+    ├── GameAnalyticsAdapter.TrackProgressionEvent()  ← Always (GA schema)
+    └── FirebaseAdapter.TrackProgressionEvent()       ← If enabled (GA4 level_end + extraParams)
+
+Palette.TrackResource(Source, "Coins", 50, "Reward", "DailyLogin", extraParams: { level: 12 })
+    ├── GameAnalyticsAdapter.TrackResourceEvent()  ← Always (GA schema)
+    └── FirebaseAdapter.TrackResourceEvent()       ← If enabled (earn_virtual_currency + extraParams)
 ```
 
 ### Ad Revenue
@@ -293,7 +300,9 @@ Palette.TrackDesign("event:name")
 Palette.ShowRewardedAd()
     └── MaxAdapter.ShowRewardedAd()
         └── OnAdRevenuePaidEvent
-            └── AdjustAdapter.TrackAdRevenue()
+            ├── AdjustAdapter.TrackAdRevenue()
+            ├── FirebaseAdapter.TrackAdImpression()
+            └── GameAnalytics ILRD
 ```
 
 ### Remote Config
@@ -302,6 +311,19 @@ Palette.GetRemoteConfig(key, default)
     ├── Firebase ready? → return Firebase value
     ├── GA ready? → return GA value
     └── else → return default
+
+Real-time (v3.7.0+):
+    Firebase real-time listener → OnConfigUpdated event
+    ├── AutoActivateUpdates = true  → values active immediately
+    └── AutoActivateUpdates = false → call ActivateRemoteConfigAsync() manually
+```
+
+### Purchase Attribution
+```
+Palette.TrackPurchase(amount, currency, productId, transactionId)
+    ├── AdjustAdapter.TrackRevenue()      ← If configured
+    ├── TikTokAdapter.TrackPurchase()     ← If enabled
+    └── FirebaseAdapter.TrackPurchase()   ← If enabled
 ```
 
 ---
@@ -332,45 +354,46 @@ Palette.GetRemoteConfig(key, default)
 
 ## Quick Reference
 
-**For AI agents working on this codebase:**
-
 ### Key Files
-| File | Purpose | LOC |
-|------|---------|-----|
-| `Runtime/Palette.cs` | Main public API | 484 |
-| `Runtime/SorollaBootstrapper.cs` | Auto-initialization | 140 |
-| `Runtime/Adapters/MaxAdapter.cs` | Ad mediation | 227 |
-| `Editor/SorollaWindow.cs` | Configuration UI | 598 |
-| `Editor/Sdk/SdkRegistry.cs` | SDK metadata | 223 |
+| File | Purpose |
+|------|---------|
+| `Runtime/Palette.cs` | Main public API |
+| `Runtime/SorollaBootstrapper.cs` | Auto-initialization |
+| `Runtime/Adapters/MaxAdapter.cs` | Ad mediation |
+| `Editor/SorollaWindow.cs` | Configuration UI |
+| `Editor/Sdk/SdkRegistry.cs` | SDK metadata & versions |
+| `Editor/BuildValidator.cs` | Pre-build validation |
 
 ### Namespaces
 | Namespace | Purpose |
 |-----------|---------|
-| `Sorolla` | Public API |
-| `Sorolla.Adapters` | SDK wrappers |
-| `Sorolla.ATT` | iOS privacy |
-| `Sorolla.Editor` | Editor tools |
+| `Sorolla.Palette` | Public API |
+| `Sorolla.Palette.Adapters` | SDK wrappers |
+| `Sorolla.Palette.ATT` | iOS privacy |
+| `Sorolla.Palette.Editor` | Editor tools |
 
 ### Critical Paths
 ```
-Init:   Bootstrapper → ATT → Palette.Initialize()
-Events: Palette → Adapters → Third-party SDKs
-Ads:    ShowRewardedAd → MaxAdapter → AdjustAdapter.TrackAdRevenue
-Config: GetRemoteConfig → Firebase → GA → default
+Init:      Bootstrapper → ATT → Palette.Initialize()
+Events:    Palette → Adapters → Third-party SDKs
+Ads:       ShowRewardedAd → MaxAdapter → AdjustAdapter.TrackAdRevenue
+Config:    GetRemoteConfig → Firebase → GA → default
+Purchase:  TrackPurchase → Adjust + TikTok + Firebase
 ```
 
-### Codebase Stats
-- **Total**: 59 scripts, ~3,900 LOC
-- **Runtime**: 15 scripts, ~2,100 LOC
-- **Editor**: 13 scripts, ~1,800 LOC
-- **Debug UI**: 31 scripts (sample)
+## Build System
 
-### RAG Query Patterns
-```
-"public API methods"         → Palette.cs
-"ad revenue tracking"        → MaxAdapter.cs, AdjustAdapter.cs
-"SDK installation"           → SdkInstaller.cs, ManifestManager.cs
-"ATT iOS consent"            → ContextScreenView.cs
-"configuration window"       → SorollaWindow.cs
-"remote config fallback"     → FirebaseRemoteConfigAdapter.cs
-```
+### Pre-build Validation
+
+`BuildValidator` runs at `callbackOrder -100` (before Adjust at 0, MAX at int.MaxValue - 10) via `IPreprocessBuildWithReport`. Checks SDK versions, mode consistency, Firebase config files, Android manifest, R8/AGP config.
+
+**Auto-fixes** (safe, reversible, with backup):
+- R8 version pin removal on Unity 6 (always crashes with AGP 8.10.0)
+- Android manifest orphan cleanup
+
+**Warn only** (may be intentional):
+- Kotlin stdlib version forcing
+
+### Console Breadcrumb
+
+`BuildHealthConsoleNotifier` (`[InitializeOnLoad]`) logs a single warning on domain reload if build health errors exist. No popup, no window - just a breadcrumb.

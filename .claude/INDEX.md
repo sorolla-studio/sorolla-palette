@@ -1,6 +1,6 @@
 # Index: Sorolla SDK
 
-version: 3.4.0
+version: 3.7.0
 type: unity-package
 path: ~/unity-projects/unity-fastlane-ci/Packages/com.sorolla.sdk
 github: https://github.com/sorolla-studio/sorolla-palette.git

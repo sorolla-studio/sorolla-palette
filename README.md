@@ -8,7 +8,7 @@ Plug-and-play mobile publisher SDK for Unity. Zero-config initialization with au
 ## Install
 
 1. **Package Manager** → `+` → **Add package from git URL**
-2. Paste: `https://github.com/sorolla-studio/sorolla-palette.git#v3.6.1`
+2. Paste: `https://github.com/sorolla-studio/sorolla-palette.git#v3.7.0`
 3. Configuration window opens → Follow setup
 
 ## Quick Start
@@ -25,8 +25,8 @@ using Sorolla.Palette;
 // Track level progression (required)
 Palette.TrackProgression(ProgressionStatus.Complete, "Level_001");
 
-// Track custom events
-Palette.TrackDesign("tutorial:completed");
+// Track custom events with structured data
+Palette.TrackEvent("tutorial_complete", new() { { "step", "crafting_intro" } });
 
 // Show rewarded ad
 if (Palette.IsRewardedAdReady)

@@ -1,6 +1,6 @@
-# Sorolla SDK - Development Log (Agentic Hindsight)
+# Sorolla SDK - Development Log
 
-> **Purpose**: Track validated learnings and insights for future AI agents
+> **Purpose**: Validated learnings, architectural decisions, debugging insights.
 > **Format**: Reverse chronological (newest first)
 
 ---
@@ -35,7 +35,7 @@
 **What Changed:**
 - `FirebaseAdapterImpl.TrackProgressionEvent`: `"progression"` → `EventLevelStart`/`EventLevelEnd`, `progression_01` → `ParameterLevelName`, added `success` param
 - `FirebaseAdapterImpl.TrackResourceEvent`: `"resource_flow"` → `EventEarnVirtualCurrency`/`EventSpendVirtualCurrency`, params remapped to GA4 schema
-- `Palette.TrackPurchase(amount, currency)`: New unified method fans out to Adjust, TikTok, Facebook
+- `Palette.TrackPurchase(amount, currency)`: New unified method fans out to Adjust, TikTok, Firebase
 - `SorollaConfig.adjustPurchaseEventToken`: New config field for Adjust revenue event token
 - Consolidated test controllers into SDK DebugUI sample (deleted standalone AdjustTestController, TikTokTestController)
 - Added `TikTokCardController` to DebugUI, added `TikTok` to `LogSource` enum
@@ -213,6 +213,28 @@ Multiple packages from same git repo cause "Directory not empty" errors
 UPM clones same repo multiple times simultaneously → race condition
 Solution: Clear Library/PackageCache/.tmp* and com.google.firebase* before install
 ```
+
+### Android Build System (Unity 6)
+
+**R8 version pins**: R8 8.1.56 pin needed for AGP 7.4.2 (Unity 2022) crashes AGP 8.10.0 (Unity 6) with `setBuildMetadataConsumer` NoSuchMethodError. AGP 8.10.0's bundled R8 handles Kotlin 2.0 metadata natively - remove the pin after upgrading.
+
+**androidApplicationEntry bitmask**: In ProjectSettings.asset, `1` = Activity (legacy), `2` = GameActivity, `3` = both. Unity 2022 only has Activity. Unity 6 defaults to GameActivity for new projects but preserves Activity when upgrading.
+
+**Split Gradle modules (Unity 6)**: When `useCustomLauncherManifest: 1`, `AndroidManifest.xml` goes to unityLibrary module, `LauncherManifest.xml` goes to launcher. The launcher manifest must override with `enabled="true"` + `tools:replace="android:enabled"`.
+
+**Deployment checker vs Gradle merge**: Unity 6's deployment checker reads source manifests, not the Gradle-merged result. Launcher activity must be in BOTH AndroidManifest.xml and LauncherManifest.xml to avoid `DeploymentOperationFailedException`.
+
+**Facebook manifest sanitizer**: `FacebookManifestSanitizer` fires on every AndroidManifest.xml import via AssetPostprocessor. Uses compile-time version checks instead of reading `androidApplicationEntry`. Fights any manual manifest fix. Must read PlayerSettings instead.
+
+**Manifest patcher conflicts**: Multiple patchers (Palette, Facebook, Unity auto-gen) fight each other. When a manifest edit keeps reverting, check for AssetPostprocessors: `grep OnPostprocessAllAssets`.
+
+**Unity version compatibility matrix**:
+
+| Unity Version | AGP | R8 Pin Needed | Activity Class | androidApplicationEntry |
+|--------------|-----|---------------|----------------|------------------------|
+| 2022.3 LTS | 7.4.2 | Yes (8.1.56+) for Kotlin 2.0 libs | UnityPlayerActivity | 1 (only option) |
+| 2023.1-2023.2 | 7.x-8.x | Depends on AGP version | Both available | 1=Activity, 2=GameActivity |
+| 6000.x (Unity 6) | 8.10.0 | No - bundled R8 is sufficient | Both, GameActivity default | 1=Activity, 2=GameActivity |
 
 ---
 
@@ -526,15 +548,9 @@ Analyzed developer pain points and prioritized GDPR/UMP as critical gap.
 
 ---
 
-## Agent Instructions
+## How to Use This Log
 
-**When to add entries**:
-- After validating a fix that corrects previous mistakes
-- When discovering non-obvious Unity behavior
-- After fixing bugs (document root cause)
-
-**Entry guidelines**:
-- Only add VALIDATED learnings (tested, confirmed working)
-- Focus on "what future me needs to know"
+- Add entries after validating a fix or discovering non-obvious behavior
+- Focus on "what would I need to know if I hit this again?"
 - Include official documentation sources when possible
-- Delete/update entries that are proven wrong
+- Update or remove entries that are proven wrong

@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.7.0] - 2026-04-03
+
+### Added
+- **`Palette.TrackEvent(name, params)`**: Structured custom events with full Firebase/GA4 parameter support. Replaces `TrackDesign()` for new code. GA receives best-effort design event fallback.
+- **`extraParams` on TrackProgression/TrackResource**: Optional `Dictionary<string, object>` for Firebase-specific context (ignored by GameAnalytics)
+- **`Palette.SetUserId(userId)`**: Unified user identity across Firebase Analytics, Crashlytics, and Adjust
+- **`Palette.SetUserProperty(name, value)`**: Firebase audience segmentation
+- **Real-time Remote Config**: `OnRemoteConfigUpdated` event fires when Firebase config changes server-side. `AutoActivateRemoteConfigUpdates` controls whether values apply immediately or on manual `ActivateRemoteConfigAsync()` call
+- **`Palette.SetRemoteConfigDefaults(defaults)`**: Set in-app fallback values before Firebase loads
+- **Event validation**: Reserved prefix rejection (`firebase_`, `google_`, `ga_`), param type/count limits (25 params, supported types only), name sanitization (40 char max, alphanumeric + underscore)
+- **Debug UI**: Custom events tab with structured event buttons, real-time Remote Config controls (SetDefaults, Activate, AutoActivate toggle), validation test button
+
+### Changed
+- **`TrackDesign()` deprecated**: Use `TrackEvent()` for new code. `TrackDesign()` still works but marked `[Obsolete]`
+- **`TrackPurchase()` extended**: Now accepts `productId` and `transactionId` for Firebase deduplication
+- **Firebase progression mapping**: `level_fail` added (was only `level_start`/`level_end`). Canonical level name built from progression parts (`"world3_level12"`)
+
+### Documentation
+- Removed internal/AI files from repo (CLAUDE.md, ralph.md, bug reports, completed plans, AI agent reference)
+- Consolidated LEARNINGS.md into DEVLOG.md
+- Promoted architecture.md and dashboard-setup.md from internal/ to public docs
+- Updated api-reference.md, firebase guide, README, quick-start for v3.7.0 API
+
 ## [3.6.1] - 2026-04-01
 
 ### Fixed
@@ -11,7 +34,7 @@ All notable changes to this project will be documented in this file.
 ## [3.6.0] - 2026-04-01
 
 ### Added
-- **`Palette.TrackPurchase(amount, currency)`**: Unified purchase tracking that fans out to Adjust, TikTok, Facebook, and Firebase in one call
+- **`Palette.TrackPurchase(amount, currency)`**: Unified purchase tracking that fans out to Adjust, TikTok, and Firebase in one call
 - **`Palette.ShowDebugger()`**: Public API to open Debug UI programmatically + drop-in `Sorolla Debugger.prefab` (DontDestroyOnLoad, triple-tap or API)
 - **TikTok Debug UI card**: Shows TikTok SDK status, config fields, and test event buttons
 - **Editor tests**: AndroidManifestSanitizer and BuildValidator test suites with fixture manifests

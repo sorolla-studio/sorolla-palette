@@ -12,3 +12,10 @@ Thumbs.db
 .vscode/
 
 .claude/cache/
+.claude/CONTINUITY_LEDGER.md
+.claude/rules/
+
+# Internal files (keep locally, not on GitHub)
+CLAUDE.md
+ralph.md
+BUG-REPORT-*.md
