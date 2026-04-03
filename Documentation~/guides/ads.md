@@ -54,9 +54,9 @@ if (Palette.IsRewardedAdReady)
 // Interstitial ad
 Palette.ShowInterstitialAd(onComplete: () => LoadNextLevel());
 
-// Banner
-Palette.ShowBanner();
-Palette.HideBanner();
+// Banner (planned - not yet available)
+// Palette.ShowBanner();
+// Palette.HideBanner();
 ```
 
 ---

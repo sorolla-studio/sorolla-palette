@@ -652,6 +652,33 @@ namespace Sorolla.Palette
 #endif
         }
 
+        /// <summary>Set a custom int key for crash reports (Firebase Crashlytics)</summary>
+        public static void SetCrashlyticsKey(string key, int value)
+        {
+#if FIREBASE_CRASHLYTICS_INSTALLED
+            if (!EnsureInit()) return;
+            FirebaseCrashlyticsAdapter.SetCustomKey(key, value);
+#endif
+        }
+
+        /// <summary>Set a custom float key for crash reports (Firebase Crashlytics)</summary>
+        public static void SetCrashlyticsKey(string key, float value)
+        {
+#if FIREBASE_CRASHLYTICS_INSTALLED
+            if (!EnsureInit()) return;
+            FirebaseCrashlyticsAdapter.SetCustomKey(key, value);
+#endif
+        }
+
+        /// <summary>Set a custom bool key for crash reports (Firebase Crashlytics)</summary>
+        public static void SetCrashlyticsKey(string key, bool value)
+        {
+#if FIREBASE_CRASHLYTICS_INSTALLED
+            if (!EnsureInit()) return;
+            FirebaseCrashlyticsAdapter.SetCustomKey(key, value);
+#endif
+        }
+
         #endregion
 
         #region Ads
