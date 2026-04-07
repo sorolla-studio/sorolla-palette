@@ -2,7 +2,7 @@
 
 Step-by-step for Sorolla team members setting up vendor dashboards for an external studio game.
 
-For the studio-facing guide, see [Switching to Full Mode](../switching-to-full.md).
+For the studio-facing guide, see [Switching to Full Mode](switching-to-full.md).
 
 ---
 

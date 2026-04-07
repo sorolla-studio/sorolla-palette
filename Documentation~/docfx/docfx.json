@@ -17,5 +17,29 @@
         "TargetFramework": "netstandard2.1"
       }
     }
-  ]
+  ],
+  "build": {
+    "content": [
+      {
+        "files": ["**/*.md", "**/toc.yml"],
+        "src": "..",
+        "exclude": ["docfx/**", "_site/**"]
+      },
+      {
+        "files": ["api/**.yml"]
+      }
+    ],
+    "output": "_site",
+    "template": ["default", "modern"],
+    "globalMetadata": {
+      "_appTitle": "Sorolla SDK",
+      "_appName": "Sorolla SDK",
+      "_enableSearch": true,
+      "_appFooter": "© Sorolla Studio",
+      "_gitContribute": {
+        "repo": "https://github.com/sorolla-studio/sorolla-palette",
+        "branch": "master"
+      }
+    }
+  }
 }

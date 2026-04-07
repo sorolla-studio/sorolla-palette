@@ -1,0 +1,15 @@
+- name: Get Started
+  href: quick-start.md
+- name: Switching to Full
+  href: switching-to-full.md
+- name: SDK Guides
+  href: guides/toc.yml
+- name: API Reference
+  href: api/
+  topicUid: Sorolla.Palette.Palette
+- name: Troubleshooting
+  href: troubleshooting.md
+- name: Architecture
+  href: architecture.md
+- name: Contributing
+  href: contributing.md

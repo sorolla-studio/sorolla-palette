@@ -28,7 +28,7 @@ If Sorolla is handling your onboarding, check this first:
 
 R = Responsible, C = Consulted, I = Informed
 
-If you received pre-filled keys from Sorolla, skip to [Unity Configuration](#3-unity-configuration).
+If you received pre-filled keys from Sorolla, skip to [Unity Configuration](#4-unity-configuration).
 
 ---
 
