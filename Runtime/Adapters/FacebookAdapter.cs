@@ -8,7 +8,7 @@ namespace Sorolla.Palette.Adapters
     /// <summary>
     ///     Facebook SDK adapter. Use Sorolla API instead.
     /// </summary>
-    internal static class FacebookAdapter
+    public static class FacebookAdapter
     {
         const string Tag = "[Palette:FB]";
         private static bool s_init;
@@ -62,7 +62,7 @@ namespace Sorolla.Palette.Adapters
 #else
 namespace Sorolla.Palette.Adapters
 {
-    internal static class FacebookAdapter
+    public static class FacebookAdapter
     {
         #pragma warning disable CS0067 // Event is never used (stub for API compatibility)
         public static event System.Action<bool> OnGameVisibilityChanged;

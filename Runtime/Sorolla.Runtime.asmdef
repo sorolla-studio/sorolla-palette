@@ -19,6 +19,11 @@
             "define": "GAMEANALYTICS_INSTALLED"
         },
         {
+            "name": "com.lacrearthur.facebook-sdk-for-unity",
+            "expression": "",
+            "define": "SOROLLA_FACEBOOK_ENABLED"
+        },
+        {
             "name": "com.applovin.mediation.ads",
             "expression": "",
             "define": "APPLOVIN_MAX_INSTALLED"
