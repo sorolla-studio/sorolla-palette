@@ -57,14 +57,37 @@ Palette.TrackProgression(ProgressionStatus.Complete, "Level_01", score: 1500,
     extraParams: new Dictionary<string, object> { { "duration_sec", 45 } });
 ```
 
-### Crashlytics
+### User Identity
 
-Crashes are captured automatically. For manual logging:
+Set a user ID once — it propagates to Firebase Analytics, Firebase Crashlytics, and Adjust in a single call.
 
 ```csharp
+// Set (or clear, by passing null)
+Palette.SetUserId("player_abc123");
+
+// Firebase audience segmentation — register custom properties in
+// Firebase Console > Analytics > Custom definitions first.
+Palette.SetUserProperty("subscription_tier", "premium");
+Palette.SetUserProperty("tutorial_variant", "B");
+```
+
+### Crashlytics
+
+Crashes are captured automatically. For manual logging, breadcrumbs, and non-fatal exceptions:
+
+```csharp
+// Breadcrumb log (attached to next crash report)
 Palette.LogCrashlytics("User started level 5");
-Palette.SetCrashlyticsKey("level", "5");
-Palette.LogException(ex); // Log handled exceptions
+
+// Custom keys — all 4 overloads available (string, int, float, bool)
+Palette.SetCrashlyticsKey("player_level", 12);
+Palette.SetCrashlyticsKey("has_subscription", true);
+Palette.SetCrashlyticsKey("coins", 250.5f);
+Palette.SetCrashlyticsKey("build_flavor", "beta");
+
+// Log handled exceptions without crashing
+try { RiskyOperation(); }
+catch (Exception ex) { Palette.LogException(ex); }
 ```
 
 ### Remote Config

@@ -1,0 +1,21 @@
+{
+  "metadata": [
+    {
+      "src": [
+        {
+          "files": ["sdk.csproj"],
+          "src": "."
+        }
+      ],
+      "dest": "api",
+      "filter": "filterConfig.yml",
+      "disableGitFeatures": true,
+      "disableDefaultFilter": false,
+      "includePrivateMembers": false,
+      "includeExplicitInterfaceImplementations": false,
+      "properties": {
+        "TargetFramework": "netstandard2.1"
+      }
+    }
+  ]
+}

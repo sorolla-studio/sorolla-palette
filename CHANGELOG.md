@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.7.1] - 2026-04-07
+
+### Fixed (Firebase / GA4 spec compliance)
+- **`level_fail` is gone**: Failed levels now fire `level_end` with `success=0` (and Complete fires `success=1`). `level_fail` was never a real GA4 event - the built-in Games > Levels report aggregates only `level_end`, so every failed attempt was previously invisible in reports.
+- **`purchase` populates the In-app purchases report**: GA4 requires an `items[]` array on `purchase` to surface per-product revenue. `TrackPurchase()` now builds a single-item array with `item_id = productId`. Total revenue still flows; per-pack breakdowns now flow too.
+- **Score moved off `level_end`**: Score is now fired as a separate `post_score` event with just the score, matching the canonical GA4 shape. Studios that need score-with-context join via session_id in BigQuery.
+- **`ad_impression` uses GA4 constants**: All param names switched from string literals to `FirebaseAnalytics.Parameter*` constants (no behavior change, just typo-proof).
+- **`item_name` constant**: Spend events use `FirebaseAnalytics.ParameterItemName` instead of the literal.
+- **`SetUserProperty` validation**: Names > 24 chars, names with reserved prefixes (`ga_`/`google_`/`firebase_`/`_`) are dropped with a warning. Values > 36 chars are truncated.
+- **Reserved event names blocked client-side**: `TrackEvent()` rejects GA4-reserved names (`session_start`, `screen_view`, `error`, `first_open`, etc.) and reserved prefixes with a warning instead of letting Firebase silently swallow them server-side.
+
+### Migration
+- Studios with custom GA4 dashboards keyed on `level_fail`: switch the filter to `level_end` where `success = 0`.
+- Studios reading `score` off `level_end` rows in BigQuery: read it from the matching `post_score` event in the same session instead.
+- Studios firing `Palette.TrackEvent("session_start", ...)` or any other reserved name: rename it. The event was being dropped by Firebase already - now you'll see a warning.
+
 ## [3.7.0] - 2026-04-03
 
 ### Added

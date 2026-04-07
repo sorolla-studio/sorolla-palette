@@ -41,23 +41,70 @@ Higher fill rates with multiple ad networks:
 
 ```csharp
 using Sorolla.Palette;
+```
 
-// Rewarded ad
-if (Palette.IsRewardedAdReady)
+### Rewarded Ads
+
+```csharp
+// Check readiness before showing the Watch Ad button
+bool ready = Palette.IsRewardedAdReady;
+
+// Show
+Palette.ShowRewardedAd(
+    onComplete: () => { /* user earned reward */ },
+    onFailed:   () => { /* ad failed or was skipped */ }
+);
+```
+
+**Typical button handler:**
+```csharp
+public void OnWatchAdClicked()
 {
+    if (!Palette.IsRewardedAdReady)
+    {
+        ShowMessage("Ad not available, try again in a moment");
+        return;
+    }
+
     Palette.ShowRewardedAd(
-        onComplete: () => GiveReward(),
-        onFailed: () => Debug.Log("Ad not available")
+        onComplete: () =>
+        {
+            coins += 100;
+            UpdateUI();
+        },
+        onFailed: () => ShowMessage("Ad not available")
     );
 }
-
-// Interstitial ad
-Palette.ShowInterstitialAd(onComplete: () => LoadNextLevel());
-
-// Banner (planned - not yet available)
-// Palette.ShowBanner();
-// Palette.HideBanner();
 ```
+
+### Interstitial Ads
+
+```csharp
+// Check readiness (optional - ShowInterstitialAd no-ops if not ready)
+bool ready = Palette.IsInterstitialAdReady;
+
+Palette.ShowInterstitialAd(onComplete: () => LoadNextLevel());
+```
+
+**Frequency-capped example:**
+```csharp
+void OnLevelComplete()
+{
+    levelsCompleted++;
+    if (levelsCompleted % 3 == 0)  // Every 3 levels
+    {
+        Palette.ShowInterstitialAd(onComplete: ShowNextLevel);
+    }
+    else
+    {
+        ShowNextLevel();
+    }
+}
+```
+
+### Banner Ads
+
+Banner ads are configured via `SorollaConfig.bannerAdUnit` but the `ShowBanner`/`HideBanner` API is planned and not yet exposed. See `Documentation~/api-reference.md` for the current public surface.
 
 ---
 

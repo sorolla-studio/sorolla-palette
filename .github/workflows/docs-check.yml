@@ -1,0 +1,77 @@
+name: Docs Staleness Check
+
+# Fails the build if Documentation~/api-reference.md is out of sync with the
+# XML doc comments in Runtime/*.cs. See Tools/build-docs.sh and
+# Documentation~/docfx/ for the generation pipeline.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  api-reference:
+    name: Verify api-reference.md is up to date
+    runs-on: ubuntu-latest
+    # Forks can't use the Unity license secret. Skip on forked PRs; the
+    # maintainer still gets the check on their own push and on merge.
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install docfx + DocFxMarkdownGen
+        run: |
+          dotnet tool install -g docfx
+          dotnet tool install -g DocFxMarkdownGen
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      # game-ci's Unity Docker images contain the managed reference DLLs we
+      # need (UnityEngine.dll etc). We don't actually run Unity - just grab
+      # the DLLs out of the image and point UNITY_PATH at them.
+      - name: Cache Unity managed DLLs
+        id: cache-unity-refs
+        uses: actions/cache@v4
+        with:
+          path: unity-refs
+          # Bump this key when bumping the Unity version or game-ci image tag
+          key: unity-managed-6000.4.0f1-base-3.2.2
+
+      - name: Extract Unity managed DLLs from game-ci image
+        if: steps.cache-unity-refs.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          # Pinned game-ci editor image. List of valid tags:
+          # https://hub.docker.com/r/unityci/editor/tags?name=ubuntu-6000.4.0f1
+          IMAGE="unityci/editor:ubuntu-6000.4.0f1-base-3.2.2"
+          docker pull "$IMAGE"
+          CID=$(docker create "$IMAGE")
+          # game-ci images mirror the macOS bundle layout under /opt/unity
+          # so the Managed folder lives at the same relative path our
+          # sdk.csproj expects via $UnityManaged.
+          mkdir -p unity-refs/Unity.app/Contents/Resources/Scripting/Managed/UnityEngine
+          docker cp "$CID:/opt/unity/Editor/Data/Managed/UnityEngine/." \
+            unity-refs/Unity.app/Contents/Resources/Scripting/Managed/UnityEngine/
+          docker rm "$CID"
+          test -f unity-refs/Unity.app/Contents/Resources/Scripting/Managed/UnityEngine/UnityEngine.dll
+          test -f unity-refs/Unity.app/Contents/Resources/Scripting/Managed/UnityEngine/UnityEngine.CoreModule.dll
+
+      - name: Regenerate api-reference.md
+        env:
+          UNITY_PATH: ${{ github.workspace }}/unity-refs
+        run: bash Tools/build-docs.sh
+
+      - name: Fail if api-reference.md is stale
+        run: |
+          if ! git diff --exit-code Documentation~/api-reference.md; then
+            echo "::error file=Documentation~/api-reference.md::api-reference.md is stale. Run 'UNITY_PATH=/path/to/Unity bash Tools/build-docs.sh' locally and commit the result."
+            exit 1
+          fi
+          echo "✓ api-reference.md is in sync with Runtime/*.cs XML comments"

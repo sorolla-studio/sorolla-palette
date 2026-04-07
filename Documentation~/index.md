@@ -4,7 +4,7 @@
 |------|-------|
 | Get started (Prototype mode) | [Quick Start](quick-start.md) |
 | Go to production (Full mode) | [Switching to Full](switching-to-full.md) |
-| Track more events | [API Reference](api-reference.md) |
+| Look up a method signature | [API Reference](api-reference.md) *(auto-generated)* |
 | Fix an issue | [Troubleshooting](troubleshooting.md) |
 | App Store privacy questionnaire | [App Store Privacy](app-store-privacy.md) |
 

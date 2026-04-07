@@ -1,0 +1,5 @@
+# DocFxMarkdownGen config
+# Reads DocFX YAML metadata from ./api and emits markdown to ./md
+yamlPath: ./api
+outputPath: ./md
+indexSlug: index

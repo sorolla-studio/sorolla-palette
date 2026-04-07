@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Shadow .NET project used ONLY by DocFX to extract XML doc comments from
+    Runtime/*.cs. Not built by Unity. Do not add runtime logic here.
+    Requires env var UNITY_PATH pointing at a Unity Editor install, e.g.:
+      /Applications/Unity/Hub/Editor/6000.4.0f1
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>CS0114;CS0108;CS0169;CS0649;CS1591;CS0067;CS0414;CS0618</NoWarn>
+    <Nullable>disable</Nullable>
+    <LangVersion>9.0</LangVersion>
+    <AssemblyName>Sorolla.Runtime</AssemblyName>
+    <RootNamespace>Sorolla.Palette</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UnityManaged>$(UNITY_PATH)/Unity.app/Contents/Resources/Scripting/Managed/UnityEngine</UnityManaged>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Compile the public Runtime surface only. Exclude implementation
+         folders that reference external SDKs (MAX/Firebase/Adjust) and
+         native plugin folders. -->
+    <Compile Include="..\..\Runtime\**\*.cs"
+             Exclude="..\..\Runtime\Plugins\**\*.cs;
+                      ..\..\Runtime\Adapters\Firebase\**\*.cs;
+                      ..\..\Runtime\Adapters\MAX\**\*.cs;
+                      ..\..\Runtime\Adapters\Adjust\**\*.cs;
+                      ..\..\Runtime\ATT\**\*.cs;
+                      ..\..\Runtime\SorollaLoadingOverlay.cs;
+                      ..\..\Runtime\SorollaBootstrapper.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Unity engine reference DLLs. Path resolved from UNITY_PATH env var.
+         Private=false prevents them being copied to output. -->
+    <Reference Include="UnityEngine">
+      <HintPath>$(UnityManaged)/UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(UnityManaged)/UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(UnityManaged)/UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.JSONSerializeModule">
+      <HintPath>$(UnityManaged)/UnityEngine.JSONSerializeModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

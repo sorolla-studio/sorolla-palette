@@ -1,0 +1,28 @@
+apiRules:
+  # Exclude internal/legacy/editor namespaces outright
+  - exclude:
+      uidRegex: ^Sorolla\.Palette\.Adapters
+      type: Namespace
+  - exclude:
+      uidRegex: ^Sorolla\.Palette\.ATT
+      type: Namespace
+  - exclude:
+      uidRegex: ^Sorolla\.Palette\.Editor
+      type: Namespace
+
+  # Exclude internal infrastructure types that happen to be public for
+  # Unity reasons (MonoBehaviour/constants) but are not studio-facing API.
+  - exclude:
+      uidRegex: ^Sorolla\.Palette\.SorollaBootstrapper
+      type: Type
+  - exclude:
+      uidRegex: ^Sorolla\.Palette\.SorollaLoadingOverlay
+      type: Type
+  - exclude:
+      uidRegex: ^Sorolla\.Palette\.PaletteConstants
+      type: Type
+
+  # Include everything remaining under Sorolla.Palette
+  - include:
+      uidRegex: ^Sorolla\.Palette
+      type: Namespace

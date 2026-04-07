@@ -16,8 +16,11 @@ namespace Sorolla.Palette
     /// </summary>
     public enum ProgressionStatus
     {
+        /// <summary>Player started the level/stage</summary>
         Start,
+        /// <summary>Player completed the level/stage successfully</summary>
         Complete,
+        /// <summary>Player failed the level/stage</summary>
         Fail,
     }
 
@@ -173,6 +176,15 @@ namespace Sorolla.Palette
         /// </summary>
         /// <param name="eventName">GA4-compatible event name (lowercase, underscores, max 40 chars)</param>
         /// <param name="parameters">Structured params. Supported types: string, int, long, float, double, bool, enum.</param>
+        /// <example>
+        /// <code>
+        /// Palette.TrackEvent("booster_used", new Dictionary&lt;string, object&gt;
+        /// {
+        ///     { "booster_id", "speed_2x" },
+        ///     { "level", 12 },
+        /// });
+        /// </code>
+        /// </example>
         public static void TrackEvent(string eventName, Dictionary<string, object> parameters = null)
         {
             if (!EnsureInit()) return;
@@ -192,10 +204,23 @@ namespace Sorolla.Palette
 
         /// <summary>
         ///     Track a progression event (level start, complete, fail).
-        ///     Firebase mapping: Start -> level_start, Complete -> level_end, Fail -> level_fail.
+        ///     Firebase/GA4 mapping: Start -> level_start, Complete -> level_end{success=1}, Fail -> level_end{success=0}.
+        ///     When Complete/Fail and score &gt; 0, a separate post_score event is fired with the score.
         /// </summary>
+        /// <param name="status">Whether the player started, completed, or failed the progression.</param>
+        /// <param name="progression01">First progression level (e.g. world name). Required.</param>
+        /// <param name="progression02">Second progression level (e.g. chapter). Optional.</param>
+        /// <param name="progression03">Third progression level (e.g. level number). Optional.</param>
+        /// <param name="score">Score achieved on Complete/Fail. Fires a separate Firebase post_score event when &gt; 0. Ignored on Start.</param>
         /// <param name="extraParams">Optional structured params for Firebase (e.g. world, game_mode, duration_sec).
         ///     Ignored by GameAnalytics. Supported types: string, int, long, float, double, bool, enum.</param>
+        /// <example>
+        /// <code>
+        /// Palette.TrackProgression(ProgressionStatus.Complete, "World1", "Chapter2", "Level3",
+        ///     score: 1500,
+        ///     extraParams: new Dictionary&lt;string, object&gt; { { "duration_sec", 45 } });
+        /// </code>
+        /// </example>
         public static void TrackProgression(ProgressionStatus status, string progression01,
             string progression02 = null, string progression03 = null, int score = 0,
             Dictionary<string, object> extraParams = null)
@@ -242,6 +267,11 @@ namespace Sorolla.Palette
         ///     Track a resource event (economy source/sink).
         ///     Firebase mapping: Source -> earn_virtual_currency, Sink -> spend_virtual_currency.
         /// </summary>
+        /// <param name="flowType">Whether the player gained (Source) or spent (Sink) resources.</param>
+        /// <param name="currency">In-game currency name (e.g. "coins", "gems"). Not a real-world ISO code.</param>
+        /// <param name="amount">Amount of currency. Must be positive.</param>
+        /// <param name="itemType">Category of the item (e.g. "booster", "outfit").</param>
+        /// <param name="itemId">Specific item ID (e.g. "speed_2x", "ninja_skin").</param>
         /// <param name="extraParams">Optional structured params for Firebase (e.g. source, level, world).
         ///     Ignored by GameAnalytics. Supported types: string, int, long, float, double, bool, enum.</param>
         public static void TrackResource(ResourceFlowType flowType, string currency, float amount,
@@ -274,6 +304,13 @@ namespace Sorolla.Palette
         /// <param name="currency">ISO 4217 currency code (default: USD)</param>
         /// <param name="productId">Store product ID for Firebase deduplication</param>
         /// <param name="transactionId">Transaction ID for Firebase deduplication</param>
+        /// <example>
+        /// <code>
+        /// Palette.TrackPurchase(4.99, "USD",
+        ///     productId: "com.mygame.coins_100",
+        ///     transactionId: storeReceipt.transactionId);
+        /// </code>
+        /// </example>
         public static void TrackPurchase(double amount, string currency = "USD",
             string productId = null, string transactionId = null)
         {
@@ -334,8 +371,11 @@ namespace Sorolla.Palette
 
         #region Debug UI
 
+        /// <summary>Fired when <see cref="ShowDebugger"/> is called. Subscribed by the DebugUI sample prefab.</summary>
         public static event Action OnShowDebuggerRequested;
+        /// <summary>Fired when <see cref="HideDebugger"/> is called. Subscribed by the DebugUI sample prefab.</summary>
         public static event Action OnHideDebuggerRequested;
+        /// <summary>Fired when <see cref="ToggleDebugger"/> is called. Subscribed by the DebugUI sample prefab.</summary>
         public static event Action OnToggleDebuggerRequested;
 
         /// <summary>Shows the Sorolla debug panel. Requires DebugUI sample imported and prefab in scene.</summary>

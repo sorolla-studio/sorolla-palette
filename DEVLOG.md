@@ -7,6 +7,35 @@
 
 ## Recent Session Learnings
 
+### 2026-04-07 - v3.7.1 GA4 spec audit (Firebase adapter)
+
+**Summary:** Audited `FirebaseAdapterImpl.cs` against the GA4 protocol reference (https://firebase.google.com/docs/reference/cpp/group/event-names) and found a P0 plus a chain of P1s. Fixed all of them in a single Firebase-only patch with no `Palette` API surface change.
+
+**What was wrong:**
+
+1. **`level_fail` is not a GA4 event.** The Firebase progression mapping fired a literal `"level_fail"` for failed levels. GA4's built-in Games > Levels report only aggregates `level_end` - so every failed attempt was invisible in reports and the funnel falsely looked like every started level completed. This bug shipped in v3.6.0 (the "added level_fail" line in the v3.6.0 changelog was the regression).
+2. **`purchase` had no `items[]`.** Firebase's `purchase` event needs an items array to populate the Monetization > In-app purchases (aka "Ecommerce purchases") report. We were passing `ParameterItemID` as a scalar top-level param. Total revenue still flowed but per-product breakdowns (which IAP pack sells best, ARPDAU-by-pack, LTV-by-pack) were empty.
+3. **`level_end` had no `success` param.** Even when complete fired correctly, GA4 had no way to distinguish complete from fail at the report level. Symptom of the same root cause as #1.
+4. **Score on `level_end` is non-canonical.** GA4's `post_score` is its own event. Studios that need score-with-context join via session_id in BigQuery.
+5. **String literals everywhere.** `ad_impression`, `item_name`, `ad_platform`, etc. were string literals instead of `FirebaseAnalytics.Event*` / `Parameter*` constants. One typo away from a silent drop.
+6. **No client-side validation on user properties or reserved event names.** Firebase silently rejects names > 24 chars, names with `ga_`/`google_`/`firebase_` prefixes, and reserved event names like `session_start`. The SDK was forwarding these straight through and getting them dropped server-side with no studio-facing signal.
+
+**Fixes (all in `Runtime/Adapters/Firebase/FirebaseAdapterImpl.cs`):**
+- Failed levels now fire `level_end` with `success=0`. Complete fires `success=1`. `level_fail` is gone.
+- `TrackPurchase` builds an `IDictionary<string,object>[]` items array with `item_id = productId` and passes it via `ParameterItems`.
+- Score is no longer attached to `level_start`/`level_end`. After the level event, if score > 0 and status != start, we fire a separate `post_score` event with `ParameterScore`.
+- All literals replaced with `FirebaseAnalytics.*` constants.
+- `SetUserProperty` validates name length (≤24), reserved prefixes (`ga_`/`google_`/`firebase_`/`_`), value length (truncate at 36).
+- `SanitizeEventName` extended with a static `HashSet<string>` of GA4 reserved event names + reserved-prefix check. Returns null with a `LogWarning` so existing callers' null-guard early-returns.
+
+**Key insight:** the Firebase Unity `Parameter` ctor for items arrays takes `IEnumerable<IDictionary<string,object>>`. Use `new IDictionary<string,object>[] { new Dictionary<string,object> { ... } }` - C# array → IEnumerable inference handles it. The single-dict overload `(string, IDictionary<string,object>)` doesn't conflict because an array isn't a dict.
+
+**Why no `Palette.cs` change:** All validation lives in the adapter for locality with the rest of the sanitize/build helpers. `Palette.TrackProgression` / `TrackPurchase` / `SetUserProperty` signatures stay byte-identical. Studio code is unchanged. Only the wire shape on the GA4 side moves.
+
+**Migration impact for studios:** Custom dashboards keyed on `level_fail` need to switch to `level_end` filtered by `success=0`. BigQuery readers pulling `score` off `level_end` need to read it from the matching `post_score` row in the same session. Documented in CHANGELOG.md.
+
+**Out of scope (deferred):** New `Palette` surface for tutorial phases, level-up, unlock-achievement. Confirmed with Arthur: hypercasual mobile games don't use `level_up` / `unlock_achievement`, and the built-in `tutorial_begin`/`tutorial_complete` aren't granular enough - studios should use `Palette.TrackEvent("tutorial_phase", { phase, status })` as a custom event.
+
 ### 2026-04-01 - v3.6.0 Release: Firebase androidlib + asmdef defineConstraints
 
 **Summary:** Merged feat/tiktok into master, released v3.6.0. Two bugs surfaced when Sweep Collector switched from local symlink to UPM git URL.

@@ -17,6 +17,19 @@ namespace Sorolla.Palette.Adapters
         private bool _consent;
         private readonly Queue<System.Action> _pendingEvents = new();
 
+        // GA4 reserved event names - dropped server-side anyway, drop here with a warning so studios notice.
+        // Source: https://firebase.google.com/docs/reference/cpp/group/event-names
+        private static readonly HashSet<string> ReservedEventNames = new()
+        {
+            "ad_activeview", "ad_click", "ad_exposure", "ad_query", "ad_reward", "adunit_exposure",
+            "app_clear_data", "app_install", "app_remove", "app_update", "app_exception", "app_upgrade",
+            "error", "first_open", "first_visit", "in_app_purchase",
+            "notification_dismiss", "notification_foreground", "notification_open", "notification_receive",
+            "os_update", "screen_view", "session_start", "session_start_with_rollout", "user_engagement"
+        };
+
+        private static readonly string[] ReservedNamePrefixes = { "ga_", "google_", "firebase_" };
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         [Preserve]
         private static void Register()
@@ -118,34 +131,43 @@ namespace Sorolla.Palette.Adapters
 
             QueueOrExecute(() =>
             {
-                // Firebase mapping: Start -> level_start, Complete -> level_end, Fail -> level_fail
-                string eventName;
-                if (status == "start")
-                    eventName = FirebaseAnalytics.EventLevelStart;
-                else if (status == "complete")
-                    eventName = FirebaseAnalytics.EventLevelEnd;
-                else
-                    eventName = "level_fail";
+                // GA4 spec: Start -> level_start, Complete -> level_end{success=1}, Fail -> level_end{success=0}.
+                // level_fail is NOT a GA4 event - the built-in Games > Levels report only aggregates level_end.
+                bool isStart = status == "start";
+                string eventName = isStart ? FirebaseAnalytics.EventLevelStart : FirebaseAnalytics.EventLevelEnd;
 
                 var parameters = new List<Parameter>
                 {
                     new(FirebaseAnalytics.ParameterLevelName, BuildCanonicalLevelName(p1, p2, p3))
                 };
 
-                if (score > 0)
-                    parameters.Add(new Parameter(FirebaseAnalytics.ParameterScore, score));
+                if (!isStart)
+                {
+                    long success = status == "complete" ? 1L : 0L;
+                    parameters.Add(new Parameter(FirebaseAnalytics.ParameterSuccess, success));
+                }
 
-                // Merge extra params (skip collisions with base params)
+                // Merge extra params (skip collisions with base params).
+                // Note: score is intentionally NOT attached to level_start/level_end - it's fired
+                // separately as post_score below to match the canonical GA4 shape.
                 if (extraCopy != null)
                 {
                     var reservedKeys = new HashSet<string>
                     {
-                        FirebaseAnalytics.ParameterLevelName, FirebaseAnalytics.ParameterScore
+                        FirebaseAnalytics.ParameterLevelName, FirebaseAnalytics.ParameterSuccess
                     };
                     MergeExtraParams(parameters, extraCopy, reservedKeys);
                 }
 
                 FirebaseAnalytics.LogEvent(eventName, parameters.ToArray());
+
+                // Canonical GA4 score routing: post_score is its own event with just the score.
+                // Studios join to neighboring level_end via session_id in BigQuery if they need it.
+                if (!isStart && score > 0)
+                {
+                    FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventPostScore,
+                        new Parameter(FirebaseAnalytics.ParameterScore, score));
+                }
             });
         }
 
@@ -168,7 +190,7 @@ namespace Sorolla.Palette.Adapters
                 };
 
                 if (flowType != "source" && !string.IsNullOrEmpty(itemId))
-                    parameters.Add(new Parameter("item_name", itemId));
+                    parameters.Add(new Parameter(FirebaseAnalytics.ParameterItemName, itemId));
 
                 // Merge extra params (skip collisions with base params)
                 if (extraCopy != null)
@@ -177,7 +199,7 @@ namespace Sorolla.Palette.Adapters
                     {
                         FirebaseAnalytics.ParameterVirtualCurrencyName,
                         FirebaseAnalytics.ParameterValue,
-                        "item_name"
+                        FirebaseAnalytics.ParameterItemName
                     };
                     MergeExtraParams(parameters, extraCopy, reservedKeys);
                 }
@@ -193,7 +215,32 @@ namespace Sorolla.Palette.Adapters
 
         public void SetUserProperty(string name, string value)
         {
-            QueueOrExecute(() => FirebaseAnalytics.SetUserProperty(name, value));
+            // GA4 limits: name <= 24 chars, value <= 36 chars, name cannot start with reserved prefixes.
+            // Names starting with ga_/google_/firebase_/_ are dropped server-side anyway - drop here too with a warning.
+            if (string.IsNullOrEmpty(name))
+            {
+                Debug.LogWarning($"{Tag} SetUserProperty: empty name - dropped");
+                return;
+            }
+            if (name.Length > 24)
+            {
+                Debug.LogWarning($"{Tag} SetUserProperty: name '{name}' exceeds 24 chars - dropped");
+                return;
+            }
+            if (HasReservedUserPropertyPrefix(name))
+            {
+                Debug.LogWarning($"{Tag} SetUserProperty: name '{name}' uses reserved prefix (ga_/google_/firebase_/_) - dropped");
+                return;
+            }
+
+            string sanitizedValue = value ?? "";
+            if (sanitizedValue.Length > 36)
+            {
+                Debug.LogWarning($"{Tag} SetUserProperty: value for '{name}' exceeds 36 chars - truncated");
+                sanitizedValue = sanitizedValue[..36];
+            }
+
+            QueueOrExecute(() => FirebaseAnalytics.SetUserProperty(name, sanitizedValue));
         }
 
         public void TrackAdImpression(string adPlatform, string adSource, string adFormat, string adUnitName, double revenue, string currency)
@@ -202,15 +249,15 @@ namespace Sorolla.Palette.Adapters
             {
                 var parameters = new[]
                 {
-                    new Parameter("ad_platform", adPlatform ?? ""),
-                    new Parameter("ad_source", adSource ?? ""),
-                    new Parameter("ad_format", adFormat ?? ""),
-                    new Parameter("ad_unit_name", adUnitName ?? ""),
-                    new Parameter("value", revenue),
-                    new Parameter("currency", currency ?? "USD")
+                    new Parameter(FirebaseAnalytics.ParameterAdPlatform, adPlatform ?? ""),
+                    new Parameter(FirebaseAnalytics.ParameterAdSource, adSource ?? ""),
+                    new Parameter(FirebaseAnalytics.ParameterAdFormat, adFormat ?? ""),
+                    new Parameter(FirebaseAnalytics.ParameterAdUnitName, adUnitName ?? ""),
+                    new Parameter(FirebaseAnalytics.ParameterValue, revenue),
+                    new Parameter(FirebaseAnalytics.ParameterCurrency, currency ?? "USD")
                 };
 
-                FirebaseAnalytics.LogEvent("ad_impression", parameters);
+                FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventAdImpression, parameters);
             });
         }
 
@@ -218,12 +265,23 @@ namespace Sorolla.Palette.Adapters
         {
             QueueOrExecute(() =>
             {
+                // GA4 spec: purchase requires items[] to populate the Monetization > In-app purchases report
+                // (the same plumbing GA4 calls "Ecommerce purchases" - it's the canonical IAP shape).
+                // Without items[], total revenue still flows but the per-product breakdown is lost.
+                var items = new IDictionary<string, object>[]
+                {
+                    new Dictionary<string, object>
+                    {
+                        { FirebaseAnalytics.ParameterItemID, productId ?? "" }
+                    }
+                };
+
                 FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventPurchase, new[]
                 {
                     new Parameter(FirebaseAnalytics.ParameterCurrency, currency ?? "USD"),
                     new Parameter(FirebaseAnalytics.ParameterValue, price),
                     new Parameter(FirebaseAnalytics.ParameterTransactionID, transactionId ?? ""),
-                    new Parameter(FirebaseAnalytics.ParameterItemID, productId ?? ""),
+                    new Parameter(FirebaseAnalytics.ParameterItems, items)
                 });
             });
         }
@@ -321,9 +379,38 @@ namespace Sorolla.Palette.Adapters
                 result.Insert(0, 'e');
 
             if (result.Length > 40)
-                return result.ToString(0, 40);
+                result.Length = 40;
 
-            return result.Length > 0 ? result.ToString() : null;
+            if (result.Length == 0) return null;
+
+            var finalName = result.ToString();
+
+            // Drop GA4-reserved names. Firebase silently rejects these server-side - warn so studios notice.
+            if (ReservedEventNames.Contains(finalName))
+            {
+                Debug.LogWarning($"{Tag} Event name '{finalName}' is GA4-reserved - dropped");
+                return null;
+            }
+            for (int i = 0; i < ReservedNamePrefixes.Length; i++)
+            {
+                if (finalName.StartsWith(ReservedNamePrefixes[i]))
+                {
+                    Debug.LogWarning($"{Tag} Event name '{finalName}' uses reserved prefix '{ReservedNamePrefixes[i]}' - dropped");
+                    return null;
+                }
+            }
+
+            return finalName;
+        }
+
+        private static bool HasReservedUserPropertyPrefix(string name)
+        {
+            if (name.StartsWith("_")) return true;
+            for (int i = 0; i < ReservedNamePrefixes.Length; i++)
+            {
+                if (name.StartsWith(ReservedNamePrefixes[i])) return true;
+            }
+            return false;
         }
 
         private static string SanitizeParamName(string name)
