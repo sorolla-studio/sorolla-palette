@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.7.2] - 2026-04-08
+
+### Fixed
+- **`FetchRemoteConfig` log clarity**: The adapter logged `activated: False` on every fetch after the first, even when Remote Config was fully live. The bool reflects whether *this specific call* applied newly-fetched values (Firebase's `FetchAndActivateAsync()` semantics), not whether config is active - subsequent fetches within `MinimumFetchInterval` correctly return `false` since there's nothing new to activate. Log now shows `newValuesActivated` alongside `lastFetchStatus` (Success/Failure/Pending) so the actual fetch health is visible.
+
 ## [3.7.1] - 2026-04-08
 
 ### Added
