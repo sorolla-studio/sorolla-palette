@@ -10,13 +10,13 @@
 #   - UNITY_PATH env var, e.g. /Applications/Unity/Hub/Editor/6000.4.0f1
 #
 # Usage:
-#   UNITY_PATH=/Applications/Unity/Hub/Editor/6000.4.0f1 bash Tools/build-docs.sh
+#   UNITY_PATH=/Applications/Unity/Hub/Editor/6000.4.0f1 bash Tools~/build-docs.sh
 #
 set -euo pipefail
 
 : "${UNITY_PATH:?UNITY_PATH must be set, e.g. /Applications/Unity/Hub/Editor/6000.4.0f1}"
 
-# Resolve package root (parent of Tools/)
+# Resolve package root (parent of Tools~/)
 PKG_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DOCFX_DIR="$PKG_ROOT/Documentation~/docfx"
 OUTPUT="$PKG_ROOT/Documentation~/api-reference.md"
@@ -45,7 +45,7 @@ echo "→ Converting YAML → markdown..."
 dfmg >/dev/null
 
 echo "→ Injecting <example> blocks (dfmg drops them)..."
-python3 "$PKG_ROOT/Tools/inject-examples.py" "$DOCFX_DIR/api" "$DOCFX_DIR/md/Sorolla.Palette"
+python3 "$PKG_ROOT/Tools~/inject-examples.py" "$DOCFX_DIR/api" "$DOCFX_DIR/md/Sorolla.Palette"
 
 # Concat per-type markdown into a single api-reference.md.
 # Order: main facade class first, then config, then enums.
@@ -77,7 +77,7 @@ done
 TMP="$(mktemp)"
 {
   printf '<!-- DO NOT EDIT. This file is generated from XML doc comments in Runtime/*.cs.\n'
-  printf '     To regenerate: UNITY_PATH=/path/to/Unity/Editor bash Tools/build-docs.sh\n'
+  printf '     To regenerate: UNITY_PATH=/path/to/Unity/Editor bash Tools~/build-docs.sh\n'
   printf '     Source of truth: `///` XML comments on public members in Runtime/Palette.cs,\n'
   printf '     Runtime/SorollaConfig.cs, etc. CI enforces staleness via .github/workflows/docs-check.yml. -->\n\n'
   printf '# Sorolla SDK API Reference\n\n'

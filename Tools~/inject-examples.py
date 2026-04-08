@@ -10,10 +10,10 @@ into the corresponding markdown files as fenced code blocks placed
 immediately after each member's Declaration code block.
 
 Usage:
-    python3 Tools/inject-examples.py <yaml-dir> <markdown-dir>
+    python3 Tools~/inject-examples.py <yaml-dir> <markdown-dir>
 
 Example:
-    python3 Tools/inject-examples.py Documentation~/docfx/api Documentation~/docfx/md/Sorolla.Palette
+    python3 Tools~/inject-examples.py Documentation~/docfx/api Documentation~/docfx/md/Sorolla.Palette
 """
 
 import re

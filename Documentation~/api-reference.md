@@ -1,5 +1,5 @@
 <!-- DO NOT EDIT. This file is generated from XML doc comments in Runtime/*.cs.
-     To regenerate: UNITY_PATH=/path/to/Unity/Editor bash Tools/build-docs.sh
+     To regenerate: UNITY_PATH=/path/to/Unity/Editor bash Tools~/build-docs.sh
      Source of truth: `///` XML comments on public members in Runtime/Palette.cs,
      Runtime/SorollaConfig.cs, etc. CI enforces staleness via .github/workflows/docs-check.yml. -->
 
