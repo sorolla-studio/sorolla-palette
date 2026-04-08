@@ -198,7 +198,8 @@ namespace Sorolla.Palette.Adapters
                     return;
                 }
 
-                Debug.Log($"{Tag} Fetch complete (activated: {task.Result})");
+                var info = FirebaseRemoteConfig.DefaultInstance.Info;
+                Debug.Log($"{Tag} Fetch complete (newValuesActivated: {task.Result}, lastFetchStatus: {info.LastFetchStatus})");
                 onComplete?.Invoke(true);
             });
         }
