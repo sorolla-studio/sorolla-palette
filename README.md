@@ -13,7 +13,7 @@ Plug-and-play mobile publisher SDK for Unity. Zero-config initialization with au
 
 ## Quick Start
 
-**[Get Started](Documentation~/quick-start.md)** - 10 minute setup for UA testing
+**[Get Started](https://sorolla-studio.github.io/sorolla-palette/quick-start.html)** - 10 minute setup for UA testing
 
 ## Usage
 
@@ -35,23 +35,25 @@ if (Palette.IsRewardedAdReady)
 
 ## Documentation
 
+Full docs site: **[sorolla-studio.github.io/sorolla-palette](https://sorolla-studio.github.io/sorolla-palette/)**
+
 | | |
 |---|---|
-| [Quick Start](Documentation~/quick-start.md) | Get running in 10 minutes |
-| [Switch to Full Mode](Documentation~/switching-to-full.md) | Production setup (Adjust + GDPR) |
-| [API Reference](Documentation~/api-reference.md) | Complete API documentation |
-| [Troubleshooting](Documentation~/troubleshooting.md) | Common issues and fixes |
+| [Quick Start](https://sorolla-studio.github.io/sorolla-palette/quick-start.html) | Get running in 10 minutes |
+| [Switch to Full Mode](https://sorolla-studio.github.io/sorolla-palette/switching-to-full.html) | Production setup (Adjust + GDPR) |
+| [API Reference](https://sorolla-studio.github.io/sorolla-palette/api-reference.html) | Complete API documentation |
+| [Troubleshooting](https://sorolla-studio.github.io/sorolla-palette/troubleshooting.html) | Common issues and fixes |
 
 ### SDK Guides
 
 | | |
 |---|---|
-| [GameAnalytics](Documentation~/guides/gameanalytics.md) | Analytics setup |
-| [Facebook](Documentation~/guides/facebook.md) | Attribution setup |
-| [Firebase](Documentation~/guides/firebase.md) | Analytics, Crashlytics, Remote Config |
-| [Ads (MAX)](Documentation~/guides/ads.md) | Monetization setup |
-| [Adjust](Documentation~/guides/adjust.md) | Full attribution (Full mode) |
-| [GDPR/ATT](Documentation~/guides/gdpr.md) | Privacy compliance |
+| [GameAnalytics](https://sorolla-studio.github.io/sorolla-palette/guides/gameanalytics.html) | Analytics setup |
+| [Facebook](https://sorolla-studio.github.io/sorolla-palette/guides/facebook.html) | Attribution setup |
+| [Firebase](https://sorolla-studio.github.io/sorolla-palette/guides/firebase.html) | Analytics, Crashlytics, Remote Config |
+| [Ads (MAX)](https://sorolla-studio.github.io/sorolla-palette/guides/ads.html) | Monetization setup |
+| [Adjust](https://sorolla-studio.github.io/sorolla-palette/guides/adjust.html) | Full attribution (Full mode) |
+| [GDPR/ATT](https://sorolla-studio.github.io/sorolla-palette/guides/gdpr.html) | Privacy compliance |
 
 ## What's Included
 
