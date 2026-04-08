@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.7.1] - 2026-04-07
+## [3.7.1] - 2026-04-08
+
+### Added
+- **DocFX full site + GitHub Pages pipeline**: Public API reference now builds into a browsable site and deploys to GitHub Pages on every push to master. `Tools~/build-docs.sh` regenerates the in-repo `Documentation~/api-reference.md` from `///` XML comments.
+
+### Changed
+- **`Tools/` renamed to `Tools~/`**: Unity's trailing-tilde convention hides the directory from the asset pipeline - studios no longer see phantom `.meta` files or re-imports triggered by the docs-build scripts.
 
 ### Fixed (Firebase / GA4 spec compliance)
 - **`level_fail` is gone**: Failed levels now fire `level_end` with `success=0` (and Complete fires `success=1`). `level_fail` was never a real GA4 event - the built-in Games > Levels report aggregates only `level_end`, so every failed attempt was previously invisible in reports.
@@ -13,10 +19,15 @@ All notable changes to this project will be documented in this file.
 - **`SetUserProperty` validation**: Names > 24 chars, names with reserved prefixes (`ga_`/`google_`/`firebase_`/`_`) are dropped with a warning. Values > 36 chars are truncated.
 - **Reserved event names blocked client-side**: `TrackEvent()` rejects GA4-reserved names (`session_start`, `screen_view`, `error`, `first_open`, etc.) and reserved prefixes with a warning instead of letting Firebase silently swallow them server-side.
 
+### Fixed (Firebase adapters - init failure paths)
+- **Zombie `FetchRemoteConfig` callback when Firebase core init fails terminally**: `FirebaseRemoteConfigAdapterImpl` would park the `onComplete` callback in `_pendingFetchCallback` forever whenever `FirebaseCoreManager.Initialize` reported `available=false` (Editor without Firebase native, failed dependency check, etc.). Consumers waiting on `Palette.OnInitialized` before calling `Palette.FetchRemoteConfig(cb)` would never see `cb` fire, and any `RemoteConfig.Reload()` chained after it would hang. Adapter now tracks a terminal `_initFailed` state and fails the callback fast with `false` on the same frame.
+- **`FirebaseAdapterImpl` / `FirebaseCrashlyticsAdapterImpl` pending-queue leak**: Same root cause - when Firebase core failed terminally, `TrackEvent`/`Log`/`SetCustomKey` calls kept accumulating in the pending queues forever with no flush path. Both adapters now drop silently after terminal init failure and clear any backlog that queued before the failure callback arrived.
+
 ### Migration
 - Studios with custom GA4 dashboards keyed on `level_fail`: switch the filter to `level_end` where `success = 0`.
 - Studios reading `score` off `level_end` rows in BigQuery: read it from the matching `post_score` event in the same session instead.
 - Studios firing `Palette.TrackEvent("session_start", ...)` or any other reserved name: rename it. The event was being dropped by Firebase already - now you'll see a warning.
+- Studios that gated on `Palette.IsRemoteConfigReady()` as a client-side workaround for the RemoteConfig hang can drop the gate. `Palette.FetchRemoteConfig(cb)` now always invokes `cb` (true on success, false on fetch/init failure).
 
 ## [3.7.0] - 2026-04-03
 

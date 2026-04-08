@@ -14,6 +14,7 @@ namespace Sorolla.Palette.Adapters
         const string Tag = "[Palette:Firebase]";
         private bool _initRequested;
         private bool _ready;
+        private bool _initFailed;
         private bool _consent;
         private readonly Queue<System.Action> _pendingEvents = new();
 
@@ -58,6 +59,9 @@ namespace Sorolla.Palette.Adapters
                 else
                 {
                     Debug.LogError($"{Tag} Firebase not available");
+                    _initFailed = true;
+                    // Drop anything that queued between Initialize() and the failure callback.
+                    _pendingEvents.Clear();
                 }
             });
         }
@@ -82,8 +86,9 @@ namespace Sorolla.Palette.Adapters
         {
             if (_ready)
                 action();
-            else
+            else if (!_initFailed)
                 _pendingEvents.Enqueue(action);
+            // _initFailed: drop silently - Firebase permanently unavailable, queueing would leak.
         }
 
         public void TrackEvent(string eventName, Dictionary<string, object> parameters)

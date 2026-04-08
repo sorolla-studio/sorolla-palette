@@ -18,6 +18,7 @@ namespace Sorolla.Palette.Adapters
         const string Tag = "[Palette:RemoteConfig]";
         private bool _initRequested;
         private bool _init;
+        private bool _initFailed;
         private bool _fetching;
         private Dictionary<string, object> _pendingDefaults;
         private bool _pendingAutoFetch;
@@ -50,6 +51,7 @@ namespace Sorolla.Palette.Adapters
                 else
                 {
                     Debug.LogError($"{Tag} Firebase not available");
+                    _initFailed = true;
                     if (_pendingFetchCallback != null)
                     {
                         var callback = _pendingFetchCallback;
@@ -162,6 +164,13 @@ namespace Sorolla.Palette.Adapters
 
         public void FetchAndActivate(Action<bool> onComplete)
         {
+            if (_initFailed)
+            {
+                // Firebase core failed terminally - fail fast instead of parking the callback forever.
+                onComplete?.Invoke(false);
+                return;
+            }
+
             if (!_init)
             {
                 if (_initRequested)

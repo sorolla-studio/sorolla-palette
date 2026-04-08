@@ -15,6 +15,7 @@ namespace Sorolla.Palette.Adapters
         const string Tag = "[Palette:Crashlytics]";
         private bool _initRequested;
         private bool _ready;
+        private bool _initFailed;
         private bool _captureExceptions;
         private readonly Queue<Action> _pendingActions = new();
 
@@ -49,6 +50,9 @@ namespace Sorolla.Palette.Adapters
                 else
                 {
                     Debug.LogError($"{Tag} Firebase not available");
+                    _initFailed = true;
+                    // Drop anything that queued between Initialize() and the failure callback.
+                    _pendingActions.Clear();
                 }
             });
         }
@@ -66,8 +70,9 @@ namespace Sorolla.Palette.Adapters
         {
             if (_ready)
                 action();
-            else if (_initRequested)
+            else if (_initRequested && !_initFailed)
                 _pendingActions.Enqueue(action);
+            // _initFailed: drop silently - Firebase permanently unavailable, queueing would leak.
         }
 
         private void OnLogMessageReceived(string condition, string stackTrace, LogType type)
