@@ -8,11 +8,13 @@ using UnityEngine;
 namespace Sorolla.Palette.Editor
 {
     /// <summary>
-    ///     Sanitizes AndroidManifest.xml by removing entries for uninstalled SDKs.
-    ///     Prevents runtime crashes from orphaned manifest entries.
+    ///     Single owner of all Android manifest logic: source manifests (pre-build)
+    ///     and auto-generated Gradle manifests (post-export).
     /// </summary>
     public static class AndroidManifestSanitizer
     {
+        // -- Configuration --
+
         private const string Tag = "[Palette ManifestSanitizer]";
 
         private static string AndroidManifestPath =>
@@ -51,6 +53,16 @@ namespace Sorolla.Palette.Editor
 
         private const string ActivityClass = "com.unity3d.player.UnityPlayerActivity";
         private const string GameActivityClass = "com.unity3d.player.UnityPlayerGameActivity";
+        private const string ActivityTheme = "@style/UnityThemeSelector";
+        private const string GameActivityTheme = "@style/BaseUnityGameActivityTheme";
+
+        /// <summary>
+        ///     Returns the correct theme for the expected main activity class.
+        /// </summary>
+        public static string GetExpectedTheme()
+        {
+            return GetExpectedMainActivity() == GameActivityClass ? GameActivityTheme : ActivityTheme;
+        }
 
         /// <summary>
         ///     The correct main activity depends on the Application Entry point selected
@@ -77,7 +89,42 @@ namespace Sorolla.Palette.Editor
             return ActivityClass;
         }
 
-        private static readonly XNamespace AndroidNs = "http://schemas.android.com/apk/res/android";
+        /// <summary>
+        ///     Raw androidApplicationEntry value for diagnostics. Returns -1 if unavailable.
+        /// </summary>
+        internal static int GetApplicationEntryRaw()
+        {
+            try
+            {
+                var settings = Unsupported.GetSerializedAssetInterfaceSingleton("PlayerSettings");
+                var so = new SerializedObject(settings);
+                var prop = so.FindProperty("androidApplicationEntry");
+                return prop?.intValue ?? -1;
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+
+        // -- Shared Utilities --
+
+        internal static readonly XNamespace AndroidNs = "http://schemas.android.com/apk/res/android";
+        private static readonly XNamespace ToolsNs = "http://schemas.android.com/tools";
+
+        /// <summary>
+        ///     Find the activity element with a LAUNCHER intent-filter category.
+        /// </summary>
+        internal static XElement FindLauncherActivity(XElement application)
+        {
+            return application?.Elements("activity")
+                .FirstOrDefault(a => a.Elements("intent-filter")
+                    .Any(f => f.Elements("category")
+                        .Any(c => c.Attribute(AndroidNs + "name")?.Value ==
+                                  "android.intent.category.LAUNCHER")));
+        }
+
+        // -- Library Manifest Detection --
 
         /// <summary>
         ///     Check if AndroidManifest has entries for uninstalled SDKs
@@ -212,15 +259,12 @@ namespace Sorolla.Palette.Editor
             }
         }
 
+        // -- Launcher Manifest Detection --
+
         /// <summary>
         ///     Detect if the launcher activity uses the wrong class name.
         ///     Returns the wrong class name if found, or null if correct.
         /// </summary>
-        /// <remarks>
-        ///     Unity 6 App UI package sets the activity to AppUIGameActivity,
-        ///     but without that package installed the app crashes on launch.
-        ///     The correct activity for standard Unity 6 is UnityPlayerGameActivity.
-        /// </remarks>
         public static string DetectWrongMainActivity()
         {
             if (!File.Exists(AndroidManifestPath))
@@ -245,16 +289,7 @@ namespace Sorolla.Palette.Editor
         internal static string DetectWrongMainActivityInXml(string xmlContent, string expectedActivity)
         {
             var doc = XDocument.Parse(xmlContent);
-            var application = doc.Root?.Element("application");
-            if (application == null)
-                return null;
-
-            var launcherActivity = application.Elements("activity")
-                .FirstOrDefault(a => a.Elements("intent-filter")
-                    .Any(f => f.Elements("category")
-                        .Any(c => c.Attribute(AndroidNs + "name")?.Value ==
-                                  "android.intent.category.LAUNCHER")));
-
+            var launcherActivity = FindLauncherActivity(doc.Root?.Element("application"));
             if (launcherActivity == null)
                 return null;
 
@@ -266,31 +301,111 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Fix the launcher activity class name to the correct Unity 6 value.
+        ///     Detect if the launcher activity in AndroidManifest.xml has a theme mismatch
+        ///     or is missing tools:replace="android:theme". Either condition causes Gradle
+        ///     merge conflicts when Unity's auto-generated base manifest has a different theme.
         /// </summary>
-        private static bool FixMainActivity(XDocument doc)
+        public static string DetectThemeMismatch()
         {
-            var application = doc.Root?.Element("application");
-            if (application == null)
-                return false;
+            if (!File.Exists(AndroidManifestPath))
+                return null;
 
-            var launcherActivity = application.Elements("activity")
-                .FirstOrDefault(a => a.Elements("intent-filter")
-                    .Any(f => f.Elements("category")
-                        .Any(c => c.Attribute(AndroidNs + "name")?.Value ==
-                                  "android.intent.category.LAUNCHER")));
+            try
+            {
+                var doc = XDocument.Load(AndroidManifestPath);
+                var launcherActivity = FindLauncherActivity(doc.Root?.Element("application"));
+                if (launcherActivity == null)
+                    return null;
 
+                var expectedTheme = GetExpectedTheme();
+                var themeAttr = launcherActivity.Attribute(AndroidNs + "theme");
+                if (themeAttr != null && themeAttr.Value != expectedTheme)
+                    return $"Wrong theme: {themeAttr.Value} (expected {expectedTheme})";
+
+                // tools:replace only needed when a custom launcher manifest exists -
+                // can't predict its theme, so tools:replace prevents merge conflicts.
+                // When themes match the expected value, identical attributes merge
+                // cleanly without tools:replace.
+                if (UsesCustomLauncherManifest())
+                {
+                    var replaceAttr = launcherActivity.Attribute(ToolsNs + "replace");
+                    if (replaceAttr == null || !replaceAttr.Value.Contains("android:theme"))
+                        return "Missing tools:replace=\"android:theme\" - will cause Gradle merge conflict";
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"{Tag} Failed to detect theme mismatch: {e.Message}");
+            }
+
+            return null;
+        }
+
+        // -- Fixes --
+
+        /// <summary>
+        ///     Fix the launcher activity class name, theme, and optionally tools:replace.
+        ///     tools:replace is only needed when a custom launcher manifest exists - it prevents
+        ///     Gradle merge conflicts when two modules declare the same activity with different themes.
+        /// </summary>
+        /// <param name="doc">The manifest document to fix.</param>
+        /// <param name="requireToolsReplace">
+        ///     When true, ensures tools:replace="android:theme" is present.
+        ///     Pass true for launcher manifests; pass UsesCustomLauncherManifest() for library manifests.
+        /// </param>
+        internal static bool FixMainActivity(XDocument doc, bool requireToolsReplace)
+        {
+            var launcherActivity = FindLauncherActivity(doc.Root?.Element("application"));
             if (launcherActivity == null)
                 return false;
 
-            var nameAttr = launcherActivity.Attribute(AndroidNs + "name");
+            var modified = false;
             var expected = GetExpectedMainActivity();
-            if (nameAttr == null || nameAttr.Value == expected)
-                return false;
+            var expectedTheme = GetExpectedTheme();
 
-            Debug.Log($"{Tag} Fixing main activity: {nameAttr.Value} → {expected}");
-            nameAttr.Value = expected;
-            return true;
+            var nameAttr = launcherActivity.Attribute(AndroidNs + "name");
+            if (nameAttr != null && nameAttr.Value != expected)
+            {
+                Debug.Log($"{Tag} Fixing main activity: {nameAttr.Value} → {expected} " +
+                          $"(androidApplicationEntry={GetApplicationEntryRaw()})");
+                nameAttr.Value = expected;
+                modified = true;
+            }
+
+            var themeAttr = launcherActivity.Attribute(AndroidNs + "theme");
+            if (themeAttr != null && themeAttr.Value != expectedTheme)
+            {
+                Debug.Log($"{Tag} Fixing activity theme: {themeAttr.Value} → {expectedTheme}");
+                themeAttr.Value = expectedTheme;
+                modified = true;
+            }
+
+            if (requireToolsReplace)
+            {
+                EnsureToolsNamespace(doc);
+                var replaceAttr = launcherActivity.Attribute(ToolsNs + "replace");
+                var replaceValue = replaceAttr?.Value ?? "";
+                if (!replaceValue.Contains("android:theme"))
+                {
+                    var newReplace = string.IsNullOrEmpty(replaceValue)
+                        ? "android:theme"
+                        : replaceValue + ",android:theme";
+                    launcherActivity.SetAttributeValue(ToolsNs + "replace", newReplace);
+                    Debug.Log($"{Tag} Added tools:replace=\"{newReplace}\" to prevent theme merge conflict");
+                    modified = true;
+                }
+            }
+
+            return modified;
+        }
+
+        /// <summary>
+        ///     Ensure the tools namespace is declared on the root manifest element.
+        /// </summary>
+        internal static void EnsureToolsNamespace(XDocument doc)
+        {
+            if (doc.Root != null && doc.Root.Attribute(XNamespace.Xmlns + "tools") == null)
+                doc.Root.Add(new XAttribute(XNamespace.Xmlns + "tools", ToolsNs.NamespaceName));
         }
 
         /// <summary>
@@ -326,12 +441,7 @@ namespace Sorolla.Palette.Editor
             if (application == null)
                 return "LauncherManifest.xml has no <application> element";
 
-            var launcherActivity = application.Elements("activity")
-                .FirstOrDefault(a => a.Elements("intent-filter")
-                    .Any(f => f.Elements("category")
-                        .Any(c => c.Attribute(AndroidNs + "name")?.Value ==
-                                  "android.intent.category.LAUNCHER")));
-
+            var launcherActivity = FindLauncherActivity(application);
             if (launcherActivity == null)
                 return "LauncherManifest.xml has no activity with MAIN/LAUNCHER intent filter - app will not launch";
 
@@ -352,37 +462,46 @@ namespace Sorolla.Palette.Editor
 
             try
             {
-                XNamespace tools = "http://schemas.android.com/tools";
                 var doc = XDocument.Load(LauncherManifestPath);
                 var application = doc.Root?.Element("application");
                 if (application == null)
                     return false;
 
                 var expected = GetExpectedMainActivity();
-                var isGameActivity = expected == GameActivityClass;
-                var theme = isGameActivity ? "@style/BaseUnityGameActivityTheme" : "@style/UnityThemeSelector";
+                var theme = GetExpectedTheme();
 
-                // Find existing launcher activity
-                var launcherActivity = application.Elements("activity")
-                    .FirstOrDefault(a => a.Elements("intent-filter")
-                        .Any(f => f.Elements("category")
-                            .Any(c => c.Attribute(AndroidNs + "name")?.Value ==
-                                      "android.intent.category.LAUNCHER")));
+                var launcherActivity = FindLauncherActivity(application);
+                const string toolsReplace = "android:enabled,android:theme";
 
                 if (launcherActivity != null)
                 {
-                    // Fix existing activity
-                    var nameAttr = launcherActivity.Attribute(AndroidNs + "name");
-                    if (nameAttr != null && nameAttr.Value == expected)
-                        return false; // Already correct
+                    var modified = false;
 
-                    if (nameAttr != null)
+                    var nameAttr = launcherActivity.Attribute(AndroidNs + "name");
+                    if (nameAttr != null && nameAttr.Value != expected)
                     {
                         Debug.Log($"{Tag} Fixing LauncherManifest.xml activity: {nameAttr.Value} -> {expected}");
                         nameAttr.Value = expected;
+                        modified = true;
                     }
 
-                    launcherActivity.SetAttributeValue(AndroidNs + "theme", theme);
+                    // Fix theme + add tools:replace to prevent Gradle merge conflicts
+                    var themeAttr = launcherActivity.Attribute(AndroidNs + "theme");
+                    if (themeAttr == null || themeAttr.Value != theme)
+                    {
+                        launcherActivity.SetAttributeValue(AndroidNs + "theme", theme);
+                        modified = true;
+                    }
+
+                    var replaceAttr = launcherActivity.Attribute(ToolsNs + "replace");
+                    if (replaceAttr == null || replaceAttr.Value != toolsReplace)
+                    {
+                        launcherActivity.SetAttributeValue(ToolsNs + "replace", toolsReplace);
+                        modified = true;
+                    }
+
+                    if (!modified)
+                        return false;
                 }
                 else
                 {
@@ -393,7 +512,7 @@ namespace Sorolla.Palette.Editor
                         new XAttribute(AndroidNs + "theme", theme),
                         new XAttribute(AndroidNs + "enabled", "true"),
                         new XAttribute(AndroidNs + "exported", "true"),
-                        new XAttribute(tools + "replace", "android:enabled"),
+                        new XAttribute(ToolsNs + "replace", toolsReplace),
                         new XElement("intent-filter",
                             new XElement("action", new XAttribute(AndroidNs + "name", "android.intent.action.MAIN")),
                             new XElement("category", new XAttribute(AndroidNs + "name", "android.intent.category.LAUNCHER"))
@@ -423,73 +542,130 @@ namespace Sorolla.Palette.Editor
             }
         }
 
+        // -- Orchestration --
+
         /// <summary>
-        ///     Remove orphaned SDK entries and duplicate activities from AndroidManifest.xml
+        ///     Post-fix diagnostics: what was fixed and what remains unfixed.
+        ///     Passed to CheckAndroidManifest() to avoid redundant detection.
         /// </summary>
-        public static bool Sanitize()
+        internal class ManifestDiagnostics
         {
-            if (!File.Exists(AndroidManifestPath))
+            public List<string> Fixes = new();
+            public List<(SdkId sdk, string[] entries)> RemainingOrphans = new();
+            public List<string> RemainingDuplicates = new();
+            public string RemainingWrongActivity;
+            public string RemainingThemeMismatch;
+            public string RemainingLauncherIssue;
+
+            public bool HasRemainingIssues =>
+                RemainingOrphans.Count > 0 || RemainingDuplicates.Count > 0
+                || RemainingWrongActivity != null || RemainingThemeMismatch != null
+                || RemainingLauncherIssue != null;
+        }
+
+        /// <summary>
+        ///     Sanitize all manifests and return diagnostics (fixes applied + remaining issues).
+        ///     Use this when you need both the fix list AND remaining issues (e.g. BuildValidator).
+        /// </summary>
+        internal static ManifestDiagnostics SanitizeWithDiagnostics(bool refreshAssetDatabase)
+        {
+            var diag = new ManifestDiagnostics();
+
+            // --- Library manifest (AndroidManifest.xml) ---
+            if (File.Exists(AndroidManifestPath))
             {
-                Debug.Log($"{Tag} No AndroidManifest.xml found, nothing to sanitize");
-                return false;
+                var orphaned = DetectOrphanedEntries();
+                var duplicates = DetectDuplicateActivities();
+                var wrongActivity = DetectWrongMainActivity();
+                var themeMismatch = DetectThemeMismatch();
+
+                if (orphaned.Count > 0 || duplicates.Count > 0 || wrongActivity != null || themeMismatch != null)
+                {
+                    try
+                    {
+                        var doc = XDocument.Load(AndroidManifestPath);
+                        var libraryFixCount = 0;
+
+                        foreach (var (sdkId, patterns) in orphaned)
+                        {
+                            if (RemoveSdkEntries(doc, patterns))
+                            {
+                                var sdkName = SdkRegistry.All[sdkId].Name;
+                                Debug.Log($"{Tag} Removed {sdkName} entries from AndroidManifest.xml");
+                                diag.Fixes.Add($"Removed {sdkName} entries from AndroidManifest.xml");
+                                libraryFixCount++;
+                            }
+                        }
+
+                        if (duplicates.Count > 0 && RemoveDuplicateActivities(doc))
+                        {
+                            Debug.Log($"{Tag} Removed {duplicates.Count} duplicate activity declaration(s)");
+                            diag.Fixes.Add($"Removed {duplicates.Count} duplicate activity declaration(s)");
+                            libraryFixCount++;
+                        }
+
+                        if ((wrongActivity != null || themeMismatch != null) && FixMainActivity(doc, UsesCustomLauncherManifest()))
+                        {
+                            if (wrongActivity != null)
+                            {
+                                Debug.Log($"{Tag} Fixed main activity: {wrongActivity} -> {GetExpectedMainActivity()}");
+                                diag.Fixes.Add($"Fixed main activity: {wrongActivity} -> {GetExpectedMainActivity()}");
+                                libraryFixCount++;
+                            }
+                            if (themeMismatch != null)
+                            {
+                                Debug.Log($"{Tag} Fixed theme mismatch: {themeMismatch}");
+                                diag.Fixes.Add($"Fixed theme mismatch: {themeMismatch}");
+                                libraryFixCount++;
+                            }
+                        }
+
+                        if (libraryFixCount > 0)
+                        {
+                            var backupPath = AndroidManifestPath + ".backup";
+                            File.Copy(AndroidManifestPath, backupPath, true);
+                            doc.Save(AndroidManifestPath);
+
+                            if (refreshAssetDatabase)
+                                AssetDatabase.Refresh();
+
+                            Debug.Log($"{Tag} AndroidManifest.xml sanitized successfully (backup at {backupPath})");
+                        }
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogError($"{Tag} Failed to sanitize AndroidManifest.xml: {e.Message}");
+                    }
+
+                    // Re-detect after fixes to capture remaining issues
+                    diag.RemainingOrphans = DetectOrphanedEntries();
+                    diag.RemainingDuplicates = DetectDuplicateActivities();
+                    diag.RemainingWrongActivity = DetectWrongMainActivity();
+                    diag.RemainingThemeMismatch = DetectThemeMismatch();
+                }
             }
 
-            var orphaned = DetectOrphanedEntries();
-            var duplicates = DetectDuplicateActivities();
-            var wrongActivity = DetectWrongMainActivity();
-
-            if (orphaned.Count == 0 && duplicates.Count == 0 && wrongActivity == null)
+            // --- Launcher manifest (LauncherManifest.xml, Unity 6 split module) ---
+            var launcherIssue = DetectLauncherManifestIssue();
+            if (launcherIssue != null)
             {
-                Debug.Log($"{Tag} No orphaned entries, duplicate activities, or wrong main activity found");
-                return false;
+                if (FixLauncherManifest())
+                    diag.Fixes.Add($"Fixed LauncherManifest.xml: {launcherIssue}");
+                diag.RemainingLauncherIssue = DetectLauncherManifestIssue();
             }
 
-            try
-            {
-                var doc = XDocument.Load(AndroidManifestPath);
-                var modified = false;
+            if (diag.Fixes.Count == 0)
+                Debug.Log($"{Tag} No manifest issues found");
 
-                // Remove orphaned SDK entries
-                foreach (var (sdkId, patterns) in orphaned)
-                {
-                    Debug.Log($"{Tag} Removing {SdkRegistry.All[sdkId].Name} entries from AndroidManifest.xml");
-                    modified |= RemoveSdkEntries(doc, patterns);
-                }
+            return diag;
+        }
 
-                // Remove duplicate activities
-                if (duplicates.Count > 0)
-                {
-                    Debug.Log($"{Tag} Removing {duplicates.Count} duplicate activity declaration(s)");
-                    modified |= RemoveDuplicateActivities(doc);
-                }
-
-                // Fix wrong main activity class name
-                if (wrongActivity != null)
-                {
-                    Debug.Log($"{Tag} Fixing wrong main activity: {wrongActivity}");
-                    modified |= FixMainActivity(doc);
-                }
-
-                if (modified)
-                {
-                    // Create backup
-                    var backupPath = AndroidManifestPath + ".backup";
-                    if (File.Exists(AndroidManifestPath))
-                        File.Copy(AndroidManifestPath, backupPath, true);
-
-                    doc.Save(AndroidManifestPath);
-                    AssetDatabase.Refresh();
-
-                    Debug.Log($"{Tag} AndroidManifest.xml sanitized successfully (backup at {backupPath})");
-                    return true;
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"{Tag} Failed to sanitize AndroidManifest.xml: {e.Message}");
-            }
-
-            return false;
+        /// <summary>
+        ///     Sanitize all manifests. Returns list of fix descriptions (empty if nothing changed).
+        /// </summary>
+        public static List<string> Sanitize(bool refreshAssetDatabase = true)
+        {
+            return SanitizeWithDiagnostics(refreshAssetDatabase).Fixes;
         }
 
         /// <summary>
@@ -507,9 +683,9 @@ namespace Sorolla.Palette.Editor
 
             foreach (var element in application.Elements())
             {
-                var nameAttr = element.Attribute(XName.Get("name", "http://schemas.android.com/apk/res/android"));
-                var authAttr = element.Attribute(XName.Get("authorities", "http://schemas.android.com/apk/res/android"));
-                var valueAttr = element.Attribute(XName.Get("value", "http://schemas.android.com/apk/res/android"));
+                var nameAttr = element.Attribute(AndroidNs + "name");
+                var authAttr = element.Attribute(AndroidNs + "authorities");
+                var valueAttr = element.Attribute(AndroidNs + "value");
 
                 var name = nameAttr?.Value ?? "";
                 var authorities = authAttr?.Value ?? "";
@@ -534,6 +710,116 @@ namespace Sorolla.Palette.Editor
             }
 
             return modified;
+        }
+
+        // -- Post-Export (auto-generated Gradle project manifests) --
+
+        /// <summary>
+        ///     Enforce manifest invariants on the auto-generated launcher manifest
+        ///     (activity class, theme, tools:replace). Called by GradlePropertiesFixer
+        ///     during IPostGenerateGradleAndroidProject.
+        /// </summary>
+        /// <param name="unityLibraryPath">
+        ///     The path passed by Unity to IPostGenerateGradleAndroidProject (points to unityLibrary).
+        /// </param>
+        internal static void FixAutoGeneratedLauncherManifest(string unityLibraryPath)
+        {
+            var launcherManifestPath = Path.GetFullPath(
+                Path.Combine(unityLibraryPath, "..", "launcher", "src", "main", "AndroidManifest.xml"));
+
+            if (!File.Exists(launcherManifestPath))
+                return;
+
+            try
+            {
+                var doc = XDocument.Load(launcherManifestPath);
+                if (FixMainActivity(doc, requireToolsReplace: true))
+                {
+                    doc.Save(launcherManifestPath);
+                    Debug.Log($"{Tag} Launcher manifest patched");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"{Tag} Failed to patch launcher manifest: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        ///     Strip LAUNCHER intent-filter from unityLibrary's auto-generated manifest.
+        ///     Unity 6 splits the build into launcher + unityLibrary modules. If both define
+        ///     a LAUNCHER activity, the merged APK gets two - Android hides such apps.
+        /// </summary>
+        /// <param name="unityLibraryPath">
+        ///     The path passed by Unity to IPostGenerateGradleAndroidProject (points to unityLibrary).
+        /// </param>
+        internal static void StripLibraryLauncherIntent(string unityLibraryPath)
+        {
+            var libraryManifestPath = Path.Combine(unityLibraryPath, "src", "main", "AndroidManifest.xml");
+            if (!File.Exists(libraryManifestPath))
+                return;
+
+            // Only strip if the launcher module actually owns the LAUNCHER intent.
+            // Unity 6 always generates the launcher module directory even when
+            // useCustomLauncherManifest is OFF, but the auto-generated manifest
+            // may be empty (no activity). Stripping from unityLibrary in that case
+            // would leave no LAUNCHER activity anywhere - the app becomes unlaunched.
+            var launcherManifestPath = Path.GetFullPath(
+                Path.Combine(unityLibraryPath, "..", "launcher", "src", "main", "AndroidManifest.xml"));
+            if (!File.Exists(launcherManifestPath))
+                return;
+
+            try
+            {
+                var launcherDoc = XDocument.Load(launcherManifestPath);
+                if (FindLauncherActivity(launcherDoc.Root?.Element("application")) == null)
+                {
+                    Debug.Log($"{Tag} Launcher module has no LAUNCHER activity - keeping it in unityLibrary");
+                    return;
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"{Tag} Failed to parse launcher manifest, skipping strip: {e.Message}");
+                return;
+            }
+
+            try
+            {
+                var doc = XDocument.Load(libraryManifestPath);
+                var application = doc.Root?.Element("application");
+                if (application == null)
+                    return;
+
+                var modified = false;
+
+                foreach (var activity in application.Elements("activity").ToList())
+                {
+                    var launcherFilters = activity.Elements("intent-filter")
+                        .Where(f => f.Elements("category")
+                            .Any(c => c.Attribute(AndroidNs + "name")?.Value ==
+                                      "android.intent.category.LAUNCHER"))
+                        .ToList();
+
+                    foreach (var filter in launcherFilters)
+                    {
+                        var activityName = activity.Attribute(AndroidNs + "name")?.Value ?? "?";
+                        Debug.Log($"{Tag} Stripping LAUNCHER intent from unityLibrary activity: {activityName}");
+                        filter.Remove();
+                        modified = true;
+                    }
+                }
+
+                if (modified)
+                {
+                    doc.Save(libraryManifestPath);
+                    Debug.Log($"{Tag} unityLibrary manifest: LAUNCHER intent stripped (launcher module owns it)");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"{Tag} Failed to strip library LAUNCHER intent: {e.Message}");
+            }
         }
 
     }

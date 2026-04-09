@@ -117,7 +117,9 @@ namespace Sorolla.Palette.Editor
                 results.AddRange(CheckFirebaseCoherence(dependencies));
                 results.AddRange(CheckFirebaseConfigFiles(dependencies));
                 results.AddRange(CheckConfigSync(dependencies));
-                results.AddRange(CheckAndroidManifest());
+                var manifestDiag = _lastManifestDiagnostics;
+                _lastManifestDiagnostics = null;
+                results.AddRange(CheckAndroidManifest(manifestDiag));
                 results.AddRange(CheckMaxSettings());
                 results.AddRange(CheckAdjustSettings());
                 results.AddRange(CheckEdm4uSettings());
@@ -132,6 +134,9 @@ namespace Sorolla.Palette.Editor
             return results;
         }
 
+        // Stashed by RunAutoFixes(), consumed once by RunAllChecks() to avoid double detection.
+        private static AndroidManifestSanitizer.ManifestDiagnostics _lastManifestDiagnostics;
+
         /// <summary>
         ///     Run all auto-fixes before validation. Returns list of fixes applied.
         ///     This is the single source of truth for all sanitizers.
@@ -140,28 +145,10 @@ namespace Sorolla.Palette.Editor
         {
             var fixes = new List<string>();
 
-            // AndroidManifest sanitization
-            var orphaned = AndroidManifestSanitizer.DetectOrphanedEntries();
-            var duplicates = AndroidManifestSanitizer.DetectDuplicateActivities();
-            var wrongActivity = AndroidManifestSanitizer.DetectWrongMainActivity();
-            if (orphaned.Count > 0 || duplicates.Count > 0 || wrongActivity != null)
-            {
-                foreach (var (sdkId, _) in orphaned)
-                    fixes.Add($"Removed {SdkRegistry.All[sdkId].Name} entries from AndroidManifest.xml");
-                if (duplicates.Count > 0)
-                    fixes.Add($"Removed {duplicates.Count} duplicate activity declaration(s)");
-                if (wrongActivity != null)
-                    fixes.Add($"Fixed main activity: {wrongActivity} → {AndroidManifestSanitizer.GetExpectedMainActivity()}");
-                AndroidManifestSanitizer.Sanitize();
-            }
-
-            // LauncherManifest sanitization (Unity 6 split module architecture)
-            var launcherIssue = AndroidManifestSanitizer.DetectLauncherManifestIssue();
-            if (launcherIssue != null)
-            {
-                if (AndroidManifestSanitizer.FixLauncherManifest())
-                    fixes.Add($"Fixed LauncherManifest.xml: {launcherIssue}");
-            }
+            // AndroidManifest sanitization - captures diagnostics to skip re-detection in RunAllChecks
+            var diag = AndroidManifestSanitizer.SanitizeWithDiagnostics(refreshAssetDatabase: false);
+            fixes.AddRange(diag.Fixes);
+            _lastManifestDiagnostics = diag;
 
             // MAX settings sanitization
             if (MaxSettingsSanitizer.Sanitize())
@@ -619,12 +606,8 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Auto-fix config sync issues.
-        ///     Returns true if any fixes were applied.
-        /// </summary>
-        /// <summary>
         ///     Auto-fix config sync issues and install missing required SDKs.
-        ///     Always installs missing SDKs — the user should never be in a state
+        ///     Always installs missing SDKs - the user should never be in a state
         ///     where required SDKs are missing for the configured mode.
         /// </summary>
         public static bool FixConfigSync()
@@ -665,13 +648,23 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Check AndroidManifest.xml for orphaned SDK entries that will cause runtime crashes
         /// </summary>
-        private static List<ValidationResult> CheckAndroidManifest()
+        /// <summary>
+        ///     Check Android manifest health. Uses pre-computed diagnostics from Sanitize
+        ///     when available (after RunAutoFixes), falls back to fresh detection.
+        /// </summary>
+        private static List<ValidationResult> CheckAndroidManifest(
+            AndroidManifestSanitizer.ManifestDiagnostics diagnostics = null)
         {
             var results = new List<ValidationResult>();
             var hasIssues = false;
 
-            // Check for orphaned SDK entries
-            var orphaned = AndroidManifestSanitizer.DetectOrphanedEntries();
+            // Use pre-computed diagnostics from SanitizeWithDiagnostics if available
+            var orphaned = diagnostics?.RemainingOrphans ?? AndroidManifestSanitizer.DetectOrphanedEntries();
+            var duplicates = diagnostics?.RemainingDuplicates ?? AndroidManifestSanitizer.DetectDuplicateActivities();
+            var wrongActivity = diagnostics?.RemainingWrongActivity ?? AndroidManifestSanitizer.DetectWrongMainActivity();
+            var themeMismatch = diagnostics?.RemainingThemeMismatch ?? AndroidManifestSanitizer.DetectThemeMismatch();
+            var launcherIssue = diagnostics?.RemainingLauncherIssue ?? AndroidManifestSanitizer.DetectLauncherManifestIssue();
+
             if (orphaned.Count > 0)
             {
                 hasIssues = true;
@@ -689,8 +682,6 @@ namespace Sorolla.Palette.Editor
                 }
             }
 
-            // Check for duplicate activities
-            var duplicates = AndroidManifestSanitizer.DetectDuplicateActivities();
             if (duplicates.Count > 0)
             {
                 hasIssues = true;
@@ -704,8 +695,6 @@ namespace Sorolla.Palette.Editor
                 ));
             }
 
-            // Check for wrong main activity class (e.g. AppUIGameActivity instead of UnityPlayerGameActivity)
-            var wrongActivity = AndroidManifestSanitizer.DetectWrongMainActivity();
             if (wrongActivity != null)
             {
                 hasIssues = true;
@@ -720,8 +709,19 @@ namespace Sorolla.Palette.Editor
                 ));
             }
 
-            // Check LauncherManifest.xml (Unity 6 split module architecture)
-            var launcherIssue = AndroidManifestSanitizer.DetectLauncherManifestIssue();
+            if (themeMismatch != null)
+            {
+                hasIssues = true;
+                results.Add(new ValidationResult(
+                    ValidationStatus.Error,
+                    $"AndroidManifest.xml activity theme issue!\n" +
+                    $"  {themeMismatch}\n" +
+                    "  This WILL cause a Gradle merge conflict on build.",
+                    "Open Palette > Configuration and click Refresh in Build Health",
+                    CheckCategory.AndroidManifest
+                ));
+            }
+
             if (launcherIssue != null)
             {
                 hasIssues = true;
@@ -1221,11 +1221,25 @@ namespace Sorolla.Palette.Editor
 
             try
             {
+                // Auto-fix manifest, Gradle, and MAX issues on domain reload
+                var fixes = BuildValidator.RunAutoFixes();
+                foreach (var fix in fixes)
+                    Debug.Log($"[Palette] Auto-fixed: {fix}");
+
+                if (fixes.Count > 0)
+                    AssetDatabase.Refresh();
+
                 var results = BuildValidator.RunAllChecks();
                 var errorCount = results.Count(r => r.Status == BuildValidator.ValidationStatus.Error);
-                if (errorCount > 0)
+
+                if (fixes.Count > 0 && errorCount == 0)
+                    Debug.Log($"[Palette] Build Health: {fixes.Count} issue(s) detected and auto-fixed.");
+                else if (fixes.Count > 0)
                     Debug.LogWarning(
-                        $"[Palette] Build Health: {errorCount} issue(s) detected. Open Palette > Configuration to review.");
+                        $"[Palette] Build Health: {fixes.Count} auto-fixed, {errorCount} remaining. Open Palette > Configuration.");
+                else if (errorCount > 0)
+                    Debug.LogWarning(
+                        $"[Palette] Build Health: {errorCount} issue(s) require manual attention. Open Palette > Configuration.");
             }
             catch
             {
