@@ -20,6 +20,7 @@ namespace Sorolla.Palette.Adapters
         private bool _init;
         private bool _initFailed;
         private bool _fetching;
+        private bool _fetchedOnce;
         private List<Action<bool>> _fetchCallbacks;
         private Dictionary<string, object> _pendingDefaults;
         private bool _pendingAutoFetch;
@@ -176,6 +177,15 @@ namespace Sorolla.Palette.Adapters
             }
 
             if (_fetching) return; // callback parked, will fire when in-flight fetch completes
+
+            if (_fetchedOnce)
+            {
+                // Auto-fetch already succeeded this session - skip redundant network call.
+                // Real-time updates handle subsequent changes via OnConfigUpdateListener.
+                InvokeFetchCallbacks(true);
+                return;
+            }
+
             _fetching = true;
 
             FirebaseRemoteConfig.DefaultInstance.FetchAndActivateAsync().ContinueWithOnMainThread(task =>
@@ -191,6 +201,7 @@ namespace Sorolla.Palette.Adapters
 
                 var info = FirebaseRemoteConfig.DefaultInstance.Info;
                 Debug.Log($"{Tag} Fetch complete (newValuesActivated: {task.Result}, lastFetchStatus: {info.LastFetchStatus})");
+                _fetchedOnce = true;
                 InvokeFetchCallbacks(true);
             });
         }
