@@ -104,14 +104,32 @@ namespace Sorolla.Palette.Adapters
             Adjust.GetIdfa(callback);
         }
 
+        public void TrackPurchase(string eventToken, double amount, string currency,
+            string productId, string transactionId, string purchaseToken)
+        {
+            if (!_init) return;
+
+            if (Application.platform == RuntimePlatform.IPhonePlayer
+                && !string.IsNullOrEmpty(transactionId))
+            {
+                TrackPurchaseIOS(eventToken, amount, currency, productId, transactionId, transactionId);
+            }
+            else if (Application.platform == RuntimePlatform.Android
+                && !string.IsNullOrEmpty(purchaseToken))
+            {
+                TrackPurchaseAndroid(eventToken, amount, currency, productId, purchaseToken, transactionId);
+            }
+            else
+            {
+                TrackPurchaseSimple(eventToken, amount, currency, transactionId, productId);
+            }
+        }
+
         public void TrackPurchaseIOS(string eventToken, double amount, string currency, string productId, string transactionId, string deduplicationId)
         {
             if (!_init) return;
-            var e = new AdjustEvent(eventToken);
-            e.SetRevenue(amount, currency);
-            e.ProductId = productId;
+            var e = BuildPurchaseEvent(eventToken, amount, currency, productId, deduplicationId);
             e.TransactionId = transactionId;
-            e.DeduplicationId = deduplicationId;
             Adjust.VerifyAndTrackAppStorePurchase(e, verificationResult =>
             {
                 Debug.Log($"[Palette:Adjust] iOS purchase verification: status={verificationResult.VerificationStatus}, message={verificationResult.Message}");
@@ -121,24 +139,38 @@ namespace Sorolla.Palette.Adapters
         public void TrackPurchaseAndroid(string eventToken, double amount, string currency, string productId, string purchaseToken, string deduplicationId)
         {
             if (!_init) return;
-            var e = new AdjustEvent(eventToken);
-            e.SetRevenue(amount, currency);
-            e.ProductId = productId;
+            var e = BuildPurchaseEvent(eventToken, amount, currency, productId, deduplicationId);
             e.PurchaseToken = purchaseToken;
-            e.DeduplicationId = deduplicationId;
             Adjust.VerifyAndTrackPlayStorePurchase(e, verificationResult =>
             {
                 Debug.Log($"[Palette:Adjust] Android purchase verification: status={verificationResult.VerificationStatus}, message={verificationResult.Message}");
             });
         }
 
-        public void TrackPurchaseSimple(string eventToken, double amount, string currency, string deduplicationId)
+        public void TrackPurchaseSimple(string eventToken, double amount, string currency, string deduplicationId, string productId)
         {
             if (!_init) return;
+            var e = BuildPurchaseEvent(eventToken, amount, currency, productId, deduplicationId);
+            Adjust.TrackEvent(e);
+        }
+
+        private AdjustEvent BuildPurchaseEvent(string eventToken, double amount, string currency,
+            string productId, string deduplicationId)
+        {
             var e = new AdjustEvent(eventToken);
             e.SetRevenue(amount, currency);
-            e.DeduplicationId = deduplicationId;
-            Adjust.TrackEvent(e);
+            if (!string.IsNullOrEmpty(productId))
+            {
+                e.ProductId = productId;
+                e.AddPartnerParameter("product_id", productId);
+                e.AddCallbackParameter("product_id", productId);
+            }
+            if (!string.IsNullOrEmpty(deduplicationId))
+            {
+                e.DeduplicationId = deduplicationId;
+                e.AddCallbackParameter("transaction_id", deduplicationId);
+            }
+            return e;
         }
     }
 }

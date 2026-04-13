@@ -320,10 +320,10 @@ Real-time (v3.7.0+):
 
 ### Purchase Attribution
 ```
-Palette.TrackPurchase(amount, currency, productId, transactionId)
-    ├── AdjustAdapter.TrackRevenue()      ← If configured
+Palette.TrackPurchase(amount, currency, productId, transactionId, purchaseToken)
+    ├── AdjustAdapter.TrackPurchase()     ← Platform-routed verification
     ├── TikTokAdapter.TrackPurchase()     ← If enabled
-    └── FirebaseAdapter.TrackPurchase()   ← If enabled
+    └── FirebaseAdapter.TrackPurchase()   ← If enabled (analytics only, no verification)
 ```
 
 ---
@@ -378,7 +378,7 @@ Init:      Bootstrapper → ATT → Palette.Initialize()
 Events:    Palette → Adapters → Third-party SDKs
 Ads:       ShowRewardedAd → MaxAdapter → AdjustAdapter.TrackAdRevenue
 Config:    GetRemoteConfig → Firebase → GA → default
-Purchase:  TrackPurchase → Adjust + TikTok + Firebase
+Purchase:  TrackPurchase → Adjust (verify) + TikTok + Firebase
 ```
 
 ## Build System

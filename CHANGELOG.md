@@ -2,32 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.8.1] - 2026-04-09
+## [3.9.0] - 2026-04-13
 
-### Fixed
-- **StripLibraryLauncherIntent strips LAUNCHER when launcher module is empty**: Unity 6 always generates the launcher module directory even with `useCustomLauncherManifest` OFF, but the auto-generated manifest has no activity. The post-export hook checked file existence only, stripping the LAUNCHER intent from unityLibrary and leaving no LAUNCHER anywhere - causing `DeploymentOperationFailedException: No activity in the manifest with action MAIN and category LAUNCHER`. Now verifies the launcher module actually has a LAUNCHER activity before stripping.
+### Changed
+- **Purchase verification routing**: `Palette.TrackPurchase` now routes to Adjust's `VerifyAndTrack` APIs for receipt verification. iOS uses App Store verification when `transactionId` is provided; Android uses Play Store verification when `purchaseToken` is provided. Falls back to simple event tracking otherwise.
+- **DRY purchase event setup**: Adjust adapter uses shared `BuildPurchaseEvent` helper for revenue, productId, deduplicationId, and partner/callback parameters across all purchase paths.
+- **New `purchaseToken` parameter**: `TrackPurchase` accepts an optional `purchaseToken` for Android Play Store verification. Existing callers are unaffected (default null).
 
 ## [3.8.0] - 2026-04-09
 
 ### Changed
-- **Manifest ownership refactor**: `AndroidManifestSanitizer` is now the single owner of all manifest logic - source manifests (pre-build) and auto-generated Gradle manifests (post-export). `GradlePropertiesFixer` no longer contains manifest patching code.
-- **Conditional tools:replace**: `FixMainActivity()` only adds `tools:replace="android:theme"` when a custom launcher manifest exists. Previously added unconditionally.
-- **Single-pass detection**: `BuildValidator` no longer re-detects manifest issues after auto-fixing - `SanitizeWithDiagnostics()` captures remaining issues in one pass, which `CheckAndroidManifest()` reuses.
-- **Launcher fix absorbed into Sanitize()**: `Sanitize()` now handles both library and launcher manifests. `RunAutoFixes()` reduced from 7 lines to 1.
-
-## [3.7.4] - 2026-04-09
+- **Manifest ownership refactor**: `AndroidManifestSanitizer` is now the single owner of all Android manifest logic - source manifests (pre-build), launcher manifests, and auto-generated Gradle manifests (post-export). `GradlePropertiesFixer` delegates all manifest work to it.
+- **Conditional tools:replace**: `FixMainActivity()` only adds `tools:replace="android:theme"` when a custom launcher manifest exists. Previously added unconditionally, which could break Unity's deployment code.
+- **Single-pass detection**: `SanitizeWithDiagnostics()` captures remaining issues after fixing, eliminating redundant re-detection in `CheckAndroidManifest()`.
+- **Auto-fix on domain reload**: `BuildHealthConsoleNotifier` runs `RunAutoFixes()` on every domain reload. Manifest, Gradle, and MAX problems are fixed automatically.
 
 ### Fixed
-- **Auto-fix on domain reload**: `BuildHealthConsoleNotifier` now runs `RunAutoFixes()` on every domain reload instead of only detecting issues. Manifest, Gradle, and MAX problems are fixed automatically - studios no longer see "Open Palette > Configuration to review" for issues the SDK already knows how to repair. Only truly manual issues (e.g., missing SDK keys) prompt the user.
-
-## [3.7.3] - 2026-04-09
-
-### Fixed
-- **Gradle manifest merge conflicts**: AndroidManifest.xml activity now gets `tools:replace="android:theme"` to prevent theme collisions between the project's manifest and Unity's auto-generated base manifest. Fixes `Colliding Attributes` build errors on Unity 6.
-- **Launcher manifest theme handling**: `FixLauncherManifest()` now adds `tools:replace="android:enabled,android:theme"` on both new and existing activity elements. Previously, new activities only replaced `android:enabled`, and existing activities never got `tools:replace` at all.
-- **Post-export launcher manifest patching**: New `IPostGenerateGradleAndroidProject` hook patches the auto-generated launcher manifest when `useCustomLauncherManifest` is disabled. The pre-build sanitizer can only fix custom manifests in Assets; this covers the auto-generated case.
-- **Pre-build auto-fix persistence**: `Sanitize()` no longer calls `AssetDatabase.Refresh()` during build preprocessing. The refresh could trigger Firebase Editor to regenerate the manifest, undoing the fix. Auto-fix results are now verified by re-detecting after the fix.
-- **Activity theme auto-fix**: `FixMainActivity()` now corrects both the activity class name and theme together, preventing half-fixed manifests that pass the class check but fail the Gradle merge.
+- **Gradle manifest merge conflicts**: Activity gets `tools:replace="android:theme"` (conditional on launcher ownership) to prevent theme collisions. Fixes `Colliding Attributes` build errors on Unity 6.
+- **Post-export launcher manifest patching**: `IPostGenerateGradleAndroidProject` hook enforces activity class, theme, and LAUNCHER intent invariants on auto-generated Gradle manifests.
+- **Post-export LAUNCHER safety**: `StripLibraryLauncherIntent` now verifies the launcher module actually has a LAUNCHER activity before stripping it from unityLibrary. Unity 6 always generates the launcher directory even with `useCustomLauncherManifest` OFF, but the auto-generated manifest may be empty. Fixes `DeploymentOperationFailedException: No activity with action MAIN and category LAUNCHER`.
+- **Pre-build auto-fix persistence**: `Sanitize()` no longer calls `AssetDatabase.Refresh()` during build preprocessing, preventing Firebase Editor from regenerating the manifest and undoing the fix.
+- **Launcher manifest fixes absorbed into Sanitize()**: Both library and launcher manifests are handled in a single `Sanitize()` call. `RunAutoFixes()` reduced from 7 lines to 1.
 
 ## [3.7.2] - 2026-04-08
 

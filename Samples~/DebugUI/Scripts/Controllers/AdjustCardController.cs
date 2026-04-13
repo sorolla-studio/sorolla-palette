@@ -97,10 +97,10 @@ namespace Sorolla.Palette.DebugUI
                 return;
             }
 
-            AdjustAdapter.TrackRevenue(revenueEventToken, 0.99);
+            AdjustAdapter.TrackPurchaseSimple(revenueEventToken, 0.99, "USD", null, null);
 
-            DebugPanelManager.Instance?.Log($"Revenue: $0.99 ({revenueEventToken})", LogSource.Adjust);
-            SorollaDebugEvents.RaiseShowToast("$0.99 revenue tracked", ToastType.Success);
+            DebugPanelManager.Instance?.Log($"Purchase (simple): $0.99 ({revenueEventToken})", LogSource.Adjust);
+            SorollaDebugEvents.RaiseShowToast("$0.99 purchase tracked", ToastType.Success);
         }
     }
 }

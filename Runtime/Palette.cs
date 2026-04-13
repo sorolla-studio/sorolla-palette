@@ -297,28 +297,39 @@ namespace Sorolla.Palette
         #region Analytics - Purchase
 
         /// <summary>
-        ///     Track an in-app purchase. Fans out to Adjust, TikTok, and Firebase Analytics.
-        ///     Do not double-log if you rely on automatic store-side collection.
+        ///     Track an in-app purchase with optional receipt verification (Adjust), TikTok, and Firebase Analytics.
+        ///     On iOS, pass <paramref name="transactionId"/> for App Store verification.
+        ///     On Android, pass <paramref name="purchaseToken"/> for Play Store verification.
+        ///     Falls back to simple event tracking when verification params are missing.
         /// </summary>
         /// <param name="amount">Purchase amount (e.g. 4.99)</param>
         /// <param name="currency">ISO 4217 currency code (default: USD)</param>
-        /// <param name="productId">Store product ID for Firebase deduplication</param>
-        /// <param name="transactionId">Transaction ID for Firebase deduplication</param>
+        /// <param name="productId">Store product ID (used for Adjust partner params and Firebase dedup)</param>
+        /// <param name="transactionId">Transaction ID (iOS verification + deduplication on all platforms)</param>
+        /// <param name="purchaseToken">Google Play purchase token (Android verification only)</param>
         /// <example>
         /// <code>
+        /// // iOS - auto-verifies via App Store receipt
         /// Palette.TrackPurchase(4.99, "USD",
         ///     productId: "com.mygame.coins_100",
         ///     transactionId: storeReceipt.transactionId);
+        ///
+        /// // Android - auto-verifies via Play Store token
+        /// Palette.TrackPurchase(4.99, "USD",
+        ///     productId: "com.mygame.coins_100",
+        ///     transactionId: storeReceipt.transactionId,
+        ///     purchaseToken: storeReceipt.purchaseToken);
         /// </code>
         /// </example>
         public static void TrackPurchase(double amount, string currency = "USD",
-            string productId = null, string transactionId = null)
+            string productId = null, string transactionId = null, string purchaseToken = null)
         {
             if (!EnsureInit()) return;
 
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
             if (!string.IsNullOrEmpty(Config?.adjustPurchaseEventToken))
-                AdjustAdapter.TrackRevenue(Config.adjustPurchaseEventToken, amount, currency);
+                AdjustAdapter.TrackPurchase(Config.adjustPurchaseEventToken, amount, currency,
+                    productId, transactionId, purchaseToken);
 #endif
 
             if (Config.enableTikTok && !string.IsNullOrEmpty(Config?.tiktokAppId?.Current))

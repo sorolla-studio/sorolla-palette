@@ -218,20 +218,28 @@ public static void TrackResource(ResourceFlowType flowType, string currency, flo
 | `System.Collections.Generic.Dictionary<System.String,System.Object>` | *extraParams* | Optional structured params for Firebase (e.g. source, level, world).
         Ignored by GameAnalytics. Supported types: string, int, long, float, double, bool, enum. |
 
-#### TrackPurchase(double, string, string, string)
-Track an in-app purchase. Fans out to Adjust, TikTok, and Firebase Analytics.
-Do not double-log if you rely on automatic store-side collection.
+#### TrackPurchase(double, string, string, string, string)
+Track an in-app purchase with optional receipt verification (Adjust) and Firebase Analytics.
+On iOS, pass transactionId for App Store verification. On Android, pass purchaseToken for Play Store verification.
+Falls back to simple event tracking when verification params are missing.
 
 ```csharp title="Declaration"
-public static void TrackPurchase(double amount, string currency = "USD", string productId = null, string transactionId = null)
+public static void TrackPurchase(double amount, string currency = "USD", string productId = null, string transactionId = null, string purchaseToken = null)
 ```
 
 ###### Example
 
 ```csharp
+// iOS - auto-verifies via App Store receipt
 Palette.TrackPurchase(4.99, "USD",
     productId: "com.mygame.coins_100",
     transactionId: storeReceipt.transactionId);
+
+// Android - auto-verifies via Play Store token
+Palette.TrackPurchase(4.99, "USD",
+    productId: "com.mygame.coins_100",
+    transactionId: storeReceipt.transactionId,
+    purchaseToken: storeReceipt.purchaseToken);
 ```
 
 ###### Parameters
@@ -240,8 +248,9 @@ Palette.TrackPurchase(4.99, "USD",
 |:--- |:--- |:--- |
 | `System.Double` | *amount* | Purchase amount (e.g. 4.99) |
 | `System.String` | *currency* | ISO 4217 currency code (default: USD) |
-| `System.String` | *productId* | Store product ID for Firebase deduplication |
-| `System.String` | *transactionId* | Transaction ID for Firebase deduplication |
+| `System.String` | *productId* | Store product ID (used for Adjust partner params and Firebase dedup) |
+| `System.String` | *transactionId* | Transaction ID (iOS verification + deduplication on all platforms) |
+| `System.String` | *purchaseToken* | Google Play purchase token (Android verification only) |
 
 #### SetUserId(string)
 Set the user ID for analytics, crash reporting, and attribution.
@@ -650,7 +659,7 @@ Must be false for production store builds.
 public bool adjustSandboxMode
 ```
 #### adjustPurchaseEventToken
-Adjust event token used by `TrackPurchase(System.Double%2cSystem.String%2cSystem.String%2cSystem.String)` for revenue tracking.
+Adjust event token used by `TrackPurchase(System.Double%2cSystem.String%2cSystem.String%2cSystem.String%2cSystem.String)` for purchase tracking with receipt verification.
 Create in Adjust Dashboard -&gt; Events.
 
 ```csharp title="Declaration"
