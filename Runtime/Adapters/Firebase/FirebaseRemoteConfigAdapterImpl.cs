@@ -83,13 +83,19 @@ namespace Sorolla.Palette.Adapters
                         Debug.Log($"{Tag} Defaults set ({_pendingDefaults.Count} values)");
 
                     _pendingDefaults = null;
+                    OnReady();
                 });
             }
+            else
+            {
+                OnReady();
+            }
+        }
 
-            // Cached values are available immediately after init - mark ready
+        private void OnReady()
+        {
             IsReady = true;
 
-            // Wire real-time listener
             FirebaseRemoteConfig.DefaultInstance.OnConfigUpdateListener += OnConfigUpdateReceived;
             Application.quitting += OnApplicationQuitting;
 
@@ -101,7 +107,6 @@ namespace Sorolla.Palette.Adapters
             }
             else if (_pendingAutoFetch)
             {
-                // Background fetch for next session - don't block on it
                 FetchAndActivate(null);
             }
         }

@@ -525,12 +525,11 @@ namespace Sorolla.Palette
         #region Remote Config
 
         /// <summary>
-        ///     Check if Remote Config is ready (Firebase if enabled, otherwise GameAnalytics)
+        ///     Check if Remote Config is ready. Does not require <see cref="IsInitialized"/> -
+        ///     returns true as soon as the underlying provider (Firebase or GameAnalytics) is ready.
         /// </summary>
         public static bool IsRemoteConfigReady()
         {
-            if (!IsInitialized) return false;
-
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
             if (FirebaseRemoteConfigAdapter.IsReady)
                 return true;
@@ -556,8 +555,6 @@ namespace Sorolla.Palette
         /// </summary>
         public static string GetRemoteConfig(string key, string defaultValue = "")
         {
-            if (!IsInitialized) return defaultValue;
-
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
             if (FirebaseRemoteConfigAdapter.IsReady)
             {
@@ -575,8 +572,6 @@ namespace Sorolla.Palette
         /// </summary>
         public static int GetRemoteConfigInt(string key, int defaultValue = 0)
         {
-            if (!IsInitialized) return defaultValue;
-
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
             if (FirebaseRemoteConfigAdapter.IsReady)
                 return FirebaseRemoteConfigAdapter.GetInt(key, defaultValue);
@@ -590,8 +585,6 @@ namespace Sorolla.Palette
         /// </summary>
         public static float GetRemoteConfigFloat(string key, float defaultValue = 0f)
         {
-            if (!IsInitialized) return defaultValue;
-
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
             if (FirebaseRemoteConfigAdapter.IsReady)
                 return FirebaseRemoteConfigAdapter.GetFloat(key, defaultValue);
@@ -606,8 +599,6 @@ namespace Sorolla.Palette
         /// </summary>
         public static bool GetRemoteConfigBool(string key, bool defaultValue = false)
         {
-            if (!IsInitialized) return defaultValue;
-
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
             if (FirebaseRemoteConfigAdapter.IsReady)
                 return FirebaseRemoteConfigAdapter.GetBool(key, defaultValue);
