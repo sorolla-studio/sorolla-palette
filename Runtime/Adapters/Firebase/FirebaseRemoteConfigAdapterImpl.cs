@@ -20,9 +20,9 @@ namespace Sorolla.Palette.Adapters
         private bool _init;
         private bool _initFailed;
         private bool _fetching;
+        private List<Action<bool>> _fetchCallbacks;
         private Dictionary<string, object> _pendingDefaults;
         private bool _pendingAutoFetch;
-        private Action<bool> _pendingFetchCallback;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         [Preserve]
@@ -52,12 +52,7 @@ namespace Sorolla.Palette.Adapters
                 {
                     Debug.LogError($"{Tag} Firebase not available");
                     _initFailed = true;
-                    if (_pendingFetchCallback != null)
-                    {
-                        var callback = _pendingFetchCallback;
-                        _pendingFetchCallback = null;
-                        callback.Invoke(false);
-                    }
+                    InvokeFetchCallbacks(false);
                 }
             });
         }
@@ -99,16 +94,8 @@ namespace Sorolla.Palette.Adapters
             FirebaseRemoteConfig.DefaultInstance.OnConfigUpdateListener += OnConfigUpdateReceived;
             Application.quitting += OnApplicationQuitting;
 
-            if (_pendingFetchCallback != null)
-            {
-                var callback = _pendingFetchCallback;
-                _pendingFetchCallback = null;
-                FetchAndActivate(callback);
-            }
-            else if (_pendingAutoFetch)
-            {
+            if (_fetchCallbacks?.Count > 0 || _pendingAutoFetch)
                 FetchAndActivate(null);
-            }
         }
 
         private void OnConfigUpdateReceived(object sender, ConfigUpdateEventArgs args)
@@ -169,27 +156,26 @@ namespace Sorolla.Palette.Adapters
 
         public void FetchAndActivate(Action<bool> onComplete)
         {
+            if (onComplete != null)
+                (_fetchCallbacks ??= new()).Add(onComplete);
+
             if (_initFailed)
             {
-                // Firebase core failed terminally - fail fast instead of parking the callback forever.
-                onComplete?.Invoke(false);
+                InvokeFetchCallbacks(false);
                 return;
             }
 
             if (!_init)
             {
                 if (_initRequested)
-                {
-                    _pendingFetchCallback = onComplete;
-                    return;
-                }
+                    return; // callbacks parked, will fire after init -> OnReady -> fetch
 
                 Debug.LogWarning($"{Tag} Not initialized");
-                onComplete?.Invoke(false);
+                InvokeFetchCallbacks(false);
                 return;
             }
 
-            if (_fetching) return;
+            if (_fetching) return; // callback parked, will fire when in-flight fetch completes
             _fetching = true;
 
             FirebaseRemoteConfig.DefaultInstance.FetchAndActivateAsync().ContinueWithOnMainThread(task =>
@@ -199,14 +185,23 @@ namespace Sorolla.Palette.Adapters
                 if (task.IsFaulted)
                 {
                     Debug.LogError($"{Tag} Fetch failed: {task.Exception?.Message}");
-                    onComplete?.Invoke(false);
+                    InvokeFetchCallbacks(false);
                     return;
                 }
 
                 var info = FirebaseRemoteConfig.DefaultInstance.Info;
                 Debug.Log($"{Tag} Fetch complete (newValuesActivated: {task.Result}, lastFetchStatus: {info.LastFetchStatus})");
-                onComplete?.Invoke(true);
+                InvokeFetchCallbacks(true);
             });
+        }
+
+        private void InvokeFetchCallbacks(bool success)
+        {
+            if (_fetchCallbacks == null || _fetchCallbacks.Count == 0) return;
+            var callbacks = _fetchCallbacks;
+            _fetchCallbacks = null;
+            foreach (var cb in callbacks)
+                cb.Invoke(success);
         }
 
         public Task<bool> ActivateAsync()
