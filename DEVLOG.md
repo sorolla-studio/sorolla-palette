@@ -7,6 +7,16 @@
 
 ## Recent Session Learnings
 
+### 2026-04-09 - Unity 6 launcher module trap (v3.8.0)
+
+**Problem**: `DeploymentOperationFailedException: No activity with action MAIN and category LAUNCHER` on boat-runner but not hungrysnake. Same SDK, same Unity 6000.4. Hours of debugging.
+
+**Root cause**: Unity 6 ALWAYS generates `launcher/src/main/AndroidManifest.xml` in the Gradle export, regardless of `useCustomLauncherManifest`. When OFF, the auto-generated manifest is a stub with NO activity. `StripLibraryLauncherIntent` checked file existence only, stripped LAUNCHER from unityLibrary, left zero LAUNCHER activities. Snake's Gradle cache was stale (pre-strip), masking the bug.
+
+**Rule**: Never use file existence as a proxy for content. Check `FindLauncherActivity()` on the actual manifest before acting on it.
+
+**Debugging trap**: The error is at DEPLOY time, not BUILD time. APK builds fine, manifest merges fine, but Unity's deployment code can't find the launch activity. Easy to misattribute to manifest content when the manifest files look correct.
+
 ### 2026-04-07 - v3.7.1 GA4 spec audit (Firebase adapter)
 
 **Summary:** Audited `FirebaseAdapterImpl.cs` against the GA4 protocol reference (https://firebase.google.com/docs/reference/cpp/group/event-names) and found a P0 plus a chain of P1s. Fixed all of them in a single Firebase-only patch with no `Palette` API surface change.
