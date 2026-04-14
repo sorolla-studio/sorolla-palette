@@ -8,7 +8,7 @@ Plug-and-play mobile publisher SDK for Unity. Zero-config initialization with au
 ## Install
 
 1. **Package Manager** → `+` → **Add package from git URL**
-2. Paste: `https://github.com/sorolla-studio/sorolla-palette.git#v3.7.4`
+2. Paste: `https://github.com/sorolla-studio/sorolla-palette.git#v3.9.0`
 3. Configuration window opens → Follow setup
 
 ## Quick Start

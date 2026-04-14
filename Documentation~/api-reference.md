@@ -219,8 +219,9 @@ public static void TrackResource(ResourceFlowType flowType, string currency, flo
         Ignored by GameAnalytics. Supported types: string, int, long, float, double, bool, enum. |
 
 #### TrackPurchase(double, string, string, string, string)
-Track an in-app purchase with optional receipt verification (Adjust) and Firebase Analytics.
-On iOS, pass transactionId for App Store verification. On Android, pass purchaseToken for Play Store verification.
+Track an in-app purchase with optional receipt verification (Adjust), TikTok, and Firebase Analytics.
+On iOS, pass &lt;code class="paramref"&gt;transactionId&lt;/code&gt; for App Store verification.
+On Android, pass &lt;code class="paramref"&gt;purchaseToken&lt;/code&gt; for Play Store verification.
 Falls back to simple event tracking when verification params are missing.
 
 ```csharp title="Declaration"
@@ -234,7 +235,6 @@ public static void TrackPurchase(double amount, string currency = "USD", string 
 Palette.TrackPurchase(4.99, "USD",
     productId: "com.mygame.coins_100",
     transactionId: storeReceipt.transactionId);
-
 // Android - auto-verifies via Play Store token
 Palette.TrackPurchase(4.99, "USD",
     productId: "com.mygame.coins_100",
@@ -314,7 +314,8 @@ public static void Initialize(bool consent)
 | `System.Boolean` | *consent* |
 
 #### IsRemoteConfigReady()
-Check if Remote Config is ready (Firebase if enabled, otherwise GameAnalytics)
+Check if Remote Config is ready. Does not require `IsInitialized` -
+returns true as soon as the underlying provider (Firebase or GameAnalytics) is ready.
 
 ```csharp title="Declaration"
 public static bool IsRemoteConfigReady()
@@ -659,7 +660,7 @@ Must be false for production store builds.
 public bool adjustSandboxMode
 ```
 #### adjustPurchaseEventToken
-Adjust event token used by `TrackPurchase(System.Double%2cSystem.String%2cSystem.String%2cSystem.String%2cSystem.String)` for purchase tracking with receipt verification.
+Adjust event token used by `TrackPurchase(System.Double%2cSystem.String%2cSystem.String%2cSystem.String%2cSystem.String)` for revenue tracking.
 Create in Adjust Dashboard -&gt; Events.
 
 ```csharp title="Declaration"

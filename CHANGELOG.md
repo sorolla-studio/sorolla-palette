@@ -2,12 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.9.0] - 2026-04-13
+## [3.9.0] - 2026-04-14
+
+### Added
+- **`EventNameSanitizer` adapter**: Sanitizes analytics event names before forwarding to downstream SDKs.
+- **Adjust purchase event token in Configuration window**: Token was only accessible on the raw `SorollaConfig` asset; now exposed in **Palette > Configuration** under the Adjust section.
 
 ### Changed
 - **Purchase verification routing**: `Palette.TrackPurchase` now routes to Adjust's `VerifyAndTrack` APIs for receipt verification. iOS uses App Store verification when `transactionId` is provided; Android uses Play Store verification when `purchaseToken` is provided. Falls back to simple event tracking otherwise.
 - **DRY purchase event setup**: Adjust adapter uses shared `BuildPurchaseEvent` helper for revenue, productId, deduplicationId, and partner/callback parameters across all purchase paths.
 - **New `purchaseToken` parameter**: `TrackPurchase` accepts an optional `purchaseToken` for Android Play Store verification. Existing callers are unaffected (default null).
+
+### Fixed
+- **Remote Config decoupled from MAX consent gate**: `GetRemoteConfig*` and `IsRemoteConfigReady` no longer wait for `Palette.IsInitialized` (which blocks on MAX consent). Firebase RC is independently ready earlier. Also fixes a first-launch race where `IsReady` was set before `SetDefaultsAsync` completed, causing reads to return zeros.
+- **Remote Config callback queuing**: Callbacks passed to `FetchRemoteConfig` during an in-flight fetch were silently dropped. Now queued and invoked when the single fetch completes.
+- **Remote Config redundant fetch skip**: When auto-fetch completes before game code calls `FetchRemoteConfig`, the game's call no longer triggers a second unnecessary network fetch.
 
 ## [3.8.0] - 2026-04-09
 
