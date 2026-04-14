@@ -150,6 +150,10 @@ namespace Sorolla.Palette.Editor
             fixes.AddRange(diag.Fixes);
             _lastManifestDiagnostics = diag;
 
+            // MAX settings sanitization
+            if (MaxSettingsSanitizer.Sanitize())
+                fixes.Add("Disabled AppLovin Quality Service (prevents build failures)");
+
             // Gradle config auto-fixes (Android only)
             if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android)
             {
@@ -773,6 +777,19 @@ namespace Sorolla.Palette.Editor
                 ));
             }
 
+            // Check Quality Service (causes 401 build failures)
+            if (MaxSettingsSanitizer.IsQualityServiceEnabled())
+            {
+                hasIssues = true;
+                results.Add(new ValidationResult(
+                    ValidationStatus.Warning,
+                    "AppLovin Quality Service is enabled.\n" +
+                    "  This can cause 401 errors and build failures.\n" +
+                    "  Quality Service is optional - ads work without it.",
+                    "Open Palette > Configuration and click Refresh in Build Health",
+                    CheckCategory.MaxSettings
+                ));
+            }
 
             if (!hasIssues)
                 results.Add(new ValidationResult(ValidationStatus.Valid, "MAX SDK key OK", category: CheckCategory.MaxSettings));
