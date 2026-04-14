@@ -19,7 +19,7 @@ namespace Sorolla.Palette.Adapters
     /// <summary>
     ///     Firebase Crashlytics adapter. Delegates to implementation when available.
     /// </summary>
-    public static class FirebaseCrashlyticsAdapter
+    internal static class FirebaseCrashlyticsAdapter
     {
         const string Tag = "[Palette:Crashlytics]";
 

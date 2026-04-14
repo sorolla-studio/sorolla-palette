@@ -56,7 +56,7 @@ namespace Sorolla.Palette.Adapters
     /// <summary>
     ///     AppLovin MAX adapter. Delegates to implementation when available.
     /// </summary>
-    public static class MaxAdapter
+    internal static class MaxAdapter
     {
         const string Tag = "[Palette:MAX]";
 

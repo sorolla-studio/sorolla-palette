@@ -37,7 +37,7 @@ namespace Sorolla.Palette.Adapters
     /// <summary>
     ///     Firebase Analytics adapter. Delegates to implementation when available.
     /// </summary>
-    public static class FirebaseAdapter
+    internal static class FirebaseAdapter
     {
         const string Tag = "[Palette:Firebase]";
 
@@ -111,7 +111,7 @@ namespace Sorolla.Palette.Adapters
     ///     Centralized Firebase initialization manager.
     ///     Delegates to implementation when available.
     /// </summary>
-    public static class FirebaseCoreManager
+    internal static class FirebaseCoreManager
     {
         const string Tag = "[Palette:FirebaseCore]";
 

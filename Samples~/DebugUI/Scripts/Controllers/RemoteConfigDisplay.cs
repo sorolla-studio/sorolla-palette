@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using Sorolla.Palette.Adapters;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -150,7 +149,7 @@ namespace Sorolla.Palette.DebugUI
             // Use specified keys or auto-discover all from Firebase
             string[] keys = _keysToDisplay != null && _keysToDisplay.Length > 0
                 ? _keysToDisplay
-                : FirebaseRemoteConfigAdapter.GetKeys().ToArray();
+                : Palette.GetRemoteConfigKeys().ToArray();
 
             if (keys.Length == 0)
                 return;
@@ -159,7 +158,7 @@ namespace Sorolla.Palette.DebugUI
 
             foreach (string key in keys)
             {
-                string value = FirebaseRemoteConfigAdapter.GetString(key, "\u2014");
+                string value = Palette.GetRemoteConfig(key, "\u2014");
                 AddConfigRow(key, value);
             }
 

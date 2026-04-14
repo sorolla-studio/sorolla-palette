@@ -1,4 +1,3 @@
-using Sorolla.Palette.Adapters;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -44,7 +43,7 @@ namespace Sorolla.Palette.DebugUI
         {
             attributionText.text = "Fetching...";
 
-            AdjustAdapter.GetAttribution(attr =>
+            Palette.GetAttribution(attr =>
             {
                 if (attr == null)
                 {
@@ -65,7 +64,7 @@ namespace Sorolla.Palette.DebugUI
                 attributionText.text = "Adjust not enabled";
 #endif
                 SorollaDebugEvents.RaiseShowToast("Attribution retrieved", ToastType.Success);
-                
+
                 var rectTransform = (RectTransform)attributionText.transform;
                 while (rectTransform != null)
                 {
@@ -83,7 +82,7 @@ namespace Sorolla.Palette.DebugUI
                 return;
             }
 
-            AdjustAdapter.TrackEvent(testEventToken);
+            Palette.TrackEvent($"adjust_test_{testEventToken}");
 
             DebugPanelManager.Instance?.Log($"Event: {testEventToken}", LogSource.Adjust);
             SorollaDebugEvents.RaiseShowToast("Event tracked", ToastType.Success);
@@ -97,7 +96,7 @@ namespace Sorolla.Palette.DebugUI
                 return;
             }
 
-            AdjustAdapter.TrackPurchaseSimple(revenueEventToken, 0.99, "USD", null, null);
+            Palette.TrackPurchase(0.99, "USD", $"debug_{revenueEventToken}");
 
             DebugPanelManager.Instance?.Log($"Purchase (simple): $0.99 ({revenueEventToken})", LogSource.Adjust);
             SorollaDebugEvents.RaiseShowToast("$0.99 purchase tracked", ToastType.Success);

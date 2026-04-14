@@ -13,7 +13,7 @@ namespace Sorolla.Palette.Adapters
     ///     TikTok Business SDK adapter. Delegates to native bridge when available.
     ///     No-ops when not initialized (empty tiktokAppId in config).
     /// </summary>
-    public static class TikTokAdapter
+    internal static class TikTokAdapter
     {
         const string Tag = "[Palette:TikTok]";
 

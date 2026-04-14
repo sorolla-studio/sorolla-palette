@@ -418,6 +418,52 @@ namespace Sorolla.Palette
 
         #region Attribution
 
+        /// <summary>
+        ///     Get Adjust attribution data (network, campaign, tracker).
+        ///     Returns null to callback if attribution is not yet available.
+        /// </summary>
+        /// <param name="callback">Callback with attribution object (cast to AdjustAttribution when Adjust is enabled)</param>
+        public static void GetAttribution(Action<object> callback)
+        {
+#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+            AdjustAdapter.GetAttribution(callback);
+#else
+            callback?.Invoke(null);
+#endif
+        }
+
+        /// <summary>
+        ///     Get the Adjust device ID (ADID).
+        /// </summary>
+        /// <param name="callback">Callback with the ADID string, or null if unavailable</param>
+        public static void GetAdjustId(Action<string> callback)
+        {
+#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+            AdjustAdapter.GetAdid(callback);
+#else
+            callback?.Invoke(null);
+#endif
+        }
+
+        /// <summary>
+        ///     Get the platform advertising ID (GAID on Android, IDFA on iOS).
+        /// </summary>
+        /// <param name="callback">Callback with the advertising ID string, or null if unavailable</param>
+        public static void GetAdvertisingId(Action<string> callback)
+        {
+#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+#if UNITY_ANDROID
+            AdjustAdapter.GetGoogleAdId(callback);
+#elif UNITY_IOS
+            AdjustAdapter.GetIdfa(callback);
+#else
+            callback?.Invoke(null);
+#endif
+#else
+            callback?.Invoke(null);
+#endif
+        }
+
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
         static void InitializeAdjust()
         {
@@ -644,6 +690,19 @@ namespace Sorolla.Palette
             return FirebaseRemoteConfigAdapter.ActivateAsync();
 #else
             return System.Threading.Tasks.Task.FromResult(false);
+#endif
+        }
+
+        /// <summary>
+        ///     Get all available Remote Config keys from Firebase.
+        ///     Returns empty if Firebase Remote Config is not installed or not ready.
+        /// </summary>
+        public static IEnumerable<string> GetRemoteConfigKeys()
+        {
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+            return FirebaseRemoteConfigAdapter.GetKeys();
+#else
+            return Array.Empty<string>();
 #endif
         }
 

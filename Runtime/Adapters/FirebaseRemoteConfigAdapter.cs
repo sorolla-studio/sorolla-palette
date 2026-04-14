@@ -28,7 +28,7 @@ namespace Sorolla.Palette.Adapters
     /// <summary>
     ///     Firebase Remote Config adapter. Delegates to implementation when available.
     /// </summary>
-    public static class FirebaseRemoteConfigAdapter
+    internal static class FirebaseRemoteConfigAdapter
     {
         const string Tag = "[Palette:RemoteConfig]";
 

@@ -1,4 +1,3 @@
-using Sorolla.Palette.Adapters;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -54,7 +53,7 @@ namespace Sorolla.Palette.DebugUI
         void Start()
         {
             refreshButton.gameObject.SetActive(showRefreshButton);
-            
+
             if (identityType != IdentityType.Custom)
             {
                 if (identityType == IdentityType.SorollaMode && !Palette.IsInitialized)
@@ -103,13 +102,13 @@ namespace Sorolla.Palette.DebugUI
                 case IdentityType.IDFA:
                     label = "IDFA";
                     Setup(label, "Fetching...");
-                    FetchAdvertisingId();
+                    Palette.GetAdvertisingId(id => Setup("IDFA", id ?? "Not available"));
                     return;
                 case IdentityType.AdjustId:
                     label = "Adjust ID";
                     Setup(label, "Fetching...");
-                    FetchAdjustId();
-                    return; // Exit early - async will call Setup
+                    StartCoroutine(FetchAdjustIdRoutine());
+                    return;
                 default:
                     label = customLabel;
                     value = "—";
@@ -119,34 +118,13 @@ namespace Sorolla.Palette.DebugUI
             Setup(label, value);
         }
 
-        void FetchAdvertisingId()
-        {
-            var msg = "FetchAdvertisingId called";
-            Debug.Log(msg);
-            DebugPanelManager.Instance?.Log(msg);
-
-#if UNITY_ANDROID
-            AdjustAdapter.GetGoogleAdId(id => Setup("IDFA", id));
-#elif UNITY_IOS
-            AdjustAdapter.GetIdfa(id => Setup("IDFA", id));
-#else
-            Setup("IDFA", "Not available (Editor/Other)");
-#endif
-        }
-
-        // Kept for existing Adjust calls if needed
-        void FetchAdjustId()
-        {
-            StartCoroutine(FetchAdjustIdRoutine());
-        }
-
         System.Collections.IEnumerator FetchAdjustIdRoutine()
         {
             // Allow native SDK a moment to catch up
             yield return new WaitForSeconds(0.5f);
 
             Setup("Adjust ID", "Fetching...");
-            AdjustAdapter.GetAdid(adid =>
+            Palette.GetAdjustId(adid =>
             {
                 Setup("Adjust ID", string.IsNullOrEmpty(adid) ? "N/A" : adid);
             });

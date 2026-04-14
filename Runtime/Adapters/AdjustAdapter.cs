@@ -42,7 +42,7 @@ namespace Sorolla.Palette.Adapters
     /// <summary>
     ///     Adjust SDK adapter. Delegates to implementation when available.
     /// </summary>
-    public static class AdjustAdapter
+    internal static class AdjustAdapter
     {
         const string Tag = "[Palette:Adjust]";
 
