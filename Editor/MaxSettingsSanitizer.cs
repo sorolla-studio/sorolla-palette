@@ -4,8 +4,7 @@ using UnityEngine;
 namespace Sorolla.Palette.Editor
 {
     /// <summary>
-    ///     Sanitizes AppLovin MAX settings to prevent known build issues.
-    ///     Quality Service causes 401 errors and build failures when not properly configured.
+    ///     Manages AppLovin MAX settings via reflection (SDK key sync).
     /// </summary>
     public static class MaxSettingsSanitizer
     {
@@ -135,92 +134,6 @@ namespace Sorolla.Palette.Editor
             }
 
             return settingsType;
-        }
-
-        /// <summary>
-        ///     Check if Quality Service is enabled (causes build failures with 401 errors)
-        /// </summary>
-        public static bool IsQualityServiceEnabled()
-        {
-#if SOROLLA_MAX_INSTALLED
-            try
-            {
-                var settingsType = GetAppLovinSettingsType();
-                if (settingsType == null)
-                    return false;
-
-                var instanceProp = settingsType.GetProperty("Instance",
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                var instance = instanceProp?.GetValue(null);
-                if (instance == null)
-                    return false;
-
-                var qsProp = settingsType.GetProperty("QualityServiceEnabled",
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-
-                return qsProp != null && (bool)qsProp.GetValue(instance);
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning($"{Tag} Failed to check Quality Service status: {e.Message}");
-                return false;
-            }
-#else
-            return false;
-#endif
-        }
-
-        /// <summary>
-        ///     Sanitize MAX settings by disabling problematic features.
-        ///     Currently disables Quality Service which causes 401 build failures.
-        /// </summary>
-        public static bool Sanitize() => DisableQualityService();
-
-        /// <summary>
-        ///     Disable Quality Service to prevent 401 errors during Android builds.
-        ///     Quality Service is optional and not required for ads to function.
-        /// </summary>
-        private static bool DisableQualityService()
-        {
-#if SOROLLA_MAX_INSTALLED
-            if (!IsQualityServiceEnabled())
-                return false;
-
-            try
-            {
-                var settingsType = GetAppLovinSettingsType();
-                if (settingsType == null)
-                    return false;
-
-                var instanceProp = settingsType.GetProperty("Instance",
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                var instance = instanceProp?.GetValue(null);
-                if (instance == null)
-                    return false;
-
-                var qsProp = settingsType.GetProperty("QualityServiceEnabled",
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                if (qsProp == null)
-                    return false;
-
-                qsProp.SetValue(instance, false);
-
-                // Call SaveAsync to persist
-                var saveMethod = settingsType.GetMethod("SaveAsync",
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                saveMethod?.Invoke(instance, null);
-
-                Debug.Log($"{Tag} Disabled AppLovin Quality Service (not required, prevents 401 build errors)");
-                return true;
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning($"{Tag} Failed to disable Quality Service: {e.Message}");
-                return false;
-            }
-#else
-            return false;
-#endif
         }
 
     }
