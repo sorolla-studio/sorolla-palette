@@ -275,6 +275,7 @@ namespace Sorolla.Palette.Editor
                 GUILayout.Label("Adjust", EditorStyles.boldLabel);
                 EditorGUI.indentLevel++;
                 EditorGUILayout.PropertyField(_serializedConfig.FindProperty("adjustAppToken"), new GUIContent("App Token"));
+                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("adjustPurchaseEventToken"), new GUIContent("Purchase Event Token"));
                 EditorGUI.indentLevel--;
             }
 
