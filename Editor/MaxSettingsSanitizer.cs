@@ -217,5 +217,67 @@ namespace Sorolla.Palette.Editor
 #endif
         }
 
+        /// <summary>
+        ///     Auto-set consent flow privacy policy URL and enable consent flow if not already configured.
+        /// </summary>
+        public static bool SetConsentFlowPrivacyPolicy(string url = "https://sorolla.io/privacy-policy")
+        {
+#if SOROLLA_MAX_INSTALLED
+            try
+            {
+                var settingsType = GetAppLovinSettingsType();
+                if (settingsType == null)
+                    return false;
+
+                var instanceProp = settingsType.GetProperty("Instance",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                var instance = instanceProp?.GetValue(null);
+                if (instance == null)
+                    return false;
+
+                bool changed = false;
+
+                // Set privacy policy URL if empty
+                var urlProp = settingsType.GetProperty("ConsentFlowPrivacyPolicyUrl",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                if (urlProp != null)
+                {
+                    string currentUrl = urlProp.GetValue(instance) as string;
+                    if (string.IsNullOrEmpty(currentUrl))
+                    {
+                        urlProp.SetValue(instance, url);
+                        changed = true;
+                    }
+                }
+
+                // Ensure consent flow is enabled
+                var enabledProp = settingsType.GetProperty("ConsentFlowEnabled",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                if (enabledProp != null && !(bool)enabledProp.GetValue(instance))
+                {
+                    enabledProp.SetValue(instance, true);
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    var saveMethod = settingsType.GetMethod("SaveAsync",
+                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                    saveMethod?.Invoke(instance, null);
+                    Debug.Log($"{Tag} Set consent flow privacy policy URL: {url}");
+                }
+
+                return changed;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"{Tag} Failed to set consent flow privacy policy: {e.Message}");
+                return false;
+            }
+#else
+            return false;
+#endif
+        }
+
     }
 }

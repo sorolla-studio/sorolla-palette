@@ -16,16 +16,6 @@ namespace Sorolla.Palette.Editor
     /// </summary>
     public static class BuildValidator
     {
-        private const string Tag = "[Palette BuildValidator]";
-        private static string ManifestPath => Path.Combine(Application.dataPath, "..", "Packages", "manifest.json");
-
-        public enum ValidationStatus
-        {
-            Valid,
-            Warning,
-            Error
-        }
-
         public enum CheckCategory
         {
             RequiredSdks,
@@ -39,10 +29,22 @@ namespace Sorolla.Palette.Editor
             AdjustSettings,
             Edm4uSettings,
             GradleConfig,
-            FirebaseConfig
+            FirebaseConfig,
         }
 
-        public static readonly Dictionary<CheckCategory, string> CheckNames = new()
+        public enum ValidationStatus
+        {
+            Valid,
+            Warning,
+            Error,
+        }
+        const string Tag = "[Palette BuildValidator]";
+
+        // ── Gradle Configuration ──────────────────────────────────────────
+
+        const int RequiredJavaVersion = 17;
+
+        public static readonly Dictionary<CheckCategory, string> CheckNames = new Dictionary<CheckCategory, string>
         {
             [CheckCategory.RequiredSdks] = "Required SDKs",
             [CheckCategory.VersionMismatches] = "SDK Versions",
@@ -55,24 +57,21 @@ namespace Sorolla.Palette.Editor
             [CheckCategory.AdjustSettings] = "Adjust Settings",
             [CheckCategory.Edm4uSettings] = "EDM4U Settings",
             [CheckCategory.GradleConfig] = "Gradle Configuration",
-            [CheckCategory.FirebaseConfig] = "Firebase Config Files"
+            [CheckCategory.FirebaseConfig] = "Firebase Config Files",
         };
 
-        public class ValidationResult
-        {
-            public ValidationStatus Status;
-            public string Message;
-            public string Fix;
-            public CheckCategory Category;
-
-            public ValidationResult(ValidationStatus status, string message, string fix = null, CheckCategory category = CheckCategory.VersionMismatches)
-            {
-                Status = status;
-                Message = message;
-                Fix = fix;
-                Category = category;
-            }
-        }
+        // Stashed by RunAutoFixes(), consumed once by RunAllChecks() to avoid double detection.
+        static AndroidManifestSanitizer.ManifestDiagnostics _lastManifestDiagnostics;
+        static readonly string MainTemplatePath =
+            Path.Combine(Application.dataPath, "Plugins", "Android", "mainTemplate.gradle");
+        static readonly string LauncherTemplatePath =
+            Path.Combine(Application.dataPath, "Plugins", "Android", "launcherTemplate.gradle");
+        static readonly string GradlePropertiesPath =
+            Path.Combine(Application.dataPath, "Plugins", "Android", "gradleTemplate.properties");
+        static readonly string BaseProjectTemplatePath =
+            Path.Combine(Application.dataPath, "Plugins", "Android", "baseProjectTemplate.gradle");
+        static readonly string[] GradleTemplatePaths = { MainTemplatePath, LauncherTemplatePath };
+        static string ManifestPath => Path.Combine(Application.dataPath, "..", "Packages", "manifest.json");
 
         /// <summary>
         ///     Manual validation via console (use BuildValidationWindow for UI)
@@ -101,11 +100,11 @@ namespace Sorolla.Palette.Editor
                     return results;
                 }
 
-                var dependencies = manifest.TryGetValue("dependencies", out var deps)
+                var dependencies = manifest.TryGetValue("dependencies", out object deps)
                     ? deps as Dictionary<string, object>
                     : new Dictionary<string, object>();
 
-                var registries = manifest.TryGetValue("scopedRegistries", out var regs)
+                var registries = manifest.TryGetValue("scopedRegistries", out object regs)
                     ? regs as List<object>
                     : new List<object>();
 
@@ -117,7 +116,7 @@ namespace Sorolla.Palette.Editor
                 results.AddRange(CheckFirebaseCoherence(dependencies));
                 results.AddRange(CheckFirebaseConfigFiles(dependencies));
                 results.AddRange(CheckConfigSync(dependencies));
-                var manifestDiag = _lastManifestDiagnostics;
+                AndroidManifestSanitizer.ManifestDiagnostics manifestDiag = _lastManifestDiagnostics;
                 _lastManifestDiagnostics = null;
                 results.AddRange(CheckAndroidManifest(manifestDiag));
                 results.AddRange(CheckMaxSettings());
@@ -134,9 +133,6 @@ namespace Sorolla.Palette.Editor
             return results;
         }
 
-        // Stashed by RunAutoFixes(), consumed once by RunAllChecks() to avoid double detection.
-        private static AndroidManifestSanitizer.ManifestDiagnostics _lastManifestDiagnostics;
-
         /// <summary>
         ///     Run all auto-fixes before validation. Returns list of fixes applied.
         ///     This is the single source of truth for all sanitizers.
@@ -146,7 +142,7 @@ namespace Sorolla.Palette.Editor
             var fixes = new List<string>();
 
             // AndroidManifest sanitization - captures diagnostics to skip re-detection in RunAllChecks
-            var diag = AndroidManifestSanitizer.SanitizeWithDiagnostics(refreshAssetDatabase: false);
+            AndroidManifestSanitizer.ManifestDiagnostics diag = AndroidManifestSanitizer.SanitizeWithDiagnostics(refreshAssetDatabase: false);
             fixes.AddRange(diag.Fixes);
             _lastManifestDiagnostics = diag;
 
@@ -154,14 +150,18 @@ namespace Sorolla.Palette.Editor
             if (MaxSettingsSanitizer.EnableQualityService())
                 fixes.Add("Enabled AppLovin Ad Review (Quality Service)");
 
+            // MAX Consent Flow - auto-set privacy policy URL
+            if (MaxSettingsSanitizer.SetConsentFlowPrivacyPolicy())
+                fixes.Add("Set AppLovin consent flow privacy policy URL");
+
             // Gradle config auto-fixes (Android only)
             if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android)
             {
                 // compileOptions: Java 11 → 17 (both mainTemplate and launcherTemplate)
-                foreach (var templatePath in GradleTemplatePaths)
+                foreach (string templatePath in GradleTemplatePaths)
                 {
                     if (!File.Exists(templatePath)) continue;
-                    var gradle = File.ReadAllText(templatePath);
+                    string gradle = File.ReadAllText(templatePath);
                     if (gradle.Contains("VERSION_11") && (gradle.Contains("sourceCompatibility") || gradle.Contains("targetCompatibility")))
                     {
                         gradle = gradle.Replace("VERSION_11", "VERSION_17");
@@ -174,14 +174,14 @@ namespace Sorolla.Palette.Editor
 #if UNITY_6000_0_OR_NEWER
                 if (File.Exists(BaseProjectTemplatePath))
                 {
-                    var baseGradle = File.ReadAllText(BaseProjectTemplatePath);
+                    string baseGradle = File.ReadAllText(BaseProjectTemplatePath);
                     if (baseGradle.Contains("com.android.tools:r8"))
                     {
-                        var backupPath = BaseProjectTemplatePath + ".backup";
+                        string backupPath = BaseProjectTemplatePath + ".backup";
                         File.Copy(BaseProjectTemplatePath, backupPath, true);
 
                         // Remove the buildscript { ... } block using brace matching
-                        var cleaned = RemoveBuildscriptBlock(baseGradle);
+                        string cleaned = RemoveBuildscriptBlock(baseGradle);
                         if (cleaned != baseGradle)
                         {
                             File.WriteAllText(BaseProjectTemplatePath, cleaned);
@@ -216,7 +216,7 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Check that all required SDKs for the current mode are installed.
         /// </summary>
-        private static List<ValidationResult> CheckRequiredSdks()
+        static List<ValidationResult> CheckRequiredSdks()
         {
             var results = new List<ValidationResult>();
 
@@ -227,7 +227,7 @@ namespace Sorolla.Palette.Editor
             }
 
             var missing = new List<string>();
-            foreach (var sdk in SdkRegistry.GetRequired(SorollaSettings.IsPrototype))
+            foreach (SdkInfo sdk in SdkRegistry.GetRequired(SorollaSettings.IsPrototype))
             {
                 if (!SdkDetector.IsInstalled(sdk))
                     missing.Add(sdk.Name);
@@ -235,7 +235,7 @@ namespace Sorolla.Palette.Editor
 
             if (missing.Count > 0)
             {
-                var modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
+                string modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
                 results.Add(new ValidationResult(
                     ValidationStatus.Error,
                     $"Missing required SDKs for {modeName} mode:\n  {string.Join(", ", missing)}",
@@ -245,7 +245,7 @@ namespace Sorolla.Palette.Editor
             }
             else
             {
-                var modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
+                string modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
                 results.Add(new ValidationResult(ValidationStatus.Valid, $"{modeName} mode SDKs OK", category: CheckCategory.RequiredSdks));
             }
 
@@ -256,18 +256,18 @@ namespace Sorolla.Palette.Editor
         ///     Check for version mismatches between SdkRegistry and manifest.
         ///     Only warns if manifest version is OLDER than expected (newer is fine).
         /// </summary>
-        private static List<ValidationResult> CheckVersionMismatches(Dictionary<string, object> dependencies)
+        static List<ValidationResult> CheckVersionMismatches(Dictionary<string, object> dependencies)
         {
             var results = new List<ValidationResult>();
-            var hasIssues = false;
+            bool hasIssues = false;
 
-            foreach (var sdk in SdkRegistry.All.Values)
+            foreach (SdkInfo sdk in SdkRegistry.All.Values)
             {
-                if (!dependencies.TryGetValue(sdk.PackageId, out var manifestValue))
+                if (!dependencies.TryGetValue(sdk.PackageId, out object manifestValue))
                     continue; // Not installed, checked elsewhere
 
-                var manifestVersion = manifestValue?.ToString() ?? "";
-                var expectedVersion = sdk.DependencyValue;
+                string manifestVersion = manifestValue?.ToString() ?? "";
+                string expectedVersion = sdk.DependencyValue;
 
                 if (string.IsNullOrEmpty(expectedVersion))
                     continue; // Git URL or no version
@@ -279,8 +279,8 @@ namespace Sorolla.Palette.Editor
                 // For Git URLs, compare tags
                 if (manifestVersion.Contains("#") && expectedVersion.Contains("#"))
                 {
-                    var manifestTag = manifestVersion.Split('#').LastOrDefault();
-                    var expectedTag = expectedVersion.Split('#').LastOrDefault();
+                    string manifestTag = manifestVersion.Split('#').LastOrDefault();
+                    string expectedTag = expectedVersion.Split('#').LastOrDefault();
 
                     if (manifestTag == expectedTag)
                         continue; // Tags match
@@ -293,8 +293,7 @@ namespace Sorolla.Palette.Editor
                     results.Add(new ValidationResult(
                         ValidationStatus.Warning,
                         $"Outdated version - {sdk.PackageId}\n  Minimum: {expectedTag}\n  Found: {manifestTag}",
-                        "Update the package to the minimum required version",
-                        CheckCategory.VersionMismatches
+                        "Update the package to the minimum required version"
                     ));
                     continue;
                 }
@@ -306,8 +305,7 @@ namespace Sorolla.Palette.Editor
                     results.Add(new ValidationResult(
                         ValidationStatus.Warning,
                         $"Outdated version - {sdk.PackageId}\n  Minimum: {expectedVersion}\n  Found: {manifestVersion}",
-                        "Update the package to the minimum required version",
-                        CheckCategory.VersionMismatches
+                        "Update the package to the minimum required version"
                     ));
                 }
             }
@@ -323,7 +321,7 @@ namespace Sorolla.Palette.Editor
         ///     Compare two version strings. Returns:
         ///     -1 if v1 &lt; v2, 0 if equal, 1 if v1 &gt; v2
         /// </summary>
-        private static int CompareVersions(string v1, string v2)
+        static int CompareVersions(string v1, string v2)
         {
             if (v1 == v2) return 0;
             if (string.IsNullOrEmpty(v1)) return -1;
@@ -331,14 +329,14 @@ namespace Sorolla.Palette.Editor
 
             try
             {
-                var parts1 = v1.Split('.').Select(p => int.TryParse(p, out var n) ? n : 0).ToArray();
-                var parts2 = v2.Split('.').Select(p => int.TryParse(p, out var n) ? n : 0).ToArray();
+                int[] parts1 = v1.Split('.').Select(p => int.TryParse(p, out int n) ? n : 0).ToArray();
+                int[] parts2 = v2.Split('.').Select(p => int.TryParse(p, out int n) ? n : 0).ToArray();
 
-                var maxLen = Math.Max(parts1.Length, parts2.Length);
-                for (var i = 0; i < maxLen; i++)
+                int maxLen = Math.Max(parts1.Length, parts2.Length);
+                for (int i = 0; i < maxLen; i++)
                 {
-                    var p1 = i < parts1.Length ? parts1[i] : 0;
-                    var p2 = i < parts2.Length ? parts2[i] : 0;
+                    int p1 = i < parts1.Length ? parts1[i] : 0;
+                    int p2 = i < parts2.Length ? parts2[i] : 0;
 
                     if (p1 < p2) return -1;
                     if (p1 > p2) return 1;
@@ -356,10 +354,10 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Check mode consistency - verify installed SDKs match current mode
         /// </summary>
-        private static List<ValidationResult> CheckModeConsistency(Dictionary<string, object> dependencies)
+        static List<ValidationResult> CheckModeConsistency(Dictionary<string, object> dependencies)
         {
             var results = new List<ValidationResult>();
-            var hasIssues = false;
+            bool hasIssues = false;
 
             if (!SorollaSettings.IsConfigured)
             {
@@ -371,12 +369,12 @@ namespace Sorolla.Palette.Editor
                 return results;
             }
 
-            var isPrototype = SorollaSettings.IsPrototype;
-            var modeName = isPrototype ? "Prototype" : "Full";
+            bool isPrototype = SorollaSettings.IsPrototype;
+            string modeName = isPrototype ? "Prototype" : "Full";
 
-            foreach (var sdk in SdkRegistry.All.Values)
+            foreach (SdkInfo sdk in SdkRegistry.All.Values)
             {
-                var isInstalled = dependencies.ContainsKey(sdk.PackageId);
+                bool isInstalled = dependencies.ContainsKey(sdk.PackageId);
 
                 // Check PrototypeOnly SDKs in Full mode
                 if (sdk.Requirement == SdkRequirement.PrototypeOnly && !isPrototype && isInstalled)
@@ -424,28 +422,28 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Check that required scoped registries are configured
         /// </summary>
-        private static List<ValidationResult> CheckScopedRegistries(
+        static List<ValidationResult> CheckScopedRegistries(
             Dictionary<string, object> dependencies,
             List<object> registries)
         {
             var results = new List<ValidationResult>();
-            var hasIssues = false;
+            bool hasIssues = false;
 
             // Build list of all scopes in registries
             var configuredScopes = new HashSet<string>();
-            foreach (var reg in registries)
+            foreach (object reg in registries)
             {
                 if (reg is Dictionary<string, object> registry &&
-                    registry.TryGetValue("scopes", out var scopesObj) &&
+                    registry.TryGetValue("scopes", out object scopesObj) &&
                     scopesObj is List<object> scopes)
                 {
-                    foreach (var scope in scopes)
+                    foreach (object scope in scopes)
                         configuredScopes.Add(scope.ToString());
                 }
             }
 
             // Check each installed SDK has required scope
-            foreach (var sdk in SdkRegistry.All.Values)
+            foreach (SdkInfo sdk in SdkRegistry.All.Values)
             {
                 if (string.IsNullOrEmpty(sdk.Scope))
                     continue; // No scope needed (Unity registry or Git URL)
@@ -474,7 +472,7 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Check Firebase module coherence - FirebaseApp required if other modules installed
         /// </summary>
-        private static List<ValidationResult> CheckFirebaseCoherence(Dictionary<string, object> dependencies)
+        static List<ValidationResult> CheckFirebaseCoherence(Dictionary<string, object> dependencies)
         {
             var results = new List<ValidationResult>();
 
@@ -482,10 +480,10 @@ namespace Sorolla.Palette.Editor
             {
                 SdkId.FirebaseAnalytics,
                 SdkId.FirebaseCrashlytics,
-                SdkId.FirebaseRemoteConfig
+                SdkId.FirebaseRemoteConfig,
             };
 
-            var hasFirebaseApp = dependencies.ContainsKey(SdkRegistry.All[SdkId.FirebaseApp].PackageId);
+            bool hasFirebaseApp = dependencies.ContainsKey(SdkRegistry.All[SdkId.FirebaseApp].PackageId);
             var installedModules = firebaseModules
                 .Where(id => dependencies.ContainsKey(SdkRegistry.All[id].PackageId))
                 .Select(id => SdkRegistry.All[id].Name)
@@ -526,19 +524,19 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Check Firebase config files (google-services.json / GoogleService-Info.plist) for active build target.
         /// </summary>
-        private static List<ValidationResult> CheckFirebaseConfigFiles(Dictionary<string, object> dependencies)
+        static List<ValidationResult> CheckFirebaseConfigFiles(Dictionary<string, object> dependencies)
         {
             var results = new List<ValidationResult>();
             const CheckCategory category = CheckCategory.FirebaseConfig;
 
-            var hasFirebase = dependencies.ContainsKey(SdkRegistry.All[SdkId.FirebaseAnalytics].PackageId);
+            bool hasFirebase = dependencies.ContainsKey(SdkRegistry.All[SdkId.FirebaseAnalytics].PackageId);
             if (!hasFirebase)
             {
                 results.Add(new ValidationResult(ValidationStatus.Valid, "Firebase not installed, config check skipped", category: category));
                 return results;
             }
 
-            var target = EditorUserBuildSettings.activeBuildTarget;
+            BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
 
             if (target == BuildTarget.Android && !SdkConfigDetector.IsFirebaseAndroidConfigured())
             {
@@ -569,10 +567,10 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Check that SorollaConfig settings match installed SDKs
         /// </summary>
-        private static List<ValidationResult> CheckConfigSync(Dictionary<string, object> dependencies)
+        static List<ValidationResult> CheckConfigSync(Dictionary<string, object> dependencies)
         {
             var results = new List<ValidationResult>();
-            var hasIssues = false;
+            bool hasIssues = false;
 
             var config = Resources.Load<SorollaConfig>("SorollaConfig");
             if (config == null)
@@ -629,7 +627,7 @@ namespace Sorolla.Palette.Editor
             // Auto-install missing required SDKs
             if (SorollaSettings.IsConfigured && !SdkDetector.AreAllRequiredInstalled(SorollaSettings.IsPrototype))
             {
-                var modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
+                string modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
                 Debug.Log($"{Tag} Auto-fixing: Installing missing required SDKs for {modeName} mode...");
                 SdkInstaller.InstallRequiredSdks(SorollaSettings.IsPrototype);
                 changed = true;
@@ -652,25 +650,25 @@ namespace Sorolla.Palette.Editor
         ///     Check Android manifest health. Uses pre-computed diagnostics from Sanitize
         ///     when available (after RunAutoFixes), falls back to fresh detection.
         /// </summary>
-        private static List<ValidationResult> CheckAndroidManifest(
+        static List<ValidationResult> CheckAndroidManifest(
             AndroidManifestSanitizer.ManifestDiagnostics diagnostics = null)
         {
             var results = new List<ValidationResult>();
-            var hasIssues = false;
+            bool hasIssues = false;
 
             // Use pre-computed diagnostics from SanitizeWithDiagnostics if available
             var orphaned = diagnostics?.RemainingOrphans ?? AndroidManifestSanitizer.DetectOrphanedEntries();
             var duplicates = diagnostics?.RemainingDuplicates ?? AndroidManifestSanitizer.DetectDuplicateActivities();
-            var wrongActivity = diagnostics?.RemainingWrongActivity ?? AndroidManifestSanitizer.DetectWrongMainActivity();
-            var themeMismatch = diagnostics?.RemainingThemeMismatch ?? AndroidManifestSanitizer.DetectThemeMismatch();
-            var launcherIssue = diagnostics?.RemainingLauncherIssue ?? AndroidManifestSanitizer.DetectLauncherManifestIssue();
+            string wrongActivity = diagnostics?.RemainingWrongActivity ?? AndroidManifestSanitizer.DetectWrongMainActivity();
+            string themeMismatch = diagnostics?.RemainingThemeMismatch ?? AndroidManifestSanitizer.DetectThemeMismatch();
+            string launcherIssue = diagnostics?.RemainingLauncherIssue ?? AndroidManifestSanitizer.DetectLauncherManifestIssue();
 
             if (orphaned.Count > 0)
             {
                 hasIssues = true;
-                foreach (var (sdkId, entries) in orphaned)
+                foreach ((SdkId sdkId, string[] entries) in orphaned)
                 {
-                    var sdkName = SdkRegistry.All[sdkId].Name;
+                    string sdkName = SdkRegistry.All[sdkId].Name;
                     results.Add(new ValidationResult(
                         ValidationStatus.Error,
                         $"AndroidManifest.xml has {sdkName} entries but SDK is not installed!\n" +
@@ -687,7 +685,7 @@ namespace Sorolla.Palette.Editor
                 hasIssues = true;
                 results.Add(new ValidationResult(
                     ValidationStatus.Error,
-                    $"AndroidManifest.xml has duplicate activity declarations!\n" +
+                    "AndroidManifest.xml has duplicate activity declarations!\n" +
                     $"  Duplicates: {string.Join(", ", duplicates)}\n" +
                     "  This WILL cause build failures.",
                     "Open Palette > Configuration and click Refresh in Build Health",
@@ -700,7 +698,7 @@ namespace Sorolla.Palette.Editor
                 hasIssues = true;
                 results.Add(new ValidationResult(
                     ValidationStatus.Error,
-                    $"AndroidManifest.xml has wrong main activity!\n" +
+                    "AndroidManifest.xml has wrong main activity!\n" +
                     $"  Found: {wrongActivity}\n" +
                     $"  Expected: {AndroidManifestSanitizer.GetExpectedMainActivity()}\n" +
                     "  The app WILL crash on launch.",
@@ -714,7 +712,7 @@ namespace Sorolla.Palette.Editor
                 hasIssues = true;
                 results.Add(new ValidationResult(
                     ValidationStatus.Error,
-                    $"AndroidManifest.xml activity theme issue!\n" +
+                    "AndroidManifest.xml activity theme issue!\n" +
                     $"  {themeMismatch}\n" +
                     "  This WILL cause a Gradle merge conflict on build.",
                     "Open Palette > Configuration and click Refresh in Build Health",
@@ -743,12 +741,12 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Check AppLovin MAX settings for known issues
         /// </summary>
-        private static List<ValidationResult> CheckMaxSettings()
+        static List<ValidationResult> CheckMaxSettings()
         {
             var results = new List<ValidationResult>();
 
 #if SOROLLA_MAX_INSTALLED
-            var hasIssues = false;
+            bool hasIssues = false;
 
             var config = Resources.Load<SorollaConfig>("SorollaConfig");
             if (config == null)
@@ -763,7 +761,7 @@ namespace Sorolla.Palette.Editor
             }
 
             // Check SDK key is configured in SorollaConfig (single source of truth)
-            var maxStatus = SdkConfigDetector.GetMaxStatus(config);
+            SdkConfigDetector.ConfigStatus maxStatus = SdkConfigDetector.GetMaxStatus(config);
             if (maxStatus == SdkConfigDetector.ConfigStatus.NotConfigured)
             {
                 hasIssues = true;
@@ -790,7 +788,7 @@ namespace Sorolla.Palette.Editor
         ///     Check Adjust SDK app token configuration (Full mode only).
         ///     Note: SDK installation is checked by CheckRequiredSdks().
         /// </summary>
-        private static List<ValidationResult> CheckAdjustSettings()
+        static List<ValidationResult> CheckAdjustSettings()
         {
             var results = new List<ValidationResult>();
 
@@ -820,7 +818,7 @@ namespace Sorolla.Palette.Editor
                 return results;
             }
 
-            var adjustStatus = SdkConfigDetector.GetAdjustStatus(config);
+            SdkConfigDetector.ConfigStatus adjustStatus = SdkConfigDetector.GetAdjustStatus(config);
             if (adjustStatus == SdkConfigDetector.ConfigStatus.NotConfigured)
             {
                 results.Add(new ValidationResult(
@@ -843,10 +841,10 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Check for duplicate EDM4U installations and Gradle template mode configuration.
         /// </summary>
-        private static List<ValidationResult> CheckEdm4uSettings()
+        static List<ValidationResult> CheckEdm4uSettings()
         {
             var results = new List<ValidationResult>();
-            var hasIssues = false;
+            bool hasIssues = false;
 
             // Check for duplicate installations
             var duplicates = Edm4uSanitizer.DetectDuplicateInstallations();
@@ -862,7 +860,7 @@ namespace Sorolla.Palette.Editor
             }
 
             // Check Gradle template mode (prevents Java 17+ compatibility issues)
-            var gradleCheck = CheckEdm4uGradleMode();
+            ValidationResult gradleCheck = CheckEdm4uGradleMode();
             if (gradleCheck != null)
             {
                 hasIssues = true;
@@ -879,11 +877,11 @@ namespace Sorolla.Palette.Editor
         ///     Check that EDM4U is configured for Gradle template mode.
         ///     Without this, EDM4U uses its bundled Gradle 5.1.1 which is incompatible with Java 17+ (Unity 6+).
         /// </summary>
-        private static ValidationResult CheckEdm4uGradleMode()
+        static ValidationResult CheckEdm4uGradleMode()
         {
             // Find EDM4U's SettingsDialog type via reflection
             Type settingsType = null;
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 settingsType = assembly.GetType("GooglePlayServices.SettingsDialog");
                 if (settingsType != null)
@@ -896,7 +894,7 @@ namespace Sorolla.Palette.Editor
             try
             {
                 const BindingFlags staticFlags = BindingFlags.Public | BindingFlags.Static;
-                var mainTemplateProp = settingsType.GetProperty("PatchMainTemplateGradle", staticFlags);
+                PropertyInfo mainTemplateProp = settingsType.GetProperty("PatchMainTemplateGradle", staticFlags);
 
                 if (mainTemplateProp != null && !(bool)mainTemplateProp.GetValue(null))
                 {
@@ -918,25 +916,12 @@ namespace Sorolla.Palette.Editor
             return null;
         }
 
-        // ── Gradle Configuration ──────────────────────────────────────────
-
-        private const int RequiredJavaVersion = 17;
-        private static readonly string MainTemplatePath =
-            Path.Combine(Application.dataPath, "Plugins", "Android", "mainTemplate.gradle");
-        private static readonly string LauncherTemplatePath =
-            Path.Combine(Application.dataPath, "Plugins", "Android", "launcherTemplate.gradle");
-        private static readonly string GradlePropertiesPath =
-            Path.Combine(Application.dataPath, "Plugins", "Android", "gradleTemplate.properties");
-        private static readonly string BaseProjectTemplatePath =
-            Path.Combine(Application.dataPath, "Plugins", "Android", "baseProjectTemplate.gradle");
-        private static readonly string[] GradleTemplatePaths = { MainTemplatePath, LauncherTemplatePath };
-
         /// <summary>
         ///     Validate Gradle configuration for Java 17 compatibility.
         ///     Firebase 23.x, AppLovin MAX 13.x, and Kotlin 2.x all require Java 17 bytecode.
         ///     Unity 2022 bundles JDK 11 — Gradle must be pointed at JDK 17+ or dexing fails.
         /// </summary>
-        private static List<ValidationResult> CheckGradleConfig()
+        static List<ValidationResult> CheckGradleConfig()
         {
             var results = new List<ValidationResult>();
 
@@ -946,17 +931,17 @@ namespace Sorolla.Palette.Editor
                 return results;
             }
 
-            var hasIssues = false;
+            bool hasIssues = false;
 
             // Check compileOptions in both Gradle templates
-            foreach (var templatePath in GradleTemplatePaths)
+            foreach (string templatePath in GradleTemplatePaths)
             {
                 if (!File.Exists(templatePath)) continue;
-                var gradle = File.ReadAllText(templatePath);
+                string gradle = File.ReadAllText(templatePath);
                 if (gradle.Contains("VERSION_11") && (gradle.Contains("sourceCompatibility") || gradle.Contains("targetCompatibility")))
                 {
                     hasIssues = true;
-                    var fileName = Path.GetFileName(templatePath);
+                    string fileName = Path.GetFileName(templatePath);
                     results.Add(new ValidationResult(
                         ValidationStatus.Error,
                         $"{fileName} has Java 11 compileOptions!\n" +
@@ -971,7 +956,7 @@ namespace Sorolla.Palette.Editor
             // Check org.gradle.java.home in gradleTemplate.properties
             if (File.Exists(GradlePropertiesPath))
             {
-                var props = File.ReadAllText(GradlePropertiesPath);
+                string props = File.ReadAllText(GradlePropertiesPath);
                 if (!props.Contains("org.gradle.java.home"))
                 {
                     // Unity 2022 bundles JDK 11 — need explicit JDK 17+ override
@@ -1013,16 +998,16 @@ namespace Sorolla.Palette.Editor
         /// </summary>
         internal static string RemoveBuildscriptBlock(string gradle)
         {
-            var idx = gradle.IndexOf("buildscript", StringComparison.Ordinal);
+            int idx = gradle.IndexOf("buildscript", StringComparison.Ordinal);
             if (idx < 0) return gradle;
 
             // Find opening brace
-            var braceStart = gradle.IndexOf('{', idx);
+            int braceStart = gradle.IndexOf('{', idx);
             if (braceStart < 0) return gradle;
 
             // Match closing brace
-            var depth = 1;
-            var pos = braceStart + 1;
+            int depth = 1;
+            int pos = braceStart + 1;
             while (pos < gradle.Length && depth > 0)
             {
                 if (gradle[pos] == '{') depth++;
@@ -1034,13 +1019,17 @@ namespace Sorolla.Palette.Editor
 
             // Include any trailing newlines
             while (pos < gradle.Length && (gradle[pos] == '\n' || gradle[pos] == '\r'))
+            {
                 pos++;
+            }
 
             // Include any leading whitespace/newlines before "buildscript"
-            var blockStart = idx;
+            int blockStart = idx;
             while (blockStart > 0 && (gradle[blockStart - 1] == ' ' || gradle[blockStart - 1] == '\t' ||
-                                       gradle[blockStart - 1] == '\n' || gradle[blockStart - 1] == '\r'))
+                                      gradle[blockStart - 1] == '\n' || gradle[blockStart - 1] == '\r'))
+            {
                 blockStart--;
+            }
 
             return gradle.Substring(0, blockStart) + gradle.Substring(pos);
         }
@@ -1052,7 +1041,7 @@ namespace Sorolla.Palette.Editor
         ///     Unity 2022 (AGP 7.4.2) needs R8 8.1.56+ pin for Kotlin 2.0 metadata.
         ///     Unity 6 (AGP 8.x) bundles modern R8 - the pin must be removed.
         /// </summary>
-        private static List<ValidationResult> CheckR8AgpConfig()
+        static List<ValidationResult> CheckR8AgpConfig()
         {
             var results = new List<ValidationResult>();
 
@@ -1062,12 +1051,12 @@ namespace Sorolla.Palette.Editor
                 return results;
             }
 
-            var hasIssues = false;
+            bool hasIssues = false;
 
             // Check R8 pin in baseProjectTemplate.gradle
             if (File.Exists(BaseProjectTemplatePath))
             {
-                var gradle = File.ReadAllText(BaseProjectTemplatePath);
+                string gradle = File.ReadAllText(BaseProjectTemplatePath);
                 if (gradle.Contains("com.android.tools:r8"))
                 {
 #if UNITY_6000_0_OR_NEWER
@@ -1089,7 +1078,7 @@ namespace Sorolla.Palette.Editor
             // Check Kotlin stdlib version forcing in mainTemplate.gradle
             if (File.Exists(MainTemplatePath))
             {
-                var gradle = File.ReadAllText(MainTemplatePath);
+                string gradle = File.ReadAllText(MainTemplatePath);
                 if (gradle.Contains("kotlin-stdlib") && gradle.Contains("useVersion"))
                 {
 #if UNITY_6000_0_OR_NEWER
@@ -1116,7 +1105,7 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Read and parse manifest.json
         /// </summary>
-        private static Dictionary<string, object> ReadManifest()
+        static Dictionary<string, object> ReadManifest()
         {
             if (!File.Exists(ManifestPath))
             {
@@ -1126,7 +1115,7 @@ namespace Sorolla.Palette.Editor
 
             try
             {
-                var json = File.ReadAllText(ManifestPath);
+                string json = File.ReadAllText(ManifestPath);
                 return MiniJson.Deserialize(json) as Dictionary<string, object>;
             }
             catch (Exception e)
@@ -1139,15 +1128,15 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Display validation results to console and dialog
         /// </summary>
-        private static void DisplayResults(List<ValidationResult> results)
+        static void DisplayResults(List<ValidationResult> results)
         {
-            var errors = results.Count(r => r.Status == ValidationStatus.Error);
-            var warnings = results.Count(r => r.Status == ValidationStatus.Warning);
+            int errors = results.Count(r => r.Status == ValidationStatus.Error);
+            int warnings = results.Count(r => r.Status == ValidationStatus.Warning);
 
             // Log each result
-            foreach (var result in results)
+            foreach (ValidationResult result in results)
             {
-                var fixText = string.IsNullOrEmpty(result.Fix) ? "" : $"\n  Fix: {result.Fix}";
+                string fixText = string.IsNullOrEmpty(result.Fix) ? "" : $"\n  Fix: {result.Fix}";
 
                 switch (result.Status)
                 {
@@ -1175,7 +1164,7 @@ namespace Sorolla.Palette.Editor
             }
             else
             {
-                var summary = $"Validation complete: {errors} error(s), {warnings} warning(s)";
+                string summary = $"Validation complete: {errors} error(s), {warnings} warning(s)";
                 Debug.Log($"{Tag} {summary}");
 
                 EditorUtility.DisplayDialog(
@@ -1185,6 +1174,22 @@ namespace Sorolla.Palette.Editor
                 );
             }
         }
+
+        public class ValidationResult
+        {
+            public CheckCategory Category;
+            public string Fix;
+            public string Message;
+            public ValidationStatus Status;
+
+            public ValidationResult(ValidationStatus status, string message, string fix = null, CheckCategory category = CheckCategory.VersionMismatches)
+            {
+                Status = status;
+                Message = message;
+                Fix = fix;
+                Category = category;
+            }
+        }
     }
 
     /// <summary>
@@ -1192,14 +1197,14 @@ namespace Sorolla.Palette.Editor
     ///     early, even if they don't open the Palette Configuration window.
     /// </summary>
     [InitializeOnLoad]
-    static class BuildHealthConsoleNotifier
+    internal static class BuildHealthConsoleNotifier
     {
         static BuildHealthConsoleNotifier()
         {
             EditorApplication.delayCall += CheckHealthOnReload;
         }
 
-        private static void CheckHealthOnReload()
+        static void CheckHealthOnReload()
         {
             if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android &&
                 EditorUserBuildSettings.activeBuildTarget != BuildTarget.iOS)
@@ -1209,14 +1214,14 @@ namespace Sorolla.Palette.Editor
             {
                 // Auto-fix manifest, Gradle, and MAX issues on domain reload
                 var fixes = BuildValidator.RunAutoFixes();
-                foreach (var fix in fixes)
+                foreach (string fix in fixes)
                     Debug.Log($"[Palette] Auto-fixed: {fix}");
 
                 if (fixes.Count > 0)
                     AssetDatabase.Refresh();
 
                 var results = BuildValidator.RunAllChecks();
-                var errorCount = results.Count(r => r.Status == BuildValidator.ValidationStatus.Error);
+                int errorCount = results.Count(r => r.Status == BuildValidator.ValidationStatus.Error);
 
                 if (fixes.Count > 0 && errorCount == 0)
                     Debug.Log($"[Palette] Build Health: {fixes.Count} issue(s) detected and auto-fixed.");
@@ -1247,7 +1252,7 @@ namespace Sorolla.Palette.Editor
 
             // Run all auto-fixes before validation
             var fixes = BuildValidator.RunAutoFixes();
-            foreach (var fix in fixes)
+            foreach (string fix in fixes)
                 Debug.Log($"[Palette BuildValidator] Auto-fix: {fix}");
 
             var results = BuildValidator.RunAllChecks();
@@ -1255,7 +1260,7 @@ namespace Sorolla.Palette.Editor
 
             if (errors.Count > 0)
             {
-                foreach (var error in errors)
+                foreach (BuildValidator.ValidationResult error in errors)
                     Debug.LogError($"[Palette BuildValidator] ERROR: {error.Message}");
 
                 throw new BuildFailedException(
@@ -1266,7 +1271,7 @@ namespace Sorolla.Palette.Editor
 
             // Log warnings but don't block build
             var warnings = results.Where(r => r.Status == BuildValidator.ValidationStatus.Warning).ToList();
-            foreach (var warning in warnings)
+            foreach (BuildValidator.ValidationResult warning in warnings)
                 Debug.LogWarning($"[Palette BuildValidator] WARNING: {warning.Message}");
 
             if (warnings.Count > 0)
