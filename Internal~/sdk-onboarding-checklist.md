@@ -264,8 +264,8 @@ Per-game values for copy-paste when onboarding from an existing game.
 ### AdMob
 | Field | hungrysnake | romba | boat-runner |
 |---|---|---|---|
-| Android App ID | `***REDACTED***` | `***REDACTED***` | **EMPTY** |
-| iOS App ID | `***REDACTED***` | `***REDACTED***` | **EMPTY** |
+| Android App ID | `***REDACTED***` | `***REDACTED***` | `***REDACTED***` |
+| iOS App ID | `***REDACTED***` | `***REDACTED***` | `***REDACTED***` |
 
 ### MAX Ad Units
 | Field | hungrysnake | romba | boat-runner |
@@ -279,7 +279,7 @@ Per-game values for copy-paste when onboarding from an existing game.
 | Field | hungrysnake | romba | boat-runner |
 |---|---|---|---|
 | App Token | `***REDACTED***` | `***REDACTED***` | `***REDACTED***` |
-| Purchase Event Token | `***REDACTED***` | `***REDACTED***` | **EMPTY** |
+| Purchase Event Token | `***REDACTED***` | `***REDACTED***` | `***REDACTED***` |
 
 ### Firebase
 | Field | hungrysnake | romba | boat-runner |

@@ -4,8 +4,7 @@
     "references": [
         "Sorolla.Runtime",
         "Sorolla.Adapters",
-        "Unity.TextMeshPro",
-        "AdjustSdk.Scripts"
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -15,16 +14,6 @@
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [
-        {
-            "name": "com.adjust.sdk",
-            "expression": "",
-            "define": "SOROLLA_ADJUST_ENABLED"
-        },
-        {
-            "name": "com.adjust.sdk",
-            "expression": "",
-            "define": "ADJUST_SDK_INSTALLED"
-        },
         {
             "name": "com.applovin.mediation.ads",
             "expression": "",

@@ -54,6 +54,12 @@ namespace Sorolla.Palette.DebugUI
         {
             refreshButton.gameObject.SetActive(showRefreshButton);
 
+            if (identityType == IdentityType.AdjustId && (Palette.Config == null || Palette.Config.isPrototypeMode))
+            {
+                gameObject.SetActive(false);
+                return;
+            }
+
             if (identityType != IdentityType.Custom)
             {
                 if (identityType == IdentityType.SorollaMode && !Palette.IsInitialized)

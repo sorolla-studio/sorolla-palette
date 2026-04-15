@@ -1,3 +1,4 @@
+using System;
 using Sorolla.Palette.ATT;
 using TMPro;
 using UnityEngine;
@@ -92,7 +93,7 @@ namespace Sorolla.Palette.DebugUI
                 intent.Call<AndroidJavaObject>("setData", uri);
                 currentActivity.Call("startActivity", intent);
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 Debug.LogError($"[PrivacyController] Failed to open settings: {e.Message}");
             }
@@ -100,7 +101,7 @@ namespace Sorolla.Palette.DebugUI
         }
 
 #if UNITY_EDITOR
-        void HandleShowATT()
+        static void HandleShowATT()
         {
             DebugPanelManager.Instance?.Log("Showing PreATT -> ATT flow...", LogSource.Sorolla);
 
@@ -112,36 +113,33 @@ namespace Sorolla.Palette.DebugUI
                 return;
             }
 
-            GameObject contextScreen = Object.Instantiate(prefab);
+            GameObject contextScreen = Instantiate(prefab);
             var canvas = contextScreen.GetComponent<Canvas>();
             if (canvas) canvas.sortingOrder = 999;
 
             var view = contextScreen.GetComponent<ContextScreenView>();
             view.SentTrackingAuthorizationRequest += () =>
             {
-                Object.Destroy(contextScreen);
+                Destroy(contextScreen);
                 DebugPanelManager.Instance?.Log("ATT flow completed", LogSource.Sorolla);
             };
         }
 
-        void ShowFakeATT()
+        static void ShowFakeATT() => FakeATTDialog.Show(allowed =>
         {
-            FakeATTDialog.Show(allowed =>
-            {
-                string result = allowed ? "Allowed" : "Denied";
-                DebugPanelManager.Instance?.Log($"ATT Result: {result}", LogSource.Sorolla);
-                SorollaDebugEvents.RaiseShowToast($"ATT: {result}", allowed ? ToastType.Success : ToastType.Warning);
-            });
-        }
+            string result = allowed ? "Allowed" : "Denied";
+            DebugPanelManager.Instance?.Log($"ATT Result: {result}", LogSource.Sorolla);
+            SorollaDebugEvents.RaiseShowToast($"ATT: {result}", allowed ? ToastType.Success : ToastType.Warning);
+        });
 
-        void HandleResetConsent()
+        static void HandleResetConsent()
         {
             DebugPanelManager.Instance?.Log("Consent reset (mock)", LogSource.Sorolla);
             SorollaDebugEvents.RaiseShowToast("Consent Reset", ToastType.Info);
         }
 #endif
 
-        void HandleShowCMP()
+        static void HandleShowCMP()
         {
             DebugPanelManager.Instance?.Log("Showing CMP dialog...", LogSource.Sorolla);
             FakeCMPDialog.Show(accepted =>

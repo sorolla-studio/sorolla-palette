@@ -79,10 +79,21 @@ namespace Sorolla.Palette.Adapters
             Adjust.AddGlobalPartnerParameter("user_id", userId);
         }
 
-        public void GetAttribution(Action<object> callback)
+        public void GetAttribution(Action<AttributionData?> callback)
         {
             if (!_init) return;
-            Adjust.GetAttribution(callback);
+            Adjust.GetAttribution(attr =>
+            {
+                if (attr == null) { callback?.Invoke(null); return; }
+                callback?.Invoke(new AttributionData
+                {
+                    Network = attr.Network,
+                    Campaign = attr.Campaign,
+                    Adgroup = attr.Adgroup,
+                    Creative = attr.Creative,
+                    TrackerName = attr.TrackerName,
+                });
+            });
         }
 
         public void GetAdid(Action<string> callback)

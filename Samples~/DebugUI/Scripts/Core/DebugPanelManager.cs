@@ -33,6 +33,35 @@ namespace Sorolla.Palette.DebugUI
 
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            ApplyCardVisibility();
+        }
+
+        void ApplyCardVisibility()
+        {
+            SorollaConfig config = Resources.Load<SorollaConfig>("SorollaConfig");
+            bool proto = config != null && config.isPrototypeMode;
+
+            if (proto)
+                SetCardsActive<AdjustCardController>(false);
+
+            if (config == null || !config.enableTikTok || !config.tiktokAppId.IsConfigured)
+                SetCardsActive<TikTokCardController>(false);
+
+#if !SOROLLA_MAX_ENABLED
+            SetCardsActive<AdCardController>(false);
+#endif
+#if !FIREBASE_CRASHLYTICS_INSTALLED
+            SetCardsActive<CrashlyticsController>(false);
+#endif
+#if !FIREBASE_REMOTE_CONFIG_INSTALLED
+            SetCardsActive<RemoteConfigDisplay>(false);
+#endif
+        }
+
+        void SetCardsActive<T>(bool active) where T : Component
+        {
+            foreach (T card in panelRoot.GetComponentsInChildren<T>(true))
+                card.gameObject.SetActive(active);
         }
 
         void Start()

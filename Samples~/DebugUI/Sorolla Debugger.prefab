@@ -537,6 +537,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
+  m_UseReflectionProbes: 0
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
@@ -2743,7 +2744,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5865672289626862397, guid: c1b203ca793774e10a38a9cdcfa59ed5, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -902.26
+      value: -866.5
       objectReference: {fileID: 0}
     - target: {fileID: 5865672289626862397, guid: c1b203ca793774e10a38a9cdcfa59ed5, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -2829,6 +2830,8 @@ MonoBehaviour:
   configRowPrefab: {fileID: 6765679704998018568, guid: e2a31c3aff5a1444193ee2ecce91b027, type: 3}
   container: {fileID: 1914347720803359917}
   fetchButton: {fileID: 8560525687658310378}
+  setDefaultsButton: {fileID: 0}
+  activateButton: {fileID: 0}
   _keysToDisplay: []
 --- !u!224 &5953085187930293580 stripped
 RectTransform:
@@ -3668,17 +3671,6 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 1801561024480194315, guid: 8880e6ff966854a2ca3754d353010682, type: 3}
   m_PrefabInstance: {fileID: 539407116154100908}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &3310068932462185025 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 3068043995026937581, guid: 8880e6ff966854a2ca3754d353010682, type: 3}
-  m_PrefabInstance: {fileID: 539407116154100908}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
 --- !u!1001 &983114311944651863
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4892,17 +4884,6 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 1801561024480194315, guid: 8880e6ff966854a2ca3754d353010682, type: 3}
   m_PrefabInstance: {fileID: 1125396736207641588}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &2670027220924468505 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 3068043995026937581, guid: 8880e6ff966854a2ca3754d353010682, type: 3}
-  m_PrefabInstance: {fileID: 1125396736207641588}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
 --- !u!1001 &1277860594827007005
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5576,7 +5557,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5865672289626862397, guid: c1b203ca793774e10a38a9cdcfa59ed5, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -1495.76
+      value: -1460
       objectReference: {fileID: 0}
     - target: {fileID: 5865672289626862397, guid: c1b203ca793774e10a38a9cdcfa59ed5, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -7491,8 +7472,12 @@ MonoBehaviour:
   failButton: {fileID: 390773097440729369}
   addCoinsButton: {fileID: 7988617683246045320}
   spendCoinsButton: {fileID: 5681184925898422878}
-  designButton: {fileID: 5762158240582161831}
-  designValueButton: {fileID: 3310068932462185025}
+  trackEventButton: {fileID: 0}
+  trackEventValueButton: {fileID: 0}
+  purchaseButton: {fileID: 0}
+  setUserIdButton: {fileID: 0}
+  setUserPropertyButton: {fileID: 0}
+  badEventButton: {fileID: 0}
 --- !u!224 &4293073026785752172 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 1621721162911815058, guid: 66da32e34a16c4e49a8f5d0019bc6202, type: 3}
@@ -9575,7 +9560,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5865672289626862397, guid: c1b203ca793774e10a38a9cdcfa59ed5, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -368.38
+      value: -350.5
       objectReference: {fileID: 0}
     - target: {fileID: 5865672289626862397, guid: c1b203ca793774e10a38a9cdcfa59ed5, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -11728,7 +11713,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Sorolla.DebugUI::Sorolla.Palette.DebugUI.TikTokCardController
   trackEventButton: {fileID: 5648856960521837734}
   trackPurchaseButton: {fileID: 2214062619550600365}
-  trackAdRevenueButton: {fileID: 2670027220924468505}
   customEventName: LevelComplete
 --- !u!1001 &5531945527920075516
 PrefabInstance:
@@ -13698,17 +13682,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 8880e6ff966854a2ca3754d353010682, type: 3}
---- !u!114 &5762158240582161831 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 3068043995026937581, guid: 8880e6ff966854a2ca3754d353010682, type: 3}
-  m_PrefabInstance: {fileID: 7306155406322336586}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
 --- !u!224 &8963504203275185217 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 1801561024480194315, guid: 8880e6ff966854a2ca3754d353010682, type: 3}
@@ -14805,7 +14778,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5865672289626862397, guid: c1b203ca793774e10a38a9cdcfa59ed5, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -2119.26
+      value: -2083.5
       objectReference: {fileID: 0}
     - target: {fileID: 5865672289626862397, guid: c1b203ca793774e10a38a9cdcfa59ed5, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x

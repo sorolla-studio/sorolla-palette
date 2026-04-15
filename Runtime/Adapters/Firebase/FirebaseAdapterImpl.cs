@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Text;
+using Firebase;
 using Firebase.Analytics;
 using UnityEngine;
 using UnityEngine.Scripting;
@@ -12,34 +15,25 @@ namespace Sorolla.Palette.Adapters
     internal class FirebaseAdapterImpl : IFirebaseAdapter
     {
         const string Tag = "[Palette:Firebase]";
-        private bool _initRequested;
-        private bool _ready;
-        private bool _initFailed;
-        private bool _consent;
-        private readonly Queue<System.Action> _pendingEvents = new();
 
         // GA4 reserved event names - dropped server-side anyway, drop here with a warning so studios notice.
         // Source: https://firebase.google.com/docs/reference/cpp/group/event-names
-        private static readonly HashSet<string> ReservedEventNames = new()
+        static readonly HashSet<string> ReservedEventNames = new HashSet<string>
         {
             "ad_activeview", "ad_click", "ad_exposure", "ad_query", "ad_reward", "adunit_exposure",
             "app_clear_data", "app_install", "app_remove", "app_update", "app_exception", "app_upgrade",
             "error", "first_open", "first_visit", "in_app_purchase",
             "notification_dismiss", "notification_foreground", "notification_open", "notification_receive",
-            "os_update", "screen_view", "session_start", "session_start_with_rollout", "user_engagement"
+            "os_update", "screen_view", "session_start", "session_start_with_rollout", "user_engagement",
         };
 
-        private static readonly string[] ReservedNamePrefixes = { "ga_", "google_", "firebase_" };
+        static readonly string[] ReservedNamePrefixes = { "ga_", "google_", "firebase_" };
+        readonly Queue<Action> _pendingEvents = new Queue<Action>();
+        bool _consent;
+        bool _initFailed;
+        bool _initRequested;
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        [Preserve]
-        private static void Register()
-        {
-            Debug.Log($"{Tag} Register() called - assembly is loaded!");
-            FirebaseAdapter.RegisterImpl(new FirebaseAdapterImpl());
-        }
-
-        public bool IsReady => _ready;
+        public bool IsReady { get; private set; }
 
         public void Initialize(bool consent, bool verboseLogging = false)
         {
@@ -51,14 +45,14 @@ namespace Sorolla.Palette.Adapters
             {
                 if (available)
                 {
-                    Firebase.FirebaseApp.LogLevel = verboseLogging
-                        ? Firebase.LogLevel.Debug
-                        : Firebase.LogLevel.Warning;
+                    FirebaseApp.LogLevel = verboseLogging
+                        ? LogLevel.Debug
+                        : LogLevel.Warning;
 
                     ApplyConsentSignals(_consent);
                     FirebaseAnalytics.SetAnalyticsCollectionEnabled(_consent);
                     Debug.Log($"{Tag} Initialized (analytics collection: {_consent}, verbose: {verboseLogging})");
-                    _ready = true;
+                    IsReady = true;
                     FlushPendingEvents();
                 }
                 else
@@ -74,52 +68,11 @@ namespace Sorolla.Palette.Adapters
         public void UpdateConsent(bool consent)
         {
             _consent = consent;
-            if (_ready)
+            if (IsReady)
             {
                 ApplyConsentSignals(consent);
                 FirebaseAnalytics.SetAnalyticsCollectionEnabled(consent);
             }
-        }
-
-        /// <summary>
-        ///     Sets Firebase Consent Mode v2 signals.
-        ///     Must be called whenever consent changes — controls non_personalized_ads on all events.
-        ///     SetAnalyticsCollectionEnabled controls whether events fire at all; SetConsent controls
-        ///     whether those events carry personalized-ads signals. Both are required.
-        /// </summary>
-        private static void ApplyConsentSignals(bool consent)
-        {
-            var status = consent
-                ? Firebase.Analytics.ConsentStatus.Granted
-                : Firebase.Analytics.ConsentStatus.Denied;
-
-            FirebaseAnalytics.SetConsent(new Dictionary<Firebase.Analytics.ConsentType, Firebase.Analytics.ConsentStatus>
-            {
-                { Firebase.Analytics.ConsentType.AnalyticsStorage, status },
-                { Firebase.Analytics.ConsentType.AdStorage, status },
-                { Firebase.Analytics.ConsentType.AdPersonalization, status },
-                { Firebase.Analytics.ConsentType.AdUserData, status },
-            });
-
-            Debug.Log($"{Tag} Consent mode signals: analytics_storage={status}, ad_storage={status}, ad_personalization={status}, ad_user_data={status} → non_personalized_ads will be {(consent ? "0" : "1")}");
-        }
-
-        private void FlushPendingEvents()
-        {
-            while (_pendingEvents.Count > 0)
-            {
-                var action = _pendingEvents.Dequeue();
-                action?.Invoke();
-            }
-        }
-
-        private void QueueOrExecute(System.Action action)
-        {
-            if (_ready)
-                action();
-            else if (!_initFailed)
-                _pendingEvents.Enqueue(action);
-            // _initFailed: drop silently - Firebase permanently unavailable, queueing would leak.
         }
 
         public void TrackEvent(string eventName, Dictionary<string, object> parameters)
@@ -129,7 +82,7 @@ namespace Sorolla.Palette.Adapters
 
             QueueOrExecute(() =>
             {
-                var sanitized = SanitizeEventName(eventName);
+                string sanitized = SanitizeEventName(eventName);
                 if (sanitized == null) return;
 
                 if (paramsCopy == null || paramsCopy.Count == 0)
@@ -145,19 +98,16 @@ namespace Sorolla.Palette.Adapters
             });
         }
 
-        public void TrackDesignEvent(string eventName, float value)
+        public void TrackDesignEvent(string eventName, float value) => QueueOrExecute(() =>
         {
-            QueueOrExecute(() =>
-            {
-                var sanitized = SanitizeEventName(eventName);
-                if (sanitized == null) return;
+            string sanitized = SanitizeEventName(eventName);
+            if (sanitized == null) return;
 
-                if (value != 0)
-                    FirebaseAnalytics.LogEvent(sanitized, "value", value);
-                else
-                    FirebaseAnalytics.LogEvent(sanitized);
-            });
-        }
+            if (value != 0)
+                FirebaseAnalytics.LogEvent(sanitized, "value", value);
+            else
+                FirebaseAnalytics.LogEvent(sanitized);
+        });
 
         public void TrackProgressionEvent(string status, string p1, string p2, string p3, int score,
             Dictionary<string, object> extraParams)
@@ -174,7 +124,7 @@ namespace Sorolla.Palette.Adapters
 
                 var parameters = new List<Parameter>
                 {
-                    new(FirebaseAnalytics.ParameterLevelName, BuildCanonicalLevelName(p1, p2, p3))
+                    new Parameter(FirebaseAnalytics.ParameterLevelName, BuildCanonicalLevelName(p1, p2, p3)),
                 };
 
                 if (!isStart)
@@ -190,7 +140,7 @@ namespace Sorolla.Palette.Adapters
                 {
                     var reservedKeys = new HashSet<string>
                     {
-                        FirebaseAnalytics.ParameterLevelName, FirebaseAnalytics.ParameterSuccess
+                        FirebaseAnalytics.ParameterLevelName, FirebaseAnalytics.ParameterSuccess,
                     };
                     MergeExtraParams(parameters, extraCopy, reservedKeys);
                 }
@@ -221,8 +171,8 @@ namespace Sorolla.Palette.Adapters
 
                 var parameters = new List<Parameter>
                 {
-                    new(FirebaseAnalytics.ParameterVirtualCurrencyName, currency),
-                    new(FirebaseAnalytics.ParameterValue, amount)
+                    new Parameter(FirebaseAnalytics.ParameterVirtualCurrencyName, currency),
+                    new Parameter(FirebaseAnalytics.ParameterValue, amount),
                 };
 
                 if (flowType != "source" && !string.IsNullOrEmpty(itemId))
@@ -235,7 +185,7 @@ namespace Sorolla.Palette.Adapters
                     {
                         FirebaseAnalytics.ParameterVirtualCurrencyName,
                         FirebaseAnalytics.ParameterValue,
-                        FirebaseAnalytics.ParameterItemName
+                        FirebaseAnalytics.ParameterItemName,
                     };
                     MergeExtraParams(parameters, extraCopy, reservedKeys);
                 }
@@ -244,10 +194,7 @@ namespace Sorolla.Palette.Adapters
             });
         }
 
-        public void SetUserId(string userId)
-        {
-            QueueOrExecute(() => FirebaseAnalytics.SetUserId(userId));
-        }
+        public void SetUserId(string userId) => QueueOrExecute(() => FirebaseAnalytics.SetUserId(userId));
 
         public void SetUserProperty(string name, string value)
         {
@@ -279,47 +226,87 @@ namespace Sorolla.Palette.Adapters
             QueueOrExecute(() => FirebaseAnalytics.SetUserProperty(name, sanitizedValue));
         }
 
-        public void TrackAdImpression(string adPlatform, string adSource, string adFormat, string adUnitName, double revenue, string currency)
+        public void TrackAdImpression(string adPlatform, string adSource, string adFormat, string adUnitName, double revenue, string currency) => QueueOrExecute(() =>
         {
-            QueueOrExecute(() =>
+            var parameters = new[]
             {
-                var parameters = new[]
-                {
-                    new Parameter(FirebaseAnalytics.ParameterAdPlatform, adPlatform ?? ""),
-                    new Parameter(FirebaseAnalytics.ParameterAdSource, adSource ?? ""),
-                    new Parameter(FirebaseAnalytics.ParameterAdFormat, adFormat ?? ""),
-                    new Parameter(FirebaseAnalytics.ParameterAdUnitName, adUnitName ?? ""),
-                    new Parameter(FirebaseAnalytics.ParameterValue, revenue),
-                    new Parameter(FirebaseAnalytics.ParameterCurrency, currency ?? "USD")
-                };
+                new Parameter(FirebaseAnalytics.ParameterAdPlatform, adPlatform ?? ""),
+                new Parameter(FirebaseAnalytics.ParameterAdSource, adSource ?? ""),
+                new Parameter(FirebaseAnalytics.ParameterAdFormat, adFormat ?? ""),
+                new Parameter(FirebaseAnalytics.ParameterAdUnitName, adUnitName ?? ""),
+                new Parameter(FirebaseAnalytics.ParameterValue, revenue),
+                new Parameter(FirebaseAnalytics.ParameterCurrency, currency ?? "USD"),
+            };
 
-                FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventAdImpression, parameters);
-            });
+            FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventAdImpression, parameters);
+        });
+
+        public void TrackPurchase(string productId, double price, string currency, string transactionId) => QueueOrExecute(() =>
+        {
+            // GA4 spec: purchase requires items[] to populate the Monetization > In-app purchases report
+            // (the same plumbing GA4 calls "Ecommerce purchases" - it's the canonical IAP shape).
+            // Without items[], total revenue still flows but the per-product breakdown is lost.
+            var items = new IDictionary<string, object>[]
+            {
+                new Dictionary<string, object>
+                {
+                    { FirebaseAnalytics.ParameterItemID, productId ?? "" },
+                },
+            };
+
+            FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventPurchase, new Parameter(FirebaseAnalytics.ParameterCurrency, currency ?? "USD"),
+                new Parameter(FirebaseAnalytics.ParameterValue, price), new Parameter(FirebaseAnalytics.ParameterTransactionID, transactionId ?? ""),
+                new Parameter(FirebaseAnalytics.ParameterItems, items));
+        });
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [Preserve]
+        static void Register()
+        {
+            Debug.Log($"{Tag} Register() called - assembly is loaded!");
+            FirebaseAdapter.RegisterImpl(new FirebaseAdapterImpl());
         }
 
-        public void TrackPurchase(string productId, double price, string currency, string transactionId)
+        /// <summary>
+        ///     Sets Firebase Consent Mode v2 signals.
+        ///     Must be called whenever consent changes — controls non_personalized_ads on all events.
+        ///     SetAnalyticsCollectionEnabled controls whether events fire at all; SetConsent controls
+        ///     whether those events carry personalized-ads signals. Both are required.
+        /// </summary>
+        static void ApplyConsentSignals(bool consent)
         {
-            QueueOrExecute(() =>
-            {
-                // GA4 spec: purchase requires items[] to populate the Monetization > In-app purchases report
-                // (the same plumbing GA4 calls "Ecommerce purchases" - it's the canonical IAP shape).
-                // Without items[], total revenue still flows but the per-product breakdown is lost.
-                var items = new IDictionary<string, object>[]
-                {
-                    new Dictionary<string, object>
-                    {
-                        { FirebaseAnalytics.ParameterItemID, productId ?? "" }
-                    }
-                };
+            Firebase.Analytics.ConsentStatus status = consent
+                ? Firebase.Analytics.ConsentStatus.Granted
+                : Firebase.Analytics.ConsentStatus.Denied;
 
-                FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventPurchase, new[]
-                {
-                    new Parameter(FirebaseAnalytics.ParameterCurrency, currency ?? "USD"),
-                    new Parameter(FirebaseAnalytics.ParameterValue, price),
-                    new Parameter(FirebaseAnalytics.ParameterTransactionID, transactionId ?? ""),
-                    new Parameter(FirebaseAnalytics.ParameterItems, items)
-                });
+            FirebaseAnalytics.SetConsent(new Dictionary<ConsentType, Firebase.Analytics.ConsentStatus>
+            {
+                { ConsentType.AnalyticsStorage, status },
+                { ConsentType.AdStorage, status },
+                { ConsentType.AdPersonalization, status },
+                { ConsentType.AdUserData, status },
             });
+
+            Debug.Log(
+                $"{Tag} Consent mode signals: analytics_storage={status}, ad_storage={status}, ad_personalization={status}, ad_user_data={status} → non_personalized_ads will be {(consent ? "0" : "1")}");
+        }
+
+        void FlushPendingEvents()
+        {
+            while (_pendingEvents.Count > 0)
+            {
+                Action action = _pendingEvents.Dequeue();
+                action?.Invoke();
+            }
+        }
+
+        void QueueOrExecute(Action action)
+        {
+            if (IsReady)
+                action();
+            else if (!_initFailed)
+                _pendingEvents.Enqueue(action);
+            // _initFailed: drop silently - Firebase permanently unavailable, queueing would leak.
         }
 
         #region Helpers
@@ -328,10 +315,10 @@ namespace Sorolla.Palette.Adapters
         ///     Build deterministic level_name from progression parts.
         ///     e.g. ("World3", "Level12", null) -> "world3_level12"
         /// </summary>
-        private static string BuildCanonicalLevelName(string p1, string p2, string p3)
+        static string BuildCanonicalLevelName(string p1, string p2, string p3)
         {
             if (string.IsNullOrEmpty(p1)) return "";
-            var name = p1.ToLowerInvariant();
+            string name = p1.ToLowerInvariant();
             if (!string.IsNullOrEmpty(p2)) name += "_" + p2.ToLowerInvariant();
             if (!string.IsNullOrEmpty(p3)) name += "_" + p3.ToLowerInvariant();
             return name;
@@ -341,34 +328,34 @@ namespace Sorolla.Palette.Adapters
         ///     Convert a Dictionary param value to a Firebase Parameter.
         ///     Only supports: string, int, long, float, double, bool, enum.
         /// </summary>
-        private static Parameter ToFirebaseParameter(string key, object value)
+        static Parameter ToFirebaseParameter(string key, object value)
         {
             // Sanitize param name
-            var sanitizedKey = SanitizeParamName(key);
+            string sanitizedKey = SanitizeParamName(key);
             if (sanitizedKey == null) return null;
 
             return value switch
             {
                 string s => new Parameter(sanitizedKey, s.Length > 100 ? s[..100] : s),
-                int i => new Parameter(sanitizedKey, (long)i),
+                int i => new Parameter(sanitizedKey, i),
                 long l => new Parameter(sanitizedKey, l),
-                float f => new Parameter(sanitizedKey, (double)f),
+                float f => new Parameter(sanitizedKey, f),
                 double d => new Parameter(sanitizedKey, d),
                 bool b => new Parameter(sanitizedKey, b ? 1L : 0L),
-                System.Enum e => new Parameter(sanitizedKey, e.ToString()),
-                _ => null // Should not reach here - Palette validates before calling
+                Enum e => new Parameter(sanitizedKey, e.ToString()),
+                _ => null, // Should not reach here - Palette validates before calling
             };
         }
 
         /// <summary>
         ///     Build Firebase Parameter array from validated dictionary.
         /// </summary>
-        private static Parameter[] BuildFirebaseParams(Dictionary<string, object> parameters)
+        static Parameter[] BuildFirebaseParams(Dictionary<string, object> parameters)
         {
             var result = new List<Parameter>(parameters.Count);
             foreach (var kvp in parameters)
             {
-                var param = ToFirebaseParameter(kvp.Key, kvp.Value);
+                Parameter param = ToFirebaseParameter(kvp.Key, kvp.Value);
                 if (param != null)
                     result.Add(param);
             }
@@ -378,12 +365,12 @@ namespace Sorolla.Palette.Adapters
         /// <summary>
         ///     Merge extra params into an existing parameter list, skipping reserved keys.
         /// </summary>
-        private static void MergeExtraParams(List<Parameter> target, Dictionary<string, object> extra,
+        static void MergeExtraParams(List<Parameter> target, Dictionary<string, object> extra,
             HashSet<string> reservedKeys)
         {
             foreach (var kvp in extra)
             {
-                var sanitizedKey = SanitizeParamName(kvp.Key);
+                string sanitizedKey = SanitizeParamName(kvp.Key);
                 if (sanitizedKey == null) continue;
 
                 if (reservedKeys.Contains(sanitizedKey))
@@ -392,20 +379,20 @@ namespace Sorolla.Palette.Adapters
                     continue;
                 }
 
-                var param = ToFirebaseParameter(kvp.Key, kvp.Value);
+                Parameter param = ToFirebaseParameter(kvp.Key, kvp.Value);
                 if (param != null)
                     target.Add(param);
             }
         }
 
-        private static string SanitizeEventName(string name)
+        static string SanitizeEventName(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
 
-            var sanitized = name.Replace(":", "_").Replace("-", "_").Replace(" ", "_").Replace(".", "_");
+            string sanitized = name.Replace(":", "_").Replace("-", "_").Replace(" ", "_").Replace(".", "_");
 
-            var result = new System.Text.StringBuilder();
-            foreach (var c in sanitized)
+            var result = new StringBuilder();
+            foreach (char c in sanitized)
             {
                 if (char.IsLetterOrDigit(c) || c == '_')
                     result.Append(c);
@@ -419,7 +406,7 @@ namespace Sorolla.Palette.Adapters
 
             if (result.Length == 0) return null;
 
-            var finalName = result.ToString();
+            string finalName = result.ToString();
 
             // Drop GA4-reserved names. Firebase silently rejects these server-side - warn so studios notice.
             if (ReservedEventNames.Contains(finalName))
@@ -439,7 +426,7 @@ namespace Sorolla.Palette.Adapters
             return finalName;
         }
 
-        private static bool HasReservedUserPropertyPrefix(string name)
+        static bool HasReservedUserPropertyPrefix(string name)
         {
             if (name.StartsWith("_")) return true;
             for (int i = 0; i < ReservedNamePrefixes.Length; i++)
@@ -449,14 +436,14 @@ namespace Sorolla.Palette.Adapters
             return false;
         }
 
-        private static string SanitizeParamName(string name)
+        static string SanitizeParamName(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
 
-            var sanitized = name.Replace(":", "_").Replace("-", "_").Replace(" ", "_").Replace(".", "_");
+            string sanitized = name.Replace(":", "_").Replace("-", "_").Replace(" ", "_").Replace(".", "_");
 
-            var result = new System.Text.StringBuilder();
-            foreach (var c in sanitized)
+            var result = new StringBuilder();
+            foreach (char c in sanitized)
             {
                 if (char.IsLetterOrDigit(c) || c == '_')
                     result.Append(c);

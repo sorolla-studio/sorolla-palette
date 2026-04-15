@@ -1,9 +1,7 @@
+using Sorolla.Palette.Adapters;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-#if SOROLLA_ADJUST_ENABLED
-using AdjustSdk;
-#endif
 
 namespace Sorolla.Palette.DebugUI
 {
@@ -52,17 +50,13 @@ namespace Sorolla.Palette.DebugUI
                     return;
                 }
 
-#if SOROLLA_ADJUST_ENABLED
-                var attribution = (AdjustAttribution)attr;
+                AttributionData attribution = attr.Value;
                 string display = $"Net: {attribution.Network ?? "—"}\n" +
                                  $"Camp: {attribution.Campaign ?? "—"}\n" +
                                  $"Tracker: {attribution.TrackerName ?? "—"}";
                 attributionText.text = display;
 
                 DebugPanelManager.Instance?.Log($"Attribution: {attribution.Network}/{attribution.Campaign}", LogSource.Adjust);
-#else
-                attributionText.text = "Adjust not enabled";
-#endif
                 SorollaDebugEvents.RaiseShowToast("Attribution retrieved", ToastType.Success);
 
                 var rectTransform = (RectTransform)attributionText.transform;

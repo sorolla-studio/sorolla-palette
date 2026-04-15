@@ -5,6 +5,18 @@ namespace Sorolla.Palette.Adapters
     public enum AdjustEnvironment { Sandbox, Production }
 
     /// <summary>
+    ///     Attribution data returned by the Adjust adapter.
+    /// </summary>
+    public struct AttributionData
+    {
+        public string Network;
+        public string Campaign;
+        public string Adgroup;
+        public string Creative;
+        public string TrackerName;
+    }
+
+    /// <summary>
     ///     Ad revenue info for cross-SDK tracking.
     /// </summary>
     public struct AdRevenueInfo
@@ -33,7 +45,7 @@ namespace Sorolla.Palette.Adapters
         void TrackPurchase(string eventToken, double amount, string currency, string productId, string transactionId, string purchaseToken);
         void TrackPurchaseSimple(string eventToken, double amount, string currency, string deduplicationId, string productId);
         void SetUserId(string userId);
-        void GetAttribution(Action<object> callback);
+        void GetAttribution(Action<AttributionData?> callback);
         void GetAdid(Action<string> callback);
         void GetGoogleAdId(Action<string> callback);
         void GetIdfa(Action<string> callback);
@@ -104,7 +116,7 @@ namespace Sorolla.Palette.Adapters
             s_impl?.SetUserId(userId);
         }
 
-        public static void GetAttribution(Action<object> callback)
+        public static void GetAttribution(Action<AttributionData?> callback)
         {
             if (s_impl != null)
                 s_impl.GetAttribution(callback);

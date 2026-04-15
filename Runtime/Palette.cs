@@ -428,8 +428,8 @@ namespace Sorolla.Palette
         ///     Get Adjust attribution data (network, campaign, tracker).
         ///     Returns null to callback if attribution is not yet available.
         /// </summary>
-        /// <param name="callback">Callback with attribution object (cast to AdjustAttribution when Adjust is enabled)</param>
-        public static void GetAttribution(Action<object> callback)
+        /// <param name="callback">Callback with attribution data, or null if unavailable</param>
+        public static void GetAttribution(Action<AttributionData?> callback)
         {
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
             AdjustAdapter.GetAttribution(callback);
