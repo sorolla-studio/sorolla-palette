@@ -150,9 +150,9 @@ namespace Sorolla.Palette.Editor
             fixes.AddRange(diag.Fixes);
             _lastManifestDiagnostics = diag;
 
-            // MAX settings sanitization
-            if (MaxSettingsSanitizer.Sanitize())
-                fixes.Add("Disabled AppLovin Quality Service (prevents build failures)");
+            // MAX Ad Review - auto-enable Quality Service
+            if (MaxSettingsSanitizer.EnableQualityService())
+                fixes.Add("Enabled AppLovin Ad Review (Quality Service)");
 
             // Gradle config auto-fixes (Android only)
             if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android)
@@ -773,20 +773,6 @@ namespace Sorolla.Palette.Editor
                     "  SDK key must be set in Palette Configuration.\n" +
                     "  Ads will not work without a valid SDK key.",
                     "Open Palette > Configuration and enter MAX SDK key",
-                    CheckCategory.MaxSettings
-                ));
-            }
-
-            // Check Quality Service (causes 401 build failures)
-            if (MaxSettingsSanitizer.IsQualityServiceEnabled())
-            {
-                hasIssues = true;
-                results.Add(new ValidationResult(
-                    ValidationStatus.Warning,
-                    "AppLovin Quality Service is enabled.\n" +
-                    "  This can cause 401 errors and build failures.\n" +
-                    "  Quality Service is optional - ads work without it.",
-                    "Open Palette > Configuration and click Refresh in Build Health",
                     CheckCategory.MaxSettings
                 ));
             }
