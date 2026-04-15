@@ -14,5 +14,8 @@ Thumbs.db
 # Internal files (keep locally, not on GitHub)
 .claude/
 CLAUDE.md
+CLAUDE.md.meta
 ralph.md
+ralph.md.meta
 BUG-REPORT-*.md
+BUG-REPORT-*.md.meta
