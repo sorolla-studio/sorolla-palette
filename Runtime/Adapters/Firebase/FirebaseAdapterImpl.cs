@@ -41,7 +41,7 @@ namespace Sorolla.Palette.Adapters
 
         public bool IsReady => _ready;
 
-        public void Initialize(bool consent)
+        public void Initialize(bool consent, bool verboseLogging = false)
         {
             if (_initRequested) return;
             _initRequested = true;
@@ -51,8 +51,13 @@ namespace Sorolla.Palette.Adapters
             {
                 if (available)
                 {
+                    Firebase.FirebaseApp.LogLevel = verboseLogging
+                        ? Firebase.LogLevel.Debug
+                        : Firebase.LogLevel.Warning;
+
+                    ApplyConsentSignals(_consent);
                     FirebaseAnalytics.SetAnalyticsCollectionEnabled(_consent);
-                    Debug.Log($"{Tag} Initialized (analytics collection: {_consent})");
+                    Debug.Log($"{Tag} Initialized (analytics collection: {_consent}, verbose: {verboseLogging})");
                     _ready = true;
                     FlushPendingEvents();
                 }
@@ -70,7 +75,33 @@ namespace Sorolla.Palette.Adapters
         {
             _consent = consent;
             if (_ready)
+            {
+                ApplyConsentSignals(consent);
                 FirebaseAnalytics.SetAnalyticsCollectionEnabled(consent);
+            }
+        }
+
+        /// <summary>
+        ///     Sets Firebase Consent Mode v2 signals.
+        ///     Must be called whenever consent changes — controls non_personalized_ads on all events.
+        ///     SetAnalyticsCollectionEnabled controls whether events fire at all; SetConsent controls
+        ///     whether those events carry personalized-ads signals. Both are required.
+        /// </summary>
+        private static void ApplyConsentSignals(bool consent)
+        {
+            var status = consent
+                ? Firebase.Analytics.ConsentStatus.Granted
+                : Firebase.Analytics.ConsentStatus.Denied;
+
+            FirebaseAnalytics.SetConsent(new Dictionary<Firebase.Analytics.ConsentType, Firebase.Analytics.ConsentStatus>
+            {
+                { Firebase.Analytics.ConsentType.AnalyticsStorage, status },
+                { Firebase.Analytics.ConsentType.AdStorage, status },
+                { Firebase.Analytics.ConsentType.AdPersonalization, status },
+                { Firebase.Analytics.ConsentType.AdUserData, status },
+            });
+
+            Debug.Log($"{Tag} Consent mode signals: analytics_storage={status}, ad_storage={status}, ad_personalization={status}, ad_user_data={status} → non_personalized_ads will be {(consent ? "0" : "1")}");
         }
 
         private void FlushPendingEvents()

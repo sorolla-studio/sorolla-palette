@@ -15,7 +15,7 @@ namespace Sorolla.Palette
         const string Tag = "[Palette:GA]";
         static bool s_init;
 
-        public static void Initialize(bool consent)
+        public static void Initialize(bool consent, bool verboseLogging = false)
         {
             if (s_init) return;
 
@@ -28,7 +28,10 @@ namespace Sorolla.Palette
                 return;
             }
 
-            Debug.Log($"{Tag} Initializing (event submission: {consent})...");
+            GameAnalyticsSDK.Events.GA_Setup.SetInfoLog(verboseLogging);
+            GameAnalyticsSDK.Events.GA_Setup.SetVerboseLog(verboseLogging);
+
+            Debug.Log($"{Tag} Initializing (event submission: {consent}, verbose: {verboseLogging})...");
             GameAnalytics.Initialize();
             GameAnalytics.SetEnabledEventSubmission(consent);
             s_init = true;

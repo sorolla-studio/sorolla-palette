@@ -100,10 +100,20 @@ namespace Sorolla.Palette
         public PlatformAdUnitId tiktokAccessToken;
 
         /// <summary>
+        ///     Master toggle for verbose/debug logging across all vendor SDKs (MAX, Adjust, TikTok).
+        ///     Automatically forced OFF in non-development builds as a safety net.
+        ///     When OFF, vendor SDKs use minimal log levels suitable for release.
+        /// </summary>
+        [Header("Logging")]
+        [Tooltip("Enable verbose logging for all vendor SDKs. Forced OFF in release builds.")]
+        public bool verboseLogging;
+
+        /// <summary>
         ///     When true, TikTok SDK logs verbose debug output. MUST be false in distributed builds
         ///     or credentials may leak to logcat / device log.
         /// </summary>
         [Tooltip("Enable TikTok SDK debug logging. Do NOT enable in distributed builds.")]
+        [System.Obsolete("Use verboseLogging instead. This field is kept for migration only.")]
         public bool tiktokDebugMode;
 
         // Note: Firebase modules (Analytics, Crashlytics, Remote Config) are always enabled

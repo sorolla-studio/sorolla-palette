@@ -54,6 +54,12 @@ namespace Sorolla.Palette
         /// <summary>Current configuration (may be null)</summary>
         public static SorollaConfig Config { get; private set; }
 
+        /// <summary>
+        ///     Whether verbose logging is active. Resolved from config + build type.
+        ///     Always false in non-development builds regardless of config.
+        /// </summary>
+        public static bool VerboseLogging { get; private set; }
+
         #region GDPR/Privacy Consent
 
         /// <summary>
@@ -478,7 +484,7 @@ namespace Sorolla.Palette
                 : AdjustEnvironment.Production;
 
             Debug.Log($"{Tag} Initializing Adjust ({environment})...");
-            AdjustAdapter.Initialize(Config.adjustAppToken, environment);
+            AdjustAdapter.Initialize(Config.adjustAppToken, environment, VerboseLogging);
         }
 
 #endif
@@ -504,10 +510,14 @@ namespace Sorolla.Palette
             Config = Resources.Load<SorollaConfig>("SorollaConfig");
 
             bool isPrototype = Config == null || Config.isPrototypeMode;
-            Debug.Log($"{Tag} Initializing ({(isPrototype ? "Prototype" : "Full")} mode, consent: {consent})...");
+
+            // Resolve verbose logging: config toggle AND development build required.
+            // Safety net: release builds never get verbose vendor output.
+            VerboseLogging = Config != null && Config.verboseLogging && Debug.isDebugBuild;
+            Debug.Log($"{Tag} Initializing ({(isPrototype ? "Prototype" : "Full")} mode, consent: {consent}, verbose: {VerboseLogging})...");
 
             // GameAnalytics (always)
-            GameAnalyticsAdapter.Initialize(consent);
+            GameAnalyticsAdapter.Initialize(consent, VerboseLogging);
 
             // Facebook (always)
 #if SOROLLA_FACEBOOK_ENABLED
@@ -527,7 +537,7 @@ namespace Sorolla.Palette
             // Firebase modules (always enabled when installed)
 #if FIREBASE_ANALYTICS_INSTALLED
             Debug.Log($"{Tag} Initializing Firebase Analytics...");
-            FirebaseAdapter.Initialize(consent);
+            FirebaseAdapter.Initialize(consent, VerboseLogging);
 #endif
 
 #if FIREBASE_CRASHLYTICS_INSTALLED
@@ -544,7 +554,7 @@ namespace Sorolla.Palette
             if (Config.enableTikTok && !string.IsNullOrEmpty(Config?.tiktokAppId?.Current) && !string.IsNullOrEmpty(Config?.tiktokEmAppId?.Current))
             {
                 Debug.Log($"{Tag} Initializing TikTok...");
-                TikTokAdapter.Initialize(Config.tiktokEmAppId.Current, Config.tiktokAppId.Current, Config.tiktokAccessToken?.Current ?? "", Config.tiktokDebugMode);
+                TikTokAdapter.Initialize(Config.tiktokEmAppId.Current, Config.tiktokAppId.Current, Config.tiktokAccessToken?.Current ?? "", VerboseLogging);
             }
 
             // When MAX is installed, defer IsInitialized until MAX consent resolves
@@ -809,7 +819,8 @@ namespace Sorolla.Palette
                 Config.rewardedAdUnit.Current,
                 Config.interstitialAdUnit.Current,
                 Config.bannerAdUnit.Current,
-                HasConsent);
+                HasConsent,
+                VerboseLogging);
         }
 
         static void OnMaxSdkInitialized()
@@ -819,10 +830,14 @@ namespace Sorolla.Palette
                         || MaxAdapter.ConsentStatus == Adapters.ConsentStatus.NotApplicable;
             HasConsent = consent;
             Debug.Log($"{Tag} MAX consent resolved: {MaxAdapter.ConsentStatus} (consent={consent})");
+            LogConsentDiagnostics();
 
             GameAnalyticsAdapter.UpdateConsent(consent);
 #if FIREBASE_ANALYTICS_INSTALLED
             FirebaseAdapter.UpdateConsent(consent);
+#endif
+#if SOROLLA_FACEBOOK_ENABLED
+            FacebookAdapter.UpdateConsent(consent);
 #endif
 
             // Per MAX SDK docs: Initialize other SDKs (like Adjust) INSIDE the MAX callback
@@ -850,6 +865,74 @@ namespace Sorolla.Palette
             GameAnalyticsAdapter.UpdateConsent(consent);
 #if FIREBASE_ANALYTICS_INSTALLED
             FirebaseAdapter.UpdateConsent(consent);
+#endif
+#if SOROLLA_FACEBOOK_ENABLED
+            FacebookAdapter.UpdateConsent(consent);
+#endif
+        }
+
+        static void LogConsentDiagnostics()
+        {
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            try
+            {
+                bool canRequest = MaxAdapter.CanRequestAds;
+                Debug.Log($"{Tag} [Consent Diagnostics] CanRequestAds={canRequest}, ConsentStatus={MaxAdapter.ConsentStatus}");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"{Tag} [Consent Diagnostics] Could not read MAX consent state: {e.Message}");
+            }
+
+#if UNITY_ANDROID
+            try
+            {
+                using var activity = new UnityEngine.AndroidJavaClass("com.unity3d.player.UnityPlayer")
+                    .GetStatic<UnityEngine.AndroidJavaObject>("currentActivity");
+                using var context = activity.Call<UnityEngine.AndroidJavaObject>("getApplicationContext");
+                using var prefs = context.Call<UnityEngine.AndroidJavaObject>(
+                    "getSharedPreferences", "IABTCF_CMP_SDK", 0);
+                string tcfString = prefs.Call<string>("getString", "IABTCF_TCString", null);
+                string purposeConsents = prefs.Call<string>("getString", "IABTCF_PurposeConsents", null);
+                Debug.Log($"{Tag} [Consent Diagnostics] IABTCF_TCString={(string.IsNullOrEmpty(tcfString) ? "EMPTY - CMP not writing TCF string!" : $"present ({tcfString.Length} chars)")}, PurposeConsents={purposeConsents ?? "null"}");
+                if (!string.IsNullOrEmpty(purposeConsents))
+                {
+                    // Purposes 1 (storage), 3 (ad personalization), 4 (ad selection) must be '1'
+                    bool p1 = purposeConsents.Length > 0 && purposeConsents[0] == '1';
+                    bool p3 = purposeConsents.Length > 2 && purposeConsents[2] == '1';
+                    bool p4 = purposeConsents.Length > 3 && purposeConsents[3] == '1';
+                    Debug.Log($"{Tag} [Consent Diagnostics] Purpose 1 (storage)={p1}, Purpose 3 (personalization)={p3}, Purpose 4 (ad selection)={p4}");
+                    if (!p1 || !p3 || !p4)
+                        Debug.LogWarning($"{Tag} [Consent Diagnostics] Missing required TCF purposes → ads will be non-personalized despite user consent");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"{Tag} [Consent Diagnostics] Android TCF read failed: {e.Message}");
+            }
+#endif
+#if UNITY_IOS && !UNITY_EDITOR
+            try
+            {
+                string tcfString = UnityEngine.iOS.Device.advertisingIdentifier; // triggers ATT read as side-effect
+                string tcf = PlayerPrefs.GetString("IABTCF_TCString", null);
+                string purposes = PlayerPrefs.GetString("IABTCF_PurposeConsents", null);
+                Debug.Log($"{Tag} [Consent Diagnostics] IABTCF_TCString={(string.IsNullOrEmpty(tcf) ? "EMPTY - CMP not writing TCF string!" : $"present ({tcf.Length} chars)")}, PurposeConsents={purposes ?? "null"}");
+                if (!string.IsNullOrEmpty(purposes))
+                {
+                    bool p1 = purposes.Length > 0 && purposes[0] == '1';
+                    bool p3 = purposes.Length > 2 && purposes[2] == '1';
+                    bool p4 = purposes.Length > 3 && purposes[3] == '1';
+                    Debug.Log($"{Tag} [Consent Diagnostics] Purpose 1 (storage)={p1}, Purpose 3 (personalization)={p3}, Purpose 4 (ad selection)={p4}");
+                    if (!p1 || !p3 || !p4)
+                        Debug.LogWarning($"{Tag} [Consent Diagnostics] Missing required TCF purposes → ads will be non-personalized despite user consent");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"{Tag} [Consent Diagnostics] iOS TCF read failed: {e.Message}");
+            }
+#endif
 #endif
         }
 

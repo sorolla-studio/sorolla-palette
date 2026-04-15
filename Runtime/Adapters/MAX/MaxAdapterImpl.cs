@@ -53,7 +53,7 @@ namespace Sorolla.Palette.Adapters
         public event Action OnSdkInitialized;
         public event Action<ConsentStatus> OnConsentStatusChanged;
 
-        public void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent)
+        public void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent, bool verboseLogging = false)
         {
             if (_init) return;
 
@@ -63,6 +63,9 @@ namespace Sorolla.Palette.Adapters
             _consent = consent;
 
             Debug.Log("[Palette:MAX] Initializing...");
+
+            MaxSdk.SetVerboseLogging(verboseLogging);
+            MaxSdk.SetCreativeDebuggerEnabled(verboseLogging);
             MaxSdkCallbacks.OnSdkInitializedEvent += OnSdkInit;
 
             // SDK key is read from AppLovinSettings (configured in Integration Manager)

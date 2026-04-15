@@ -45,7 +45,7 @@ namespace Sorolla.Palette.Adapters
         event Action OnSdkInitialized;
         event Action<ConsentStatus> OnConsentStatusChanged;
 
-        void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent);
+        void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent, bool verboseLogging = false);
         void ShowRewardedAd(Action onComplete, Action onFailed);
         void ShowInterstitialAd(Action onComplete);
         void ShowPrivacyOptions(Action onComplete);
@@ -106,10 +106,10 @@ namespace Sorolla.Palette.Adapters
         /// <summary>Event fired when consent status changes.</summary>
         public static event Action<ConsentStatus> OnConsentStatusChanged;
 
-        public static void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent)
+        public static void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent, bool verboseLogging = false)
         {
             if (s_impl != null)
-                s_impl.Initialize(rewardedId, interstitialId, bannerId, consent);
+                s_impl.Initialize(rewardedId, interstitialId, bannerId, consent, verboseLogging);
             else
                 UnityEngine.Debug.LogWarning($"{Tag} Not installed");
         }

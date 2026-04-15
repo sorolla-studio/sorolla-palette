@@ -291,6 +291,12 @@ namespace Sorolla.Palette.Editor
                 EditorGUI.indentLevel--;
             }
 
+            // Verbose Logging (master toggle)
+            EditorGUILayout.Space(5);
+            GUILayout.Label("Logging", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(_serializedConfig.FindProperty("verboseLogging"),
+                new GUIContent("Verbose Logging", "Enable verbose debug output for all vendor SDKs (MAX, Adjust, TikTok). Forced OFF in release builds."));
+
             if (_serializedConfig.ApplyModifiedProperties())
             {
                 EditorUtility.SetDirty(_config);

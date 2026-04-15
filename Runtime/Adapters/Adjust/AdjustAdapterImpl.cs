@@ -21,18 +21,17 @@ namespace Sorolla.Palette.Adapters
             AdjustAdapter.RegisterImpl(new AdjustAdapterImpl());
         }
 
-        public void Initialize(string appToken, AdjustEnvironment environment)
+        public void Initialize(string appToken, AdjustEnvironment environment, bool verboseLogging = false)
         {
             if (_init) return;
 
-            Debug.Log($"[Palette:Adjust] Initializing ({environment})...");
+            Debug.Log($"[Palette:Adjust] Initializing ({environment}, verbose: {verboseLogging})...");
 
             var config = new AdjustConfig(appToken, environment == AdjustEnvironment.Production
                 ? AdjustSdk.AdjustEnvironment.Production
                 : AdjustSdk.AdjustEnvironment.Sandbox);
 
-            // Enable attribution logging
-            config.LogLevel = AdjustLogLevel.Info;
+            config.LogLevel = verboseLogging ? AdjustLogLevel.Verbose : AdjustLogLevel.Warn;
             config.AttributionChangedDelegate = attribution =>
             {
                 Debug.Log($"[Palette:Adjust] Attribution: network={attribution.Network}, campaign={attribution.Campaign}");
