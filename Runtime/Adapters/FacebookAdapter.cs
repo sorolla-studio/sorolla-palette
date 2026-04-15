@@ -44,6 +44,14 @@ namespace Sorolla.Palette.Adapters
                 Debug.LogError($"{Tag} Failed to initialize");
         }
 
+        public static void UpdateConsent(bool consent)
+        {
+            s_consent = consent;
+            if (!s_init) return; // will be applied in ApplyConsent() when init completes
+            FB.Mobile.SetAdvertiserTrackingEnabled(consent);
+            Debug.Log($"{Tag} SetAdvertiserTrackingEnabled({consent})");
+        }
+
         private static void ApplyConsent()
         {
             FB.Mobile.SetAdvertiserTrackingEnabled(s_consent);
@@ -68,6 +76,7 @@ namespace Sorolla.Palette.Adapters
         public static event System.Action<bool> OnGameVisibilityChanged;
         #pragma warning restore CS0067
         public static void Initialize(bool consent) => UnityEngine.Debug.LogWarning("[Palette:FB] Not installed");
+        public static void UpdateConsent(bool consent) { }
 
     }
 }
