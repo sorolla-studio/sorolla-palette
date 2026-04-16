@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.9.1] - 2026-04-16
+
+### Added
+- **Master verbose logging toggle**: Single toggle to enable/disable verbose logging across all vendor SDKs.
+- **Facebook `UpdateConsent` method**: Update Facebook SDK consent state after initial initialization.
+- **Auto-set MAX consent flow privacy policy URL**: Configuration window automatically populates the privacy policy URL for MAX's CMP consent flow.
+- **Debug UI decoupled from vendor SDKs**: Debug UI cards no longer depend on vendor SDK assemblies; card visibility is mode-aware (Prototype vs Full).
+- **Internal SDK onboarding checklist**: Step-by-step runbook for integrating the SDK into a new game.
+
+### Changed
+- **Adapter classes made internal**: All adapter classes are now `internal`; all SDK access routes through the `Palette` public API.
+
+### Fixed
+- **MAX Ad Review (Quality Service)**: Build validator now auto-enables instead of auto-disabling Quality Service.
+
 ## [3.9.0] - 2026-04-14
 
 ### Added

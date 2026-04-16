@@ -39,6 +39,13 @@ Current configuration (may be null)
 ```csharp title="Declaration"
 public static SorollaConfig Config { get; }
 ```
+#### VerboseLogging
+Whether verbose logging is active. Resolved from config + build type.
+Always false in non-development builds regardless of config.
+
+```csharp title="Declaration"
+public static bool VerboseLogging { get; }
+```
 #### ConsentStatus
 Current consent status from MAX's UMP integration.
 Use this to determine ad loading/showing in GDPR regions.
@@ -299,6 +306,46 @@ Toggles the Sorolla debug panel visibility.
 ```csharp title="Declaration"
 public static void ToggleDebugger()
 ```
+#### GetAttribution(Action&lt;AttributionData?&gt;)
+Get Adjust attribution data (network, campaign, tracker).
+Returns null to callback if attribution is not yet available.
+
+```csharp title="Declaration"
+public static void GetAttribution(Action<AttributionData?> callback)
+```
+
+###### Parameters
+
+| Type | Name | Description |
+|:--- |:--- |:--- |
+| `System.Action<System.Nullable<Sorolla.Palette.Adapters.AttributionData>>` | *callback* | Callback with attribution data, or null if unavailable |
+
+#### GetAdjustId(Action&lt;string&gt;)
+Get the Adjust device ID (ADID).
+
+```csharp title="Declaration"
+public static void GetAdjustId(Action<string> callback)
+```
+
+###### Parameters
+
+| Type | Name | Description |
+|:--- |:--- |:--- |
+| `System.Action<System.String>` | *callback* | Callback with the ADID string, or null if unavailable |
+
+#### GetAdvertisingId(Action&lt;string&gt;)
+Get the platform advertising ID (GAID on Android, IDFA on iOS).
+
+```csharp title="Declaration"
+public static void GetAdvertisingId(Action<string> callback)
+```
+
+###### Parameters
+
+| Type | Name | Description |
+|:--- |:--- |:--- |
+| `System.Action<System.String>` | *callback* | Callback with the advertising ID string, or null if unavailable |
+
 #### Initialize(bool)
 Initialize Palette SDK. Called automatically by SorollaBootstrapper.
 Do NOT call directly.
@@ -434,6 +481,17 @@ public static Task<bool> ActivateRemoteConfigAsync()
 ###### Returns
 
 `System.Threading.Tasks.Task<System.Boolean>`
+#### GetRemoteConfigKeys()
+Get all available Remote Config keys from Firebase.
+Returns empty if Firebase Remote Config is not installed or not ready.
+
+```csharp title="Declaration"
+public static IEnumerable<string> GetRemoteConfigKeys()
+```
+
+###### Returns
+
+`System.Collections.Generic.IEnumerable<System.String>`
 #### LogException(Exception)
 Log an exception to crash reporting services (Firebase Crashlytics)
 
@@ -697,12 +755,23 @@ TikTok Events Manager Access Token used by the server-side event API.
 [Tooltip("App Secret (Access Token) from Events Manager.")]
 public PlatformAdUnitId tiktokAccessToken
 ```
+#### verboseLogging
+Master toggle for verbose/debug logging across all vendor SDKs (MAX, Adjust, TikTok).
+Automatically forced OFF in non-development builds as a safety net.
+When OFF, vendor SDKs use minimal log levels suitable for release.
+
+```csharp title="Declaration"
+[Header("Logging")]
+[Tooltip("Enable verbose logging for all vendor SDKs. Forced OFF in release builds.")]
+public bool verboseLogging
+```
 #### tiktokDebugMode
 When true, TikTok SDK logs verbose debug output. MUST be false in distributed builds
 or credentials may leak to logcat / device log.
 
 ```csharp title="Declaration"
 [Tooltip("Enable TikTok SDK debug logging. Do NOT enable in distributed builds.")]
+[Obsolete("Use verboseLogging instead. This field is kept for migration only.")]
 public bool tiktokDebugMode
 ```
 
