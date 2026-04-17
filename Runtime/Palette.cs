@@ -4,8 +4,12 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using Sorolla.Palette.Adapters;
+using Sorolla.Palette.Purchasing;
 #if GAMEANALYTICS_INSTALLED
 using GameAnalyticsSDK;
+#endif
+#if UNITY_PURCHASING_INSTALLED
+using UnityEngine.Purchasing;
 #endif
 
 namespace Sorolla.Palette
@@ -302,35 +306,75 @@ namespace Sorolla.Palette
 
         #region Analytics - Purchase
 
+#if UNITY_PURCHASING_INSTALLED
         /// <summary>
-        ///     Track an in-app purchase with optional receipt verification (Adjust), TikTok, and Firebase Analytics.
-        ///     On iOS, pass <paramref name="transactionId"/> for App Store verification.
-        ///     On Android, pass <paramref name="purchaseToken"/> for Play Store verification.
-        ///     Falls back to simple event tracking when verification params are missing.
+        ///     <b>Recommended.</b> Track an in-app purchase from a Unity IAP <see cref="Product"/>.
+        ///     Derives amount, currency, productId, transactionId, and (on Android) purchaseToken automatically -
+        ///     impossible to pass wrong data. Auto-verifies receipts with Adjust's App Store / Play Store APIs.
         /// </summary>
-        /// <param name="amount">Purchase amount (e.g. 4.99)</param>
-        /// <param name="currency">ISO 4217 currency code (default: USD)</param>
-        /// <param name="productId">Store product ID (used for Adjust partner params and Firebase dedup)</param>
-        /// <param name="transactionId">Transaction ID (iOS verification + deduplication on all platforms)</param>
-        /// <param name="purchaseToken">Google Play purchase token (Android verification only)</param>
+        /// <param name="product">Unity IAP product from <c>PurchaseEventArgs.purchasedProduct</c></param>
         /// <example>
         /// <code>
-        /// // iOS - auto-verifies via App Store receipt
-        /// Palette.TrackPurchase(4.99, "USD",
-        ///     productId: "com.mygame.coins_100",
-        ///     transactionId: storeReceipt.transactionId);
+        /// // In your IStoreListener.ProcessPurchase:
+        /// public PurchaseProcessingResult ProcessPurchase(PurchaseEventArgs e)
+        /// {
+        ///     Palette.TrackPurchase(e.purchasedProduct);
+        ///     return PurchaseProcessingResult.Complete;
+        /// }
         ///
-        /// // Android - auto-verifies via Play Store token
-        /// Palette.TrackPurchase(4.99, "USD",
-        ///     productId: "com.mygame.coins_100",
-        ///     transactionId: storeReceipt.transactionId,
-        ///     purchaseToken: storeReceipt.purchaseToken);
+        /// // Or wrap your listener once and forget about it:
+        /// UnityPurchasing.Initialize(new Palette.Purchasing.AutoTracker(this), builder);
         /// </code>
         /// </example>
+        public static void TrackPurchase(Product product)
+        {
+            if (!EnsureInit()) return;
+            if (product == null)
+            {
+                Debug.LogWarning($"{Tag} TrackPurchase(Product): null product - skipping.");
+                return;
+            }
+
+            var md = product.metadata;
+            ParsedReceipt parsed = ReceiptParser.Parse(product.receipt);
+
+            string txId = !string.IsNullOrEmpty(product.transactionID) ? product.transactionID : parsed.TransactionId;
+
+            TrackPurchase(
+                amount:        (double)md.localizedPrice,
+                currency:      md.isoCurrencyCode,
+                productId:     product.definition.id,
+                transactionId: txId,
+                purchaseToken: parsed.PurchaseToken);
+        }
+#endif
+
+        /// <summary>
+        ///     Low-level purchase tracking. Prefer <see cref="TrackPurchase(Product)"/> when Unity IAP is present -
+        ///     it derives all these params automatically and prevents the entire class of "wrong amount / wrong currency" bugs.
+        /// </summary>
+        /// <param name="amount">Purchase amount in local currency (e.g. 4.99). Must be &gt; 0.</param>
+        /// <param name="currency">ISO 4217 currency code (e.g. USD, EUR, JPY). MMPs reject non-ISO codes.</param>
+        /// <param name="productId">Store product ID (used for Adjust partner params and Firebase dedup)</param>
+        /// <param name="transactionId">Transaction ID (iOS App Store verification + deduplication on all platforms)</param>
+        /// <param name="purchaseToken">Google Play purchase token (Android Play Store verification only)</param>
         public static void TrackPurchase(double amount, string currency = "USD",
             string productId = null, string transactionId = null, string purchaseToken = null)
         {
             if (!EnsureInit()) return;
+
+            if (amount <= 0)
+            {
+                Debug.LogWarning($"{Tag} TrackPurchase: non-positive amount ({amount}) - dropping event. " +
+                    $"Pass the local price paid (e.g. Product.metadata.localizedPrice), not a tier index. " +
+                    $"Recommended: Palette.TrackPurchase(product) which derives this automatically.");
+                return;
+            }
+            if (!IsIso4217(currency))
+            {
+                Debug.LogWarning($"{Tag} TrackPurchase: currency '{currency}' is not ISO 4217. " +
+                    $"Adjust/MMP will reject or misreport revenue. Pass Product.metadata.isoCurrencyCode or use Palette.TrackPurchase(product).");
+            }
 
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
             if (!string.IsNullOrEmpty(Config?.adjustPurchaseEventToken))
@@ -345,6 +389,10 @@ namespace Sorolla.Palette
             FirebaseAdapter.TrackPurchase(productId, amount, currency, transactionId);
 #endif
         }
+
+        static bool IsIso4217(string c) =>
+            !string.IsNullOrEmpty(c) && c.Length == 3
+            && char.IsLetter(c[0]) && char.IsLetter(c[1]) && char.IsLetter(c[2]);
 
         #endregion
 

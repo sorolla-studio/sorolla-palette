@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.9.2] - 2026-04-17
+
+### Added
+- **`Palette.TrackPurchase(Product)` overload**: Takes a Unity IAP `Product` directly. Derives amount, currency, productId, transactionId, and (on Android) purchaseToken automatically from `Product.metadata` + `Product.receipt` + `Product.transactionID`. Impossible to pass wrong data. Gated on `com.unity.purchasing` presence (`UNITY_PURCHASING_INSTALLED`).
+- **`Palette.Purchasing.AutoTracker`**: Drop-in `IDetailedStoreListener` decorator. Wrap your listener once at `UnityPurchasing.Initialize(new Palette.Purchasing.AutoTracker(this), builder)` and every confirmed purchase is auto-tracked with verified receipt - no per-purchase call required. Gated on `com.unity.purchasing` presence.
+- **`Sorolla.Palette.Purchasing.ReceiptParser`**: Parses Unity IAP 4.x/5.x receipt JSON (three-level: outer -> Android Payload -> Play Billing json) using `JsonUtility` only. No dependency on `com.unity.purchasing`. Powers the automated extraction inside the `Product` overload.
+
+### Changed
+- **Input validation on primitive `TrackPurchase`**: The low-level 5-arg overload now warns on non-ISO-4217 currency codes and drops events with non-positive amounts. Catches "tier index as price / `Tier` as currency" class of bugs at integration time instead of after weeks of polluted Adjust/MMP data. Log message points studios at the recommended `Palette.TrackPurchase(product)` entry point.
+
 ## [3.9.1] - 2026-04-16
 
 ### Added
