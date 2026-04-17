@@ -3,7 +3,8 @@
     "rootNamespace": "Sorolla",
     "references": [
         "GameAnalyticsSDK",
-        "Sorolla.Adapters"
+        "Sorolla.Adapters",
+        "Unity.Purchasing"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

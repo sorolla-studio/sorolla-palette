@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.9.3] - 2026-04-17
+
+### Fixed
+- **`Sorolla.Runtime` asmdef missing `Unity.Purchasing` reference**: 3.9.2 added the `UNITY_PURCHASING_INSTALLED` version define and the `Palette.TrackPurchase(Product)` / `Palette.Purchasing.AutoTracker` code paths, but forgot to list `Unity.Purchasing` in `Sorolla.Runtime.asmdef` `references`. Games with `com.unity.purchasing` installed failed to compile with `CS0234: The type or namespace 'Purchasing' does not exist in the namespace 'UnityEngine'`. Fixed by adding `Unity.Purchasing` to the references array. Projects without the IAP package are unaffected (Unity emits a harmless missing-reference warning; all IAP-using code is still guarded by `#if UNITY_PURCHASING_INSTALLED`).
+
 ## [3.9.2] - 2026-04-17
 
 ### Added
