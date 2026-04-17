@@ -14,6 +14,32 @@ Technical reference for contributors working on the Sorolla SDK.
 2. **Conditional Compilation** - Adapters only compile when SDK installed
 3. **Mode-Based** - Prototype/Full modes determine required SDKs
 4. **Single Source of Truth** - `SdkRegistry.cs` contains all SDK metadata
+5. **DX-First API Design** - Studios are game makers, not SDK integrators. SDK absorbs complexity; studios express intent. See [DX-First API Design](#dx-first-api-design) below.
+
+### DX-First API Design
+
+**Context**: Sorolla is the publisher and the tracker. Studios focus on making games - they don't do custom analytics, they don't know MMP verification formats, they don't speak ISO 4217. Every primitive parameter (`double`, `string`, `bool`) on a public API is a future silent-data-corruption bug. The reference example is the `3.9.2` `TrackPurchase` hotfix: the method accepted tier-index as amount and `"Tier"` as currency and fired the event anyway, polluting Adjust revenue data for weeks - no compile error, no runtime error, silent.
+
+**Rules - load-bearing for every new or modified public API:**
+
+1. **Rich types over primitives.** If a richer type carries the data (`UnityEngine.Purchasing.Product`, `Exception`, `ConsentStatus` enum, a schema-generated key), take it. Derive primitives inside the SDK. Never make studios extract what we can extract.
+
+2. **One-line integration per feature.** If the feature can be "wrap once, forget", build that. `Palette.Purchasing.AutoTracker` wrapping `IDetailedStoreListener` is the reference pattern: studio writes one line at init, SDK handles every purchase for the app's lifetime.
+
+3. **Silent misuse is a critical bug.** If a call accepts wrong data and fires anyway, validate. Drop or warn loud, with a pointer to the recommended API. Catches bugs at integration time instead of after weeks of polluted dashboards.
+
+4. **Automate anything studios would have to do manually.** Receipt parsing, platform splits, verification routing, consent resolution, key lookup - not studio problems. If Unity exposes a lifecycle event, listener, or callback, wrap it. Ship an auto-hook before requiring a manual call.
+
+5. **No "flexible escape hatch" rationalization.** Sorolla designs the events, the schema, and the taxonomy. Studios call named methods. A feature that justifies itself with "games need flexibility here" is suspect - build the structured API or don't expose it. Custom analytics is Sorolla's job, not the studio's.
+
+6. **Schema-driven, not stringly-typed.** If Sorolla owns a schema (Remote Config keys, user properties, ad placements, in-game currency names), generate typed accessors. No magic strings in studio code.
+
+7. **Three questions before merging any public API.**
+   - What's the minimum studio must pass? Can we derive the rest?
+   - If they pass wrong values, does it fail loud or silent? Silent = fix it.
+   - Can we offer a one-line "register once and forget" automation?
+
+**Retrofit rule**: when touching an existing public API, apply the same three questions. Most pre-`3.9.2` APIs predate this principle and have landmines - fix them as they come up in the course of other work, or batch them by priority.
 
 ---
 
