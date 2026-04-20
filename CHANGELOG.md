@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.10.0] - 2026-04-20
+
+DX-first pass on progression + economy APIs. Continues the `3.9.2` `TrackPurchase` hotfix pattern (see `Internal~/dx-first-audit.md`): primitive-accepting, stringly-typed entry points get typed wrappers so studios can't silently corrupt data via typos.
+
+### Added
+- **`Palette.Level.Start(int level, int? world=null)` / `Complete(int level, int? world=null, int score=0)` / `Fail(int level, int? world=null, int score=0)`**: typed level progression API. Replaces `TrackProgression(ProgressionStatus, string, string, string, int, Dictionary)` - no more 3-slot string arrays, no more stringly-typed status, no manual duration math. Optional trailing `Dictionary<string, object> extraParams` preserves the escape hatch for Firebase-specific context. Input validated: non-positive `level` or `world` is rejected with a clear log.
+- **Wire format**: `level_name = "world_{W}_level_{L}"` when `world` supplied, else `"level_{L}"`. Consistent across studios - no more spelling drift.
+- **Auto-duration tracking**: `Palette.Level.Start` records `Time.realtimeSinceStartup`; matching `Complete`/`Fail` auto-fills `duration_sec` on the Firebase `level_end` event. Studios never touch a stopwatch.
+- **`Palette.Economy.Earn(CurrencyId, int, EconomySource, string itemId=null)` / `Spend(CurrencyId, int, EconomySink, string itemId=null)`**: typed economy API. Replaces `TrackResource(ResourceFlowType, string, float, string, string, Dictionary)`.
+- **`CurrencyId` enum**: `Coins`, `Gems`, `Energy`, `Lives`. Curated by Sorolla - new currencies require an SDK PR, which fails at compile time rather than silently fragmenting analytics with typo'd strings.
+- **`EconomySource` enum**: `LevelReward`, `DailyBonus`, `AdReward`, `IapGrant`, `Achievement`, `Gift`, `Starter`, `Other`. Curated by Sorolla so cross-game analytics aggregate correctly.
+- **`EconomySink` enum**: `Booster`, `Continue`, `Unlock`, `Cosmetic`, `ShopPurchase`, `Upgrade`, `Other`. `Other` logs a warning when hit so missing categories surface in telemetry and can be added in `3.10.x`.
+- **Input validation on Economy**: rejects non-positive amounts at the entry point, logs a clear diagnostic pointing at the offending call.
+
+### Deprecated
+- **`Palette.TrackProgression`**: marked `[Obsolete]`, points studios at `Palette.Level.*`. Wire format unchanged - still routes to the same GA4 / Firebase adapter calls underneath.
+- **`Palette.TrackResource`**: marked `[Obsolete]`, points studios at `Palette.Economy.*`. Wire format unchanged.
+
+### Changed
+- **`Palette` is now `partial`**: new surface (`Palette.Level`, `Palette.Economy`) split into `Palette.Level.cs` + `Palette.Economy.cs` for readability without shuffling the existing ~1,200-line `Palette.cs`.
+
+### Fixed
+- **IAP events never reached GameAnalytics**: `Palette.TrackPurchase` fanned out to Adjust + TikTok + Firebase but never called `GameAnalyticsAdapter.TrackBusinessEvent`. Adapter methods existed (`NewBusinessEvent` / `NewBusinessEventGooglePlay` / `NewBusinessEventIOS`) but were orphaned - GA business-event dashboards showed zero revenue across all games. Now calls the generic `TrackBusinessEvent(currency, amountInCents, "iap", productId, null)` on every purchase. Receipt-validated GooglePlay/iOS variants deferred to a follow-up (requires wiring `ReceiptParser` output through to the GA adapter). `amountInCents` uses `Math.Round(amount * 100)` to avoid float-truncation bugs (`0.99 * 100 -> 98` without rounding).
+
+### Removed
+- **`MaxAdapterImpl.SubscribeILRD()`**: was attempting to wire MAX's Impression Level Revenue Data to GameAnalytics via `GameAnalyticsSDK.GameAnalyticsILRD.SubscribeMaxImpressions()`. That type does **not** ship in GA's UPM package - per [GA's own docs](https://github.com/GameAnalytics/GA-SDK-UNITY/blob/master/README.md) it's distributed as a separate `.unitypackage` add-on due to ad-SDK dependency conflicts. Studios using GA via UPM without importing the ILRD add-on would hit `CS0234: 'GameAnalyticsILRD' does not exist in namespace 'GameAnalyticsSDK'`. Dropped entirely rather than adding a reflection shim - Firebase is replacing GA in the near term. **Ad-revenue fan-out to Adjust + Firebase + TikTok is unaffected** - that path goes through `MaxAdapterImpl.TrackAdRevenue` listening to `OnAdRevenuePaidEvent`, which is entirely separate from GA's ILRD callback.
+
 ## [3.9.3] - 2026-04-17
 
 ### Fixed

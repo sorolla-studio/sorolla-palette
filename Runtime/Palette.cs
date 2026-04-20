@@ -45,7 +45,7 @@ namespace Sorolla.Palette
     ///     Provides unified interface for analytics, ads, and attribution.
     ///     Auto-initialized - no manual setup required.
     /// </summary>
-    public static class Palette
+    public static partial class Palette
     {
         const string Tag = "[Palette]";
 
@@ -231,6 +231,7 @@ namespace Sorolla.Palette
         ///     extraParams: new Dictionary&lt;string, object&gt; { { "duration_sec", 45 } });
         /// </code>
         /// </example>
+        [Obsolete("Use Palette.Level.Start(level) / Complete(level, score) / Fail(level, score) - typed int-based API with auto-duration tracking and no stringly-typed slots.")]
         public static void TrackProgression(ProgressionStatus status, string progression01,
             string progression02 = null, string progression03 = null, int score = 0,
             Dictionary<string, object> extraParams = null)
@@ -284,6 +285,7 @@ namespace Sorolla.Palette
         /// <param name="itemId">Specific item ID (e.g. "speed_2x", "ninja_skin").</param>
         /// <param name="extraParams">Optional structured params for Firebase (e.g. source, level, world).
         ///     Ignored by GameAnalytics. Supported types: string, int, long, float, double, bool, enum.</param>
+        [Obsolete("Use Palette.Economy.Earn(CurrencyId, int, EconomySource, itemId) / Spend(CurrencyId, int, EconomySink, itemId) - typed API with curated source/sink categories and currency normalization.")]
         public static void TrackResource(ResourceFlowType flowType, string currency, float amount,
             string itemType, string itemId, Dictionary<string, object> extraParams = null)
         {
@@ -387,6 +389,14 @@ namespace Sorolla.Palette
 
 #if FIREBASE_ANALYTICS_INSTALLED
             FirebaseAdapter.TrackPurchase(productId, amount, currency, transactionId);
+#endif
+
+#if GAMEANALYTICS_INSTALLED
+            // GA expects amount in cents (100x display price across all currencies, incl. JPY).
+            // Math.Round avoids floating-point truncation (0.99 * 100 = 98.99999 -> 98 without rounding).
+            int amountInCents = (int)Math.Round(amount * 100);
+            string gaItemId = string.IsNullOrEmpty(productId) ? "unknown" : productId;
+            GameAnalyticsAdapter.TrackBusinessEvent(currency, amountInCents, "iap", gaItemId, null);
 #endif
         }
 

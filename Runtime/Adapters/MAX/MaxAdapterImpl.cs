@@ -198,7 +198,6 @@ namespace Sorolla.Palette.Adapters
 
             InitRewarded();
             InitInterstitial();
-            SubscribeILRD();
 
             OnSdkInitialized?.Invoke();
         }
@@ -443,21 +442,6 @@ namespace Sorolla.Palette.Adapters
         #endregion
 
         #region Ad Revenue
-
-        void SubscribeILRD()
-        {
-#if GAMEANALYTICS_INSTALLED
-            try
-            {
-                GameAnalyticsSDK.GameAnalyticsILRD.SubscribeMaxImpressions();
-                Debug.Log("[Palette:MAX] GameAnalytics ILRD subscribed");
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[Palette:MAX] ILRD subscription failed: {e.Message}");
-            }
-#endif
-        }
 
         void TrackAdRevenue(MaxSdkBase.AdInfo adInfo, string adFormat)
         {

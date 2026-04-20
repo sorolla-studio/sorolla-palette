@@ -78,33 +78,30 @@ namespace Sorolla.Palette.DebugUI
 
         #region Progression
 
+        const int DebugLevel = 3;
+        const int DebugWorld = 1;
+
         void OnStartClicked()
         {
-            Palette.TrackProgression(ProgressionStatus.Start, "world_1", "level_03", null, 0,
-                new Dictionary<string, object> { { "game_mode", "classic" }, { "world", "world_1" } });
+            Palette.Level.Start(DebugLevel, DebugWorld);
 
-            DebugPanelManager.Instance?.Log("Progression: Start (world_1/level_03)", LogSource.GA);
+            DebugPanelManager.Instance?.Log("Level.Start (world=1, level=3)", LogSource.GA);
             SorollaDebugEvents.RaiseShowToast("Tracked: Start", ToastType.Success);
         }
 
         void OnWinClicked()
         {
-            Palette.TrackProgression(ProgressionStatus.Complete, "world_1", "level_03", null, 1250,
-                new Dictionary<string, object>
-                {
-                    { "game_mode", "classic" }, { "duration_sec", 45.2f }, { "stars", 3 }
-                });
+            Palette.Level.Complete(DebugLevel, DebugWorld, score: 1250);
 
-            DebugPanelManager.Instance?.Log("Progression: Complete (score=1250, stars=3)", LogSource.GA);
+            DebugPanelManager.Instance?.Log("Level.Complete (score=1250, auto-duration)", LogSource.GA);
             SorollaDebugEvents.RaiseShowToast("Tracked: Complete", ToastType.Success);
         }
 
         void OnFailClicked()
         {
-            Palette.TrackProgression(ProgressionStatus.Fail, "world_1", "level_03", null, 400,
-                new Dictionary<string, object> { { "end_reason", "timeout" }, { "attempts", 2 } });
+            Palette.Level.Fail(DebugLevel, DebugWorld, score: 400);
 
-            DebugPanelManager.Instance?.Log("Progression: Fail (reason=timeout)", LogSource.GA);
+            DebugPanelManager.Instance?.Log("Level.Fail (score=400, auto-duration)", LogSource.GA);
             SorollaDebugEvents.RaiseShowToast("Tracked: Fail", ToastType.Success);
         }
 
@@ -114,19 +111,17 @@ namespace Sorolla.Palette.DebugUI
 
         void OnAddCoinsClicked()
         {
-            Palette.TrackResource(ResourceFlowType.Source, "coins", 100, "reward", "level_reward",
-                new Dictionary<string, object> { { "source", "level_complete" }, { "level", "level_03" } });
+            Palette.Economy.Earn(CurrencyId.Coins, 100, EconomySource.LevelReward, itemId: "world_1_level_03");
 
-            DebugPanelManager.Instance?.Log("Resource: +100 coins (level_reward)", LogSource.GA);
+            DebugPanelManager.Instance?.Log("Economy.Earn: +100 coins (LevelReward)", LogSource.GA);
             SorollaDebugEvents.RaiseShowToast("+100 coins", ToastType.Info);
         }
 
         void OnSpendCoinsClicked()
         {
-            Palette.TrackResource(ResourceFlowType.Sink, "coins", 50, "booster", "speed_boost",
-                new Dictionary<string, object> { { "level", "level_03" } });
+            Palette.Economy.Spend(CurrencyId.Coins, 50, EconomySink.Booster, itemId: "speed_boost");
 
-            DebugPanelManager.Instance?.Log("Resource: -50 coins (speed_boost)", LogSource.GA);
+            DebugPanelManager.Instance?.Log("Economy.Spend: -50 coins (Booster)", LogSource.GA);
             SorollaDebugEvents.RaiseShowToast("-50 coins", ToastType.Info);
         }
 

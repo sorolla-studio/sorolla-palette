@@ -47,12 +47,9 @@ Ranked findings by severity of silent-correctness risk.
 **Failure mode**: three string slots. Typo-prone. No auto-hook despite Unity having `SceneManager.sceneLoaded`, `Time.timeSinceLevelLoad`, etc.
 
 **Fix**:
-- `Palette.Level.Start(LevelId)` / `.Complete(LevelId, int score)` / `.Fail(LevelId)` - enum-based `LevelId` or strongly-typed struct.
-- Drop-in `PaletteLevelTracker : MonoBehaviour` component studios attach to their level GameObject.
-  - Auto-fires Start on Awake.
-  - Complete/Fail via `UnityEvent` hooks.
-  - Auto-tracks `duration_sec`.
-- Studio integration: drag component onto level prefab. One line of code = zero lines of code.
+- `Palette.Level.Start(int level, int? world=null)` / `.Complete(int level, int? world=null, int score=0)` / `.Fail(...)` - int-based, matches real game taxonomy (36% numeric-only levels, world+level as optional minority pattern).
+- Auto-duration via `Time.realtimeSinceStartup` dict keyed on `(world, level)` - Studios never touch a stopwatch.
+- No drag-on component: `Palette.Level.Start(level)` is already one line in the studio's level-load code; a `MonoBehaviour` wrapper with UnityEvent wiring adds friction (prefab variants, rename rot, invisible in code review) without real savings.
 
 ### 4. `ShowRewardedAd(Action, Action)` / `ShowInterstitialAd(Action)` @ `Runtime/Palette.cs:1000-1018`
 
@@ -113,11 +110,11 @@ Ranked findings by severity of silent-correctness risk.
 
 ## Recommendation for `3.10.0`
 
-Close P0 first - `TrackEvent` is the biggest unfixed landmine (it's the pattern that created the `TrackPurchase` bug in the first place: accept anything, validate nothing). Next `TrackProgression` because the `PaletteLevelTracker` MonoBehaviour is the purest expression of the principle - zero code change, one component drag.
+Close P0 first - `TrackEvent` is the biggest unfixed landmine (it's the pattern that created the `TrackPurchase` bug in the first place: accept anything, validate nothing). Next `TrackProgression` because it's the highest-volume primitive-accepting entry point across the portfolio.
 
 **Scope for `3.10.0`** (minor bump - API additions, not breaking):
 - Curated `Palette.Events.*` catalog, mark `TrackEvent(string, Dict)` as `[Obsolete]`.
-- `Palette.Level.*` API + `PaletteLevelTracker` component.
+- `Palette.Level.*` API (int-based, auto-duration).
 - `AdPlacement` enum for ad methods.
 
 **Deferred to `3.11.0` / later**:
@@ -146,6 +143,6 @@ That list becomes the first `Palette.Events.*` catalog. Until it exists, the ref
 | DX-First principle in local `CLAUDE.md` | WRITTEN (gitignored, local-only) |
 | P0.1 `TrackEvent` -> `Palette.Events.*` catalog | BLOCKED on event taxonomy from Sorolla |
 | P0.2 Remote Config code-gen | DEFERRED to `3.11.0` |
-| P1.3 `Palette.Level.*` + `PaletteLevelTracker` | READY - can ship without taxonomy blocker |
+| P1.3 `Palette.Level.*` (int-based, auto-duration) | SHIPPED `3.10.0` - dropped the MonoBehaviour wrapper (API already one-line) |
 | P1.4 `AdPlacement` enum | READY - can curate placements from Sorolla product team |
-| P1.5 `Palette.Economy` | BLOCKED on economy taxonomy |
+| P1.5 `Palette.Economy` | SHIPPED `3.10.0` (seed taxonomy: 4 currencies, 8 sources, 7 sinks; `Other` logs to surface gaps for `3.10.x` extensions) |
