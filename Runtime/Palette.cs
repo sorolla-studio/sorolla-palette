@@ -598,15 +598,11 @@ namespace Sorolla.Palette
             FacebookAdapter.Initialize(consent);
 #endif
 
-            // MAX (if available) - Adjust will be initialized in MAX callback
+            // MAX + Adjust ship together in Full mode. Adjust is initialized
+            // inside OnMaxSdkInitialized so consent is resolved first.
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
             InitializeMax();
-#elif SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
-            // No MAX, initialize Adjust directly (Full mode only)
-            if (!isPrototype && Config != null)
-                InitializeAdjust();
 #endif
-
 
             // Firebase modules (always enabled when installed)
 #if FIREBASE_ANALYTICS_INSTALLED
@@ -911,23 +907,14 @@ namespace Sorolla.Palette
 
         static void OnMaxSdkInitialized()
         {
-            // MAX CMP has resolved. Propagate real consent to SDKs that started with false.
-            bool consent = MaxAdapter.ConsentStatus == Adapters.ConsentStatus.Obtained
-                        || MaxAdapter.ConsentStatus == Adapters.ConsentStatus.NotApplicable;
-            HasConsent = consent;
+            // MAX CMP has resolved. GA/Firebase/FB already received UpdateConsent via
+            // OnMaxConsentChanged (fired from MaxAdapterImpl.UpdateConsentStatusFromConfig
+            // during OnSdkInit, BEFORE this callback runs). Only Adjust still needs init
+            // here per MAX SDK docs: "initialize other SDKs INSIDE the MAX callback".
+            bool consent = HasConsent;
             Debug.Log($"{Tag} MAX consent resolved: {MaxAdapter.ConsentStatus} (consent={consent})");
             LogConsentDiagnostics();
 
-            GameAnalyticsAdapter.UpdateConsent(consent);
-#if FIREBASE_ANALYTICS_INSTALLED
-            FirebaseAdapter.UpdateConsent(consent);
-#endif
-#if SOROLLA_FACEBOOK_ENABLED
-            FacebookAdapter.UpdateConsent(consent);
-#endif
-
-            // Per MAX SDK docs: Initialize other SDKs (like Adjust) INSIDE the MAX callback
-            // to ensure proper consent flow handling
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
             bool isPrototype = Config == null || Config.isPrototypeMode;
             if (!isPrototype && Config != null)

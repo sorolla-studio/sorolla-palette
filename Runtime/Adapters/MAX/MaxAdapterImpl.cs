@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Scripting;
 
@@ -296,6 +297,8 @@ namespace Sorolla.Palette.Adapters
                 OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, false);
             }
 
+            TrackAdShowFailed("rewarded", "display_error", adInfo?.NetworkName, errorInfo);
+
             _onRewardFailed?.Invoke();
             _onRewardFailed = null;
             _onRewardComplete = null;
@@ -327,8 +330,11 @@ namespace Sorolla.Palette.Adapters
 
         public void ShowRewardedAd(Action onComplete, Action onFailed)
         {
+            TrackAdShowRequested("rewarded");
+
             if (!_init)
             {
+                TrackAdShowFailed("rewarded", "not_initialized", network: null, errorInfo: null);
                 onFailed?.Invoke();
                 return;
             }
@@ -338,6 +344,7 @@ namespace Sorolla.Palette.Adapters
                 _userWaitingForRewarded = true;
                 LoadRewarded();
                 Debug.LogWarning("[Palette:MAX] Rewarded ad not ready");
+                TrackAdShowFailed("rewarded", "not_ready", network: null, errorInfo: null);
                 onFailed?.Invoke();
                 return;
             }
@@ -410,6 +417,8 @@ namespace Sorolla.Palette.Adapters
                 OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, false);
             }
 
+            TrackAdShowFailed("interstitial", "display_error", adInfo?.NetworkName, errorInfo);
+
             _onInterstitialComplete?.Invoke();
             _onInterstitialComplete = null;
             LoadInterstitial();
@@ -427,16 +436,55 @@ namespace Sorolla.Palette.Adapters
 
         public void ShowInterstitialAd(Action onComplete)
         {
+            TrackAdShowRequested("interstitial");
+
             if (!_init || !_interstitialReady || !MaxSdk.IsInterstitialReady(_interstitialId))
             {
                 _userWaitingForInterstitial = true;
                 LoadInterstitial();
+                TrackAdShowFailed("interstitial", !_init ? "not_initialized" : "not_ready", network: null, errorInfo: null);
                 onComplete?.Invoke();
                 return;
             }
 
             _onInterstitialComplete = onComplete;
             MaxSdk.ShowInterstitial(_interstitialId);
+        }
+
+        #endregion
+
+        #region Ad Show Telemetry
+
+        // User-intent events. Background load/retry churn is left to the MAX dashboard;
+        // Firebase gets the two events that matter for the in-app funnel:
+        //   ad_show_requested  — user code called ShowRewardedAd/ShowInterstitialAd
+        //   ad_show_failed     — that call returned without showing an ad
+        // Pair with existing ad_impression to get show-rate = impressions / requests.
+        // Breakdown by `reason` isolates offline/no-fill (not_ready) vs display bugs
+        // (display_error) vs init race conditions (not_initialized).
+        static void TrackAdShowRequested(string adFormat)
+        {
+            FirebaseAdapter.TrackEvent("ad_show_requested", new Dictionary<string, object>
+            {
+                { "ad_format", adFormat },
+            });
+        }
+
+        static void TrackAdShowFailed(string adFormat, string reason, string network, MaxSdkBase.ErrorInfo errorInfo)
+        {
+            var parameters = new Dictionary<string, object>
+            {
+                { "ad_format", adFormat },
+                { "reason", reason },
+            };
+            if (!string.IsNullOrEmpty(network))
+                parameters["network"] = network;
+            if (errorInfo != null)
+            {
+                parameters["error_code"] = (int)errorInfo.Code;
+                parameters["mediated_error_code"] = errorInfo.MediatedNetworkErrorCode;
+            }
+            FirebaseAdapter.TrackEvent("ad_show_failed", parameters);
         }
 
         #endregion
