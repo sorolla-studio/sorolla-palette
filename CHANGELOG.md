@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.11.0] - 2026-04-21
+
+Consent propagation hardening, prompted by a consent drop in Sweep Collector (Romba Clean) where ATT/CMP decisions were invisible in our own analytics. Three coupled fixes so Adjust honors mid-session consent, no events are lost during the MAX CMP resolution window, and the ATT / CMP decision is queryable from our own data.
+
+### Added
+- **`AdjustAdapter.UpdateConsent(bool)`**: consent now propagates to Adjust on both initial MAX CMP resolution and mid-session changes via `ShowPrivacyOptions()`. Denied consent calls `Adjust.Disable()` (reversible - user can re-grant later via the privacy form); consent granted calls `Adjust.Enable()`. `GdprForgetMe` deliberately not used here - reserved for explicit "delete my data" user actions.
+- **`Palette.AttStatus`**: canonical read of iOS AppTrackingTransparency status. Wraps `ATTBridge.GetStatus()` so game code and debug UIs have one API (returns `Authorized` on non-iOS / Editor).
+- **`att_decision` analytics event**: fired once per session on both standalone and MAX-path iOS builds. Params: `att_status`, `source` (standalone | max). Available in Firebase DebugView and GameAnalytics design events.
+- **`consent_resolved` analytics event**: fired once per session on the MAX path after CMP resolves. Params: `max_status`, `consent`, `source`.
+- **`consent_changed` analytics event**: fired each time `Palette.OnMaxConsentChanged` transitions (privacy-options revoke / grant). Params: `max_status`, `consent`.
+
+### Changed
+- **Pre-init events now buffered, not dropped**: events fired from game `Awake` / `Start` on the iOS + MAX path used to be silently dropped during the ~1-3s window before MAX CMP resolved (`IsInitialized` stayed `false` until `OnMaxSdkInitialized` fired). Added a Palette-level `QueueOrExecute` + `FlushPending` (mirrors the pattern already used inside `FirebaseAdapterImpl`). All analytics entry points - `TrackEvent`, `TrackDesign`, `TrackProgression`, `TrackResource`, `TrackPurchase`, `Palette.Level.Start/Complete/Fail`, `Palette.Economy.Earn/Spend`, `SetUserId`, `SetUserProperty`, Crashlytics helpers - now queue instead of drop and flush with resolved consent. Queue capped at 256 events (oldest dropped + warn logged). `Palette.Level.Start` keeps timestamp capture synchronous so auto-duration still reflects player wall-time, not flush time.
+- **`EnsureInit` helper removed** from `Palette.cs`: no callers left after the queue refactor. `GameAnalyticsAdapter` keeps its own separate `EnsureInit` (adapter-internal, unchanged).
+
+### Fixed
+- **Adjust ignored mid-session consent changes**: `Palette.OnMaxConsentChanged` propagated to GA / Firebase / Facebook but not Adjust. EU users who revoked via the privacy form kept getting attribution events - GDPR exposure. Now propagates to Adjust too alongside the others.
+- **Adjust enabled despite initial consent denied**: `Palette.OnMaxSdkInitialized` unconditionally called `InitializeAdjust` after CMP resolved regardless of the resolved `consent` bool, so tracking began for users who said no. Now calls `AdjustAdapter.UpdateConsent(consent)` immediately after init to disable if denied.
+- **ATT / CMP decisions invisible in our own analytics**: SDK logged decisions locally only. When consent rates dropped overnight, there was no first-party event to query against GA / Firebase. The three new events above close that gap - cohorts can be built on `att_status` / `max_status` directly.
+
 ## [3.10.0] - 2026-04-20
 
 DX-first pass on progression + economy APIs. Continues the `3.9.2` `TrackPurchase` hotfix pattern (see `Internal~/dx-first-audit.md`): primitive-accepting, stringly-typed entry points get typed wrappers so studios can't silently corrupt data via typos.
