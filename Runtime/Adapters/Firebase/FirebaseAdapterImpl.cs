@@ -243,14 +243,18 @@ namespace Sorolla.Palette.Adapters
 
         public void TrackPurchase(string productId, double price, string currency, string transactionId) => QueueOrExecute(() =>
         {
-            // GA4 spec: purchase requires items[] to populate the Monetization > In-app purchases report
-            // (the same plumbing GA4 calls "Ecommerce purchases" - it's the canonical IAP shape).
-            // Without items[], total revenue still flows but the per-product breakdown is lost.
+            // GA4 canonical purchase shape requires items[] with item_id + price + quantity for
+            // the Monetization > In-app purchases per-product revenue breakdown to populate.
+            // Spec: https://developers.google.com/analytics/devguides/collection/ga4/reference/events#purchase
+            // Without price+quantity, total revenue flows via top-level `value` but per-product
+            // drill-down in GA4 is degraded.
             var items = new IDictionary<string, object>[]
             {
                 new Dictionary<string, object>
                 {
                     { FirebaseAnalytics.ParameterItemID, productId ?? "" },
+                    { FirebaseAnalytics.ParameterPrice, price },
+                    { FirebaseAnalytics.ParameterQuantity, 1L },
                 },
             };
 
