@@ -23,11 +23,12 @@ namespace Sorolla.Palette
             /// <summary>Mark the start of a level. Fires level_start (Firebase) and records start time for auto-duration.</summary>
             public static void Start(int level, int? world = null, Dictionary<string, object> extraParams = null)
             {
-                if (!EnsureInit()) return;
                 if (!Validate("Start", level, world)) return;
 
+                // Capture timestamp synchronously so duration reflects player wall-time,
+                // not whenever the event flushes after MAX consent resolves.
                 s_startTimes[(world, level)] = Time.realtimeSinceStartup;
-                Emit("start", level, world, score: 0, duration: null, extraParams);
+                QueueOrExecute(() => Emit("start", level, world, score: 0, duration: null, extraParams));
             }
 
             /// <summary>Mark a level completed. Fires level_end{success=1}, auto-fills duration_sec if Start was called.</summary>
@@ -40,7 +41,6 @@ namespace Sorolla.Palette
 
             static void End(int level, int? world, bool success, int score, Dictionary<string, object> extraParams)
             {
-                if (!EnsureInit()) return;
                 string verb = success ? "Complete" : "Fail";
                 if (!Validate(verb, level, world)) return;
 
@@ -52,7 +52,7 @@ namespace Sorolla.Palette
                     s_startTimes.Remove(key);
                 }
 
-                Emit(success ? "complete" : "fail", level, world, score, duration, extraParams);
+                QueueOrExecute(() => Emit(success ? "complete" : "fail", level, world, score, duration, extraParams));
             }
 
             static bool Validate(string verb, int level, int? world)

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using Sorolla.Palette.Adapters;
+using Sorolla.Palette.ATT;
 using Sorolla.Palette.Purchasing;
 #if GAMEANALYTICS_INSTALLED
 using GameAnalyticsSDK;
@@ -79,6 +80,12 @@ namespace Sorolla.Palette
 #else
         public static Adapters.ConsentStatus ConsentStatus => Adapters.ConsentStatus.NotApplicable;
 #endif
+
+        /// <summary>
+        ///     iOS AppTrackingTransparency authorization status. Returns Authorized on non-iOS / Editor.
+        ///     Canonical read for game code and debug UI — prefer this over reaching into ATTBridge.
+        /// </summary>
+        public static ATTBridge.AuthorizationStatus AttStatus => ATTBridge.GetStatus();
 
         /// <summary>
         ///     Whether ads can be requested (consent obtained or not required).
@@ -197,15 +204,17 @@ namespace Sorolla.Palette
         /// </example>
         public static void TrackEvent(string eventName, Dictionary<string, object> parameters = null)
         {
-            if (!EnsureInit()) return;
             if (!ValidateEvent(ref eventName, parameters)) return;
 
+            QueueOrExecute(() =>
+            {
 #if FIREBASE_ANALYTICS_INSTALLED
-            FirebaseAdapter.TrackEvent(eventName, parameters);
+                FirebaseAdapter.TrackEvent(eventName, parameters);
 #endif
 
-            // GA best-effort: design event with first numeric value
-            GameAnalyticsAdapter.TrackDesignEvent(eventName, ExtractFirstNumericValue(parameters));
+                // GA best-effort: design event with first numeric value
+                GameAnalyticsAdapter.TrackDesignEvent(eventName, ExtractFirstNumericValue(parameters));
+            });
         }
 
         #endregion
@@ -236,19 +245,21 @@ namespace Sorolla.Palette
             string progression02 = null, string progression03 = null, int score = 0,
             Dictionary<string, object> extraParams = null)
         {
-            if (!EnsureInit()) return;
             if (extraParams != null && !ValidateParams(extraParams)) return;
 
+            QueueOrExecute(() =>
+            {
 #if GAMEANALYTICS_INSTALLED
-            GAProgressionStatus gaStatus = ToGA(status);
-            GameAnalyticsAdapter.TrackProgressionEvent(gaStatus, progression01, progression02, progression03, score);
+                GAProgressionStatus gaStatus = ToGA(status);
+                GameAnalyticsAdapter.TrackProgressionEvent(gaStatus, progression01, progression02, progression03, score);
 #else
-            GameAnalyticsAdapter.TrackProgressionEvent(status.ToString().ToLower(), progression01, progression02, progression03, score);
+                GameAnalyticsAdapter.TrackProgressionEvent(status.ToString().ToLower(), progression01, progression02, progression03, score);
 #endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
-            FirebaseAdapter.TrackProgressionEvent(status.ToString().ToLower(), progression01, progression02, progression03, score, extraParams);
+                FirebaseAdapter.TrackProgressionEvent(status.ToString().ToLower(), progression01, progression02, progression03, score, extraParams);
 #endif
+            });
         }
 
         #endregion
@@ -261,13 +272,14 @@ namespace Sorolla.Palette
         [System.Obsolete("Use Palette.TrackEvent(eventName, parameters) for structured custom events with Firebase/BigQuery support.")]
         public static void TrackDesign(string eventName, float value = 0)
         {
-            if (!EnsureInit()) return;
-
-            GameAnalyticsAdapter.TrackDesignEvent(eventName, value);
+            QueueOrExecute(() =>
+            {
+                GameAnalyticsAdapter.TrackDesignEvent(eventName, value);
 
 #if FIREBASE_ANALYTICS_INSTALLED
-            FirebaseAdapter.TrackDesignEvent(eventName, value);
+                FirebaseAdapter.TrackDesignEvent(eventName, value);
 #endif
+            });
         }
 
         #endregion
@@ -289,19 +301,21 @@ namespace Sorolla.Palette
         public static void TrackResource(ResourceFlowType flowType, string currency, float amount,
             string itemType, string itemId, Dictionary<string, object> extraParams = null)
         {
-            if (!EnsureInit()) return;
             if (extraParams != null && !ValidateParams(extraParams)) return;
 
+            QueueOrExecute(() =>
+            {
 #if GAMEANALYTICS_INSTALLED
-            GAResourceFlowType gaFlow = ToGA(flowType);
-            GameAnalyticsAdapter.TrackResourceEvent(gaFlow, currency, amount, itemType, itemId);
+                GAResourceFlowType gaFlow = ToGA(flowType);
+                GameAnalyticsAdapter.TrackResourceEvent(gaFlow, currency, amount, itemType, itemId);
 #else
-            GameAnalyticsAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId);
+                GameAnalyticsAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId);
 #endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
-            FirebaseAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId, extraParams);
+                FirebaseAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId, extraParams);
 #endif
+            });
         }
 
         #endregion
@@ -330,7 +344,6 @@ namespace Sorolla.Palette
         /// </example>
         public static void TrackPurchase(Product product)
         {
-            if (!EnsureInit()) return;
             if (product == null)
             {
                 Debug.LogWarning($"{Tag} TrackPurchase(Product): null product - skipping.");
@@ -363,8 +376,6 @@ namespace Sorolla.Palette
         public static void TrackPurchase(double amount, string currency = "USD",
             string productId = null, string transactionId = null, string purchaseToken = null)
         {
-            if (!EnsureInit()) return;
-
             if (amount <= 0)
             {
                 Debug.LogWarning($"{Tag} TrackPurchase: non-positive amount ({amount}) - dropping event. " +
@@ -378,26 +389,29 @@ namespace Sorolla.Palette
                     $"Adjust/MMP will reject or misreport revenue. Pass Product.metadata.isoCurrencyCode or use Palette.TrackPurchase(product).");
             }
 
+            QueueOrExecute(() =>
+            {
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
-            if (!string.IsNullOrEmpty(Config?.adjustPurchaseEventToken))
-                AdjustAdapter.TrackPurchase(Config.adjustPurchaseEventToken, amount, currency,
-                    productId, transactionId, purchaseToken);
+                if (!string.IsNullOrEmpty(Config?.adjustPurchaseEventToken))
+                    AdjustAdapter.TrackPurchase(Config.adjustPurchaseEventToken, amount, currency,
+                        productId, transactionId, purchaseToken);
 #endif
 
-            if (Config.enableTikTok && !string.IsNullOrEmpty(Config?.tiktokAppId?.Current))
-                TikTokAdapter.TrackPurchase(amount, currency);
+                if (Config.enableTikTok && !string.IsNullOrEmpty(Config?.tiktokAppId?.Current))
+                    TikTokAdapter.TrackPurchase(amount, currency);
 
 #if FIREBASE_ANALYTICS_INSTALLED
-            FirebaseAdapter.TrackPurchase(productId, amount, currency, transactionId);
+                FirebaseAdapter.TrackPurchase(productId, amount, currency, transactionId);
 #endif
 
 #if GAMEANALYTICS_INSTALLED
-            // GA expects amount in cents (100x display price across all currencies, incl. JPY).
-            // Math.Round avoids floating-point truncation (0.99 * 100 = 98.99999 -> 98 without rounding).
-            int amountInCents = (int)Math.Round(amount * 100);
-            string gaItemId = string.IsNullOrEmpty(productId) ? "unknown" : productId;
-            GameAnalyticsAdapter.TrackBusinessEvent(currency, amountInCents, "iap", gaItemId, null);
+                // GA expects amount in cents (100x display price across all currencies, incl. JPY).
+                // Math.Round avoids floating-point truncation (0.99 * 100 = 98.99999 -> 98 without rounding).
+                int amountInCents = (int)Math.Round(amount * 100);
+                string gaItemId = string.IsNullOrEmpty(productId) ? "unknown" : productId;
+                GameAnalyticsAdapter.TrackBusinessEvent(currency, amountInCents, "iap", gaItemId, null);
 #endif
+            });
         }
 
         static bool IsIso4217(string c) =>
@@ -414,19 +428,20 @@ namespace Sorolla.Palette
         /// </summary>
         public static void SetUserId(string userId)
         {
-            if (!EnsureInit()) return;
-
+            QueueOrExecute(() =>
+            {
 #if FIREBASE_ANALYTICS_INSTALLED
-            FirebaseAdapter.SetUserId(userId);
+                FirebaseAdapter.SetUserId(userId);
 #endif
 
 #if FIREBASE_CRASHLYTICS_INSTALLED
-            FirebaseCrashlyticsAdapter.SetCustomKey("user_id", userId ?? "");
+                FirebaseCrashlyticsAdapter.SetCustomKey("user_id", userId ?? "");
 #endif
 
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
-            AdjustAdapter.SetUserId(userId);
+                AdjustAdapter.SetUserId(userId);
 #endif
+            });
         }
 
         /// <summary>
@@ -435,11 +450,12 @@ namespace Sorolla.Palette
         /// </summary>
         public static void SetUserProperty(string name, string value)
         {
-            if (!EnsureInit()) return;
-
+            QueueOrExecute(() =>
+            {
 #if FIREBASE_ANALYTICS_INSTALLED
-            FirebaseAdapter.SetUserProperty(name, value);
+                FirebaseAdapter.SetUserProperty(name, value);
 #endif
+            });
         }
 
         #endregion
@@ -619,6 +635,7 @@ namespace Sorolla.Palette
             // (set in OnMaxSdkInitialized). Without MAX, we're ready now.
 #if !(SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED)
             IsInitialized = true;
+            FlushPending();
             OnInitialized?.Invoke();
             Debug.Log($"{Tag} Ready!");
 #else
@@ -626,12 +643,29 @@ namespace Sorolla.Palette
 #endif
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static bool EnsureInit()
+        // Events fired from game Awake/Start can land before MAX CMP resolves on iOS
+        // (pre-consent window is ~1-3s). Queue them here and flush on IsInitialized
+        // so adapter dispatch always runs with resolved consent.
+        static readonly Queue<Action> s_pendingEvents = new Queue<Action>();
+        const int PendingQueueCap = 256;
+
+        static void QueueOrExecute(Action action)
         {
-            if (IsInitialized) return true;
-            Debug.LogWarning($"{Tag} Not initialized. Events may be lost.");
-            return false;
+            if (IsInitialized) { action(); return; }
+            if (s_pendingEvents.Count >= PendingQueueCap)
+            {
+                Debug.LogWarning($"{Tag} Pending event queue full ({PendingQueueCap}); dropping oldest.");
+                s_pendingEvents.Dequeue();
+            }
+            s_pendingEvents.Enqueue(action);
+        }
+
+        static void FlushPending()
+        {
+            if (s_pendingEvents.Count == 0) return;
+            Debug.Log($"{Tag} Flushing {s_pendingEvents.Count} queued event(s).");
+            while (s_pendingEvents.Count > 0)
+                s_pendingEvents.Dequeue().Invoke();
         }
 
         #endregion
@@ -798,8 +832,7 @@ namespace Sorolla.Palette
         public static void LogException(Exception exception)
         {
 #if FIREBASE_CRASHLYTICS_INSTALLED
-            if (!EnsureInit()) return;
-            FirebaseCrashlyticsAdapter.LogException(exception);
+            QueueOrExecute(() => FirebaseCrashlyticsAdapter.LogException(exception));
 #endif
         }
 
@@ -807,8 +840,7 @@ namespace Sorolla.Palette
         public static void LogCrashlytics(string message)
         {
 #if FIREBASE_CRASHLYTICS_INSTALLED
-            if (!EnsureInit()) return;
-            FirebaseCrashlyticsAdapter.Log(message);
+            QueueOrExecute(() => FirebaseCrashlyticsAdapter.Log(message));
 #endif
         }
 
@@ -816,8 +848,7 @@ namespace Sorolla.Palette
         public static void SetCrashlyticsKey(string key, string value)
         {
 #if FIREBASE_CRASHLYTICS_INSTALLED
-            if (!EnsureInit()) return;
-            FirebaseCrashlyticsAdapter.SetCustomKey(key, value);
+            QueueOrExecute(() => FirebaseCrashlyticsAdapter.SetCustomKey(key, value));
 #endif
         }
 
@@ -825,8 +856,7 @@ namespace Sorolla.Palette
         public static void SetCrashlyticsKey(string key, int value)
         {
 #if FIREBASE_CRASHLYTICS_INSTALLED
-            if (!EnsureInit()) return;
-            FirebaseCrashlyticsAdapter.SetCustomKey(key, value);
+            QueueOrExecute(() => FirebaseCrashlyticsAdapter.SetCustomKey(key, value));
 #endif
         }
 
@@ -834,8 +864,7 @@ namespace Sorolla.Palette
         public static void SetCrashlyticsKey(string key, float value)
         {
 #if FIREBASE_CRASHLYTICS_INSTALLED
-            if (!EnsureInit()) return;
-            FirebaseCrashlyticsAdapter.SetCustomKey(key, value);
+            QueueOrExecute(() => FirebaseCrashlyticsAdapter.SetCustomKey(key, value));
 #endif
         }
 
@@ -843,8 +872,7 @@ namespace Sorolla.Palette
         public static void SetCrashlyticsKey(string key, bool value)
         {
 #if FIREBASE_CRASHLYTICS_INSTALLED
-            if (!EnsureInit()) return;
-            FirebaseCrashlyticsAdapter.SetCustomKey(key, value);
+            QueueOrExecute(() => FirebaseCrashlyticsAdapter.SetCustomKey(key, value));
 #endif
         }
 
@@ -905,12 +933,31 @@ namespace Sorolla.Palette
             if (!isPrototype && Config != null)
             {
                 InitializeAdjust();
+                // Adjust starts enabled after InitSdk; immediately Disable if consent denied
+                // so we don't ship attribution events for a user who opted out.
+                AdjustAdapter.UpdateConsent(consent);
             }
 #endif
 
             IsInitialized = true;
+            FlushPending();
             OnInitialized?.Invoke();
             Debug.Log($"{Tag} Ready!");
+
+            // Ship decision to analytics so we can query consent-drop cohorts from our own data.
+            TrackEvent("consent_resolved", new Dictionary<string, object>
+            {
+                { "max_status", MaxAdapter.ConsentStatus.ToString() },
+                { "consent", consent },
+                { "source", "max" },
+            });
+#if UNITY_IOS && !UNITY_EDITOR
+            TrackEvent("att_decision", new Dictionary<string, object>
+            {
+                { "att_status", ATTBridge.GetStatus().ToString() },
+                { "source", "max" },
+            });
+#endif
         }
 
         static void OnMaxConsentChanged(Adapters.ConsentStatus status)
@@ -927,6 +974,15 @@ namespace Sorolla.Palette
 #if SOROLLA_FACEBOOK_ENABLED
             FacebookAdapter.UpdateConsent(consent);
 #endif
+#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+            AdjustAdapter.UpdateConsent(consent);
+#endif
+
+            TrackEvent("consent_changed", new Dictionary<string, object>
+            {
+                { "max_status", status.ToString() },
+                { "consent", consent },
+            });
         }
 
         static void LogConsentDiagnostics()

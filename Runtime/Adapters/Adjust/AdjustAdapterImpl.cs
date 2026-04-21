@@ -42,6 +42,19 @@ namespace Sorolla.Palette.Adapters
             Debug.Log("[Palette:Adjust] Initialized");
         }
 
+        public void UpdateConsent(bool consent)
+        {
+            if (!_init)
+            {
+                Debug.LogWarning($"[Palette:Adjust] UpdateConsent({consent}) called before init - ignoring");
+                return;
+            }
+
+            if (consent) Adjust.Enable();
+            else         Adjust.Disable();
+            Debug.Log($"[Palette:Adjust] UpdateConsent({consent}) -> Adjust.{(consent ? "Enable" : "Disable")}()");
+        }
+
         public void TrackEvent(string eventToken)
         {
             if (!_init) return;

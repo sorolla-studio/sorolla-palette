@@ -74,7 +74,6 @@ namespace Sorolla.Palette
 
             static void Track(bool flowSource, CurrencyId currency, int amount, string category, bool isOther, string itemId)
             {
-                if (!EnsureInit()) return;
                 string verb = flowSource ? "Earn" : "Spend";
 
                 if (amount <= 0)
@@ -89,16 +88,19 @@ namespace Sorolla.Palette
                 string currencyName = EnumToSnake(currency);
                 string effectiveItemId = string.IsNullOrWhiteSpace(itemId) ? category : Sanitize(itemId);
 
+                QueueOrExecute(() =>
+                {
 #if GAMEANALYTICS_INSTALLED
-                GAResourceFlowType gaFlow = flowSource ? GAResourceFlowType.Source : GAResourceFlowType.Sink;
-                GameAnalyticsAdapter.TrackResourceEvent(gaFlow, currencyName, amount, category, effectiveItemId);
+                    GAResourceFlowType gaFlow = flowSource ? GAResourceFlowType.Source : GAResourceFlowType.Sink;
+                    GameAnalyticsAdapter.TrackResourceEvent(gaFlow, currencyName, amount, category, effectiveItemId);
 #else
-                GameAnalyticsAdapter.TrackResourceEvent(flowSource ? "source" : "sink", currencyName, amount, category, effectiveItemId);
+                    GameAnalyticsAdapter.TrackResourceEvent(flowSource ? "source" : "sink", currencyName, amount, category, effectiveItemId);
 #endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
-                FirebaseAdapter.TrackResourceEvent(flowSource ? "source" : "sink", currencyName, amount, category, effectiveItemId, null);
+                    FirebaseAdapter.TrackResourceEvent(flowSource ? "source" : "sink", currencyName, amount, category, effectiveItemId, null);
 #endif
+                });
             }
 
             static string EnumToSnake(Enum e)

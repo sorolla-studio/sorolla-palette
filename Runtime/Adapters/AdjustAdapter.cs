@@ -37,6 +37,7 @@ namespace Sorolla.Palette.Adapters
     internal interface IAdjustAdapter
     {
         void Initialize(string appToken, AdjustEnvironment environment, bool verboseLogging = false);
+        void UpdateConsent(bool consent);
         void TrackEvent(string eventToken);
         void TrackRevenue(string eventToken, double amount, string currency);
         void TrackAdRevenue(AdRevenueInfo info);
@@ -72,6 +73,11 @@ namespace Sorolla.Palette.Adapters
                 s_impl.Initialize(appToken, environment, verboseLogging);
             else
                 UnityEngine.Debug.LogWarning($"{Tag} Not installed");
+        }
+
+        public static void UpdateConsent(bool consent)
+        {
+            s_impl?.UpdateConsent(consent);
         }
 
         public static void TrackEvent(string eventToken)
