@@ -24,7 +24,7 @@ Technical reference for contributors working on the Sorolla SDK.
 
 1. **Rich types over primitives.** If a richer type carries the data (`UnityEngine.Purchasing.Product`, `Exception`, `ConsentStatus` enum, a schema-generated key), take it. Derive primitives inside the SDK. Never make studios extract what we can extract.
 
-2. **One-line integration per feature.** If the feature can be "wrap once, forget", build that. `Palette.Purchasing.AutoTracker` wrapping `IDetailedStoreListener` is the reference pattern: studio writes one line at init, SDK handles every purchase for the app's lifetime.
+2. **One-line integration per feature.** If the feature can be "wrap once, forget", build that. Reference pattern for Unity IAP v5: studio subscribes `_storeController.OnPurchasePending += Palette.TrackPurchase;` once at init — SDK handles every purchase for the app's lifetime. (The legacy `Palette.Purchasing.AutoTracker` wrapping `IDetailedStoreListener` is Obsolete in v5 per https://docs.unity.com/en-us/iap/upgrade-to-iap-v5 — retained only as a transition shim with `[Obsolete]` warnings.)
 
 3. **Silent misuse is a critical bug.** If a call accepts wrong data and fires anyway, validate. Drop or warn loud, with a pointer to the recommended API. Catches bugs at integration time instead of after weeks of polluted dashboards.
 

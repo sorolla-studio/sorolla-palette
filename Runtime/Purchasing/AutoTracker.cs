@@ -6,19 +6,13 @@ using UnityEngine.Purchasing;
 namespace Sorolla.Palette.Purchasing
 {
     /// <summary>
-    ///     Drop-in <see cref="IDetailedStoreListener"/> decorator that auto-tracks every confirmed purchase via <see cref="Palette.TrackPurchase(Product)"/>.
-    ///     Wrap your existing listener once at <c>UnityPurchasing.Initialize</c> and every purchase is tracked with correct amount, currency,
-    ///     productId, transactionId, and (on Android) purchaseToken - no per-purchase code required.
+    ///     <b>[Obsolete]</b> Drop-in <see cref="IDetailedStoreListener"/> decorator that auto-tracks every confirmed purchase.
+    ///     Unity IAP v5 obsoleted <c>IDetailedStoreListener</c> / <c>IStoreListener</c> / <c>UnityPurchasing.Initialize</c>
+    ///     (https://docs.unity.com/en-us/iap/upgrade-to-iap-v5) — this decorator no longer works on v5 projects using
+    ///     <c>UnityIAPServices.StoreController</c>. Subscribe to <c>StoreController.OnPurchasePending</c> and call
+    ///     <c>Palette.TrackPurchase(pendingOrder)</c> directly. See architecture.md for migration.
     /// </summary>
-    /// <example>
-    /// <code>
-    /// // Before:
-    /// UnityPurchasing.Initialize(this, builder);
-    ///
-    /// // After (single-line change):
-    /// UnityPurchasing.Initialize(new Palette.Purchasing.AutoTracker(this), builder);
-    /// </code>
-    /// </example>
+    [Obsolete("Unity IAP v5 obsoleted IDetailedStoreListener. AutoTracker does not work with UnityIAPServices.StoreController. Subscribe to StoreController.OnPurchasePending and call Palette.TrackPurchase(pendingOrder) directly.")]
     public class AutoTracker : IDetailedStoreListener
     {
         const string Tag = "[Palette:AutoTracker]";
@@ -34,7 +28,9 @@ namespace Sorolla.Palette.Purchasing
         {
             try
             {
+                #pragma warning disable CS0618 // calling the obsolete overload is intentional inside this obsolete class
                 Palette.TrackPurchase(e?.purchasedProduct);
+                #pragma warning restore CS0618
             }
             catch (Exception ex)
             {

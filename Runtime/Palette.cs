@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using Sorolla.Palette.Adapters;
@@ -324,24 +325,92 @@ namespace Sorolla.Palette
 
 #if UNITY_PURCHASING_INSTALLED
         /// <summary>
-        ///     <b>Recommended.</b> Track an in-app purchase from a Unity IAP <see cref="Product"/>.
-        ///     Derives amount, currency, productId, transactionId, and (on Android) purchaseToken automatically -
-        ///     impossible to pass wrong data. Auto-verifies receipts with Adjust's App Store / Play Store APIs.
+        ///     <b>Canonical Unity IAP v5 path.</b> Track a purchase from a <see cref="PendingOrder"/>
+        ///     received in <c>StoreController.OnPurchasePending</c>.
+        ///     Call this <b>before</b> <c>StoreController.ConfirmPurchase(order)</c> — per Unity IAP v5.2
+        ///     (https://docs.unity3d.com/Packages/com.unity.purchasing@5.2/api/UnityEngine.Purchasing.IOrderInfo.html),
+        ///     for consumables <c>Order.Info.TransactionID</c> and <c>Order.Info.Receipt</c> are cleared after confirmation.
+        ///     Tracking at OnPurchasePending is the only point that captures transactionId reliably on consumables.
         /// </summary>
-        /// <param name="product">Unity IAP product from <c>PurchaseEventArgs.purchasedProduct</c></param>
+        /// <param name="order">PendingOrder from <c>StoreController.OnPurchasePending</c>.</param>
         /// <example>
         /// <code>
-        /// // In your IStoreListener.ProcessPurchase:
-        /// public PurchaseProcessingResult ProcessPurchase(PurchaseEventArgs e)
+        /// _storeController.OnPurchasePending += order =>
         /// {
-        ///     Palette.TrackPurchase(e.purchasedProduct);
-        ///     return PurchaseProcessingResult.Complete;
-        /// }
-        ///
-        /// // Or wrap your listener once and forget about it:
-        /// UnityPurchasing.Initialize(new Palette.Purchasing.AutoTracker(this), builder);
+        ///     Palette.TrackPurchase(order);        // track first (transactionID still valid)
+        ///     GrantRewards(order.CartOrdered);     // fulfillment
+        ///     _storeController.ConfirmPurchase(order);
+        /// };
         /// </code>
         /// </example>
+        public static void TrackPurchase(PendingOrder order)
+        {
+            if (order == null)
+            {
+                Debug.LogWarning($"{Tag} TrackPurchase(PendingOrder): null order - skipping.");
+                return;
+            }
+
+            var product = order.CartOrdered?.Items()?.FirstOrDefault()?.Product;
+            if (product == null)
+            {
+                Debug.LogWarning($"{Tag} TrackPurchase(PendingOrder): empty cart - skipping.");
+                return;
+            }
+
+            var md = product.metadata;
+            string rawCurrency = md?.isoCurrencyCode;
+            decimal rawPrice = md?.localizedPrice ?? 0m;
+            string productId = product.definition.id;
+            string transactionId = order.Info?.TransactionID;
+
+            // Defensive: Firebase strips `value` when `currency` is non-ISO (firebase_error=19,
+            // error_value="currency" observed in BQ); MMPs reject non-ISO outright. Drop rather
+            // than forward corrupt revenue.
+            if (rawPrice <= 0m || !IsIso4217(rawCurrency))
+            {
+                Debug.LogError($"{Tag} TrackPurchase(PendingOrder): invalid metadata — " +
+                    $"product_id='{productId}', localizedPrice={rawPrice}, isoCurrencyCode='{rawCurrency}'. " +
+                    $"Dropping event.");
+#if FIREBASE_ANALYTICS_INSTALLED
+                FirebaseAdapter.TrackEvent("sorolla_purchase_data_quality_failure", new Dictionary<string, object>
+                {
+                    { "reason", rawPrice <= 0m ? "non_positive_price" : "non_iso_currency" },
+                    { "raw_currency", rawCurrency ?? "null" },
+                    { "raw_price", (double)rawPrice },
+                    { "product_id", productId ?? "null" },
+                    { "platform", Application.platform.ToString() },
+                    { "source", "pending_order" },
+                });
+#endif
+                return;
+            }
+
+            // Android purchaseToken via unified-receipt parse; iOS path doesn't need this.
+            string purchaseToken = null;
+            string receipt = order.Info?.Receipt;
+            if (!string.IsNullOrEmpty(receipt))
+            {
+                ParsedReceipt parsed = ReceiptParser.Parse(receipt);
+                purchaseToken = parsed.PurchaseToken;
+            }
+
+            TrackPurchase(
+                amount:        (double)rawPrice,
+                currency:      rawCurrency,
+                productId:     productId,
+                transactionId: transactionId,
+                purchaseToken: purchaseToken);
+        }
+
+        /// <summary>
+        ///     <b>[Obsolete]</b> Track a purchase from a legacy Unity IAP <see cref="Product"/>.
+        ///     Unity IAP v5 marks <c>Product.transactionID</c> and <c>Product.receipt</c> as
+        ///     <see cref="System.ObsoleteAttribute">Obsolete</see>. On consumable products those fields
+        ///     are empty after <c>StoreController.ConfirmPurchase</c>, causing missing transaction_id in
+        ///     Firebase and breaking MMP deduplication. Use <see cref="TrackPurchase(PendingOrder)"/> instead.
+        /// </summary>
+        [Obsolete("Unity IAP v5 obsoleted Product.transactionID and Product.receipt. Use Palette.TrackPurchase(PendingOrder) called from StoreController.OnPurchasePending. See Packages/com.sorolla.sdk/Documentation~/architecture.md for migration.")]
         public static void TrackPurchase(Product product)
         {
             if (product == null)
@@ -355,15 +424,11 @@ namespace Sorolla.Palette
             decimal rawPrice = md?.localizedPrice ?? 0m;
             string productId = product.definition.id;
 
-            // Defensive: Firebase strips `value` server-side when `currency` is non-ISO
-            // (firebase_error=19, error_value="currency" observed in BQ), and MMPs
-            // reject non-ISO currency outright. Forwarding corrupts attribution.
-            // Upstream cause of bad Product.metadata on Android is not yet understood.
             if (rawPrice <= 0m || !IsIso4217(rawCurrency))
             {
                 Debug.LogError($"{Tag} TrackPurchase(Product): invalid metadata — " +
                     $"product_id='{productId}', localizedPrice={rawPrice}, isoCurrencyCode='{rawCurrency}'. " +
-                    $"Dropping event. Raw Product.metadata shape logged for forensics.");
+                    $"Dropping event. Migrate to TrackPurchase(PendingOrder) for Unity IAP v5.");
 #if FIREBASE_ANALYTICS_INSTALLED
                 FirebaseAdapter.TrackEvent("sorolla_purchase_data_quality_failure", new Dictionary<string, object>
                 {
@@ -372,13 +437,16 @@ namespace Sorolla.Palette
                     { "raw_price", (double)rawPrice },
                     { "product_id", productId ?? "null" },
                     { "platform", Application.platform.ToString() },
+                    { "source", "product_legacy" },
                 });
 #endif
                 return;
             }
 
+            #pragma warning disable CS0618 // Legacy v4 fields — intentional in this obsolete overload
             ParsedReceipt parsed = ReceiptParser.Parse(product.receipt);
             string txId = !string.IsNullOrEmpty(product.transactionID) ? product.transactionID : parsed.TransactionId;
+            #pragma warning restore CS0618
 
             TrackPurchase(
                 amount:        (double)rawPrice,
