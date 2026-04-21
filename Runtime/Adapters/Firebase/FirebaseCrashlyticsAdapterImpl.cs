@@ -39,8 +39,13 @@ namespace Sorolla.Palette.Adapters
             {
                 if (available)
                 {
+                    // Route uncaught C# exceptions to Crashlytics as FATAL (v10.4.0+ recommended,
+                    // per https://firebase.google.com/docs/crashlytics/unity/customize-crash-reports).
+                    // Without this, uncaught exceptions are not auto-reported — only native crashes are.
+                    Crashlytics.ReportUncaughtExceptionsAsFatal = true;
+
                     _ready = true;
-                    Debug.Log($"{Tag} Initialized");
+                    Debug.Log($"{Tag} Initialized (ReportUncaughtExceptionsAsFatal=true)");
 
                     if (_captureExceptions)
                         Application.logMessageReceived += OnLogMessageReceived;
@@ -77,21 +82,16 @@ namespace Sorolla.Palette.Adapters
 
         private void OnLogMessageReceived(string condition, string stackTrace, LogType type)
         {
-            if (type != LogType.Error && type != LogType.Exception && type != LogType.Assert)
+            // LogType.Exception is handled natively via ReportUncaughtExceptionsAsFatal — don't
+            // double-report here. Only capture Error / Assert as breadcrumbs for context.
+            if (type != LogType.Error && type != LogType.Assert)
                 return;
 
             try
             {
-                Crashlytics.SetCustomKey("unity_log_type", type.ToString());
-
-                if (type == LogType.Exception)
-                    Crashlytics.LogException(new Exception($"{condition}\n{stackTrace}"));
-                else
-                {
-                    Crashlytics.Log($"[{type}] {condition}");
-                    if (!string.IsNullOrEmpty(stackTrace))
-                        Crashlytics.Log(stackTrace);
-                }
+                Crashlytics.Log($"[{type}] {condition}");
+                if (!string.IsNullOrEmpty(stackTrace))
+                    Crashlytics.Log(stackTrace);
             }
             catch { }
         }
