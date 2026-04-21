@@ -32,6 +32,14 @@ namespace Sorolla.Palette.Adapters
                 : AdjustSdk.AdjustEnvironment.Sandbox);
 
             config.LogLevel = verboseLogging ? AdjustLogLevel.Verbose : AdjustLogLevel.Warn;
+
+            // iOS only: delay the install event up to N seconds so ATT prompt can resolve
+            // before the first install fires. Without this, Adjust can send install without
+            // IDFA when the ATT dialog is still pending — degraded attribution for non-SKAN
+            // paths. Docs: https://dev.adjust.com/en/sdk/unity/features/privacy
+            // 60s matches Adjust's own example; safe upper bound.
+            config.AttConsentWaitingInterval = 60;
+
             config.AttributionChangedDelegate = attribution =>
             {
                 Debug.Log($"[Palette:Adjust] Attribution: network={attribution.Network}, campaign={attribution.Campaign}");
