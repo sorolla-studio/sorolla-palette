@@ -346,10 +346,18 @@ Real-time (v3.7.0+):
 
 ### Purchase Attribution
 ```
-Palette.TrackPurchase(amount, currency, productId, transactionId, purchaseToken)
-    ├── AdjustAdapter.TrackPurchase()     ← Platform-routed verification
-    ├── TikTokAdapter.TrackPurchase()     ← If enabled
-    └── FirebaseAdapter.TrackPurchase()   ← If enabled (analytics only, no verification)
+StoreController.OnPurchasePending(PendingOrder)        ← Unity IAP v5 canonical entry
+    └── Palette.TrackPurchase(PendingOrder)            ← Reads Info.TransactionID / Info.Receipt
+                                                         while order is still Pending
+                                                         (consumables lose both on ConfirmPurchase)
+        └── Palette.TrackPurchase(amount, currency, productId, transactionId, purchaseToken)
+                ├── AdjustAdapter.TrackPurchase()     ← Platform-routed verification
+                ├── TikTokAdapter.TrackPurchase()     ← If enabled
+                └── FirebaseAdapter.TrackPurchase()   ← If enabled (analytics only, no verification)
+
+Legacy paths (Obsolete in v5, kept as transition shims):
+- Palette.TrackPurchase(Product)           ← v4 Product.transactionID/.receipt are [Obsolete]
+- Palette.Purchasing.AutoTracker           ← wraps IDetailedStoreListener, Obsolete in v5
 ```
 
 ---

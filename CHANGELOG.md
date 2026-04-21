@@ -2,6 +2,54 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.13.0] - 2026-04-21
+
+Revenue-integrity release. Triggered by a live-fire BQ audit of Sweep Collector (Romba Clean) that exposed Android purchases landing in Firebase with `currency="Tier"` / `value=NULL` (`firebase_error=19 / error_value="currency"` observed in raw events) and an iOS `transaction_id` regression after the consumer migrated to Unity IAP v5 CorePro. A full vendor-deprecation audit ran in parallel: every third-party API the SDK calls was cross-checked against live 2026 documentation (AppLovin / Axon, Adjust v5, Firebase Unity 13.x, Facebook v18, GameAnalytics, Unity IAP 5.2.1). This release ships the Unity IAP v5 migration path plus three best-practice gaps closed (Crashlytics fatal routing, Adjust iOS ATT wait, GA4 `items[]` shape).
+
+### Added
+- **`Palette.TrackPurchase(PendingOrder)`**: canonical Unity IAP v5 overload. Reads `order.Info.TransactionID` + `order.Info.Receipt` while the order is still in `Pending` state — the only lifecycle point that captures `transactionId` reliably on consumables. Subscribe to `StoreController.OnPurchasePending` and call **before** `StoreController.ConfirmPurchase(order)`. Per [Unity IAP 5.2.1 `IOrderInfo` docs](https://docs.unity3d.com/Packages/com.unity.purchasing@5.2/api/UnityEngine.Purchasing.IOrderInfo.html), both fields are cleared for consumables once the order transitions to `ConfirmedOrder`. Preserves the existing price/currency validation and fires `sorolla_purchase_data_quality_failure` with `source: "pending_order"` on invalid metadata.
+- **`sorolla_purchase_data_quality_failure` Firebase event**: diagnostic event fired whenever `TrackPurchase` drops a call for data-quality reasons. Params: `reason` (`non_positive_price` | `non_iso_currency` | `non_iso_currency_lowlevel`), `raw_currency`, `raw_price`, `product_id`, `platform`, `source` (`pending_order` | `product_legacy` | low-level). Queryable in BQ to detect upstream Unity IAP breakage or consumer-side plumbing regressions without logcat.
+
+### Fixed
+- **Android `currency="Tier"` / `value=NULL` data corruption**: `Palette.TrackPurchase` no longer silently forwards invalid currency or non-positive price to Firebase / Adjust / GA / TikTok. Firebase strips `value` server-side on non-ISO 4217 currency (`firebase_error=19 / error_value="currency"`, observed in BQ) and MMPs reject outright — forwarding corrupted revenue attribution across every downstream pipeline. All three validation paths (`PendingOrder` overload, legacy `Product` overload, and the low-level `TrackPurchase(double, string, …)` entry point) now drop + `Debug.LogError` + emit the diagnostic event. Upstream cause of bad Unity IAP metadata on Android is not yet identified; the diagnostic event captures the raw shape for forensic analysis on next repro.
+- **iOS `transaction_id` missing on consumables post Unity IAP v5 upgrade**: root cause is the `PendingOrder` vs `ConfirmedOrder` lifecycle behaviour above. Fixed by migrating consumer tracking to the new `PendingOrder` overload (see Migration below).
+
+### Changed
+- **Low-level `Palette.TrackPurchase(double amount, string currency, …)` currency guard**: upgraded from warn-and-proceed to **drop** on non-ISO 4217 currency. Revenue integrity > coverage — a wrong-currency event corrupts every downstream pipeline. Better no event than broken revenue.
+- **Firebase Crashlytics** (`FirebaseCrashlyticsAdapterImpl`):
+  - `Crashlytics.ReportUncaughtExceptionsAsFatal = true` set on init (v10.4.0+ recommended pattern, per https://firebase.google.com/docs/crashlytics/unity/customize-crash-reports). Uncaught C# exceptions now surface as **fatal** in the Crashlytics dashboard; previously they were either missed or miscategorized as non-fatal.
+  - `Application.logMessageReceived` handler no longer calls `LogException` for `LogType.Exception` — native auto-capture handles those now, and manual logging would double-report (fatal + non-fatal) the same exception. `LogType.Error` and `LogType.Assert` are still captured as `Crashlytics.Log` breadcrumbs for context.
+- **Firebase `purchase` event items[]** (`FirebaseAdapterImpl.TrackPurchase`): now includes `ParameterPrice` (= event value, single-item IAP) and `ParameterQuantity` (= 1) alongside the existing `ParameterItemID`. Required by GA4's canonical purchase shape for the Monetization > In-app purchases per-product breakdown to populate; previously only total revenue flowed via top-level `value` and the per-product drill-down was degraded.
+- **Adjust iOS `AttConsentWaitingInterval = 60`** on `AdjustConfig` (`AdjustAdapterImpl.Initialize`). Delays install event up to 60s so Adjust captures IDFA after the ATT prompt resolves; previously installs could fire before ATT landed → IDFA missing → degraded attribution on non-SKAN paths. No-op on Android.
+- **`Documentation~/architecture.md` Purchase Attribution diagram**: now documents the v5 entry point (`OnPurchasePending` → `TrackPurchase(PendingOrder)`) as the canonical path; legacy `Product` / `AutoTracker` paths shown as transition shims.
+
+### Deprecated
+- **`Palette.TrackPurchase(Product)`** marked `[Obsolete]`: Unity IAP v5 marks `Product.transactionID` and `Product.receipt` as `[Obsolete]` (see [upgrade-to-iap-v5](https://docs.unity.com/en-us/iap/upgrade-to-iap-v5)), and for consumables both fields are empty after `ConfirmPurchase`. Migrate to `TrackPurchase(PendingOrder)`. Still functional for v4 projects during the transition; `sorolla_purchase_data_quality_failure` tags these with `source: "product_legacy"` for migration-tracking.
+- **`Palette.Purchasing.AutoTracker`** marked `[Obsolete]`: built on `IDetailedStoreListener` which Unity obsoleted in v5. Does not work with `UnityIAPServices.StoreController`. No direct replacement — subscribe `StoreController.OnPurchasePending += order => Palette.TrackPurchase(order);` at init instead (still a one-line integration).
+
+### Migration
+```csharp
+// Before (Unity IAP v4, now Obsolete):
+public PurchaseProcessingResult ProcessPurchase(PurchaseEventArgs e)
+{
+    Palette.TrackPurchase(e.purchasedProduct);
+    return PurchaseProcessingResult.Complete;
+}
+
+// After (Unity IAP v5 CorePro):
+_storeController.OnPurchasePending += order =>
+{
+    Palette.TrackPurchase(order);        // track first — transactionID still valid
+    GrantRewards(order.CartOrdered);     // fulfillment
+    _storeController.ConfirmPurchase(order);
+};
+```
+
+### Expected dashboard deltas after rollout
+- **iOS Firebase revenue may drop ~50%** once consumer-side duplicate-fire in `HandlePurchaseConfirmed` is resolved (tracked separately by the integration agent). Each purchase was firing twice ~1s apart with the same payload, inflating aggregate revenue. Correction, not regression.
+- **Android Firebase `purchase` events may drop** as the SDK starts rejecting invalid-currency payloads. Affected purchases surface in the `sorolla_purchase_data_quality_failure` event stream with raw metadata; these were previously landing with `value=NULL` and unattributable anyway.
+- **Crashlytics fatal count will rise**: C# uncaught exceptions now land in the fatal bucket rather than non-fatal. Not new crashes — re-categorization.
+
 ## [3.12.1] - 2026-04-21
 
 Surfaces AppLovin's built-in ad-network debug tools through the `Palette` API so game code and the DebugUI sample don't need to reach into `MaxSdk.*` directly.
