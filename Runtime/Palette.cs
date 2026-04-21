@@ -351,14 +351,41 @@ namespace Sorolla.Palette
             }
 
             var md = product.metadata;
-            ParsedReceipt parsed = ReceiptParser.Parse(product.receipt);
+            string rawCurrency = md?.isoCurrencyCode;
+            decimal rawPrice = md?.localizedPrice ?? 0m;
+            string productId = product.definition.id;
 
+            // Unity IAP on Android has been observed returning non-ISO currency (e.g. "Tier")
+            // and/or zero price when Play Billing product catalog isn't fully resolved at
+            // ProcessPurchase time. Forwarding either corrupts revenue attribution:
+            // Firebase strips `value` with firebase_error=19, Adjust/MMP reject outright.
+            // Drop with a diagnostic so studios can BQ-detect upstream Unity IAP breakage.
+            if (rawPrice <= 0m || !IsIso4217(rawCurrency))
+            {
+                Debug.LogError($"{Tag} TrackPurchase(Product): invalid Unity IAP metadata — " +
+                    $"product_id='{productId}', localizedPrice={rawPrice}, isoCurrencyCode='{rawCurrency}'. " +
+                    $"Dropping event (better no event than broken revenue). " +
+                    $"Likely cause: Play Billing catalog not resolved at ProcessPurchase time.");
+#if FIREBASE_ANALYTICS_INSTALLED
+                FirebaseAdapter.TrackEvent("sorolla_purchase_data_quality_failure", new Dictionary<string, object>
+                {
+                    { "reason", rawPrice <= 0m ? "non_positive_price" : "non_iso_currency" },
+                    { "raw_currency", rawCurrency ?? "null" },
+                    { "raw_price", (double)rawPrice },
+                    { "product_id", productId ?? "null" },
+                    { "platform", Application.platform.ToString() },
+                });
+#endif
+                return;
+            }
+
+            ParsedReceipt parsed = ReceiptParser.Parse(product.receipt);
             string txId = !string.IsNullOrEmpty(product.transactionID) ? product.transactionID : parsed.TransactionId;
 
             TrackPurchase(
-                amount:        (double)md.localizedPrice,
-                currency:      md.isoCurrencyCode,
-                productId:     product.definition.id,
+                amount:        (double)rawPrice,
+                currency:      rawCurrency,
+                productId:     productId,
                 transactionId: txId,
                 purchaseToken: parsed.PurchaseToken);
         }
@@ -385,8 +412,20 @@ namespace Sorolla.Palette
             }
             if (!IsIso4217(currency))
             {
-                Debug.LogWarning($"{Tag} TrackPurchase: currency '{currency}' is not ISO 4217. " +
-                    $"Adjust/MMP will reject or misreport revenue. Pass Product.metadata.isoCurrencyCode or use Palette.TrackPurchase(product).");
+                Debug.LogError($"{Tag} TrackPurchase: currency '{currency}' is not ISO 4217 — dropping event. " +
+                    $"Forwarding would corrupt MMP attribution (Firebase strips `value` with firebase_error=19, " +
+                    $"Adjust rejects outright). Better no event than broken revenue. " +
+                    $"Pass Product.metadata.isoCurrencyCode or use Palette.TrackPurchase(product).");
+#if FIREBASE_ANALYTICS_INSTALLED
+                FirebaseAdapter.TrackEvent("sorolla_purchase_data_quality_failure", new Dictionary<string, object>
+                {
+                    { "reason", "non_iso_currency_lowlevel" },
+                    { "raw_currency", currency ?? "null" },
+                    { "amount", amount },
+                    { "product_id", productId ?? "null" },
+                });
+#endif
+                return;
             }
 
             QueueOrExecute(() =>
