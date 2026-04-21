@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.12.0] - 2026-04-21
+
+Follow-up to `3.11.0`. Cleaned up consent fan-out to remove a redundant second propagation pass, deleted a dead Adjust init branch that no deployment path actually reaches, and reshaped ad-failure telemetry toward user-intent events so offline / VPN / no-fill sessions show up in the in-app funnel instead of disappearing into MAX's dashboard.
+
+### Added
+- **`ad_show_requested` analytics event**: fired on every `Palette.ShowRewardedAd` / `Palette.ShowInterstitialAd` call. Params: `ad_format` (`rewarded` | `interstitial`). Pairs with the existing `ad_impression` event so studios can compute `show_rate = ad_impression / ad_show_requested` in Firebase / BigQuery - the missing denominator for ads-not-shown analysis.
+- **`ad_show_failed` analytics event**: fired when a show call returns without displaying an ad. Params: `ad_format`, `reason` (`not_ready` | `not_initialized` | `display_error`), plus `network` + `error_code` + `mediated_error_code` when `reason == display_error`. `not_ready` is the signal for offline / VPN-blocked mediation / no-fill sessions; `display_error` catches the rarer "loaded but crashed on show" case.
+
+### Changed
+- **Consent fan-out in `Palette.OnMaxSdkInitialized` deduped**: `MaxAdapterImpl.UpdateConsentStatusFromConfig` already fires `OnConsentStatusChanged` before `OnSdkInitialized` (default status `Unknown` always transitions to a resolved value on first init), which reaches `Palette.OnMaxConsentChanged` and propagates to GA / Firebase / Facebook. The second pass in `OnMaxSdkInitialized` was redundant and fired back-to-back `UpdateConsent` calls on the same adapters. Removed; Adjust init + `UpdateConsent` stay in `OnMaxSdkInitialized` per MAX SDK docs ("initialize other SDKs INSIDE the MAX callback").
+
+### Removed
+- **Dead `#elif SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED` branch in `Palette.Initialize`**: assumed "Adjust without MAX" was a real deployment path. It isn't - Full mode always ships MAX + Adjust together; Prototype mode never ships Adjust. The branch also silently skipped `UpdateConsent` (pre-existing bug that would have bitten if the path ever ran). Adjust initialization is now solely inside `OnMaxSdkInitialized`, single source of truth.
+
 ## [3.11.0] - 2026-04-21
 
 Consent propagation hardening, prompted by a consent drop in Sweep Collector (Romba Clean) where ATT/CMP decisions were invisible in our own analytics. Three coupled fixes so Adjust honors mid-session consent, no events are lost during the MAX CMP resolution window, and the ATT / CMP decision is queryable from our own data.
