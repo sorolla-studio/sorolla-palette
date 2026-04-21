@@ -51,6 +51,8 @@ namespace Sorolla.Palette.Adapters
         void ShowPrivacyOptions(Action onComplete);
         void RefreshConsentStatus();
         void UpdateConsent(bool consent);
+        void ShowMediationDebugger();
+        void ShowCreativeDebugger();
     }
 
     /// <summary>
@@ -159,6 +161,24 @@ namespace Sorolla.Palette.Adapters
         public static void UpdateConsent(bool consent)
         {
             s_impl?.UpdateConsent(consent);
+        }
+
+        /// <summary>
+        ///     Show AppLovin's Mediation Debugger — integration status per network,
+        ///     adapter SDK versions, and per-network Live Test Ads.
+        /// </summary>
+        public static void ShowMediationDebugger()
+        {
+            s_impl?.ShowMediationDebugger();
+        }
+
+        /// <summary>
+        ///     Show AppLovin's Creative Debugger — long-press a live ad while enabled
+        ///     to see network, ad unit, bid price, and creative ID for that impression.
+        /// </summary>
+        public static void ShowCreativeDebugger()
+        {
+            s_impl?.ShowCreativeDebugger();
         }
     }
 }

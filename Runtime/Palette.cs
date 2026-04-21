@@ -1071,6 +1071,35 @@ namespace Sorolla.Palette
 #endif
         }
 
+        /// <summary>
+        ///     Opens AppLovin's Mediation Debugger — an in-app modal listing every
+        ///     integrated ad network, its adapter SDK version, config status, and
+        ///     a per-network "Live Test Ads" button to force end-to-end delivery
+        ///     from each network. Canonical tool for verifying ad-network wiring.
+        /// </summary>
+        public static void ShowMediationDebugger()
+        {
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            MaxAdapter.ShowMediationDebugger();
+#else
+            Debug.LogWarning($"{Tag} MAX not available - mediation debugger requires MAX SDK.");
+#endif
+        }
+
+        /// <summary>
+        ///     Opens AppLovin's Creative Debugger. While enabled, long-pressing a
+        ///     displayed ad overlays its network, ad unit, bid price, and creative
+        ///     ID — diagnostic for "why did that specific ad show" questions.
+        /// </summary>
+        public static void ShowCreativeDebugger()
+        {
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            MaxAdapter.ShowCreativeDebugger();
+#else
+            Debug.LogWarning($"{Tag} MAX not available - creative debugger requires MAX SDK.");
+#endif
+        }
+
         #endregion
 
         #region Internal

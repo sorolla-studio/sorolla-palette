@@ -129,6 +129,26 @@ namespace Sorolla.Palette.Adapters
             UpdateConsentStatusFromConfig(_sdkConfig);
         }
 
+        public void ShowMediationDebugger()
+        {
+            if (!_init)
+            {
+                Debug.LogWarning("[Palette:MAX] Cannot show mediation debugger - SDK not initialized yet");
+                return;
+            }
+            MaxSdk.ShowMediationDebugger();
+        }
+
+        public void ShowCreativeDebugger()
+        {
+            if (!_init)
+            {
+                Debug.LogWarning("[Palette:MAX] Cannot show creative debugger - SDK not initialized yet");
+                return;
+            }
+            MaxSdk.ShowCreativeDebugger();
+        }
+
         public void UpdateConsent(bool consent)
         {
             _consent = consent;
