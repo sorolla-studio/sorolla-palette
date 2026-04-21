@@ -355,17 +355,15 @@ namespace Sorolla.Palette
             decimal rawPrice = md?.localizedPrice ?? 0m;
             string productId = product.definition.id;
 
-            // Unity IAP on Android has been observed returning non-ISO currency (e.g. "Tier")
-            // and/or zero price when Play Billing product catalog isn't fully resolved at
-            // ProcessPurchase time. Forwarding either corrupts revenue attribution:
-            // Firebase strips `value` with firebase_error=19, Adjust/MMP reject outright.
-            // Drop with a diagnostic so studios can BQ-detect upstream Unity IAP breakage.
+            // Defensive: Firebase strips `value` server-side when `currency` is non-ISO
+            // (firebase_error=19, error_value="currency" observed in BQ), and MMPs
+            // reject non-ISO currency outright. Forwarding corrupts attribution.
+            // Upstream cause of bad Product.metadata on Android is not yet understood.
             if (rawPrice <= 0m || !IsIso4217(rawCurrency))
             {
-                Debug.LogError($"{Tag} TrackPurchase(Product): invalid Unity IAP metadata — " +
+                Debug.LogError($"{Tag} TrackPurchase(Product): invalid metadata — " +
                     $"product_id='{productId}', localizedPrice={rawPrice}, isoCurrencyCode='{rawCurrency}'. " +
-                    $"Dropping event (better no event than broken revenue). " +
-                    $"Likely cause: Play Billing catalog not resolved at ProcessPurchase time.");
+                    $"Dropping event. Raw Product.metadata shape logged for forensics.");
 #if FIREBASE_ANALYTICS_INSTALLED
                 FirebaseAdapter.TrackEvent("sorolla_purchase_data_quality_failure", new Dictionary<string, object>
                 {
@@ -412,9 +410,10 @@ namespace Sorolla.Palette
             }
             if (!IsIso4217(currency))
             {
+                // Firebase strips `value` server-side on non-ISO currency (observed:
+                // firebase_error=19, error_value="currency" in BQ), and MMPs reject
+                // outright. Drop rather than forward corrupt revenue.
                 Debug.LogError($"{Tag} TrackPurchase: currency '{currency}' is not ISO 4217 — dropping event. " +
-                    $"Forwarding would corrupt MMP attribution (Firebase strips `value` with firebase_error=19, " +
-                    $"Adjust rejects outright). Better no event than broken revenue. " +
                     $"Pass Product.metadata.isoCurrencyCode or use Palette.TrackPurchase(product).");
 #if FIREBASE_ANALYTICS_INSTALLED
                 FirebaseAdapter.TrackEvent("sorolla_purchase_data_quality_failure", new Dictionary<string, object>
