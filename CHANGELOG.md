@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.12.1] - 2026-04-21
+
+Surfaces AppLovin's built-in ad-network debug tools through the `Palette` API so game code and the DebugUI sample don't need to reach into `MaxSdk.*` directly.
+
+### Added
+- **`Palette.ShowMediationDebugger()`**: opens AppLovin's Mediation Debugger — an in-app modal listing every integrated ad network, its adapter SDK version, adapter class findability, ad-unit config, and a per-network "Live Test Ads" button to force end-to-end delivery from each network. The canonical tool for verifying "is this ad network actually wired up". No-op with warning log when MAX isn't installed.
+- **`Palette.ShowCreativeDebugger()`**: opens AppLovin's Creative Debugger — while enabled, long-pressing a displayed ad overlays its network, ad unit, bid price, waterfall position, and creative ID. Diagnostic for "why did that specific ad show" post-mortems. No-op with warning log when MAX isn't installed.
+
 ## [3.12.0] - 2026-04-21
 
 Follow-up to `3.11.0`. Cleaned up consent fan-out to remove a redundant second propagation pass, deleted a dead Adjust init branch that no deployment path actually reaches, and reshaped ad-failure telemetry toward user-intent events so offline / VPN / no-fill sessions show up in the in-app funnel instead of disappearing into MAX's dashboard.
