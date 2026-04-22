@@ -17,6 +17,7 @@ namespace Sorolla.Palette.Adapters
         string _interstitialId;
         bool _interstitialReady;
         Action _onInterstitialComplete;
+        Action _onInterstitialFailed;
 
         Action _onRewardComplete;
         Action _onRewardFailed;
@@ -453,8 +454,10 @@ namespace Sorolla.Palette.Adapters
                 OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, false);
             }
 
-            _onInterstitialComplete?.Invoke();
+            Action cb = _onInterstitialComplete;
             _onInterstitialComplete = null;
+            _onInterstitialFailed = null;
+            cb?.Invoke();
             LoadInterstitial();
         }
 
@@ -471,8 +474,10 @@ namespace Sorolla.Palette.Adapters
 
             TrackAdShowFailed("interstitial", "display_error", adInfo?.NetworkName, errorInfo);
 
-            _onInterstitialComplete?.Invoke();
+            Action cb = _onInterstitialFailed;
             _onInterstitialComplete = null;
+            _onInterstitialFailed = null;
+            cb?.Invoke();
             LoadInterstitial();
         }
 
@@ -486,7 +491,7 @@ namespace Sorolla.Palette.Adapters
             MaxSdk.LoadInterstitial(_interstitialId);
         }
 
-        public void ShowInterstitialAd(Action onComplete)
+        public void ShowInterstitialAd(Action onComplete, Action onFailed)
         {
             TrackAdShowRequested("interstitial");
 
@@ -495,11 +500,12 @@ namespace Sorolla.Palette.Adapters
                 _userWaitingForInterstitial = true;
                 LoadInterstitial();
                 TrackAdShowFailed("interstitial", !_init ? "not_initialized" : "not_ready", network: null, errorInfo: null);
-                onComplete?.Invoke();
+                onFailed?.Invoke();
                 return;
             }
 
             _onInterstitialComplete = onComplete;
+            _onInterstitialFailed = onFailed;
             AcquireScreenWake();
             MaxSdk.ShowInterstitial(_interstitialId);
         }

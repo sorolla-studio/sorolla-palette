@@ -124,12 +124,19 @@ namespace Sorolla.Palette.DebugUI
             switch (adType)
             {
                 case AdType.Interstitial:
-                    Palette.ShowInterstitialAd(() =>
-                    {
-                        SetStatus(AdStatus.Idle);
-                        SorollaDebugEvents.RaiseShowToast("Interstitial completed", ToastType.Success);
-                        DebugPanelManager.Instance?.Log("Interstitial completed", LogSource.Sorolla);
-                    });
+                    Palette.ShowInterstitialAd(
+                        () =>
+                        {
+                            SetStatus(AdStatus.Idle);
+                            SorollaDebugEvents.RaiseShowToast("Interstitial completed", ToastType.Success);
+                            DebugPanelManager.Instance?.Log("Interstitial completed", LogSource.Sorolla);
+                        },
+                        () =>
+                        {
+                            SetStatus(AdStatus.Idle);
+                            SorollaDebugEvents.RaiseShowToast("Interstitial failed to show", ToastType.Warning);
+                            DebugPanelManager.Instance?.Log("Interstitial failed (no fill / display error)", LogSource.Sorolla);
+                        });
                     break;
 
                 case AdType.Rewarded:

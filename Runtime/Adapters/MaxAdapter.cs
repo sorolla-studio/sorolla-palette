@@ -47,7 +47,7 @@ namespace Sorolla.Palette.Adapters
 
         void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent, bool verboseLogging = false);
         void ShowRewardedAd(Action onComplete, Action onFailed);
-        void ShowInterstitialAd(Action onComplete);
+        void ShowInterstitialAd(Action onComplete, Action onFailed);
         void ShowPrivacyOptions(Action onComplete);
         void RefreshConsentStatus();
         void UpdateConsent(bool consent);
@@ -124,12 +124,12 @@ namespace Sorolla.Palette.Adapters
                 onFailed?.Invoke();
         }
 
-        public static void ShowInterstitialAd(Action onComplete)
+        public static void ShowInterstitialAd(Action onComplete, Action onFailed)
         {
             if (s_impl != null)
-                s_impl.ShowInterstitialAd(onComplete);
+                s_impl.ShowInterstitialAd(onComplete, onFailed);
             else
-                onComplete?.Invoke();
+                onFailed?.Invoke();
         }
 
         /// <summary>

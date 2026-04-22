@@ -1055,14 +1055,20 @@ namespace Sorolla.Palette
 #endif
         }
 
-        /// <summary>Show interstitial ad</summary>
-        public static void ShowInterstitialAd(Action onComplete)
+        /// <summary>
+        ///     Show an interstitial ad. <paramref name="onComplete"/> fires after the user
+        ///     dismisses the ad. <paramref name="onFailed"/> fires when the ad cannot be
+        ///     shown (no fill, display error at runtime, ad subsystem unavailable). Exactly
+        ///     one of the two callbacks fires per call — studios must handle failure to keep
+        ///     game flow alive when interstitials no-fill.
+        /// </summary>
+        public static void ShowInterstitialAd(Action onComplete, Action onFailed)
         {
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-            MaxAdapter.ShowInterstitialAd(onComplete);
+            MaxAdapter.ShowInterstitialAd(onComplete, onFailed);
 #else
-            Debug.LogWarning($"{Tag} MAX not available.");
-            onComplete?.Invoke();
+            Debug.LogWarning($"{Tag} MAX not available - interstitial skipped, invoking onFailed.");
+            onFailed?.Invoke();
 #endif
         }
 
