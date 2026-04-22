@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.14.2] - 2026-04-22
+
+Foolproof-path cleanup, same pattern as 3.14.1. Four deprecated-but-public APIs with typed canonical replacements already in place: the SDK was telling studios "use the typed version" via `[Obsolete]` warnings while still exposing the legacy surface for them to misuse. Every known misuse (stringly-typed progression slots, wrong currency codes, bool-arg `Initialize` races with bootstrap, duplicate custom-event tracking) went through these surfaces. Now gone.
+
+### Removed
+- **`Palette.TrackProgression(ProgressionStatus, string, string, string, int, Dictionary)`**: deleted. Canonical path is `Palette.Level.Start/Complete/Fail` (typed int levels, auto-duration tracking, no stringly-typed slots).
+- **`Palette.TrackResource(ResourceFlowType, string, float, string, string, Dictionary)`**: deleted. Canonical path is `Palette.Economy.Earn/Spend` (typed `CurrencyId` + curated `EconomySource`/`EconomySink` enums).
+- **`Palette.TrackDesign(string, float)`**: deleted. Canonical path is `Palette.TrackEvent(eventName, parameters)` — structured Firebase/BigQuery params instead of a single numeric value.
+- **`Sorolla.Palette.ProgressionStatus` enum**: deleted along with `TrackProgression`. Use `Palette.Level.Start/Complete/Fail` directly.
+- **`Sorolla.Palette.ResourceFlowType` enum**: deleted along with `TrackResource`. Use `Palette.Economy.Earn/Spend` directly.
+- Internal `ToGA(ProgressionStatus)` / `ToGA(ResourceFlowType)` helpers: deleted (orphaned after the public methods were removed).
+
+### Changed
+- **`Palette.Initialize(bool consent)`**: `public` → `internal`. Documented "Do NOT call directly" since 3.x; only caller was `SorollaBootstrapper`. Locking it down eliminates the `IsInitialized`-race footgun where a studio manually called `Initialize` before (or after) the bootstrapper's auto-init.
+- **Editor tooltip (`SorollaWindow.cs`)**: `Palette.TrackDesign()` replaced with modern `Palette.TrackEvent` / `Palette.Level.*` / `Palette.Economy.*` pointers.
+- **`Documentation~/architecture.md` + `Documentation~/quick-start.md` + `README.md`**: all examples migrated from the legacy `TrackProgression` / `TrackResource` calls to the typed `Palette.Level.*` / `Palette.Economy.*` API.
+
+### Migration
+All four removed APIs had `[Obsolete]` warnings in prior releases pointing at the typed replacements. Studios who acted on those warnings are already on the canonical path and need no migration. Studios still on the legacy API should follow the Obsolete message: `TrackProgression` → `Palette.Level.Start/Complete/Fail`, `TrackResource` → `Palette.Economy.Earn/Spend`, `TrackDesign` → `Palette.TrackEvent`.
+
+### Notes
+- `Documentation~/api-reference.md` is auto-regenerated; stale 3.14.1 / 3.14.2 entries will remain until the next `Tools~/build-docs.sh` regen. Source of truth is the access modifier on `Runtime/Palette.cs`.
+
 ## [3.14.1] - 2026-04-22
 
 Fool-proof the canonical purchase-tracking path: `Palette.TrackPurchase` is no longer reachable from studio code. 3.14.0 made `AttachPurchaseTracking` the canonical wiring; 3.14.1 finishes the job by removing the direct-call escape hatch so there's literally one way to integrate purchase tracking and it cannot be miswired, double-called, or called with malformed data.
