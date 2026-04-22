@@ -23,7 +23,7 @@ The SDK auto-initializes. Just call the API:
 using Sorolla.Palette;
 
 // Track level progression (required)
-Palette.TrackProgression(ProgressionStatus.Complete, "Level_001");
+Palette.Level.Complete(1, score: 1500);
 
 // Track custom events with structured data
 Palette.TrackEvent("tutorial_complete", new() { { "step", "crafting_intro" } });

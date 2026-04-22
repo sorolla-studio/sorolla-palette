@@ -312,13 +312,13 @@ Palette.TrackEvent("post_score", { score: 1200, level: "world1" })
     ├── FirebaseAdapter.TrackEvent()             ← Full structured params
     └── GameAnalyticsAdapter.TrackDesignEvent()  ← Best-effort (name + first numeric value)
 
-Palette.TrackProgression(Complete, "World1", "Level3", extraParams: { duration_sec: 45 })
+Palette.Level.Complete(3, world: 1, score: 1500, extraParams: { duration_sec: 45 })
     ├── GameAnalyticsAdapter.TrackProgressionEvent()  ← Always (GA schema)
     └── FirebaseAdapter.TrackProgressionEvent()       ← If enabled (GA4 level_end + extraParams)
 
-Palette.TrackResource(Source, "Coins", 50, "Reward", "DailyLogin", extraParams: { level: 12 })
+Palette.Economy.Earn(CurrencyId.Coins, 50, EconomySource.DailyReward, itemId: "daily_login")
     ├── GameAnalyticsAdapter.TrackResourceEvent()  ← Always (GA schema)
-    └── FirebaseAdapter.TrackResourceEvent()       ← If enabled (earn_virtual_currency + extraParams)
+    └── FirebaseAdapter.TrackResourceEvent()       ← If enabled (earn_virtual_currency)
 ```
 
 ### Ad Revenue

@@ -318,7 +318,9 @@ namespace Sorolla.Palette.Editor
             GUILayout.Label(
                 "The SDK auto-initializes when your game starts.\n" +
                 "• iOS: Shows ATT consent dialog automatically\n" +
-                "• Use Palette.TrackDesign() to track events",
+                "• Use Palette.TrackEvent(name, params) for custom events\n" +
+                "• Use Palette.Level.Start/Complete/Fail for level progression\n" +
+                "• Use Palette.Economy.Earn/Spend for in-game currency",
                 s_wordWrapStyle);
             EditorGUILayout.EndVertical();
         }

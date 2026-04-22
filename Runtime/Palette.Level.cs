@@ -11,9 +11,9 @@ namespace Sorolla.Palette
     public static partial class Palette
     {
         /// <summary>
-        ///     Typed level progression tracking. Replaces <see cref="TrackProgression"/>.
-        ///     Auto-tracks duration between <see cref="Start"/> and <see cref="Complete"/>/<see cref="Fail"/>.
-        ///     Wire format: <c>level_name = "world_{W}_level_{L}"</c> when world is supplied, else <c>"level_{L}"</c>.
+        ///     Typed level progression tracking. Auto-tracks duration between <see cref="Start"/>
+        ///     and <see cref="Complete"/>/<see cref="Fail"/>. Wire format:
+        ///     <c>level_name = "world_{W}_level_{L}"</c> when world is supplied, else <c>"level_{L}"</c>.
         /// </summary>
         public static class Level
         {

@@ -16,32 +16,6 @@ using UnityEngine.Purchasing;
 
 namespace Sorolla.Palette
 {
-
-    /// <summary>
-    ///     Progression status for tracking level/stage events.
-    /// </summary>
-    public enum ProgressionStatus
-    {
-        /// <summary>Player started the level/stage</summary>
-        Start,
-        /// <summary>Player completed the level/stage successfully</summary>
-        Complete,
-        /// <summary>Player failed the level/stage</summary>
-        Fail,
-    }
-
-    /// <summary>
-    ///     Resource flow type for tracking economy events.
-    /// </summary>
-    public enum ResourceFlowType
-    {
-        /// <summary>Player gained resources</summary>
-        Source,
-        /// <summary>Player spent resources</summary>
-        Sink,
-    }
-
-
     /// <summary>
     ///     Main API for Palette SDK.
     ///     Provides unified interface for analytics, ads, and attribution.
@@ -215,107 +189,6 @@ namespace Sorolla.Palette
 
                 // GA best-effort: design event with first numeric value
                 GameAnalyticsAdapter.TrackDesignEvent(eventName, ExtractFirstNumericValue(parameters));
-            });
-        }
-
-        #endregion
-
-        #region Analytics - Progression
-
-        /// <summary>
-        ///     Track a progression event (level start, complete, fail).
-        ///     Firebase/GA4 mapping: Start -> level_start, Complete -> level_end{success=1}, Fail -> level_end{success=0}.
-        ///     When Complete/Fail and score &gt; 0, a separate post_score event is fired with the score.
-        /// </summary>
-        /// <param name="status">Whether the player started, completed, or failed the progression.</param>
-        /// <param name="progression01">First progression level (e.g. world name). Required.</param>
-        /// <param name="progression02">Second progression level (e.g. chapter). Optional.</param>
-        /// <param name="progression03">Third progression level (e.g. level number). Optional.</param>
-        /// <param name="score">Score achieved on Complete/Fail. Fires a separate Firebase post_score event when &gt; 0. Ignored on Start.</param>
-        /// <param name="extraParams">Optional structured params for Firebase (e.g. world, game_mode, duration_sec).
-        ///     Ignored by GameAnalytics. Supported types: string, int, long, float, double, bool, enum.</param>
-        /// <example>
-        /// <code>
-        /// Palette.TrackProgression(ProgressionStatus.Complete, "World1", "Chapter2", "Level3",
-        ///     score: 1500,
-        ///     extraParams: new Dictionary&lt;string, object&gt; { { "duration_sec", 45 } });
-        /// </code>
-        /// </example>
-        [Obsolete("Use Palette.Level.Start(level) / Complete(level, score) / Fail(level, score) - typed int-based API with auto-duration tracking and no stringly-typed slots.")]
-        public static void TrackProgression(ProgressionStatus status, string progression01,
-            string progression02 = null, string progression03 = null, int score = 0,
-            Dictionary<string, object> extraParams = null)
-        {
-            if (extraParams != null && !ValidateParams(extraParams)) return;
-
-            QueueOrExecute(() =>
-            {
-#if GAMEANALYTICS_INSTALLED
-                GAProgressionStatus gaStatus = ToGA(status);
-                GameAnalyticsAdapter.TrackProgressionEvent(gaStatus, progression01, progression02, progression03, score);
-#else
-                GameAnalyticsAdapter.TrackProgressionEvent(status.ToString().ToLower(), progression01, progression02, progression03, score);
-#endif
-
-#if FIREBASE_ANALYTICS_INSTALLED
-                FirebaseAdapter.TrackProgressionEvent(status.ToString().ToLower(), progression01, progression02, progression03, score, extraParams);
-#endif
-            });
-        }
-
-        #endregion
-
-        #region Analytics - Design Events
-
-        /// <summary>
-        ///     Track a design event (custom analytics).
-        /// </summary>
-        [System.Obsolete("Use Palette.TrackEvent(eventName, parameters) for structured custom events with Firebase/BigQuery support.")]
-        public static void TrackDesign(string eventName, float value = 0)
-        {
-            QueueOrExecute(() =>
-            {
-                GameAnalyticsAdapter.TrackDesignEvent(eventName, value);
-
-#if FIREBASE_ANALYTICS_INSTALLED
-                FirebaseAdapter.TrackDesignEvent(eventName, value);
-#endif
-            });
-        }
-
-        #endregion
-
-        #region Analytics - Resource Events
-
-        /// <summary>
-        ///     Track a resource event (economy source/sink).
-        ///     Firebase mapping: Source -> earn_virtual_currency, Sink -> spend_virtual_currency.
-        /// </summary>
-        /// <param name="flowType">Whether the player gained (Source) or spent (Sink) resources.</param>
-        /// <param name="currency">In-game currency name (e.g. "coins", "gems"). Not a real-world ISO code.</param>
-        /// <param name="amount">Amount of currency. Must be positive.</param>
-        /// <param name="itemType">Category of the item (e.g. "booster", "outfit").</param>
-        /// <param name="itemId">Specific item ID (e.g. "speed_2x", "ninja_skin").</param>
-        /// <param name="extraParams">Optional structured params for Firebase (e.g. source, level, world).
-        ///     Ignored by GameAnalytics. Supported types: string, int, long, float, double, bool, enum.</param>
-        [Obsolete("Use Palette.Economy.Earn(CurrencyId, int, EconomySource, itemId) / Spend(CurrencyId, int, EconomySink, itemId) - typed API with curated source/sink categories and currency normalization.")]
-        public static void TrackResource(ResourceFlowType flowType, string currency, float amount,
-            string itemType, string itemId, Dictionary<string, object> extraParams = null)
-        {
-            if (extraParams != null && !ValidateParams(extraParams)) return;
-
-            QueueOrExecute(() =>
-            {
-#if GAMEANALYTICS_INSTALLED
-                GAResourceFlowType gaFlow = ToGA(flowType);
-                GameAnalyticsAdapter.TrackResourceEvent(gaFlow, currency, amount, itemType, itemId);
-#else
-                GameAnalyticsAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId);
-#endif
-
-#if FIREBASE_ANALYTICS_INSTALLED
-                FirebaseAdapter.TrackResourceEvent(flowType.ToString().ToLower(), currency, amount, itemType, itemId, extraParams);
-#endif
             });
         }
 
@@ -691,10 +564,10 @@ namespace Sorolla.Palette
         #region Initialization
 
         /// <summary>
-        ///     Initialize Palette SDK. Called automatically by SorollaBootstrapper.
-        ///     Do NOT call directly.
+        ///     Initialize Palette SDK. Invoked exclusively by <see cref="SorollaBootstrapper"/>
+        ///     once consent / ATT resolve. Internal — studios do not call this.
         /// </summary>
-        public static void Initialize(bool consent)
+        internal static void Initialize(bool consent)
         {
             if (IsInitialized)
             {
@@ -1225,25 +1098,6 @@ namespace Sorolla.Palette
         #endregion
 
         #region Internal
-
-#if GAMEANALYTICS_INSTALLED
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static GAProgressionStatus ToGA(ProgressionStatus s) => s switch
-        {
-            ProgressionStatus.Start => GAProgressionStatus.Start,
-            ProgressionStatus.Complete => GAProgressionStatus.Complete,
-            ProgressionStatus.Fail => GAProgressionStatus.Fail,
-            _ => GAProgressionStatus.Start,
-        };
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static GAResourceFlowType ToGA(ResourceFlowType f) => f switch
-        {
-            ResourceFlowType.Source => GAResourceFlowType.Source,
-            ResourceFlowType.Sink => GAResourceFlowType.Sink,
-            _ => GAResourceFlowType.Source,
-        };
-#endif
 
         const int MaxEventNameLength = 40;
         const int MaxParamNameLength = 40;

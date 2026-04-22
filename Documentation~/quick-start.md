@@ -37,12 +37,9 @@ Add level tracking to your game (required for analytics):
 ```csharp
 using Sorolla.Palette;
 
-// Format: "Level_001" (zero-pad for sorting)
-string level = $"Level_{currentLevel:D3}";
-
-Palette.TrackProgression(ProgressionStatus.Start, level);    // Level started
-Palette.TrackProgression(ProgressionStatus.Complete, level); // Level won
-Palette.TrackProgression(ProgressionStatus.Fail, level);     // Level lost
+Palette.Level.Start(currentLevel);                    // Level started
+Palette.Level.Complete(currentLevel, score: 1500);    // Level won (optional score)
+Palette.Level.Fail(currentLevel);                     // Level lost
 ```
 
 ---
@@ -71,7 +68,7 @@ Before launching UA campaigns:
 - [ ] GameAnalytics configured (green in SDK Overview)
 - [ ] Facebook SDK configured (green in SDK Overview)
 - [ ] Firebase config files added (`google-services.json`, `GoogleService-Info.plist`)
-- [ ] `TrackProgression` calls added to game code
+- [ ] `Palette.Level.Start/Complete/Fail` calls added to game code
 - [ ] Build succeeds (Build Health all green)
 - [ ] Admin access granted to `studio@sorolla.io` in GameAnalytics
 

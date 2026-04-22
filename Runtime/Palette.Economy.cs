@@ -58,9 +58,8 @@ namespace Sorolla.Palette
     public static partial class Palette
     {
         /// <summary>
-        ///     Typed economy tracking. Replaces <see cref="TrackResource"/>.
-        ///     Curated <see cref="CurrencyId"/> + <see cref="EconomySource"/> / <see cref="EconomySink"/>
-        ///     so cross-game analytics aggregate correctly and typos are impossible.
+        ///     Typed economy tracking. Curated <see cref="CurrencyId"/> + <see cref="EconomySource"/>
+        ///     / <see cref="EconomySink"/> so cross-game analytics aggregate correctly and typos are impossible.
         /// </summary>
         public static class Economy
         {
