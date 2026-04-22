@@ -457,6 +457,14 @@ namespace Sorolla.Palette
         }
 #endif
 
+        // Session-scoped TxID dedup for the entire TrackPurchase fan-out. Unity IAP v5
+        // fires OnPurchaseConfirmed twice per purchase on Google Play (observed on sweep
+        // release/1.1.44 build 2003), and Unity docs also warn OnPurchasePending can
+        // replay on crash recovery. All three TrackPurchase overloads funnel through this
+        // method, so guarding here makes duplicate analytics structurally impossible
+        // regardless of which event the studio subscribes to.
+        static readonly HashSet<string> s_processedTxIds = new HashSet<string>();
+
         /// <summary>
         ///     Low-level purchase tracking. Prefer <see cref="TrackPurchase(Product)"/> when Unity IAP is present -
         ///     it derives all these params automatically and prevents the entire class of "wrong amount / wrong currency" bugs.
@@ -464,7 +472,7 @@ namespace Sorolla.Palette
         /// <param name="amount">Purchase amount in local currency (e.g. 4.99). Must be &gt; 0.</param>
         /// <param name="currency">ISO 4217 currency code (e.g. USD, EUR, JPY). MMPs reject non-ISO codes.</param>
         /// <param name="productId">Store product ID (used for Adjust partner params and Firebase dedup)</param>
-        /// <param name="transactionId">Transaction ID (iOS App Store verification + deduplication on all platforms)</param>
+        /// <param name="transactionId">Transaction ID (iOS App Store verification + deduplication on all platforms). Non-empty values are deduped session-wide: a repeat call with the same TxID is dropped before fan-out to Adjust/Firebase/GA/TikTok.</param>
         /// <param name="purchaseToken">Google Play purchase token (Android Play Store verification only)</param>
         public static void TrackPurchase(double amount, string currency = "USD",
             string productId = null, string transactionId = null, string purchaseToken = null)
@@ -492,6 +500,17 @@ namespace Sorolla.Palette
                     { "product_id", productId ?? "null" },
                 });
 #endif
+                return;
+            }
+
+            // Validation passed: now enforce TxID dedup so analytics fan-out fires at most once per purchase.
+            // Placed AFTER validation so a bad-payload first call doesn't burn the TxID slot for a corrected retry.
+            if (!string.IsNullOrEmpty(transactionId) && !s_processedTxIds.Add(transactionId))
+            {
+                Debug.LogWarning($"{Tag} TrackPurchase: duplicate transactionId '{transactionId}' — dropping. " +
+                    $"Unity IAP v5 can fire purchase callbacks twice (Google Play in-session double on OnPurchaseConfirmed, " +
+                    $"or OnPurchasePending crash-replay per Unity docs). Session-wide dedup is enforced here so " +
+                    $"analytics fan-out fires once per TxID.");
                 return;
             }
 

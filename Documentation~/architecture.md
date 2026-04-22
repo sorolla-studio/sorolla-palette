@@ -24,7 +24,7 @@ Technical reference for contributors working on the Sorolla SDK.
 
 1. **Rich types over primitives.** If a richer type carries the data (`UnityEngine.Purchasing.Product`, `Exception`, `ConsentStatus` enum, a schema-generated key), take it. Derive primitives inside the SDK. Never make studios extract what we can extract.
 
-2. **One-line integration per feature.** If the feature can be "wrap once, forget", build that. Reference pattern for Unity IAP v5: studio subscribes `_storeController.OnPurchasePending += Palette.TrackPurchase;` once at init — SDK handles every purchase for the app's lifetime. (The legacy `Palette.Purchasing.AutoTracker` wrapping `IDetailedStoreListener` is Obsolete in v5 per https://docs.unity.com/en-us/iap/upgrade-to-iap-v5 — retained only as a transition shim with `[Obsolete]` warnings.)
+2. **One-line integration per feature.** If the feature can be "wrap once, forget", build that. Reference pattern for Unity IAP v5: studio calls `Palette.AttachPurchaseTracking(_storeController)` once immediately after `UnityIAPServices.StoreController()` — SDK subscribes `OnPurchasePending` and handles every purchase for the app's lifetime. The method is idempotent, and TxID dedup is enforced inside `TrackPurchase` itself so Google Play's in-session double-fire and Unity's crash-replay warning on `OnPurchasePending` cannot produce duplicate analytics. Manual subscription (`_storeController.OnPurchasePending += Palette.TrackPurchase;`) still works identically for studios that want to own the wiring. (The legacy `Palette.Purchasing.AutoTracker` wrapping `IDetailedStoreListener` is Obsolete in v5 per https://docs.unity.com/en-us/iap/upgrade-to-iap-v5 — retained only as a transition shim with `[Obsolete]` warnings.)
 
 3. **Silent misuse is a critical bug.** If a call accepts wrong data and fires anyway, validate. Drop or warn loud, with a pointer to the recommended API. Catches bugs at integration time instead of after weeks of polluted dashboards.
 
@@ -346,11 +346,21 @@ Real-time (v3.7.0+):
 
 ### Purchase Attribution
 ```
-StoreController.OnPurchasePending(PendingOrder)        ← Unity IAP v5 canonical entry
+Palette.AttachPurchaseTracking(store)                  ← Canonical one-call wiring (v3.14.0+)
+    └── store.OnPurchasePending += Palette.TrackPurchase(PendingOrder)
+                                                         ← SDK-owned subscription
+
+StoreController.OnPurchasePending(PendingOrder)        ← Unity IAP v5 entry point
     └── Palette.TrackPurchase(PendingOrder)            ← Reads Info.TransactionID / Info.Receipt
                                                          while order is still Pending
                                                          (consumables lose both on ConfirmPurchase)
         └── Palette.TrackPurchase(amount, currency, productId, transactionId, purchaseToken)
+                │   ── TxID dedup enforced here ──       ← Session-wide HashSet<string> on
+                │                                          non-empty transactionId. Blocks
+                │                                          Google Play in-session doubles and
+                │                                          Unity-documented crash-replay
+                │                                          before fan-out. Fails open on
+                │                                          empty TxID.
                 ├── AdjustAdapter.TrackPurchase()     ← Platform-routed verification
                 ├── TikTokAdapter.TrackPurchase()     ← If enabled
                 └── FirebaseAdapter.TrackPurchase()   ← If enabled (analytics only, no verification)
