@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.14.1] - 2026-04-22
+
+Fool-proof the canonical purchase-tracking path: `Palette.TrackPurchase` is no longer reachable from studio code. 3.14.0 made `AttachPurchaseTracking` the canonical wiring; 3.14.1 finishes the job by removing the direct-call escape hatch so there's literally one way to integrate purchase tracking and it cannot be miswired, double-called, or called with malformed data.
+
+### Changed
+- **`Palette.TrackPurchase(PendingOrder)`**: `public` → `internal`. SDK subscribes this to `OnPurchasePending` via `AttachPurchaseTracking`; studios have no reason to call it directly (and every known misuse — double-calling, calling with stale metadata, calling outside the Pending lifecycle — went through this surface). Sorolla does not support non-Unity-IAP revenue sources, so the escape hatch had no real users.
+- **`Palette.TrackPurchase(double, string, string, string, string)` low-level**: `public` → `internal`. Same rationale. Sorolla does not maintain a custom / web-checkout / server-side revenue tracker; the low-level surface existed only to back the higher-level overloads.
+- **`Palette.TrackPurchase(Product)`**: `public` → `internal` (was already `[Obsolete]`). Legacy Unity IAP v4 is unsupported by Sorolla; the shim is retained only for the internal `AutoTracker` class which itself is `[Obsolete]`.
+- **`Documentation~/architecture.md` Purchase Attribution diagram**: collapsed to a single path. `AttachPurchaseTracking(store)` is now documented as the only studio-facing entry point; the downstream chain (`TrackPurchase(PendingOrder)` → low-level → adapters) is all `internal`.
+
+### Migration
+```csharp
+// Before (3.14.0 and earlier):
+_store.OnPurchasePending += order =>
+{
+    Palette.TrackPurchase(order);        // no longer compiles in 3.14.1
+    GrantRewards(order.CartOrdered);
+    _store.ConfirmPurchase(order);
+};
+
+// After (3.14.1):
+Palette.AttachPurchaseTracking(_store);   // once at init — SDK handles analytics
+
+_store.OnPurchasePending += order =>     // studio keeps fulfillment-only handler
+{
+    GrantRewards(order.CartOrdered);
+    _store.ConfirmPurchase(order);
+};
+```
+
+### Notes
+- `Documentation~/api-reference.md` is auto-regenerated from XML doc comments via `Tools~/build-docs.sh`. The pre-3.14.1 `TrackPurchase` entries will remain stale in the markdown until the next regen; source of truth is the `internal` modifier on `Runtime/Palette.cs`.
+
 ## [3.14.0] - 2026-04-22
 
 Purchase-tracking hardening + fullscreen-ad screen-wake. Purchase side triggered by a live-fire QA pass on sweep `release/1.1.44` build 2003 that showed `OnPurchaseConfirmed` firing twice per purchase ~1s apart on Google Play in-session, doubling downstream analytics revenue (Unity IAP v5 + Google Play framework quirk, separate from Unity's documented `OnPurchasePending` crash-replay behaviour). The consumer-side dedup guard that stabilised build 2003 is now enforced SDK-side so studios cannot produce duplicate purchase analytics regardless of which callback they subscribe to, and the wiring has been collapsed to a single idempotent call that cannot be miswired. Ads side closes a long-standing UX hole where some mediated networks don't set `FLAG_KEEP_SCREEN_ON` reliably during fullscreen ads, letting the device dim or sleep mid-impression.
