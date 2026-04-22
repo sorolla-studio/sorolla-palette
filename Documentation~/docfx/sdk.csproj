@@ -20,15 +20,21 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Compile the public Runtime surface only. Exclude implementation
-         folders that reference external SDKs (MAX/Firebase/Adjust) and
-         native plugin folders. -->
+    <!-- Compile the public Runtime surface only. Exclude:
+         - folders that reference external SDKs (MAX/Firebase/Adjust)
+         - native plugin folders
+         - ATT UI helpers (FakeATTDialog/FakeCMPDialog/ContextScreenView)
+           which depend on UnityEngine.UI (uGUI) and aren't in CI's managed DLL cache.
+         ATTBridge.cs stays in because Palette.AttStatus references it; it only
+         uses UnityEngine (iOS-native path guarded by #if UNITY_IOS && !UNITY_EDITOR). -->
     <Compile Include="..\..\Runtime\**\*.cs"
              Exclude="..\..\Runtime\Plugins\**\*.cs;
                       ..\..\Runtime\Adapters\Firebase\**\*.cs;
                       ..\..\Runtime\Adapters\MAX\**\*.cs;
                       ..\..\Runtime\Adapters\Adjust\**\*.cs;
-                      ..\..\Runtime\ATT\**\*.cs;
+                      ..\..\Runtime\ATT\ContextScreenView.cs;
+                      ..\..\Runtime\ATT\FakeATTDialog.cs;
+                      ..\..\Runtime\ATT\FakeCMPDialog.cs;
                       ..\..\Runtime\SorollaLoadingOverlay.cs;
                       ..\..\Runtime\SorollaBootstrapper.cs" />
   </ItemGroup>
