@@ -27,6 +27,8 @@ namespace Sorolla.Palette.Adapters
         bool _userWaitingForInterstitial;
 
         MaxSdkBase.SdkConfiguration _sdkConfig;
+        int _savedSleepTimeout;
+        bool _screenAwakeActive;
 
         public bool IsRewardedAdReady => _init && _rewardedReady && MaxSdk.IsRewardedAdReady(_rewardedId);
         public bool IsInterstitialAdReady => _init && _interstitialReady && MaxSdk.IsInterstitialReady(_interstitialId);
@@ -184,7 +186,32 @@ namespace Sorolla.Palette.Adapters
         static void Register()
         {
             Debug.Log("[Palette:MAX] Register() called - assembly is loaded!");
-            MaxAdapter.RegisterImpl(new MaxAdapterImpl());
+            var impl = new MaxAdapterImpl();
+            Application.focusChanged += impl.OnAppFocusChanged;
+            MaxAdapter.RegisterImpl(impl);
+        }
+
+        // Prevent device screen from dimming/sleeping while a fullscreen ad is displayed.
+        // MAX and mediated networks don't consistently set FLAG_KEEP_SCREEN_ON on every adapter,
+        // and some hidden/failed callbacks can be missed; focus-regain acts as a safety release.
+        void AcquireScreenWake()
+        {
+            if (_screenAwakeActive) return;
+            _savedSleepTimeout = Screen.sleepTimeout;
+            Screen.sleepTimeout = SleepTimeout.NeverSleep;
+            _screenAwakeActive = true;
+        }
+
+        void ReleaseScreenWake()
+        {
+            if (!_screenAwakeActive) return;
+            Screen.sleepTimeout = _savedSleepTimeout;
+            _screenAwakeActive = false;
+        }
+
+        void OnAppFocusChanged(bool hasFocus)
+        {
+            if (hasFocus && _screenAwakeActive) ReleaseScreenWake();
         }
 
         void OnSdkInit(MaxSdkBase.SdkConfiguration config)
@@ -302,12 +329,14 @@ namespace Sorolla.Palette.Adapters
 
         void OnRewardedAdHidden(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
+            ReleaseScreenWake();
             _rewardedReady = false;
             LoadRewarded();
         }
 
         void OnRewardedAdDisplayFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo, MaxSdkBase.AdInfo adInfo)
         {
+            ReleaseScreenWake();
             _rewardedReady = false;
 
             // Any visible overlay should be dismissed once we know we won't show.
@@ -371,6 +400,7 @@ namespace Sorolla.Palette.Adapters
 
             _onRewardComplete = onComplete;
             _onRewardFailed = onFailed;
+            AcquireScreenWake();
             MaxSdk.ShowRewardedAd(_rewardedId);
         }
 
@@ -414,6 +444,7 @@ namespace Sorolla.Palette.Adapters
 
         void OnInterstitialAdHidden(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
+            ReleaseScreenWake();
             _interstitialReady = false;
 
             if (_userWaitingForInterstitial)
@@ -429,6 +460,7 @@ namespace Sorolla.Palette.Adapters
 
         void OnInterstitialAdDisplayFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo, MaxSdkBase.AdInfo adInfo)
         {
+            ReleaseScreenWake();
             _interstitialReady = false;
 
             if (_userWaitingForInterstitial)
@@ -468,6 +500,7 @@ namespace Sorolla.Palette.Adapters
             }
 
             _onInterstitialComplete = onComplete;
+            AcquireScreenWake();
             MaxSdk.ShowInterstitial(_interstitialId);
         }
 
