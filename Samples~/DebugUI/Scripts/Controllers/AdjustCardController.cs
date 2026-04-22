@@ -90,10 +90,10 @@ namespace Sorolla.Palette.DebugUI
                 return;
             }
 
-            Palette.TrackPurchase(0.99, "USD", $"debug_{revenueEventToken}");
-
-            DebugPanelManager.Instance?.Log($"Purchase (simple): $0.99 ({revenueEventToken})", LogSource.Adjust);
-            SorollaDebugEvents.RaiseShowToast("$0.99 purchase tracked", ToastType.Success);
+            DebugPanelManager.Instance?.Log(
+                "Palette.TrackPurchase is internal since 3.14.1. Wire Palette.AttachPurchaseTracking(storeController) and trigger a real Unity IAP purchase to test revenue.",
+                LogSource.Adjust, LogLevel.Warning);
+            SorollaDebugEvents.RaiseShowToast("Use AttachPurchaseTracking + real IAP", ToastType.Warning);
         }
     }
 }

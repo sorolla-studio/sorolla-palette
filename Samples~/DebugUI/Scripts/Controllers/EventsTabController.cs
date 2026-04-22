@@ -162,10 +162,10 @@ namespace Sorolla.Palette.DebugUI
 
         void OnPurchaseClicked()
         {
-            Palette.TrackPurchase(4.99, "USD", "com.game.gems_500", "txn_debug_001");
-
-            DebugPanelManager.Instance?.Log("Purchase: $4.99 USD (gems_500)", LogSource.Firebase);
-            SorollaDebugEvents.RaiseShowToast("Tracked: purchase", ToastType.Success);
+            DebugPanelManager.Instance?.Log(
+                "Palette.TrackPurchase is internal since 3.14.1. Wire Palette.AttachPurchaseTracking(storeController) and trigger a real Unity IAP purchase to test fan-out.",
+                LogSource.Firebase, LogLevel.Warning);
+            SorollaDebugEvents.RaiseShowToast("Use AttachPurchaseTracking + real IAP", ToastType.Warning);
         }
 
         #endregion
