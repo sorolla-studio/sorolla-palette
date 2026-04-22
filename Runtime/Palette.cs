@@ -333,17 +333,11 @@ namespace Sorolla.Palette
         ///     Tracking at OnPurchasePending is the only point that captures transactionId reliably on consumables.
         /// </summary>
         /// <param name="order">PendingOrder from <c>StoreController.OnPurchasePending</c>.</param>
-        /// <example>
-        /// <code>
-        /// _storeController.OnPurchasePending += order =>
-        /// {
-        ///     Palette.TrackPurchase(order);        // track first (transactionID still valid)
-        ///     GrantRewards(order.CartOrdered);     // fulfillment
-        ///     _storeController.ConfirmPurchase(order);
-        /// };
-        /// </code>
-        /// </example>
-        public static void TrackPurchase(PendingOrder order)
+        /// <remarks>
+        ///     Internal since 3.14.1 — <see cref="AttachPurchaseTracking"/> is the only supported integration path
+        ///     and subscribes this method to <c>OnPurchasePending</c> on the studio's behalf.
+        /// </remarks>
+        internal static void TrackPurchase(PendingOrder order)
         {
             if (order == null)
             {
@@ -410,8 +404,8 @@ namespace Sorolla.Palette
         ///     are empty after <c>StoreController.ConfirmPurchase</c>, causing missing transaction_id in
         ///     Firebase and breaking MMP deduplication. Use <see cref="TrackPurchase(PendingOrder)"/> instead.
         /// </summary>
-        [Obsolete("Unity IAP v5 obsoleted Product.transactionID and Product.receipt. Use Palette.TrackPurchase(PendingOrder) called from StoreController.OnPurchasePending. See Packages/com.sorolla.sdk/Documentation~/architecture.md for migration.")]
-        public static void TrackPurchase(Product product)
+        [Obsolete("Unity IAP v5 obsoleted Product.transactionID and Product.receipt. Use Palette.AttachPurchaseTracking(store) — it subscribes to StoreController.OnPurchasePending internally. Internal since 3.14.1; retained only for the legacy AutoTracker shim.")]
+        internal static void TrackPurchase(Product product)
         {
             if (product == null)
             {
@@ -457,24 +451,27 @@ namespace Sorolla.Palette
         }
 #endif
 
-        // Session-scoped TxID dedup for the entire TrackPurchase fan-out. Unity IAP v5
-        // fires OnPurchaseConfirmed twice per purchase on Google Play (observed on sweep
-        // release/1.1.44 build 2003), and Unity docs also warn OnPurchasePending can
-        // replay on crash recovery. All three TrackPurchase overloads funnel through this
-        // method, so guarding here makes duplicate analytics structurally impossible
-        // regardless of which event the studio subscribes to.
+        // Session-scoped TxID dedup for the entire TrackPurchase fan-out. Unity IAP v5 can
+        // fire OnPurchasePending more than once (Unity-documented crash-replay), and the
+        // PendingOrder overload funnels here after metadata validation. Internal since
+        // 3.14.1 — the only reachable callers are the SDK-owned AttachPurchaseTracking
+        // subscription and the legacy [Obsolete] AutoTracker/Product shims; studios have
+        // no way to invoke this path directly, so duplicate analytics are structurally
+        // impossible.
         static readonly HashSet<string> s_processedTxIds = new HashSet<string>();
 
         /// <summary>
-        ///     Low-level purchase tracking. Prefer <see cref="TrackPurchase(Product)"/> when Unity IAP is present -
-        ///     it derives all these params automatically and prevents the entire class of "wrong amount / wrong currency" bugs.
+        ///     Low-level purchase fan-out. Internal since 3.14.1 — no supported studio-facing entry point.
+        ///     Reached only via the SDK-owned subscription installed by <see cref="AttachPurchaseTracking"/>
+        ///     and the legacy Obsolete shims. Enforces ISO-4217 / positive-price validation and TxID dedup
+        ///     before fanning out to Adjust / TikTok / Firebase / GameAnalytics.
         /// </summary>
-        /// <param name="amount">Purchase amount in local currency (e.g. 4.99). Must be &gt; 0.</param>
-        /// <param name="currency">ISO 4217 currency code (e.g. USD, EUR, JPY). MMPs reject non-ISO codes.</param>
-        /// <param name="productId">Store product ID (used for Adjust partner params and Firebase dedup)</param>
-        /// <param name="transactionId">Transaction ID (iOS App Store verification + deduplication on all platforms). Non-empty values are deduped session-wide: a repeat call with the same TxID is dropped before fan-out to Adjust/Firebase/GA/TikTok.</param>
-        /// <param name="purchaseToken">Google Play purchase token (Android Play Store verification only)</param>
-        public static void TrackPurchase(double amount, string currency = "USD",
+        /// <param name="amount">Purchase amount in local currency (must be &gt; 0).</param>
+        /// <param name="currency">ISO 4217 currency code.</param>
+        /// <param name="productId">Store product ID.</param>
+        /// <param name="transactionId">Transaction ID. Non-empty values are deduped session-wide.</param>
+        /// <param name="purchaseToken">Google Play purchase token (Android verification only).</param>
+        internal static void TrackPurchase(double amount, string currency = "USD",
             string productId = null, string transactionId = null, string purchaseToken = null)
         {
             if (amount <= 0)
