@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.14.3] - 2026-04-22
+
+Interstitial-ad callback symmetry + a pre-existing bug fix. Rewarded has had `(onComplete, onFailed)` since 3.x; interstitial had only `(onComplete)` and — worse — internally fired `_onInterstitialComplete` on `OnInterstitialAdDisplayFailed` and on the not-ready-at-show guard, mis-reporting failure as success. Studios relying on onComplete to gate game-flow transitions were getting told the ad played when it didn't.
+
+### Fixed
+- **`OnInterstitialAdDisplayFailed` mis-invoked `onComplete`** (`MaxAdapterImpl`): when a mediated network failed to display an interstitial mid-show, the SDK fired the studio's completion callback, signalling success. Now fires `onFailed`.
+- **Not-ready-at-show guard mis-invoked `onComplete`** (`MaxAdapterImpl.ShowInterstitialAd`): if `ShowInterstitialAd` was called while `!_init`, `!_interstitialReady`, or `!MaxSdk.IsInterstitialReady`, the SDK called `onComplete` as if the ad had shown. Now calls `onFailed`.
+- **Unavailable-MAX fallback mis-invoked `onComplete`** (`Palette.ShowInterstitialAd` on builds without MAX): now calls `onFailed`. Aligns with the rewarded no-MAX branch which already routes to `onFailed`.
+
+### Changed (BREAKING)
+- **`Palette.ShowInterstitialAd(Action onComplete)` → `Palette.ShowInterstitialAd(Action onComplete, Action onFailed)`**: `onFailed` is a required parameter, matching `ShowRewardedAd(onComplete, onFailed)`. Studios must explicitly handle the failure path — previously a no-fill / display-error silently fired `onComplete` and looked like a successful show. The compile error forces studios to acknowledge the case rather than shipping a silent game hang on no-fill.
+- Internal: `IMaxAdapter.ShowInterstitialAd` + `MaxAdapter.ShowInterstitialAd` + `MaxAdapterImpl.ShowInterstitialAd` all take `(onComplete, onFailed)`. `MaxAdapterImpl` now stores `_onInterstitialFailed` alongside `_onInterstitialComplete` and routes each event to the correct slot; both slots are cleared after either fires so a stale callback cannot leak into the next Show.
+
+### Migration
+```csharp
+// Before:
+Palette.ShowInterstitialAd(() => ResumeGame());
+
+// After (minimum — route both to same handler if game-flow semantics are identical):
+Palette.ShowInterstitialAd(
+    onComplete: () => ResumeGame(),
+    onFailed:   () => ResumeGame());
+
+// Or (recommended — distinguish for telemetry / retry):
+Palette.ShowInterstitialAd(
+    onComplete: () => ResumeGame(),
+    onFailed:   () => { Palette.TrackEvent("interstitial_no_fill"); ResumeGame(); });
+```
+
+Affected downstream repos: hungrysnake (`LevelFlowService.cs:754`), boat-runner (`BoatAdsManager.cs:126`), sweep. Each is a 2-line fix.
+
 ## [3.14.2] - 2026-04-22
 
 Foolproof-path cleanup, same pattern as 3.14.1. Four deprecated-but-public APIs with typed canonical replacements already in place: the SDK was telling studios "use the typed version" via `[Obsolete]` warnings while still exposing the legacy surface for them to misuse. Every known misuse (stringly-typed progression slots, wrong currency codes, bool-arg `Initialize` races with bootstrap, duplicate custom-event tracking) went through these surfaces. Now gone.
