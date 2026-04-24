@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.14.4] - 2026-04-24
+
+`Palette.Level.Start/Complete/Fail` no longer drops events on `level <= 0` or `world <= 0`. The SDK was rejecting `level=0` as invalid, but **0-indexed level schemes are valid production data** (raft-evolution: `Map1 = levelID 0`, `selectedMapID = 0` is the correct default). The `<= 0` validation bounced legitimate events and made PROGRESSION funnels appear silently empty in dashboards — the error only surfaced during long-session QA (raft-evolution map 1 ~1h to complete).
+
+Policy split:
+
+- **0 is valid.** Passes through silently. 0-indexed or 1-indexed — both are legitimate, the SDK doesn't impose a convention.
+- **Negative values pass through with a warning.** Almost always an uninitialized int or off-by-one bug, but clamping to 0 would merge the broken events into the legit `level_0` cohort and silently corrupt *that* funnel — the same class of silent-corruption the drop-vs-warn fix was meant to avoid. Passing through keeps the anomaly visibly separate in dashboards while the warning flags the caller-side bug.
+- **Curated enums (`CurrencyId`, `EconomySource`, `EconomySink`) and `Economy.Earn/Spend` amount** stay strict (drop on invalid). Finite known values / impossible transactions are corruption, not recoverable signal.
+
+### Changed
+- **`Palette.Level.Start/Complete/Fail`** (`Runtime/Palette.Level.cs`): removed the `level <= 0` / `world <= 0` validation. `level == 0` / `world == 0` are now silent (valid). `level < 0` / `world < 0` log a warning and pass through: `Level.{verb}: level={N} is negative; event passed through. Check for uninitialized int or off-by-one.`
+- Internal: `Validate(...) -> bool` replaced by `WarnIfNegative(string, int, int?)` — no clamping, no return value gating the emit.
+
 ## [3.14.3] - 2026-04-22
 
 Interstitial-ad callback symmetry + a pre-existing bug fix. Rewarded has had `(onComplete, onFailed)` since 3.x; interstitial had only `(onComplete)` and — worse — internally fired `_onInterstitialComplete` on `OnInterstitialAdDisplayFailed` and on the not-ready-at-show guard, mis-reporting failure as success. Studios relying on onComplete to gate game-flow transitions were getting told the ad played when it didn't.
