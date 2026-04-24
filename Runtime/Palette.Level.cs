@@ -23,7 +23,7 @@ namespace Sorolla.Palette
             /// <summary>Mark the start of a level. Fires level_start (Firebase) and records start time for auto-duration.</summary>
             public static void Start(int level, int? world = null, Dictionary<string, object> extraParams = null)
             {
-                if (!Validate("Start", level, world)) return;
+                WarnIfNegative("Start", level, world);
 
                 // Capture timestamp synchronously so duration reflects player wall-time,
                 // not whenever the event flushes after MAX consent resolves.
@@ -42,7 +42,7 @@ namespace Sorolla.Palette
             static void End(int level, int? world, bool success, int score, Dictionary<string, object> extraParams)
             {
                 string verb = success ? "Complete" : "Fail";
-                if (!Validate(verb, level, world)) return;
+                WarnIfNegative(verb, level, world);
 
                 float? duration = null;
                 var key = (world, level);
@@ -55,19 +55,15 @@ namespace Sorolla.Palette
                 QueueOrExecute(() => Emit(success ? "complete" : "fail", level, world, score, duration, extraParams));
             }
 
-            static bool Validate(string verb, int level, int? world)
+            // level/world == 0 are valid (0-indexed schemes). Negatives are almost always
+            // uninitialized ints or off-by-one bugs — warn loud but ship as-is so the bad
+            // data stays visible in dashboards instead of being merged into bucket 0.
+            static void WarnIfNegative(string verb, int level, int? world)
             {
-                if (level <= 0)
-                {
-                    Debug.LogError($"{Tag} Level.{verb}: level={level} must be > 0. Event dropped.");
-                    return false;
-                }
-                if (world.HasValue && world.Value <= 0)
-                {
-                    Debug.LogError($"{Tag} Level.{verb}: world={world.Value} must be > 0 when supplied. Event dropped.");
-                    return false;
-                }
-                return true;
+                if (level < 0)
+                    Debug.LogWarning($"{Tag} Level.{verb}: level={level} is negative; event passed through. Check for uninitialized int or off-by-one.");
+                if (world.HasValue && world.Value < 0)
+                    Debug.LogWarning($"{Tag} Level.{verb}: world={world.Value} is negative; event passed through. Check for uninitialized int or off-by-one.");
             }
 
             static void Emit(string status, int level, int? world, int score, float? duration,
