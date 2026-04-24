@@ -64,7 +64,7 @@ Optional: (6) TikTok Ads Manager.
 In the game project's `Packages/manifest.json`, add to `dependencies`:
 
 ```json
-"com.sorolla.sdk": "https://github.com/sorolla-studio/sorolla-palette.git#v3.9.0"
+"com.sorolla.sdk": "https://github.com/sorolla-studio/sorolla-palette.git"
 ```
 
 SDK auto-opens the Configuration window on first install and runs setup.
@@ -154,7 +154,7 @@ Mode switch auto-installs required packages. Verify `Packages/manifest.json` con
 | `com.google.external-dependency-manager` | `1.2.187` |
 | `com.gameanalytics.sdk` | `7.10.6` |
 | `com.lacrearthur.facebook-sdk-for-unity` | `https://github.com/LaCreArthur/facebook-unity-sdk-upm.git` |
-| `com.sorolla.sdk` | `https://github.com/sorolla-studio/sorolla-palette.git#v3.9.0` |
+| `com.sorolla.sdk` | `https://github.com/sorolla-studio/sorolla-palette.git` |
 
 ### Full mode required (optional in Prototype)
 
