@@ -17,6 +17,7 @@ Before touching any dashboard, get these from the studio:
 | Test APK/AAB (Android) | - | Signed with debug or release key |
 | Test IPA / TestFlight build (iOS) | - | For on-device QA |
 | Android debug key hash | SHA-1 from `keytool` | Needed for Facebook Android |
+| TikTok credentials (optional) | App ID + EM App ID + Access Token, per platform | Skip if no TikTok campaign tracking |
 | Studio contact for dashboard invites | email | They'll receive admin invites |
 
 **Lock the package name and bundle ID before proceeding.** Firebase, Facebook, AppLovin ad units, and Play-linked Crashlytics all depend on exact identifier matches. Changing it later means recreating every vendor app.

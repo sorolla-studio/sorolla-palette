@@ -110,7 +110,54 @@ Open Player Settings > Other Settings > Scripting Define Symbols. Both Android a
 - `FIREBASE_CRASHLYTICS_INSTALLED`
 - `FIREBASE_REMOTE_CONFIG_INSTALLED`
 
-If any are missing, run **Palette > Run Setup (Force)**.
+If any are missing, run **Palette > Run Setup (Force)**. Full reference (including per-assembly defines and the mode define) is in [Architecture > Scripting Defines](architecture.md#scripting-defines).
+
+### Verify manifest.json packages
+
+Mode switch auto-installs required packages. Confirm `Packages/manifest.json` contains:
+
+**Core (both modes):**
+
+| Package | Value |
+|---|---|
+| `com.google.external-dependency-manager` | `1.2.187` |
+| `com.gameanalytics.sdk` | `7.10.6` |
+| `com.lacrearthur.facebook-sdk-for-unity` | `https://github.com/LaCreArthur/facebook-unity-sdk-upm.git` |
+| `com.sorolla.sdk` | `https://github.com/sorolla-studio/sorolla-palette.git` |
+
+**Full-mode required (optional in Prototype):**
+
+| Package | Value |
+|---|---|
+| `com.applovin.mediation.ads` | `8.6.2` |
+| `com.google.firebase.app` | `https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseApp#13.7.0` |
+| `com.google.firebase.analytics` | `https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseAnalytics#13.7.0` |
+| `com.google.firebase.crashlytics` | `https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseCrashlytics#13.7.0` |
+| `com.google.firebase.remote-config` | `https://github.com/LaCreArthur/unity-firebase-app.git?path=FirebaseRemoteConfig#13.7.0` |
+| Mediation adapters | facebook 6210000, google 25010000/13020000, googleadmanager same, ironsource 904000000, unityads 4170000, vungle 7070100 |
+
+**Full-mode only (auto-uninstalled in Prototype):**
+
+| Package | Value |
+|---|---|
+| `com.adjust.sdk` | `https://github.com/adjust/unity_sdk.git?path=Assets/Adjust` |
+
+**Scoped registries (both modes):**
+
+```json
+"scopedRegistries": [
+  {
+    "name": "OpenUPM",
+    "url": "https://package.openupm.com",
+    "scopes": ["com.google.external-dependency-manager", "com.gameanalytics"]
+  },
+  {
+    "name": "AppLovin MAX",
+    "url": "https://package.openupm.com",
+    "scopes": ["com.applovin"]
+  }
+]
+```
 
 ### Build Health
 

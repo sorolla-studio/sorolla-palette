@@ -245,15 +245,30 @@ For IL2CPP builds, we use a belt-and-suspenders approach:
 
 ### Scripting Defines
 
-| Define | Set When |
-|--------|----------|
-| `GAMEANALYTICS_INSTALLED` | GameAnalytics SDK detected |
-| `SOROLLA_FACEBOOK_ENABLED` | Facebook SDK detected |
-| `SOROLLA_MAX_ENABLED` | AppLovin MAX detected |
-| `SOROLLA_ADJUST_ENABLED` | Adjust SDK detected |
-| `FIREBASE_ANALYTICS_INSTALLED` | Firebase Analytics detected |
-| `FIREBASE_CRASHLYTICS_INSTALLED` | Firebase Crashlytics detected |
-| `FIREBASE_REMOTE_CONFIG_INSTALLED` | Firebase Remote Config detected |
+All defines are auto-managed - never set manually. Three categories with different scopes:
+
+**Auto-managed by `DefineSymbols.cs` (global PlayerSettings):**
+
+| Define | Set when package installed |
+|---|---|
+| `APPLOVIN_MAX_INSTALLED` | `com.applovin.mediation.ads` |
+| `SOROLLA_MAX_ENABLED` | `com.applovin.mediation.ads` |
+| `ADJUST_SDK_INSTALLED` | `com.adjust.sdk` |
+| `SOROLLA_ADJUST_ENABLED` | `com.adjust.sdk` |
+| `FIREBASE_ANALYTICS_INSTALLED` | `com.google.firebase.analytics` |
+| `FIREBASE_CRASHLYTICS_INSTALLED` | `com.google.firebase.crashlytics` |
+| `FIREBASE_REMOTE_CONFIG_INSTALLED` | `com.google.firebase.remote-config` |
+
+**Per-assembly versionDefines (NOT in PlayerSettings):**
+
+| Define | Assembly | Detects |
+|---|---|---|
+| `SOROLLA_FACEBOOK_ENABLED` | `Sorolla.Runtime`, `Sorolla.Adapters` | Facebook SDK package |
+| `SOROLLA_*_ASMDEF_OK` | Implementation asmdefs | Used with `defineConstraints` to gate assembly compilation |
+
+**Mode define (set by Palette > Configuration):**
+
+- `SOROLLA_PROTOTYPE` or `SOROLLA_FULL` - mutually exclusive, set by `SorollaSettings.SetMode()`
 
 ---
 
