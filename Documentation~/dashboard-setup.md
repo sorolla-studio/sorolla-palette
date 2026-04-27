@@ -1,8 +1,8 @@
-# External Studio Dashboard Setup (Sorolla Internal)
+# External Studio Dashboard Setup
 
-Step-by-step for Sorolla team members setting up vendor dashboards for an external studio game.
+Step-by-step for setting up vendor dashboards for a new game. Sorolla-side runbook (the publisher creates dashboards on the studio's behalf), but harmless reading for any studio that wants to know what's happening.
 
-For the studio-facing guide, see [Switching to Full Mode](switching-to-full.md).
+For the studio-side companion (post-dashboard, in-Unity configuration), see [Switching to Full Mode](switching-to-full.md).
 
 ---
 
