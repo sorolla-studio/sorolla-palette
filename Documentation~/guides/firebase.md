@@ -92,6 +92,8 @@ catch (Exception ex) { Palette.LogException(ex); }
 
 ### Remote Config
 
+For authoring and publishing the dashboard-side template (CLI setup, deploy, rollback, schema, CI tokens), see the dedicated [Firebase Remote Config CLI guide](firebase-remote-config.md). The runtime API below is what consumes those values inside the game.
+
 Unified API that checks Firebase first, then GameAnalytics, then in-app defaults:
 
 ```csharp

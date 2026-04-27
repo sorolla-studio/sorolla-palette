@@ -4,6 +4,8 @@
   href: facebook.md
 - name: Firebase
   href: firebase.md
+- name: Firebase Remote Config (CLI)
+  href: firebase-remote-config.md
 - name: AppLovin MAX (Ads)
   href: ads.md
 - name: Adjust (Attribution)
