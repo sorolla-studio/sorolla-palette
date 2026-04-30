@@ -899,7 +899,7 @@ namespace Sorolla.Palette.Editor
             {
                 if (!File.Exists(templatePath)) continue;
                 string gradle = File.ReadAllText(templatePath);
-                if (gradle.Contains("VERSION_11") && (gradle.Contains("sourceCompatibility") || gradle.Contains("targetCompatibility")))
+                if (HasJava11CompileOptions(gradle))
                 {
                     hasIssues = true;
                     string fileName = Path.GetFileName(templatePath);
@@ -916,7 +916,7 @@ namespace Sorolla.Palette.Editor
             if (File.Exists(GradlePropertiesPath))
             {
                 string props = File.ReadAllText(GradlePropertiesPath);
-                if (!props.Contains("org.gradle.java.home"))
+                if (MissingGradleJavaHome(props))
                 {
                     // Unity 2022 bundles JDK 11 — need explicit JDK 17+ override
 #if !UNITY_6000_0_OR_NEWER
@@ -946,6 +946,15 @@ namespace Sorolla.Palette.Editor
 
             return results;
         }
+
+        internal static bool HasJava11CompileOptions(string gradle) =>
+            !string.IsNullOrEmpty(gradle) &&
+            gradle.Contains("VERSION_11") &&
+            (gradle.Contains("sourceCompatibility") || gradle.Contains("targetCompatibility"));
+
+        internal static bool MissingGradleJavaHome(string gradleProperties) =>
+            string.IsNullOrEmpty(gradleProperties) ||
+            !gradleProperties.Contains("org.gradle.java.home");
 
         /// <summary>
         ///     Remove the buildscript { ... } block from a Gradle file using brace matching.
@@ -1012,7 +1021,7 @@ namespace Sorolla.Palette.Editor
             if (File.Exists(BaseProjectTemplatePath))
             {
                 string gradle = File.ReadAllText(BaseProjectTemplatePath);
-                if (gradle.Contains("com.android.tools:r8"))
+                if (HasR8Pin(gradle))
                 {
 #if UNITY_6000_0_OR_NEWER
                     hasIssues = true;
@@ -1032,7 +1041,7 @@ namespace Sorolla.Palette.Editor
             if (File.Exists(MainTemplatePath))
             {
                 string gradle = File.ReadAllText(MainTemplatePath);
-                if (gradle.Contains("kotlin-stdlib") && gradle.Contains("useVersion"))
+                if (ForcesKotlinStdlibVersion(gradle))
                 {
 #if UNITY_6000_0_OR_NEWER
                     hasIssues = true;
@@ -1052,6 +1061,15 @@ namespace Sorolla.Palette.Editor
 
             return results;
         }
+
+        internal static bool HasR8Pin(string gradle) =>
+            !string.IsNullOrEmpty(gradle) &&
+            gradle.Contains("com.android.tools:r8");
+
+        internal static bool ForcesKotlinStdlibVersion(string gradle) =>
+            !string.IsNullOrEmpty(gradle) &&
+            gradle.Contains("kotlin-stdlib") &&
+            gradle.Contains("useVersion");
 
         /// <summary>
         ///     Read and parse manifest.json
