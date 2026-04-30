@@ -4,8 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using UnityEditor;
-using UnityEditor.Build;
-using UnityEditor.Build.Reporting;
 using UnityEngine;
 
 namespace Sorolla.Palette.Editor
@@ -1161,92 +1159,4 @@ namespace Sorolla.Palette.Editor
         }
     }
 
-    /// <summary>
-    ///     Surface Build Health issues in the console on domain reload so studios see problems
-    ///     early, even if they don't open the Palette Configuration window.
-    /// </summary>
-    [InitializeOnLoad]
-    internal static class BuildHealthConsoleNotifier
-    {
-        static BuildHealthConsoleNotifier()
-        {
-            EditorApplication.delayCall += CheckHealthOnReload;
-        }
-
-        static void CheckHealthOnReload()
-        {
-            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android &&
-                EditorUserBuildSettings.activeBuildTarget != BuildTarget.iOS)
-                return;
-
-            try
-            {
-                // Auto-fix manifest, Gradle, and MAX issues on domain reload
-                var fixes = BuildValidator.RunAutoFixes();
-                foreach (string fix in fixes)
-                    Debug.Log($"[Palette] Auto-fixed: {fix}");
-
-                if (fixes.Count > 0)
-                    AssetDatabase.Refresh();
-
-                var results = BuildValidator.RunAllChecks();
-                int errorCount = results.Count(r => r.Status == BuildValidator.ValidationStatus.Error);
-
-                if (fixes.Count > 0 && errorCount == 0)
-                    Debug.Log($"[Palette] Build Health: {fixes.Count} issue(s) detected and auto-fixed.");
-                else if (fixes.Count > 0)
-                    Debug.LogWarning(
-                        $"[Palette] Build Health: {fixes.Count} auto-fixed, {errorCount} remaining. Open Palette > Configuration.");
-                else if (errorCount > 0)
-                    Debug.LogWarning(
-                        $"[Palette] Build Health: {errorCount} issue(s) require manual attention. Open Palette > Configuration.");
-            }
-            catch
-            {
-                // Silently ignore - domain reload timing can cause transient failures
-            }
-        }
-    }
-
-    /// <summary>
-    ///     Auto-run validation before builds
-    /// </summary>
-    public class BuildValidatorPreprocessor : IPreprocessBuildWithReport
-    {
-        public int callbackOrder => -100;
-
-        public void OnPreprocessBuild(BuildReport report)
-        {
-            Debug.Log("[Palette BuildValidator] Running pre-build validation...");
-
-            // Run all auto-fixes before validation
-            var fixes = BuildValidator.RunAutoFixes();
-            foreach (string fix in fixes)
-                Debug.Log($"[Palette BuildValidator] Auto-fix: {fix}");
-
-            var results = BuildValidator.RunAllChecks();
-            var errors = results.Where(r => r.Status == BuildValidator.ValidationStatus.Error).ToList();
-
-            if (errors.Count > 0)
-            {
-                foreach (BuildValidator.ValidationResult error in errors)
-                    Debug.LogError($"[Palette BuildValidator] ERROR: {error.Message}");
-
-                throw new BuildFailedException(
-                    $"Build validation failed with {errors.Count} error(s). " +
-                    "Open Palette > Configuration for details."
-                );
-            }
-
-            // Log warnings but don't block build
-            var warnings = results.Where(r => r.Status == BuildValidator.ValidationStatus.Warning).ToList();
-            foreach (BuildValidator.ValidationResult warning in warnings)
-                Debug.LogWarning($"[Palette BuildValidator] WARNING: {warning.Message}");
-
-            if (warnings.Count > 0)
-                Debug.Log($"[Palette BuildValidator] Pre-build validation passed with {warnings.Count} warning(s)");
-            else
-                Debug.Log("[Palette BuildValidator] Pre-build validation passed");
-        }
-    }
 }
