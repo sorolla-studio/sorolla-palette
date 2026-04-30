@@ -64,6 +64,12 @@ namespace Sorolla.Palette.Adapters
 
         private static IMaxAdapter s_impl;
 
+        // Coroutine scheduler injected by SorollaBootstrapper. Used by MaxAdapterImpl
+        // for exponential-backoff retries on ad load failures (per AppLovin guidance).
+        // Adapter assembly has no MonoBehaviour to host coroutines itself; Bootstrapper
+        // is the SDK-wide persistent host.
+        internal static Action<float, Action> ScheduleDelegate;
+
         internal static void RegisterImpl(IMaxAdapter impl)
         {
             s_impl = impl;

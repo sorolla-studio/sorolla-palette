@@ -31,6 +31,16 @@ namespace Sorolla.Palette.Adapters
         int _savedSleepTimeout;
         bool _screenAwakeActive;
 
+        // Exponential backoff for ad load failures, per AppLovin guidance:
+        // https://dash.applovin.com/documentation/mediation/unity/ad-formats/interstitials
+        // Without backoff, no-fill / network failures retry-storm the waterfall and
+        // burn battery + heat. Cap at 2^6 = 64s.
+        const int MaxBackoffShift = 6;
+        int _interstitialRetryAttempt;
+        int _rewardedRetryAttempt;
+        int _interstitialRetryGen;
+        int _rewardedRetryGen;
+
         public bool IsRewardedAdReady => _init && _rewardedReady && MaxSdk.IsRewardedAdReady(_rewardedId);
         public bool IsInterstitialAdReady => _init && _interstitialReady && MaxSdk.IsInterstitialReady(_interstitialId);
         public ConsentStatus ConsentStatus { get; private set; } = ConsentStatus.Unknown;
@@ -310,6 +320,7 @@ namespace Sorolla.Palette.Adapters
         void OnRewardedAdLoaded(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
             _rewardedReady = true;
+            _rewardedRetryAttempt = 0;
             if (_userWaitingForRewarded)
             {
                 _userWaitingForRewarded = false;
@@ -325,7 +336,7 @@ namespace Sorolla.Palette.Adapters
                 _userWaitingForRewarded = false;
                 OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, false);
             }
-            LoadRewarded();
+            ScheduleRewardedRetry();
         }
 
         void OnRewardedAdHidden(string adUnitId, MaxSdkBase.AdInfo adInfo)
@@ -378,6 +389,27 @@ namespace Sorolla.Palette.Adapters
             MaxSdk.LoadRewardedAd(_rewardedId);
         }
 
+        void ScheduleRewardedRetry()
+        {
+            int attempt = Math.Min(_rewardedRetryAttempt, MaxBackoffShift);
+            float delay = 1 << attempt;
+            _rewardedRetryAttempt++;
+            int gen = ++_rewardedRetryGen;
+            Debug.Log($"[Palette:MAX] Rewarded load retry in {delay}s (attempt {_rewardedRetryAttempt})");
+
+            // Defensive: if Bootstrapper hasn't wired the scheduler, fall back to
+            // immediate load (matches pre-fix behavior). In practice never hits —
+            // ScheduleDelegate is set at BeforeSceneLoad, well before MAX init.
+            if (MaxAdapter.ScheduleDelegate == null) { LoadRewarded(); return; }
+
+            MaxAdapter.ScheduleDelegate(delay, () =>
+            {
+                if (gen != _rewardedRetryGen) return;
+                if (_rewardedReady) return;
+                LoadRewarded();
+            });
+        }
+
         public void ShowRewardedAd(Action onComplete, Action onFailed)
         {
             TrackAdShowRequested("rewarded");
@@ -425,6 +457,7 @@ namespace Sorolla.Palette.Adapters
         void OnInterstitialAdLoaded(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
             _interstitialReady = true;
+            _interstitialRetryAttempt = 0;
             if (_userWaitingForInterstitial)
             {
                 _userWaitingForInterstitial = false;
@@ -440,7 +473,7 @@ namespace Sorolla.Palette.Adapters
                 _userWaitingForInterstitial = false;
                 OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, false);
             }
-            LoadInterstitial();
+            ScheduleInterstitialRetry();
         }
 
         void OnInterstitialAdHidden(string adUnitId, MaxSdkBase.AdInfo adInfo)
@@ -489,6 +522,24 @@ namespace Sorolla.Palette.Adapters
             if (_userWaitingForInterstitial)
                 OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, true);
             MaxSdk.LoadInterstitial(_interstitialId);
+        }
+
+        void ScheduleInterstitialRetry()
+        {
+            int attempt = Math.Min(_interstitialRetryAttempt, MaxBackoffShift);
+            float delay = 1 << attempt;
+            _interstitialRetryAttempt++;
+            int gen = ++_interstitialRetryGen;
+            Debug.Log($"[Palette:MAX] Interstitial load retry in {delay}s (attempt {_interstitialRetryAttempt})");
+
+            if (MaxAdapter.ScheduleDelegate == null) { LoadInterstitial(); return; }
+
+            MaxAdapter.ScheduleDelegate(delay, () =>
+            {
+                if (gen != _interstitialRetryGen) return;
+                if (_interstitialReady) return;
+                LoadInterstitial();
+            });
         }
 
         public void ShowInterstitialAd(Action onComplete, Action onFailed)

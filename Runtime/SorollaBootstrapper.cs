@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Sorolla.Palette.Adapters;
 using Sorolla.Palette.ATT;
 
 namespace Sorolla.Palette
@@ -38,6 +39,25 @@ namespace Sorolla.Palette
             var go = new GameObject("[Palette SDK]");
             MakePersistent(go);
             s_instance = go.AddComponent<SorollaBootstrapper>();
+
+            // Lend our coroutine host to adapters that need delayed callbacks
+            // (e.g. MAX exponential-backoff retries). Adapter assemblies have no
+            // MonoBehaviour of their own and would otherwise spawn parallel GOs.
+            MaxAdapter.ScheduleDelegate = Schedule;
+        }
+
+        static void Schedule(float delaySeconds, Action callback)
+        {
+            if (s_instance == null) { callback?.Invoke(); return; }
+            s_instance.StartCoroutine(DelayedInvoke(delaySeconds, callback));
+        }
+
+        static IEnumerator DelayedInvoke(float delaySeconds, Action callback)
+        {
+            // Realtime so app-pause naturally pauses the timer (Update doesn't tick
+            // when suspended), and Time.timeScale=0 doesn't stall ad retries.
+            yield return new WaitForSecondsRealtime(delaySeconds);
+            callback?.Invoke();
         }
 
         static void MakePersistent(GameObject go)
