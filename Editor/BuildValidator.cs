@@ -60,6 +60,15 @@ namespace Sorolla.Palette.Editor
             [CheckCategory.FirebaseConfig] = "Firebase Config Files",
         };
 
+        static ValidationResult Valid(CheckCategory category, string message) =>
+            new ValidationResult(ValidationStatus.Valid, message, category: category);
+
+        static ValidationResult Warning(CheckCategory category, string message, string fix = null) =>
+            new ValidationResult(ValidationStatus.Warning, message, fix, category);
+
+        static ValidationResult Error(CheckCategory category, string message, string fix = null) =>
+            new ValidationResult(ValidationStatus.Error, message, fix, category);
+
         // Stashed by RunAutoFixes(), consumed once by RunAllChecks() to avoid double detection.
         static AndroidManifestSanitizer.ManifestDiagnostics _lastManifestDiagnostics;
         static readonly string MainTemplatePath =
@@ -96,7 +105,7 @@ namespace Sorolla.Palette.Editor
                 var manifest = ReadManifest();
                 if (manifest == null)
                 {
-                    results.Add(new ValidationResult(ValidationStatus.Error, "Failed to read manifest.json"));
+                    results.Add(Error(CheckCategory.VersionMismatches, "Failed to read manifest.json"));
                     return results;
                 }
 
@@ -127,7 +136,7 @@ namespace Sorolla.Palette.Editor
             }
             catch (Exception e)
             {
-                results.Add(new ValidationResult(ValidationStatus.Error, $"Validation failed: {e.Message}"));
+                results.Add(Error(CheckCategory.VersionMismatches, $"Validation failed: {e.Message}"));
             }
 
             return results;
@@ -222,7 +231,7 @@ namespace Sorolla.Palette.Editor
 
             if (!SorollaSettings.IsConfigured)
             {
-                results.Add(new ValidationResult(ValidationStatus.Valid, "Mode not configured", category: CheckCategory.RequiredSdks));
+                results.Add(Valid(CheckCategory.RequiredSdks, "Mode not configured"));
                 return results;
             }
 
@@ -236,17 +245,15 @@ namespace Sorolla.Palette.Editor
             if (missing.Count > 0)
             {
                 string modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
-                results.Add(new ValidationResult(
-                    ValidationStatus.Error,
+                results.Add(Error(
+                    CheckCategory.RequiredSdks,
                     $"Missing required SDKs for {modeName} mode:\n  {string.Join(", ", missing)}",
-                    "Click Refresh to auto-install missing SDKs",
-                    CheckCategory.RequiredSdks
-                ));
+                    "Click Refresh to auto-install missing SDKs"));
             }
             else
             {
                 string modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
-                results.Add(new ValidationResult(ValidationStatus.Valid, $"{modeName} mode SDKs OK", category: CheckCategory.RequiredSdks));
+                results.Add(Valid(CheckCategory.RequiredSdks, $"{modeName} mode SDKs OK"));
             }
 
             return results;
@@ -290,11 +297,10 @@ namespace Sorolla.Palette.Editor
                         continue; // Manifest tag is newer or equal
 
                     hasIssues = true;
-                    results.Add(new ValidationResult(
-                        ValidationStatus.Warning,
+                    results.Add(Warning(
+                        CheckCategory.VersionMismatches,
                         $"Outdated version - {sdk.PackageId}\n  Minimum: {expectedTag}\n  Found: {manifestTag}",
-                        "Update the package to the minimum required version"
-                    ));
+                        "Update the package to the minimum required version"));
                     continue;
                 }
 
@@ -302,17 +308,16 @@ namespace Sorolla.Palette.Editor
                 if (CompareVersions(manifestVersion, expectedVersion) < 0)
                 {
                     hasIssues = true;
-                    results.Add(new ValidationResult(
-                        ValidationStatus.Warning,
+                    results.Add(Warning(
+                        CheckCategory.VersionMismatches,
                         $"Outdated version - {sdk.PackageId}\n  Minimum: {expectedVersion}\n  Found: {manifestVersion}",
-                        "Update the package to the minimum required version"
-                    ));
+                        "Update the package to the minimum required version"));
                 }
             }
 
             // Add valid result if no issues found
             if (!hasIssues)
-                results.Add(new ValidationResult(ValidationStatus.Valid, "All SDK versions OK", category: CheckCategory.VersionMismatches));
+                results.Add(Valid(CheckCategory.VersionMismatches, "All SDK versions OK"));
 
             return results;
         }
@@ -361,11 +366,9 @@ namespace Sorolla.Palette.Editor
 
             if (!SorollaSettings.IsConfigured)
             {
-                results.Add(new ValidationResult(
-                    ValidationStatus.Warning,
-                    "No SDK mode configured. Run Palette > Configuration to select Prototype or Full mode.",
-                    category: CheckCategory.ModeConsistency
-                ));
+                results.Add(Warning(
+                    CheckCategory.ModeConsistency,
+                    "No SDK mode configured. Run Palette > Configuration to select Prototype or Full mode."));
                 return results;
             }
 
@@ -380,41 +383,35 @@ namespace Sorolla.Palette.Editor
                 if (sdk.Requirement == SdkRequirement.PrototypeOnly && !isPrototype && isInstalled)
                 {
                     hasIssues = true;
-                    results.Add(new ValidationResult(
-                        ValidationStatus.Warning,
+                    results.Add(Warning(
+                        CheckCategory.ModeConsistency,
                         $"{sdk.Name} is installed but only needed in Prototype mode (current: {modeName})",
-                        "Switch to Prototype mode or remove the SDK",
-                        CheckCategory.ModeConsistency
-                    ));
+                        "Switch to Prototype mode or remove the SDK"));
                 }
 
                 // Check FullOnly SDKs missing in Full mode
                 if (sdk.Requirement == SdkRequirement.FullOnly && !isPrototype && !isInstalled)
                 {
                     hasIssues = true;
-                    results.Add(new ValidationResult(
-                        ValidationStatus.Error,
+                    results.Add(Error(
+                        CheckCategory.ModeConsistency,
                         $"{sdk.Name} is required in Full mode but not installed",
-                        "Install the SDK or switch to Prototype mode",
-                        CheckCategory.ModeConsistency
-                    ));
+                        "Install the SDK or switch to Prototype mode"));
                 }
 
                 // Check FullOnly SDKs in Prototype mode
                 if (sdk.Requirement == SdkRequirement.FullOnly && isPrototype && isInstalled)
                 {
                     hasIssues = true;
-                    results.Add(new ValidationResult(
-                        ValidationStatus.Warning,
+                    results.Add(Warning(
+                        CheckCategory.ModeConsistency,
                         $"{sdk.Name} is installed but only needed in Full mode (current: {modeName})",
-                        "Switch to Full mode or remove the SDK",
-                        CheckCategory.ModeConsistency
-                    ));
+                        "Switch to Full mode or remove the SDK"));
                 }
             }
 
             if (!hasIssues)
-                results.Add(new ValidationResult(ValidationStatus.Valid, $"{modeName} mode SDKs OK", category: CheckCategory.ModeConsistency));
+                results.Add(Valid(CheckCategory.ModeConsistency, $"{modeName} mode SDKs OK"));
 
             return results;
         }
@@ -454,17 +451,15 @@ namespace Sorolla.Palette.Editor
                 if (!configuredScopes.Contains(sdk.Scope))
                 {
                     hasIssues = true;
-                    results.Add(new ValidationResult(
-                        ValidationStatus.Error,
+                    results.Add(Error(
+                        CheckCategory.ScopedRegistries,
                         $"Missing scoped registry for {sdk.Name}\n  Required scope: {sdk.Scope}",
-                        "Run Palette > Configuration to fix registry configuration",
-                        CheckCategory.ScopedRegistries
-                    ));
+                        "Run Palette > Configuration to fix registry configuration"));
                 }
             }
 
             if (!hasIssues)
-                results.Add(new ValidationResult(ValidationStatus.Valid, "All registries configured", category: CheckCategory.ScopedRegistries));
+                results.Add(Valid(CheckCategory.ScopedRegistries, "All registries configured"));
 
             return results;
         }
@@ -491,31 +486,27 @@ namespace Sorolla.Palette.Editor
 
             if (installedModules.Count > 0 && !hasFirebaseApp)
             {
-                results.Add(new ValidationResult(
-                    ValidationStatus.Error,
+                results.Add(Error(
+                    CheckCategory.FirebaseCoherence,
                     $"Firebase modules installed without FirebaseApp:\n  {string.Join(", ", installedModules)}",
-                    "Install com.google.firebase.app or remove Firebase modules",
-                    CheckCategory.FirebaseCoherence
-                ));
+                    "Install com.google.firebase.app or remove Firebase modules"));
             }
             else if (installedModules.Count > 0)
             {
-                results.Add(new ValidationResult(ValidationStatus.Valid, "Firebase modules OK", category: CheckCategory.FirebaseCoherence));
+                results.Add(Valid(CheckCategory.FirebaseCoherence, "Firebase modules OK"));
             }
             else if (!SorollaSettings.IsPrototype)
             {
                 // Firebase missing in Full mode — warn
-                results.Add(new ValidationResult(
-                    ValidationStatus.Warning,
+                results.Add(Warning(
+                    CheckCategory.FirebaseCoherence,
                     "Firebase not installed (required in Full mode)",
-                    "Run setup or open Palette > Configuration to install Firebase.",
-                    CheckCategory.FirebaseCoherence
-                ));
+                    "Run setup or open Palette > Configuration to install Firebase."));
             }
             else
             {
                 // Firebase missing in Prototype mode — silently valid (optional)
-                results.Add(new ValidationResult(ValidationStatus.Valid, "Firebase not installed (optional in Prototype)", category: CheckCategory.FirebaseCoherence));
+                results.Add(Valid(CheckCategory.FirebaseCoherence, "Firebase not installed (optional in Prototype)"));
             }
 
             return results;
@@ -532,7 +523,7 @@ namespace Sorolla.Palette.Editor
             bool hasFirebase = dependencies.ContainsKey(SdkRegistry.All[SdkId.FirebaseAnalytics].PackageId);
             if (!hasFirebase)
             {
-                results.Add(new ValidationResult(ValidationStatus.Valid, "Firebase not installed, config check skipped", category: category));
+                results.Add(Valid(category, "Firebase not installed, config check skipped"));
                 return results;
             }
 
@@ -540,25 +531,21 @@ namespace Sorolla.Palette.Editor
 
             if (target == BuildTarget.Android && !SdkConfigDetector.IsFirebaseAndroidConfigured())
             {
-                results.Add(new ValidationResult(
-                    ValidationStatus.Error,
+                results.Add(Error(
+                    category,
                     "google-services.json not found",
-                    "Download from Firebase Console > Project Settings > Android app and place in Assets/",
-                    category
-                ));
+                    "Download from Firebase Console > Project Settings > Android app and place in Assets/"));
             }
             else if (target == BuildTarget.iOS && !SdkConfigDetector.IsFirebaseIOSConfigured())
             {
-                results.Add(new ValidationResult(
-                    ValidationStatus.Error,
+                results.Add(Error(
+                    category,
                     "GoogleService-Info.plist not found",
-                    "Download from Firebase Console > Project Settings > iOS app and place in Assets/",
-                    category
-                ));
+                    "Download from Firebase Console > Project Settings > iOS app and place in Assets/"));
             }
             else
             {
-                results.Add(new ValidationResult(ValidationStatus.Valid, "Firebase config files present", category: category));
+                results.Add(Valid(category, "Firebase config files present"));
             }
 
             return results;
@@ -575,12 +562,10 @@ namespace Sorolla.Palette.Editor
             var config = Resources.Load<SorollaConfig>("SorollaConfig");
             if (config == null)
             {
-                results.Add(new ValidationResult(
-                    ValidationStatus.Warning,
+                results.Add(Warning(
+                    CheckCategory.ConfigSync,
                     "SorollaConfig not found in Resources folder",
-                    "Create config via Assets > Create > Palette > Config",
-                    CheckCategory.ConfigSync
-                ));
+                    "Create config via Assets > Create > Palette > Config"));
                 return results;
             }
 
@@ -588,17 +573,15 @@ namespace Sorolla.Palette.Editor
             if (SorollaSettings.IsConfigured && config.isPrototypeMode != SorollaSettings.IsPrototype)
             {
                 hasIssues = true;
-                results.Add(new ValidationResult(
-                    ValidationStatus.Warning,
+                results.Add(Warning(
+                    CheckCategory.ConfigSync,
                     $"Config mode mismatch - SorollaConfig.isPrototypeMode={config.isPrototypeMode}, " +
                     $"SorollaSettings.Mode={SorollaSettings.Mode}",
-                    "Run Palette > Configuration to sync mode settings",
-                    CheckCategory.ConfigSync
-                ));
+                    "Run Palette > Configuration to sync mode settings"));
             }
 
             if (!hasIssues)
-                results.Add(new ValidationResult(ValidationStatus.Valid, "Config synced", category: CheckCategory.ConfigSync));
+                results.Add(Valid(CheckCategory.ConfigSync, "Config synced"));
 
             return results;
         }
@@ -669,71 +652,61 @@ namespace Sorolla.Palette.Editor
                 foreach ((SdkId sdkId, string[] entries) in orphaned)
                 {
                     string sdkName = SdkRegistry.All[sdkId].Name;
-                    results.Add(new ValidationResult(
-                        ValidationStatus.Error,
+                    results.Add(Error(
+                        CheckCategory.AndroidManifest,
                         $"AndroidManifest.xml has {sdkName} entries but SDK is not installed!\n" +
                         $"  Found patterns: {string.Join(", ", entries)}\n" +
                         "  This WILL crash at runtime.",
-                        "Open Palette > Configuration and click Refresh in Build Health",
-                        CheckCategory.AndroidManifest
-                    ));
+                        "Open Palette > Configuration and click Refresh in Build Health"));
                 }
             }
 
             if (duplicates.Count > 0)
             {
                 hasIssues = true;
-                results.Add(new ValidationResult(
-                    ValidationStatus.Error,
+                results.Add(Error(
+                    CheckCategory.AndroidManifest,
                     "AndroidManifest.xml has duplicate activity declarations!\n" +
                     $"  Duplicates: {string.Join(", ", duplicates)}\n" +
                     "  This WILL cause build failures.",
-                    "Open Palette > Configuration and click Refresh in Build Health",
-                    CheckCategory.AndroidManifest
-                ));
+                    "Open Palette > Configuration and click Refresh in Build Health"));
             }
 
             if (wrongActivity != null)
             {
                 hasIssues = true;
-                results.Add(new ValidationResult(
-                    ValidationStatus.Error,
+                results.Add(Error(
+                    CheckCategory.AndroidManifest,
                     "AndroidManifest.xml has wrong main activity!\n" +
                     $"  Found: {wrongActivity}\n" +
                     $"  Expected: {AndroidManifestSanitizer.GetExpectedMainActivity()}\n" +
                     "  The app WILL crash on launch.",
-                    "Open Palette > Configuration and click Refresh in Build Health",
-                    CheckCategory.AndroidManifest
-                ));
+                    "Open Palette > Configuration and click Refresh in Build Health"));
             }
 
             if (themeMismatch != null)
             {
                 hasIssues = true;
-                results.Add(new ValidationResult(
-                    ValidationStatus.Error,
+                results.Add(Error(
+                    CheckCategory.AndroidManifest,
                     "AndroidManifest.xml activity theme issue!\n" +
                     $"  {themeMismatch}\n" +
                     "  This WILL cause a Gradle merge conflict on build.",
-                    "Open Palette > Configuration and click Refresh in Build Health",
-                    CheckCategory.AndroidManifest
-                ));
+                    "Open Palette > Configuration and click Refresh in Build Health"));
             }
 
             if (launcherIssue != null)
             {
                 hasIssues = true;
-                results.Add(new ValidationResult(
-                    ValidationStatus.Error,
+                results.Add(Error(
+                    CheckCategory.AndroidManifest,
                     $"LauncherManifest.xml issue: {launcherIssue}\n" +
                     "  The app will install but fail to launch.",
-                    "Open Palette > Configuration and click Refresh in Build Health",
-                    CheckCategory.AndroidManifest
-                ));
+                    "Open Palette > Configuration and click Refresh in Build Health"));
             }
 
             if (!hasIssues)
-                results.Add(new ValidationResult(ValidationStatus.Valid, "Manifest clean", category: CheckCategory.AndroidManifest));
+                results.Add(Valid(CheckCategory.AndroidManifest, "Manifest clean"));
 
             return results;
         }
@@ -751,12 +724,10 @@ namespace Sorolla.Palette.Editor
             var config = Resources.Load<SorollaConfig>("SorollaConfig");
             if (config == null)
             {
-                results.Add(new ValidationResult(
-                    ValidationStatus.Warning,
+                results.Add(Warning(
+                    CheckCategory.MaxSettings,
                     "SorollaConfig not found - cannot validate MAX SDK key",
-                    "Create config via Assets > Create > Palette > Config",
-                    CheckCategory.MaxSettings
-                ));
+                    "Create config via Assets > Create > Palette > Config"));
                 return results;
             }
 
@@ -765,20 +736,18 @@ namespace Sorolla.Palette.Editor
             if (maxStatus == SdkConfigDetector.ConfigStatus.NotConfigured)
             {
                 hasIssues = true;
-                results.Add(new ValidationResult(
-                    ValidationStatus.Error,
+                results.Add(Error(
+                    CheckCategory.MaxSettings,
                     "AppLovin SDK key is not configured!\n" +
                     "  SDK key must be set in Palette Configuration.\n" +
                     "  Ads will not work without a valid SDK key.",
-                    "Open Palette > Configuration and enter MAX SDK key",
-                    CheckCategory.MaxSettings
-                ));
+                    "Open Palette > Configuration and enter MAX SDK key"));
             }
 
             if (!hasIssues)
-                results.Add(new ValidationResult(ValidationStatus.Valid, "MAX SDK key OK", category: CheckCategory.MaxSettings));
+                results.Add(Valid(CheckCategory.MaxSettings, "MAX SDK key OK"));
 #else
-            results.Add(new ValidationResult(ValidationStatus.Valid, "MAX not installed", category: CheckCategory.MaxSettings));
+            results.Add(Valid(CheckCategory.MaxSettings, "MAX not installed"));
 #endif
 
             return results;
@@ -795,44 +764,40 @@ namespace Sorolla.Palette.Editor
             // Only check in Full mode when Adjust is installed
             if (!SorollaSettings.IsConfigured || SorollaSettings.IsPrototype)
             {
-                results.Add(new ValidationResult(ValidationStatus.Valid, "Adjust not required", category: CheckCategory.AdjustSettings));
+                results.Add(Valid(CheckCategory.AdjustSettings, "Adjust not required"));
                 return results;
             }
 
             if (!SdkDetector.IsInstalled(SdkId.Adjust))
             {
                 // Installation is checked by CheckRequiredSdks - just skip config check here
-                results.Add(new ValidationResult(ValidationStatus.Valid, "Adjust not installed", category: CheckCategory.AdjustSettings));
+                results.Add(Valid(CheckCategory.AdjustSettings, "Adjust not installed"));
                 return results;
             }
 
             var config = Resources.Load<SorollaConfig>("SorollaConfig");
             if (config == null)
             {
-                results.Add(new ValidationResult(
-                    ValidationStatus.Warning,
+                results.Add(Warning(
+                    CheckCategory.AdjustSettings,
                     "SorollaConfig not found - cannot validate Adjust app token",
-                    "Create config via Assets > Create > Palette > Config",
-                    CheckCategory.AdjustSettings
-                ));
+                    "Create config via Assets > Create > Palette > Config"));
                 return results;
             }
 
             SdkConfigDetector.ConfigStatus adjustStatus = SdkConfigDetector.GetAdjustStatus(config);
             if (adjustStatus == SdkConfigDetector.ConfigStatus.NotConfigured)
             {
-                results.Add(new ValidationResult(
-                    ValidationStatus.Error,
+                results.Add(Error(
+                    CheckCategory.AdjustSettings,
                     "Adjust app token is not configured!\n" +
                     "  Attribution tracking will not work without a valid app token.\n" +
                     "  Enter your Adjust app token in Palette > Configuration.",
-                    "Open Palette > Configuration and enter Adjust app token",
-                    CheckCategory.AdjustSettings
-                ));
+                    "Open Palette > Configuration and enter Adjust app token"));
             }
             else
             {
-                results.Add(new ValidationResult(ValidationStatus.Valid, "Adjust app token OK", category: CheckCategory.AdjustSettings));
+                results.Add(Valid(CheckCategory.AdjustSettings, "Adjust app token OK"));
             }
 
             return results;
@@ -851,12 +816,10 @@ namespace Sorolla.Palette.Editor
             if (duplicates.Count > 0)
             {
                 hasIssues = true;
-                results.AddRange(duplicates.Select(dup => new ValidationResult(
-                    ValidationStatus.Warning,
+                results.AddRange(duplicates.Select(dup => Warning(
+                    CheckCategory.Edm4uSettings,
                     dup,
-                    "Remove duplicate EDM4U from Assets/ folder",
-                    CheckCategory.Edm4uSettings
-                )));
+                    "Remove duplicate EDM4U from Assets/ folder")));
             }
 
             // Check Gradle template mode (prevents Java 17+ compatibility issues)
@@ -868,7 +831,7 @@ namespace Sorolla.Palette.Editor
             }
 
             if (!hasIssues)
-                results.Add(new ValidationResult(ValidationStatus.Valid, "EDM4U settings OK", category: CheckCategory.Edm4uSettings));
+                results.Add(Valid(CheckCategory.Edm4uSettings, "EDM4U settings OK"));
 
             return results;
         }
@@ -898,14 +861,12 @@ namespace Sorolla.Palette.Editor
 
                 if (mainTemplateProp != null && !(bool)mainTemplateProp.GetValue(null))
                 {
-                    return new ValidationResult(
-                        ValidationStatus.Warning,
+                    return Warning(
+                        CheckCategory.Edm4uSettings,
                         "EDM4U not configured for Gradle templates.\n" +
                         "  This causes Java 17+ compatibility errors on Android resolve.\n" +
                         "  Unity 6+ requires Gradle template mode.",
-                        "Run Palette > Run Setup (Force)",
-                        CheckCategory.Edm4uSettings
-                    );
+                        "Run Palette > Run Setup (Force)");
                 }
             }
             catch (Exception e)
@@ -927,7 +888,7 @@ namespace Sorolla.Palette.Editor
 
             if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
             {
-                results.Add(new ValidationResult(ValidationStatus.Valid, "Gradle checks skipped (not Android)", category: CheckCategory.GradleConfig));
+                results.Add(Valid(CheckCategory.GradleConfig, "Gradle checks skipped (not Android)"));
                 return results;
             }
 
@@ -942,14 +903,12 @@ namespace Sorolla.Palette.Editor
                 {
                     hasIssues = true;
                     string fileName = Path.GetFileName(templatePath);
-                    results.Add(new ValidationResult(
-                        ValidationStatus.Error,
+                    results.Add(Error(
+                        CheckCategory.GradleConfig,
                         $"{fileName} has Java 11 compileOptions!\n" +
                         $"  Firebase 23.x, AppLovin MAX 13.x, and Kotlin 2.x require Java {RequiredJavaVersion}.\n" +
                         $"  Change sourceCompatibility and targetCompatibility to VERSION_{RequiredJavaVersion}.",
-                        "Open Palette > Configuration and click Refresh in Build Health",
-                        CheckCategory.GradleConfig
-                    ));
+                        "Open Palette > Configuration and click Refresh in Build Health"));
                 }
             }
 
@@ -962,32 +921,28 @@ namespace Sorolla.Palette.Editor
                     // Unity 2022 bundles JDK 11 — need explicit JDK 17+ override
 #if !UNITY_6000_0_OR_NEWER
                     hasIssues = true;
-                    results.Add(new ValidationResult(
-                        ValidationStatus.Error,
+                    results.Add(Error(
+                        CheckCategory.GradleConfig,
                         "gradleTemplate.properties missing org.gradle.java.home!\n" +
                         $"  Unity {Application.unityVersion} bundles JDK 11 which cannot dex Java {RequiredJavaVersion} bytecode.\n" +
                         $"  Add org.gradle.java.home pointing to a JDK {RequiredJavaVersion}+ installation.\n" +
                         "  Without this, ALL Firebase/MAX/Kotlin deps will fail to dex.",
-                        "Install JDK 17 and add org.gradle.java.home to gradleTemplate.properties",
-                        CheckCategory.GradleConfig
-                    ));
+                        "Install JDK 17 and add org.gradle.java.home to gradleTemplate.properties"));
 #endif
                 }
             }
             else
             {
                 hasIssues = true;
-                results.Add(new ValidationResult(
-                    ValidationStatus.Warning,
+                results.Add(Warning(
+                    CheckCategory.GradleConfig,
                     "gradleTemplate.properties not found.\n" +
                     "  Enable Custom Gradle Properties Template in Player Settings > Publishing Settings.",
-                    "Enable Custom Gradle Properties Template",
-                    CheckCategory.GradleConfig
-                ));
+                    "Enable Custom Gradle Properties Template"));
             }
 
             if (!hasIssues)
-                results.Add(new ValidationResult(ValidationStatus.Valid, "Gradle config OK", category: CheckCategory.GradleConfig));
+                results.Add(Valid(CheckCategory.GradleConfig, "Gradle config OK"));
 
             return results;
         }
@@ -1047,7 +1002,7 @@ namespace Sorolla.Palette.Editor
 
             if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
             {
-                results.Add(new ValidationResult(ValidationStatus.Valid, "R8/AGP checks skipped (not Android)", category: CheckCategory.GradleConfig));
+                results.Add(Valid(CheckCategory.GradleConfig, "R8/AGP checks skipped (not Android)"));
                 return results;
             }
 
@@ -1061,15 +1016,13 @@ namespace Sorolla.Palette.Editor
                 {
 #if UNITY_6000_0_OR_NEWER
                     hasIssues = true;
-                    results.Add(new ValidationResult(
-                        ValidationStatus.Error,
+                    results.Add(Error(
+                        CheckCategory.GradleConfig,
                         "baseProjectTemplate.gradle has an R8 version pin!\n" +
                         "  AGP 8.x bundles modern R8 that handles Kotlin 2.0 natively.\n" +
                         "  The pin causes NoSuchMethodError during dexing.\n" +
                         "  Remove the buildscript { ... } block from baseProjectTemplate.gradle.",
-                        "Open Palette > Configuration and click Refresh in Build Health",
-                        CheckCategory.GradleConfig
-                    ));
+                        "Open Palette > Configuration and click Refresh in Build Health"));
 #endif
                     // Unity 2022: R8 pin is expected and correct - no warning needed
                 }
@@ -1083,21 +1036,19 @@ namespace Sorolla.Palette.Editor
                 {
 #if UNITY_6000_0_OR_NEWER
                     hasIssues = true;
-                    results.Add(new ValidationResult(
-                        ValidationStatus.Warning,
+                    results.Add(Warning(
+                        CheckCategory.GradleConfig,
                         "mainTemplate.gradle forces Kotlin stdlib to an older version.\n" +
                         "  AGP 8.x handles Kotlin 2.0 metadata natively.\n" +
                         "  Consider removing the resolutionStrategy block.",
-                        "Remove the resolutionStrategy.eachDependency block for kotlin-stdlib",
-                        CheckCategory.GradleConfig
-                    ));
+                        "Remove the resolutionStrategy.eachDependency block for kotlin-stdlib"));
 #endif
                     // Unity 2022: Kotlin forcing is expected and correct - no warning needed
                 }
             }
 
             if (!hasIssues)
-                results.Add(new ValidationResult(ValidationStatus.Valid, "R8/AGP config OK", category: CheckCategory.GradleConfig));
+                results.Add(Valid(CheckCategory.GradleConfig, "R8/AGP config OK"));
 
             return results;
         }
