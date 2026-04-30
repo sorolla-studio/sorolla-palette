@@ -37,10 +37,7 @@ namespace Sorolla.Palette.DebugUI
 
         void TrackTestPurchase()
         {
-            DebugPanelManager.Instance?.Log(
-                "Palette.TrackPurchase is internal since 3.14.1. Wire Palette.AttachPurchaseTracking(storeController) and trigger a real Unity IAP purchase to test fan-out to TikTok.",
-                LogSource.TikTok, LogLevel.Warning);
-            SorollaDebugEvents.RaiseShowToast("Use AttachPurchaseTracking + real IAP", ToastType.Warning);
+            DebugPurchaseTester.Purchase(LogSource.TikTok);
         }
     }
 }

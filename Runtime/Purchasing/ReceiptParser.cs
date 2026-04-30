@@ -1,4 +1,5 @@
 using System;
+using Sorolla.Palette.Adapters;
 using UnityEngine;
 
 namespace Sorolla.Palette.Purchasing
@@ -75,7 +76,8 @@ namespace Sorolla.Palette.Purchasing
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"{Tag} Failed to parse Unity IAP receipt: {e.Message}");
+                PaletteLog.Warning($"{Tag} Failed to parse Unity IAP receipt; purchase token unavailable for store verification.");
+                PaletteLog.Verbose($"{Tag} Failed to parse Unity IAP receipt: {e.Message}");
                 return default;
             }
         }

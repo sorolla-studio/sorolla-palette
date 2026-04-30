@@ -16,6 +16,16 @@ Technical reference for contributors working on the Sorolla SDK.
 4. **Single Source of Truth** - `SdkRegistry.cs` contains all SDK metadata
 5. **DX-First API Design** - Studios are game makers, not SDK integrators. SDK absorbs complexity; studios express intent. See [DX-First API Design](#dx-first-api-design) below.
 
+### Logging Policy
+
+Production builds must leave enough sanitized evidence to greenlight or reject a game build without requiring a verbose rebuild. SDK-owned logs therefore use `PaletteLog`:
+
+- `PaletteLog.Vital(...)` for production-safe health markers: SDK mode/version context, adapter registered/initialized/missing, consent summary, `Palette Ready`, purchase tracking attached, purchase accepted/dropped, ad load/show failures, and endpoint initialization failures.
+- `PaletteLog.Warning(...)` / `PaletteLog.Error(...)` for production-safe hints that something is misconfigured or dropped. Messages must say what failed and whether a verbose rebuild is needed, but must not include secrets or raw payloads.
+- `PaletteLog.Verbose(...)` for investigation-only details: native exception messages, raw SDK callback details, ad retry chatter, attribution campaign detail, receipt/TCF diagnostics, and per-event/ad telemetry chatter.
+
+Never log SDK keys, app tokens, API secrets, raw receipts, purchase tokens, transaction IDs, raw TCF strings, user identifiers, or full event/ad payloads in production-safe logs. Log presence/absence instead (`present` / `missing`) and keep detailed diagnostics behind `verboseLogging`, which is forced off in non-development builds.
+
 ### DX-First API Design
 
 **Context**: Sorolla is the publisher and the tracker. Studios focus on making games - they don't do custom analytics, they don't know MMP verification formats, they don't speak ISO 4217. Every primitive parameter (`double`, `string`, `bool`) on a public API is a future silent-data-corruption bug. The reference example is the `3.9.2` `TrackPurchase` hotfix: the method accepted tier-index as amount and `"Tier"` as currency and fired the event anyway, polluting Adjust revenue data for weeks - no compile error, no runtime error, silent.

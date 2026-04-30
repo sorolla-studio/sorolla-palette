@@ -43,7 +43,7 @@ namespace Sorolla.Palette.Adapters
                 return;
 
             _initRequested = true;
-            Debug.Log($"{Tag} Initializing...");
+            PaletteLog.Vital($"{Tag} Initializing...");
 
             try
             {
@@ -53,7 +53,8 @@ namespace Sorolla.Palette.Adapters
 
                     if (task.IsFaulted || task.IsCanceled)
                     {
-                        Debug.LogError($"{Tag} Failed: {task.Exception?.Message ?? "Cancelled"}");
+                        PaletteLog.Error($"{Tag} Failed dependency check. Rebuild with verbose logging to inspect Firebase details.");
+                        PaletteLog.Verbose($"{Tag} Failed: {task.Exception?.Message ?? "Cancelled"}");
                         _available = false;
                         InvokePendingCallbacks(false);
                         return;
@@ -63,9 +64,9 @@ namespace Sorolla.Palette.Adapters
                     _available = status == DependencyStatus.Available;
 
                     if (_available)
-                        Debug.Log($"{Tag} Ready");
+                        PaletteLog.Vital($"{Tag} Ready");
                     else
-                        Debug.LogError($"{Tag} Dependencies not available: {status}");
+                        PaletteLog.Error($"{Tag} Dependencies not available: {status}");
 
                     InvokePendingCallbacks(_available);
                 });
@@ -73,10 +74,13 @@ namespace Sorolla.Palette.Adapters
             catch (Exception ex)
             {
                 if (ex is TypeInitializationException || ex.InnerException is TypeInitializationException)
-                    Debug.LogError($"{Tag} Firebase native library not available in Editor. " +
+                    PaletteLog.Error($"{Tag} Firebase native library not available in Editor. " +
                         "This does not affect Android/iOS device builds.");
                 else
-                    Debug.LogError($"{Tag} Exception: {ex.Message}");
+                {
+                    PaletteLog.Error($"{Tag} Exception during Firebase initialization. Rebuild with verbose logging to inspect details.");
+                    PaletteLog.Verbose($"{Tag} Exception: {ex.Message}");
+                }
 
                 _initialized = true;
                 _available = false;
@@ -89,7 +93,11 @@ namespace Sorolla.Palette.Adapters
             foreach (var callback in _pendingCallbacks)
             {
                 try { callback?.Invoke(success); }
-                catch (Exception ex) { Debug.LogError($"{Tag} Callback error: {ex.Message}"); }
+                catch (Exception ex)
+                {
+                    PaletteLog.Error($"{Tag} Callback error during Firebase initialization.");
+                    PaletteLog.Verbose($"{Tag} Callback error: {ex.Message}");
+                }
             }
             _pendingCallbacks.Clear();
         }

@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Sorolla.Palette.Adapters;
 using UnityEngine;
 #if GAMEANALYTICS_INSTALLED
 using GameAnalyticsSDK;
@@ -22,21 +23,22 @@ namespace Sorolla.Palette
 #if GAMEANALYTICS_INSTALLED
             if (GameAnalytics.Initialized)
             {
-                Debug.Log($"{Tag} Already initialized externally");
+                PaletteLog.Vital($"{Tag} Already initialized externally");
                 s_init = true;
                 GameAnalytics.SetEnabledEventSubmission(consent);
+                PaletteLog.Vital($"{Tag} Event submission: {consent}");
                 return;
             }
 
             GameAnalyticsSDK.Events.GA_Setup.SetInfoLog(verboseLogging);
             GameAnalyticsSDK.Events.GA_Setup.SetVerboseLog(verboseLogging);
 
-            Debug.Log($"{Tag} Initializing (event submission: {consent}, verbose: {verboseLogging})...");
+            PaletteLog.Vital($"{Tag} Initializing (event submission: {consent}, verbose: {verboseLogging})...");
             GameAnalytics.Initialize();
             GameAnalytics.SetEnabledEventSubmission(consent);
             s_init = true;
 #else
-            Debug.LogWarning($"{Tag} SDK not installed");
+            PaletteLog.Warning($"{Tag} SDK not installed");
             s_init = true;
 #endif
         }
@@ -46,6 +48,7 @@ namespace Sorolla.Palette
 #if GAMEANALYTICS_INSTALLED
             if (!EnsureInit()) return;
             GameAnalytics.SetEnabledEventSubmission(consent);
+            PaletteLog.Vital($"{Tag} Event submission: {consent}");
 #endif
         }
 
@@ -53,7 +56,7 @@ namespace Sorolla.Palette
         static bool EnsureInit()
         {
             if (s_init) return true;
-            Debug.LogWarning($"{Tag} Not initialized");
+            PaletteLog.Warning($"{Tag} Not initialized");
             return false;
         }
 

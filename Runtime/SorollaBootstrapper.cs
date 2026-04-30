@@ -34,7 +34,7 @@ namespace Sorolla.Palette
         {
             if (s_instance != null) return;
 
-            Debug.Log("[Palette] Auto-initializing...");
+            PaletteLog.Vital("[Palette] Auto-initializing...");
 
             var go = new GameObject("[Palette SDK]");
             MakePersistent(go);
@@ -65,13 +65,13 @@ namespace Sorolla.Palette
             try
             {
                 DontDestroyOnLoad(go);
-                Debug.Log("[Palette] Successfully marked GameObject as persistent");
+                PaletteLog.Verbose("[Palette] Successfully marked GameObject as persistent");
             }
             catch (Exception e)
             {
                 // At BeforeSceneLoad, scene context may not be ready on some platforms.
                 // EnsurePersistent() in Start() will retry when the scene is valid.
-                Debug.LogWarning($"[Palette] DontDestroyOnLoad deferred to Start(): {e.Message}");
+                PaletteLog.Verbose($"[Palette] DontDestroyOnLoad deferred to Start(): {e.Message}");
             }
         }
 
@@ -86,11 +86,11 @@ namespace Sorolla.Palette
             try
             {
                 DontDestroyOnLoad(gameObject);
-                Debug.Log("[Palette] Successfully marked GameObject as persistent (deferred)");
+                PaletteLog.Verbose("[Palette] Successfully marked GameObject as persistent (deferred)");
             }
             catch (Exception e)
             {
-                Debug.LogError($"[Palette] Failed to persist SDK GameObject: {e.Message}");
+                PaletteLog.Error($"[Palette] Failed to persist SDK GameObject: {e.Message}");
             }
         }
 
@@ -121,7 +121,7 @@ namespace Sorolla.Palette
 
             var finalStatus = ATTBridge.GetStatus();
             bool consent = finalStatus == ATTBridge.AuthorizationStatus.Authorized;
-            Debug.Log($"[Palette] Standalone ATT: {finalStatus} (consent={consent})");
+            PaletteLog.Vital($"[Palette] Standalone ATT: {finalStatus} (consent={consent})");
             Palette.Initialize(consent);
             // Ship ATT decision to analytics. Palette.Initialize set IsInitialized=true
             // on the non-MAX path so this fires immediately (not queued).

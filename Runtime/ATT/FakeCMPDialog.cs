@@ -1,4 +1,5 @@
 using System;
+using Sorolla.Palette.Adapters;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -32,7 +33,7 @@ namespace Sorolla.Palette.ATT
 
         void HandleDecision(bool accepted)
         {
-            Debug.Log($"[Palette:CMP] Fake CMP decision: {(accepted ? "Accepted" : "Rejected")}");
+            PaletteLog.Verbose($"[Palette:CMP] Fake CMP decision: {(accepted ? "Accepted" : "Rejected")}");
             OnDecision?.Invoke(accepted);
             Destroy(gameObject);
         }
@@ -45,7 +46,7 @@ namespace Sorolla.Palette.ATT
             var prefab = Resources.Load<GameObject>(PrefabPath);
             if (prefab == null)
             {
-                Debug.LogWarning("[Palette:CMP] FakeCMPDialog prefab not found. Run Palette > ATT > Create Fake CMP Popup Prefab");
+                PaletteLog.Warning("[Palette:CMP] FakeCMPDialog prefab not found. Run Palette > ATT > Create Fake CMP Popup Prefab");
                 onDecision?.Invoke(true); // Default to accepted
                 return;
             }

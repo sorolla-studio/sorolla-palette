@@ -40,8 +40,9 @@ Current configuration (may be null)
 public static SorollaConfig Config { get; }
 ```
 #### VerboseLogging
-Whether verbose logging is active. Resolved from config + build type.
-Always false in non-development builds regardless of config.
+Whether detailed diagnostics are active. Resolved from config + build type.
+Always false in non-development builds regardless of config; production-safe
+health markers, warnings, and errors are still logged when this is false.
 
 ```csharp title="Declaration"
 public static bool VerboseLogging { get; }
@@ -756,13 +757,13 @@ TikTok Events Manager Access Token used by the server-side event API.
 public PlatformAdUnitId tiktokAccessToken
 ```
 #### verboseLogging
-Master toggle for verbose/debug logging across all vendor SDKs (MAX, Adjust, TikTok).
+Enables detailed SDK diagnostics and vendor debug logging for QA investigation.
 Automatically forced OFF in non-development builds as a safety net.
-When OFF, vendor SDKs use minimal log levels suitable for release.
+Production-safe SDK health markers, warnings, and errors are always logged even when this is OFF.
 
 ```csharp title="Declaration"
 [Header("Logging")]
-[Tooltip("Enable verbose logging for all vendor SDKs. Forced OFF in release builds.")]
+[Tooltip("Enable detailed SDK diagnostics and vendor debug logs. Forced OFF in release builds; production-safe health logs remain on.")]
 public bool verboseLogging
 ```
 #### tiktokDebugMode
@@ -869,4 +870,3 @@ Sink = 1
 ```
 
 ---
-

@@ -51,7 +51,7 @@ namespace Sorolla.Palette.Adapters
                 }
                 else
                 {
-                    Debug.LogError($"{Tag} Firebase not available");
+                    PaletteLog.Error($"{Tag} Firebase not available");
                     _initFailed = true;
                     InvokeFetchCallbacks(false);
                 }
@@ -74,9 +74,14 @@ namespace Sorolla.Palette.Adapters
                 FirebaseRemoteConfig.DefaultInstance.SetDefaultsAsync(_pendingDefaults).ContinueWithOnMainThread(task =>
                 {
                     if (task.IsFaulted)
-                        Debug.LogError($"{Tag} Failed to set defaults: {task.Exception}");
+                    {
+                        PaletteLog.Error($"{Tag} Failed to set Remote Config defaults.");
+                        PaletteLog.Verbose($"{Tag} Failed to set defaults: {task.Exception}");
+                    }
                     else
-                        Debug.Log($"{Tag} Defaults set ({_pendingDefaults.Count} values)");
+                    {
+                        PaletteLog.Verbose($"{Tag} Defaults set ({_pendingDefaults.Count} values)");
+                    }
 
                     _pendingDefaults = null;
                     OnReady();
@@ -103,21 +108,26 @@ namespace Sorolla.Palette.Adapters
         {
             if (args.Error != RemoteConfigError.None)
             {
-                Debug.LogWarning($"{Tag} Real-time update error: {args.Error}");
+                PaletteLog.Warning($"{Tag} Real-time update error: {args.Error}");
                 return;
             }
 
             var updatedKeys = args.UpdatedKeys?.ToList() ?? new List<string>();
-            Debug.Log($"{Tag} Real-time update received ({updatedKeys.Count} keys)");
+            PaletteLog.Vital($"{Tag} Real-time update received ({updatedKeys.Count} keys)");
 
             if (AutoActivateUpdates)
             {
                 FirebaseRemoteConfig.DefaultInstance.ActivateAsync().ContinueWithOnMainThread(task =>
                 {
                     if (task.IsFaulted)
-                        Debug.LogError($"{Tag} Auto-activate failed: {task.Exception?.Message}");
+                    {
+                        PaletteLog.Error($"{Tag} Auto-activate failed.");
+                        PaletteLog.Verbose($"{Tag} Auto-activate failed: {task.Exception?.Message}");
+                    }
                     else
+                    {
                         OnConfigUpdated?.Invoke(updatedKeys.AsReadOnly());
+                    }
                 });
             }
             else
@@ -149,9 +159,14 @@ namespace Sorolla.Palette.Adapters
             FirebaseRemoteConfig.DefaultInstance.SetDefaultsAsync(defaults).ContinueWithOnMainThread(task =>
             {
                 if (task.IsFaulted)
-                    Debug.LogError($"{Tag} Failed to set defaults: {task.Exception}");
+                {
+                    PaletteLog.Error($"{Tag} Failed to set Remote Config defaults.");
+                    PaletteLog.Verbose($"{Tag} Failed to set defaults: {task.Exception}");
+                }
                 else
-                    Debug.Log($"{Tag} Defaults set ({defaults.Count} values)");
+                {
+                    PaletteLog.Verbose($"{Tag} Defaults set ({defaults.Count} values)");
+                }
             });
         }
 
@@ -171,7 +186,7 @@ namespace Sorolla.Palette.Adapters
                 if (_initRequested)
                     return; // callbacks parked, will fire after init -> OnReady -> fetch
 
-                Debug.LogWarning($"{Tag} Not initialized");
+                PaletteLog.Warning($"{Tag} Not initialized");
                 InvokeFetchCallbacks(false);
                 return;
             }
@@ -194,13 +209,14 @@ namespace Sorolla.Palette.Adapters
 
                 if (task.IsFaulted)
                 {
-                    Debug.LogError($"{Tag} Fetch failed: {task.Exception?.Message}");
+                    PaletteLog.Error($"{Tag} Fetch failed. Rebuild with verbose logging to inspect Firebase details.");
+                    PaletteLog.Verbose($"{Tag} Fetch failed: {task.Exception?.Message}");
                     InvokeFetchCallbacks(false);
                     return;
                 }
 
                 var info = FirebaseRemoteConfig.DefaultInstance.Info;
-                Debug.Log($"{Tag} Fetch complete (newValuesActivated: {task.Result}, lastFetchStatus: {info.LastFetchStatus})");
+                PaletteLog.Vital($"{Tag} Fetch complete (newValuesActivated: {task.Result}, lastFetchStatus: {info.LastFetchStatus})");
                 _fetchedOnce = true;
                 InvokeFetchCallbacks(true);
             });
@@ -224,12 +240,13 @@ namespace Sorolla.Palette.Adapters
             {
                 if (task.IsFaulted)
                 {
-                    Debug.LogError($"{Tag} Activate failed: {task.Exception?.Message}");
+                    PaletteLog.Error($"{Tag} Activate failed. Rebuild with verbose logging to inspect Firebase details.");
+                    PaletteLog.Verbose($"{Tag} Activate failed: {task.Exception?.Message}");
                     tcs.SetResult(false);
                 }
                 else
                 {
-                    Debug.Log($"{Tag} Config activated");
+                    PaletteLog.Vital($"{Tag} Config activated");
                     tcs.SetResult(true);
                 }
             });
@@ -246,7 +263,8 @@ namespace Sorolla.Palette.Adapters
             }
             catch (Exception ex)
             {
-                Debug.LogError($"{Tag} Error getting '{key}': {ex.Message}");
+                PaletteLog.Error($"{Tag} Error getting Remote Config key '{key}'.");
+                PaletteLog.Verbose($"{Tag} Error getting '{key}': {ex.Message}");
                 return defaultValue;
             }
         }
@@ -263,7 +281,8 @@ namespace Sorolla.Palette.Adapters
             }
             catch (Exception ex)
             {
-                Debug.LogError($"{Tag} Error getting '{key}': {ex.Message}");
+                PaletteLog.Error($"{Tag} Error getting Remote Config key '{key}'.");
+                PaletteLog.Verbose($"{Tag} Error getting '{key}': {ex.Message}");
                 return defaultValue;
             }
         }
@@ -280,7 +299,8 @@ namespace Sorolla.Palette.Adapters
             }
             catch (Exception ex)
             {
-                Debug.LogError($"{Tag} Error getting '{key}': {ex.Message}");
+                PaletteLog.Error($"{Tag} Error getting Remote Config key '{key}'.");
+                PaletteLog.Verbose($"{Tag} Error getting '{key}': {ex.Message}");
                 return defaultValue;
             }
         }
@@ -299,7 +319,8 @@ namespace Sorolla.Palette.Adapters
             }
             catch (Exception ex)
             {
-                Debug.LogError($"{Tag} Error getting '{key}': {ex.Message}");
+                PaletteLog.Error($"{Tag} Error getting Remote Config key '{key}'.");
+                PaletteLog.Verbose($"{Tag} Error getting '{key}': {ex.Message}");
                 return defaultValue;
             }
         }

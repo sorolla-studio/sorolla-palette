@@ -61,9 +61,9 @@ namespace Sorolla.Palette
             static void WarnIfNegative(string verb, int level, int? world)
             {
                 if (level < 0)
-                    Debug.LogWarning($"{Tag} Level.{verb}: level={level} is negative; event passed through. Check for uninitialized int or off-by-one.");
+                    PaletteLog.Warning($"{Tag} Level.{verb}: level={level} is negative; event passed through. Check for uninitialized int or off-by-one.");
                 if (world.HasValue && world.Value < 0)
-                    Debug.LogWarning($"{Tag} Level.{verb}: world={world.Value} is negative; event passed through. Check for uninitialized int or off-by-one.");
+                    PaletteLog.Warning($"{Tag} Level.{verb}: world={world.Value} is negative; event passed through. Check for uninitialized int or off-by-one.");
             }
 
             static void Emit(string status, int level, int? world, int score, float? duration,

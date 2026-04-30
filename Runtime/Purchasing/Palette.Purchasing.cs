@@ -1,5 +1,6 @@
 #if UNITY_PURCHASING_INSTALLED
 using System.Collections.Generic;
+using Sorolla.Palette.Adapters;
 using UnityEngine;
 using UnityEngine.Purchasing;
 
@@ -45,16 +46,16 @@ namespace Sorolla.Palette
         {
             if (store == null)
             {
-                Debug.LogWarning($"{PurchasingTag} AttachPurchaseTracking: null StoreController - skipping.");
+                PaletteLog.Warning($"{PurchasingTag} AttachPurchaseTracking: null StoreController - skipping.");
                 return;
             }
             if (!s_attachedStores.Add(store))
             {
-                Debug.LogWarning($"{PurchasingTag} AttachPurchaseTracking: StoreController already attached - skipping duplicate.");
+                PaletteLog.Warning($"{PurchasingTag} AttachPurchaseTracking: StoreController already attached - skipping duplicate.");
                 return;
             }
             store.OnPurchasePending += TrackPurchase;
-            Debug.Log($"{PurchasingTag} AttachPurchaseTracking: wired OnPurchasePending -> Palette.TrackPurchase.");
+            PaletteLog.Vital($"{PurchasingTag} AttachPurchaseTracking: wired OnPurchasePending -> Palette.TrackPurchase.");
         }
     }
 }

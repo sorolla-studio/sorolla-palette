@@ -45,7 +45,7 @@ namespace Sorolla.Palette.Adapters
                     Crashlytics.ReportUncaughtExceptionsAsFatal = true;
 
                     _ready = true;
-                    Debug.Log($"{Tag} Initialized (ReportUncaughtExceptionsAsFatal=true)");
+                    PaletteLog.Vital($"{Tag} Initialized (ReportUncaughtExceptionsAsFatal=true)");
 
                     if (_captureExceptions)
                         Application.logMessageReceived += OnLogMessageReceived;
@@ -54,7 +54,7 @@ namespace Sorolla.Palette.Adapters
                 }
                 else
                 {
-                    Debug.LogError($"{Tag} Firebase not available");
+                    PaletteLog.Error($"{Tag} Firebase not available");
                     _initFailed = true;
                     // Drop anything that queued between Initialize() and the failure callback.
                     _pendingActions.Clear();

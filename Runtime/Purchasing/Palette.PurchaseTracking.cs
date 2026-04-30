@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Sorolla.Palette.Adapters;
+using Sorolla.Palette.Purchasing;
 #if GAMEANALYTICS_INSTALLED
 using GameAnalyticsSDK;
 #endif
@@ -32,14 +33,14 @@ namespace Sorolla.Palette
         {
             if (order == null)
             {
-                Debug.LogWarning($"{Tag} TrackPurchase(PendingOrder): null order - skipping.");
+                PaletteLog.Warning($"{Tag} TrackPurchase(PendingOrder): null order - skipping.");
                 return;
             }
 
             var product = order.CartOrdered?.Items()?.FirstOrDefault()?.Product;
             if (product == null)
             {
-                Debug.LogWarning($"{Tag} TrackPurchase(PendingOrder): empty cart - skipping.");
+                PaletteLog.Warning($"{Tag} TrackPurchase(PendingOrder): empty cart - skipping.");
                 return;
             }
 
@@ -54,7 +55,7 @@ namespace Sorolla.Palette
             // than forward corrupt revenue.
             if (rawPrice <= 0m || !IsIso4217(rawCurrency))
             {
-                Debug.LogError($"{Tag} TrackPurchase(PendingOrder): invalid metadata — " +
+                PaletteLog.Error($"{Tag} TrackPurchase(PendingOrder): invalid metadata - " +
                     $"product_id='{productId}', localizedPrice={rawPrice}, isoCurrencyCode='{rawCurrency}'. " +
                     $"Dropping event.");
 #if FIREBASE_ANALYTICS_INSTALLED
@@ -100,7 +101,7 @@ namespace Sorolla.Palette
         {
             if (product == null)
             {
-                Debug.LogWarning($"{Tag} TrackPurchase(Product): null product - skipping.");
+                PaletteLog.Warning($"{Tag} TrackPurchase(Product): null product - skipping.");
                 return;
             }
 
@@ -111,7 +112,7 @@ namespace Sorolla.Palette
 
             if (rawPrice <= 0m || !IsIso4217(rawCurrency))
             {
-                Debug.LogError($"{Tag} TrackPurchase(Product): invalid metadata — " +
+                PaletteLog.Error($"{Tag} TrackPurchase(Product): invalid metadata - " +
                     $"product_id='{productId}', localizedPrice={rawPrice}, isoCurrencyCode='{rawCurrency}'. " +
                     $"Dropping event. Migrate to TrackPurchase(PendingOrder) for Unity IAP v5.");
 #if FIREBASE_ANALYTICS_INSTALLED
@@ -167,9 +168,9 @@ namespace Sorolla.Palette
         {
             if (amount <= 0)
             {
-                Debug.LogWarning($"{Tag} TrackPurchase: non-positive amount ({amount}) - dropping event. " +
+                PaletteLog.Warning($"{Tag} TrackPurchase: non-positive amount ({amount}) - dropping event. " +
                     $"Pass the local price paid (e.g. Product.metadata.localizedPrice), not a tier index. " +
-                    $"Recommended: Palette.TrackPurchase(product) which derives this automatically.");
+                    $"Recommended: Palette.AttachPurchaseTracking(store), which derives this automatically from Unity IAP.");
                 return;
             }
             if (!IsIso4217(currency))
@@ -177,8 +178,8 @@ namespace Sorolla.Palette
                 // Firebase strips `value` server-side on non-ISO currency (observed:
                 // firebase_error=19, error_value="currency" in BQ), and MMPs reject
                 // outright. Drop rather than forward corrupt revenue.
-                Debug.LogError($"{Tag} TrackPurchase: currency '{currency}' is not ISO 4217 — dropping event. " +
-                    $"Pass Product.metadata.isoCurrencyCode or use Palette.TrackPurchase(product).");
+                PaletteLog.Error($"{Tag} TrackPurchase: currency '{currency}' is not ISO 4217 - dropping event. " +
+                    $"Pass Product.metadata.isoCurrencyCode or use Palette.AttachPurchaseTracking(store).");
 #if FIREBASE_ANALYTICS_INSTALLED
                 FirebaseAdapter.TrackEvent("sorolla_purchase_data_quality_failure", new Dictionary<string, object>
                 {
@@ -195,12 +196,14 @@ namespace Sorolla.Palette
             // Placed AFTER validation so a bad-payload first call doesn't burn the TxID slot for a corrected retry.
             if (!string.IsNullOrEmpty(transactionId) && !s_processedTxIds.Add(transactionId))
             {
-                Debug.LogWarning($"{Tag} TrackPurchase: duplicate transactionId '{transactionId}' — dropping. " +
+                PaletteLog.Warning($"{Tag} TrackPurchase: duplicate transactionId detected - dropping duplicate purchase event. " +
                     $"Unity IAP v5 can fire purchase callbacks twice (Google Play in-session double on OnPurchaseConfirmed, " +
                     $"or OnPurchasePending crash-replay per Unity docs). Session-wide dedup is enforced here so " +
                     $"analytics fan-out fires once per TxID.");
                 return;
             }
+
+            PaletteLog.Vital($"{Tag} TrackPurchase: accepted product_id='{productId ?? "unknown"}', currency='{currency}', transactionId={PaletteLog.Present(transactionId)}, purchaseToken={PaletteLog.Present(purchaseToken)}.");
 
             QueueOrExecute(() =>
             {
@@ -208,9 +211,11 @@ namespace Sorolla.Palette
                 if (!string.IsNullOrEmpty(Config?.adjustPurchaseEventToken))
                     AdjustAdapter.TrackPurchase(Config.adjustPurchaseEventToken, amount, currency,
                         productId, transactionId, purchaseToken);
+                else
+                    PaletteLog.WarningOnce("purchase.adjust.token_missing", $"{Tag} TrackPurchase: Adjust purchase event token not configured; Adjust purchase revenue skipped.");
 #endif
 
-                if (Config.enableTikTok && !string.IsNullOrEmpty(Config?.tiktokAppId?.Current))
+                if (Config != null && Config.enableTikTok && !string.IsNullOrEmpty(Config.tiktokAppId?.Current))
                     TikTokAdapter.TrackPurchase(amount, currency);
 
 #if FIREBASE_ANALYTICS_INSTALLED

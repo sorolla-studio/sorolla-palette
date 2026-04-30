@@ -21,7 +21,6 @@ namespace Sorolla.Palette.DebugUI
 
         [Header("Test Configuration")]
         [SerializeField] string testEventToken = "";
-        [SerializeField] string revenueEventToken = "";
 
         void Awake()
         {
@@ -84,16 +83,7 @@ namespace Sorolla.Palette.DebugUI
 
         void TrackTestRevenue()
         {
-            if (string.IsNullOrEmpty(revenueEventToken))
-            {
-                SorollaDebugEvents.RaiseShowToast("No revenue token configured", ToastType.Error);
-                return;
-            }
-
-            DebugPanelManager.Instance?.Log(
-                "Palette.TrackPurchase is internal since 3.14.1. Wire Palette.AttachPurchaseTracking(storeController) and trigger a real Unity IAP purchase to test revenue.",
-                LogSource.Adjust, LogLevel.Warning);
-            SorollaDebugEvents.RaiseShowToast("Use AttachPurchaseTracking + real IAP", ToastType.Warning);
+            DebugPurchaseTester.Purchase(LogSource.Adjust);
         }
     }
 }

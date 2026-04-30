@@ -23,14 +23,14 @@ namespace Sorolla.Palette.Adapters
         internal static void RegisterImpl(ITikTokAdapter impl)
         {
             s_impl = impl;
-            UnityEngine.Debug.Log($"{Tag} Implementation registered");
+            PaletteLog.Vital($"{Tag} Implementation registered");
         }
 
         public static void Initialize(string appId, string tiktokAppId, string accessToken, bool debugMode = false)
         {
             if (s_initialized)
             {
-                UnityEngine.Debug.LogWarning($"{Tag} Already initialized.");
+                PaletteLog.Warning($"{Tag} Already initialized.");
                 return;
             }
 
@@ -41,7 +41,7 @@ namespace Sorolla.Palette.Adapters
             }
             else
             {
-                UnityEngine.Debug.LogWarning($"{Tag} Not installed");
+                PaletteLog.Warning($"{Tag} Not installed");
             }
         }
 

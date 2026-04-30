@@ -46,7 +46,7 @@ namespace Sorolla.Palette.Adapters
         internal static void RegisterImpl(IFirebaseAdapter impl)
         {
             s_impl = impl;
-            UnityEngine.Debug.Log($"{Tag} Implementation registered");
+            PaletteLog.Vital($"{Tag} Implementation registered");
         }
 
         public static bool IsReady => s_impl?.IsReady ?? false;
@@ -56,7 +56,7 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize(consent, verboseLogging);
             else
-                UnityEngine.Debug.LogWarning($"{Tag} Not installed");
+                PaletteLog.Warning($"{Tag} Not installed");
         }
 
         public static void UpdateConsent(bool consent)
@@ -120,7 +120,7 @@ namespace Sorolla.Palette.Adapters
         internal static void RegisterImpl(IFirebaseCoreManager impl)
         {
             s_impl = impl;
-            UnityEngine.Debug.Log($"{Tag} Implementation registered");
+            PaletteLog.Vital($"{Tag} Implementation registered");
         }
 
         public static bool IsInitializing => s_impl?.IsInitializing ?? false;

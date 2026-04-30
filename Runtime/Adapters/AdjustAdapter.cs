@@ -64,7 +64,7 @@ namespace Sorolla.Palette.Adapters
         internal static void RegisterImpl(IAdjustAdapter impl)
         {
             s_impl = impl;
-            UnityEngine.Debug.Log($"{Tag} Implementation registered");
+            PaletteLog.Vital($"{Tag} Implementation registered");
         }
 
         public static void Initialize(string appToken, AdjustEnvironment environment, bool verboseLogging = false)
@@ -72,7 +72,7 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize(appToken, environment, verboseLogging);
             else
-                UnityEngine.Debug.LogWarning($"{Tag} Not installed");
+                PaletteLog.Warning($"{Tag} Not installed");
         }
 
         public static void UpdateConsent(bool consent)

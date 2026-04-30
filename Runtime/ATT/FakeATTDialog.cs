@@ -1,4 +1,5 @@
 using System;
+using Sorolla.Palette.Adapters;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -32,7 +33,7 @@ namespace Sorolla.Palette.ATT
 
         void HandleDecision(bool allowed)
         {
-            Debug.Log($"[Palette:ATT] Fake ATT decision: {(allowed ? "Allowed" : "Denied")}");
+            PaletteLog.Verbose($"[Palette:ATT] Fake ATT decision: {(allowed ? "Allowed" : "Denied")}");
             OnDecision?.Invoke(allowed);
             Destroy(gameObject);
         }
@@ -45,7 +46,7 @@ namespace Sorolla.Palette.ATT
             var prefab = Resources.Load<GameObject>(PrefabPath);
             if (prefab == null)
             {
-                Debug.LogWarning("[Palette:ATT] FakeATTDialog prefab not found. Run Palette > ATT > Create Fake ATT Popup Prefab");
+                PaletteLog.Warning("[Palette:ATT] FakeATTDialog prefab not found. Run Palette > ATT > Create Fake ATT Popup Prefab");
                 onDecision?.Invoke(true); // Default to allowed
                 return;
             }

@@ -27,7 +27,7 @@ namespace Sorolla.Palette.Adapters
             foreach (var c in sanitized)
             {
                 if (char.IsLetterOrDigit(c) || c == '_')
-                    result.Append(c);
+                    result.Append(char.ToLowerInvariant(c));
             }
 
             if (result.Length > 0 && !char.IsLetter(result[0]))
@@ -53,7 +53,7 @@ namespace Sorolla.Palette.Adapters
             foreach (var c in sanitized)
             {
                 if (char.IsLetterOrDigit(c) || c == '_')
-                    result.Append(c);
+                    result.Append(char.ToLowerInvariant(c));
             }
 
             if (result.Length > MaxParamNameLength)

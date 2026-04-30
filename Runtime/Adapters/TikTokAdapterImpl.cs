@@ -46,11 +46,12 @@ namespace Sorolla.Palette.Adapters
                     using var sdkClass = new AndroidJavaClass("com.tiktok.TikTokBusinessSdk");
                     sdkClass.CallStatic("initializeSdk", config);
                     sdkClass.CallStatic("startTrack");
-                    Debug.Log($"{Tag} Initialized (Android)");
+                    PaletteLog.Vital($"{Tag} Initialized (Android)");
                 }
                 catch (System.Exception e)
                 {
-                    Debug.LogError($"{Tag} Android init failed: {e.Message}");
+                    PaletteLog.Error($"{Tag} Android init failed. Rebuild with verbose logging to inspect native bridge details.");
+                    PaletteLog.Verbose($"{Tag} Android init failed: {e.Message}");
                 }
             });
             using var uiActivity = new AndroidJavaClass("com.unity3d.player.UnityPlayer")
@@ -58,9 +59,9 @@ namespace Sorolla.Palette.Adapters
             uiActivity.Call("runOnUiThread", runnable);
 #elif UNITY_IOS && !UNITY_EDITOR
             _SorollaTikTok_Initialize(appId, tiktokAppId, accessToken, debugMode);
-            Debug.Log($"{Tag} Initialized (iOS)");
+            PaletteLog.Vital($"{Tag} Initialized (iOS)");
 #else
-            Debug.Log($"{Tag} Editor mode - init skipped");
+            PaletteLog.Verbose($"{Tag} Editor mode - init skipped");
 #endif
         }
 
@@ -77,12 +78,13 @@ namespace Sorolla.Palette.Adapters
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"{Tag} TrackEvent failed: {e.Message}");
+                PaletteLog.Error($"{Tag} TrackEvent failed. Rebuild with verbose logging to inspect native bridge details.");
+                PaletteLog.Verbose($"{Tag} TrackEvent failed: {e.Message}");
             }
 #elif UNITY_IOS && !UNITY_EDITOR
             _SorollaTikTok_TrackEvent(eventName);
 #else
-            Debug.Log($"{Tag} TrackEvent: {eventName}");
+            PaletteLog.Verbose($"{Tag} TrackEvent: {eventName}");
 #endif
         }
 
@@ -104,12 +106,13 @@ namespace Sorolla.Palette.Adapters
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"{Tag} TrackPurchase failed: {e.Message}");
+                PaletteLog.Error($"{Tag} TrackPurchase failed. Rebuild with verbose logging to inspect native bridge details.");
+                PaletteLog.Verbose($"{Tag} TrackPurchase failed: {e.Message}");
             }
 #elif UNITY_IOS && !UNITY_EDITOR
             _SorollaTikTok_TrackPurchase(value, currency);
 #else
-            Debug.Log($"{Tag} TrackPurchase: {value} {currency}");
+            PaletteLog.Verbose($"{Tag} TrackPurchase: {value} {currency}");
 #endif
         }
 
@@ -138,12 +141,13 @@ namespace Sorolla.Palette.Adapters
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"{Tag} TrackAdRevenue failed: {e.Message}");
+                PaletteLog.Error($"{Tag} TrackAdRevenue failed. Rebuild with verbose logging to inspect native bridge details.");
+                PaletteLog.Verbose($"{Tag} TrackAdRevenue failed: {e.Message}");
             }
 #elif UNITY_IOS && !UNITY_EDITOR
             _SorollaTikTok_TrackAdRevenue(value, currency, networkName);
 #else
-            Debug.Log($"{Tag} TrackAdRevenue: {value} {currency} (network: {networkName})");
+            PaletteLog.Verbose($"{Tag} TrackAdRevenue: {value} {currency} (network: {networkName})");
 #endif
         }
 

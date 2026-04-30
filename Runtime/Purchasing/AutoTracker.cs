@@ -1,5 +1,6 @@
 #if UNITY_PURCHASING_INSTALLED
 using System;
+using Sorolla.Palette.Adapters;
 using UnityEngine;
 using UnityEngine.Purchasing;
 
@@ -34,7 +35,8 @@ namespace Sorolla.Palette.Purchasing
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"{Tag} TrackPurchase failed (forwarding to game listener regardless): {ex.Message}");
+                PaletteLog.Warning($"{Tag} TrackPurchase failed (forwarding to game listener regardless). Rebuild with verbose logging to inspect purchase details.");
+                PaletteLog.Verbose($"{Tag} TrackPurchase failed: {ex.Message}");
             }
 
             return _inner.ProcessPurchase(e);

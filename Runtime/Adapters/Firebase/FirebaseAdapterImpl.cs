@@ -51,13 +51,13 @@ namespace Sorolla.Palette.Adapters
 
                     ApplyConsentSignals(_consent);
                     FirebaseAnalytics.SetAnalyticsCollectionEnabled(_consent);
-                    Debug.Log($"{Tag} Initialized (analytics collection: {_consent}, verbose: {verboseLogging})");
+                    PaletteLog.Vital($"{Tag} Initialized (analytics collection: {_consent}, verbose: {verboseLogging})");
                     IsReady = true;
                     FlushPendingEvents();
                 }
                 else
                 {
-                    Debug.LogError($"{Tag} Firebase not available");
+                    PaletteLog.Error($"{Tag} Firebase not available");
                     _initFailed = true;
                     // Drop anything that queued between Initialize() and the failure callback.
                     _pendingEvents.Clear();
@@ -202,24 +202,24 @@ namespace Sorolla.Palette.Adapters
             // Names starting with ga_/google_/firebase_/_ are dropped server-side anyway - drop here too with a warning.
             if (string.IsNullOrEmpty(name))
             {
-                Debug.LogWarning($"{Tag} SetUserProperty: empty name - dropped");
+                PaletteLog.Warning($"{Tag} SetUserProperty: empty name - dropped");
                 return;
             }
             if (name.Length > 24)
             {
-                Debug.LogWarning($"{Tag} SetUserProperty: name '{name}' exceeds 24 chars - dropped");
+                PaletteLog.Warning($"{Tag} SetUserProperty: name '{name}' exceeds 24 chars - dropped");
                 return;
             }
             if (HasReservedUserPropertyPrefix(name))
             {
-                Debug.LogWarning($"{Tag} SetUserProperty: name '{name}' uses reserved prefix (ga_/google_/firebase_/_) - dropped");
+                PaletteLog.Warning($"{Tag} SetUserProperty: name '{name}' uses reserved prefix (ga_/google_/firebase_/_) - dropped");
                 return;
             }
 
             string sanitizedValue = value ?? "";
             if (sanitizedValue.Length > 36)
             {
-                Debug.LogWarning($"{Tag} SetUserProperty: value for '{name}' exceeds 36 chars - truncated");
+                PaletteLog.Warning($"{Tag} SetUserProperty: value for '{name}' exceeds 36 chars - truncated");
                 sanitizedValue = sanitizedValue[..36];
             }
 
@@ -267,7 +267,7 @@ namespace Sorolla.Palette.Adapters
         [Preserve]
         static void Register()
         {
-            Debug.Log($"{Tag} Register() called - assembly is loaded!");
+            PaletteLog.Verbose($"{Tag} Register() called - assembly is loaded!");
             FirebaseAdapter.RegisterImpl(new FirebaseAdapterImpl());
         }
 
@@ -291,8 +291,8 @@ namespace Sorolla.Palette.Adapters
                 { ConsentType.AdUserData, status },
             });
 
-            Debug.Log(
-                $"{Tag} Consent mode signals: analytics_storage={status}, ad_storage={status}, ad_personalization={status}, ad_user_data={status} → non_personalized_ads will be {(consent ? "0" : "1")}");
+            PaletteLog.Vital(
+                $"{Tag} Consent mode signals: analytics_storage={status}, ad_storage={status}, ad_personalization={status}, ad_user_data={status}");
         }
 
         void FlushPendingEvents()
@@ -379,7 +379,7 @@ namespace Sorolla.Palette.Adapters
 
                 if (reservedKeys.Contains(sanitizedKey))
                 {
-                    Debug.LogWarning($"{Tag} Extra param '{kvp.Key}' collides with base param - skipped");
+                    PaletteLog.Warning($"{Tag} Extra param '{kvp.Key}' collides with base param - skipped");
                     continue;
                 }
 
@@ -399,7 +399,7 @@ namespace Sorolla.Palette.Adapters
             foreach (char c in sanitized)
             {
                 if (char.IsLetterOrDigit(c) || c == '_')
-                    result.Append(c);
+                    result.Append(char.ToLowerInvariant(c));
             }
 
             if (result.Length > 0 && !char.IsLetter(result[0]))
@@ -415,14 +415,14 @@ namespace Sorolla.Palette.Adapters
             // Drop GA4-reserved names. Firebase silently rejects these server-side - warn so studios notice.
             if (ReservedEventNames.Contains(finalName))
             {
-                Debug.LogWarning($"{Tag} Event name '{finalName}' is GA4-reserved - dropped");
+                PaletteLog.Warning($"{Tag} Event name '{finalName}' is GA4-reserved - dropped");
                 return null;
             }
             for (int i = 0; i < ReservedNamePrefixes.Length; i++)
             {
                 if (finalName.StartsWith(ReservedNamePrefixes[i]))
                 {
-                    Debug.LogWarning($"{Tag} Event name '{finalName}' uses reserved prefix '{ReservedNamePrefixes[i]}' - dropped");
+                    PaletteLog.Warning($"{Tag} Event name '{finalName}' uses reserved prefix '{ReservedNamePrefixes[i]}' - dropped");
                     return null;
                 }
             }
@@ -450,7 +450,7 @@ namespace Sorolla.Palette.Adapters
             foreach (char c in sanitized)
             {
                 if (char.IsLetterOrDigit(c) || c == '_')
-                    result.Append(c);
+                    result.Append(char.ToLowerInvariant(c));
             }
 
             if (result.Length > 40)

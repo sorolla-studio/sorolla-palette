@@ -4,6 +4,7 @@
     "references": [
         "Sorolla.Runtime",
         "Sorolla.Adapters",
+        "Unity.Purchasing",
         "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
@@ -38,6 +39,11 @@
             "name": "com.google.firebase.remote-config",
             "expression": "",
             "define": "FIREBASE_REMOTE_CONFIG_INSTALLED"
+        },
+        {
+            "name": "com.unity.purchasing",
+            "expression": "",
+            "define": "UNITY_PURCHASING_INSTALLED"
         }
     ],
     "noEngineReferences": false

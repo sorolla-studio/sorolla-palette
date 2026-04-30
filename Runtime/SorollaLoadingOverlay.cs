@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using Sorolla.Palette.Adapters;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -85,7 +86,7 @@ namespace Sorolla.Palette
             }
 
             Hide();
-            Debug.LogWarning("[Palette:LoadingOverlay] Ad load timeout");
+            PaletteLog.Warning("[Palette:LoadingOverlay] Ad load timeout");
             onFailed?.Invoke();
             _waitRoutine = null;
         }

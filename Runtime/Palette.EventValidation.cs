@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Sorolla.Palette.Adapters;
 using UnityEngine;
 
 namespace Sorolla.Palette
@@ -23,7 +24,7 @@ namespace Sorolla.Palette
             eventName = SanitizeEventName(eventName);
             if (eventName == null)
             {
-                Debug.LogError($"{Tag} Event rejected: '{originalName}' is empty or invalid after sanitization. Use lowercase letters, digits, and underscores (max {MaxEventNameLength} chars).");
+                PaletteLog.Error($"{Tag} Event rejected: '{originalName}' is empty or invalid after sanitization. Use lowercase letters, digits, and underscores (max {MaxEventNameLength} chars).");
                 return false;
             }
 
@@ -32,7 +33,7 @@ namespace Sorolla.Palette
                 if (eventName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 {
                     string suggested = eventName.Substring(prefix.Length);
-                    Debug.LogError($"{Tag} Event rejected: '{eventName}' uses reserved prefix '{prefix}'. Remove the prefix (e.g. '{suggested}') or use a different name.");
+                    PaletteLog.Error($"{Tag} Event rejected: '{eventName}' uses reserved prefix '{prefix}'. Remove the prefix (e.g. '{suggested}') or use a different name.");
                     return false;
                 }
             }
@@ -51,7 +52,7 @@ namespace Sorolla.Palette
         {
             if (parameters.Count > MaxParamsPerEvent)
             {
-                Debug.LogError($"{Tag} Event rejected: {parameters.Count} params exceeds max {MaxParamsPerEvent}. Remove {parameters.Count - MaxParamsPerEvent} param(s).");
+                PaletteLog.Error($"{Tag} Event rejected: {parameters.Count} params exceeds max {MaxParamsPerEvent}. Remove {parameters.Count - MaxParamsPerEvent} param(s).");
                 return false;
             }
 
@@ -60,14 +61,14 @@ namespace Sorolla.Palette
                 var sanitizedKey = SanitizeParameterName(kvp.Key);
                 if (sanitizedKey == null)
                 {
-                    Debug.LogError($"{Tag} Event rejected: param name '{kvp.Key}' is invalid after sanitization. Use lowercase letters, digits, and underscores (max {MaxParamNameLength} chars).");
+                    PaletteLog.Error($"{Tag} Event rejected: param name '{kvp.Key}' is invalid after sanitization. Use lowercase letters, digits, and underscores (max {MaxParamNameLength} chars).");
                     return false;
                 }
 
                 if (!IsSupportedParamType(kvp.Value))
                 {
                     string typeName = kvp.Value?.GetType().Name ?? "null";
-                    Debug.LogError($"{Tag} Event rejected: param '{kvp.Key}' has unsupported type '{typeName}'. Convert to one of: string, int, long, float, double, bool, enum.");
+                    PaletteLog.Error($"{Tag} Event rejected: param '{kvp.Key}' has unsupported type '{typeName}'. Convert to one of: string, int, long, float, double, bool, enum.");
                     return false;
                 }
             }
@@ -85,7 +86,7 @@ namespace Sorolla.Palette
             foreach (var c in sanitized)
             {
                 if (char.IsLetterOrDigit(c) || c == '_')
-                    result.Append(c);
+                    result.Append(char.ToLowerInvariant(c));
             }
 
             if (result.Length > 0 && !char.IsLetter(result[0]))
@@ -107,7 +108,7 @@ namespace Sorolla.Palette
             foreach (var c in sanitized)
             {
                 if (char.IsLetterOrDigit(c) || c == '_')
-                    result.Append(c);
+                    result.Append(char.ToLowerInvariant(c));
             }
 
             if (result.Length > MaxParamNameLength)

@@ -17,7 +17,7 @@ namespace Sorolla.Palette.Adapters
         [Preserve]
         private static void Register()
         {
-            Debug.Log("[Palette:Adjust] Register() called - assembly is loaded!");
+            PaletteLog.Verbose("[Palette:Adjust] Register() called - assembly is loaded!");
             AdjustAdapter.RegisterImpl(new AdjustAdapterImpl());
         }
 
@@ -25,7 +25,7 @@ namespace Sorolla.Palette.Adapters
         {
             if (_init) return;
 
-            Debug.Log($"[Palette:Adjust] Initializing ({environment}, verbose: {verboseLogging})...");
+            PaletteLog.Vital($"[Palette:Adjust] Initializing ({environment}, verbose: {verboseLogging})...");
 
             var config = new AdjustConfig(appToken, environment == AdjustEnvironment.Production
                 ? AdjustSdk.AdjustEnvironment.Production
@@ -42,25 +42,25 @@ namespace Sorolla.Palette.Adapters
 
             config.AttributionChangedDelegate = attribution =>
             {
-                Debug.Log($"[Palette:Adjust] Attribution: network={attribution.Network}, campaign={attribution.Campaign}");
+                PaletteLog.Verbose($"[Palette:Adjust] Attribution: network={attribution.Network}, campaign={attribution.Campaign}");
             };
 
             Adjust.InitSdk(config);
             _init = true;
-            Debug.Log("[Palette:Adjust] Initialized");
+            PaletteLog.Vital("[Palette:Adjust] Initialized");
         }
 
         public void UpdateConsent(bool consent)
         {
             if (!_init)
             {
-                Debug.LogWarning($"[Palette:Adjust] UpdateConsent({consent}) called before init - ignoring");
+                PaletteLog.Verbose("[Palette:Adjust] UpdateConsent called before init - Palette will apply consent after Adjust initialization when MAX finishes.");
                 return;
             }
 
             if (consent) Adjust.Enable();
             else         Adjust.Disable();
-            Debug.Log($"[Palette:Adjust] UpdateConsent({consent}) -> Adjust.{(consent ? "Enable" : "Disable")}()");
+            PaletteLog.Vital($"[Palette:Adjust] UpdateConsent({consent}) -> Adjust.{(consent ? "Enable" : "Disable")}()");
         }
 
         public void TrackEvent(string eventToken)
@@ -81,11 +81,11 @@ namespace Sorolla.Palette.Adapters
         {
             if (!_init)
             {
-                Debug.LogWarning($"[Palette:Adjust] TrackAdRevenue called before init! Revenue: {info.Revenue} {info.Currency}");
+                PaletteLog.Warning("[Palette:Adjust] TrackAdRevenue called before init - dropping ad revenue event.");
                 return;
             }
 
-            Debug.Log($"[Palette:Adjust] TrackAdRevenue: {info.Revenue} {info.Currency} from {info.Network}");
+            PaletteLog.Verbose($"[Palette:Adjust] TrackAdRevenue: {info.Revenue} {info.Currency} from {info.Network}");
             var adRevenue = new AdjustAdRevenue(info.Source ?? AdRevenueInfo.DefaultSource);
             adRevenue.SetRevenue(info.Revenue, info.Currency ?? "USD");
             adRevenue.AdRevenueNetwork = info.Network;
@@ -163,7 +163,8 @@ namespace Sorolla.Palette.Adapters
             e.TransactionId = transactionId;
             Adjust.VerifyAndTrackAppStorePurchase(e, verificationResult =>
             {
-                Debug.Log($"[Palette:Adjust] iOS purchase verification: status={verificationResult.VerificationStatus}, message={verificationResult.Message}");
+                PaletteLog.Vital($"[Palette:Adjust] iOS purchase verification: status={verificationResult.VerificationStatus}");
+                PaletteLog.Verbose($"[Palette:Adjust] iOS purchase verification message: {verificationResult.Message}");
             });
         }
 
@@ -174,7 +175,8 @@ namespace Sorolla.Palette.Adapters
             e.PurchaseToken = purchaseToken;
             Adjust.VerifyAndTrackPlayStorePurchase(e, verificationResult =>
             {
-                Debug.Log($"[Palette:Adjust] Android purchase verification: status={verificationResult.VerificationStatus}, message={verificationResult.Message}");
+                PaletteLog.Vital($"[Palette:Adjust] Android purchase verification: status={verificationResult.VerificationStatus}");
+                PaletteLog.Verbose($"[Palette:Adjust] Android purchase verification message: {verificationResult.Message}");
             });
         }
 

@@ -100,12 +100,12 @@ namespace Sorolla.Palette
         public PlatformAdUnitId tiktokAccessToken;
 
         /// <summary>
-        ///     Master toggle for verbose/debug logging across all vendor SDKs (MAX, Adjust, TikTok).
+        ///     Enables detailed SDK diagnostics and vendor debug logging for QA investigation.
         ///     Automatically forced OFF in non-development builds as a safety net.
-        ///     When OFF, vendor SDKs use minimal log levels suitable for release.
+        ///     Production-safe SDK health markers, warnings, and errors are always logged even when this is OFF.
         /// </summary>
         [Header("Logging")]
-        [Tooltip("Enable verbose logging for all vendor SDKs. Forced OFF in release builds.")]
+        [Tooltip("Enable detailed SDK diagnostics and vendor debug logs. Forced OFF in release builds; production-safe health logs remain on.")]
         public bool verboseLogging;
 
         /// <summary>

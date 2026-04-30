@@ -26,6 +26,8 @@ namespace Sorolla.Palette.Adapters
         bool _rewardedReady;
         bool _userWaitingForRewarded;
         bool _userWaitingForInterstitial;
+        bool _rewardedLoadLogged;
+        bool _interstitialLoadLogged;
 
         MaxSdkBase.SdkConfiguration _sdkConfig;
         int _savedSleepTimeout;
@@ -76,7 +78,7 @@ namespace Sorolla.Palette.Adapters
             _bannerId = bannerId;
             _consent = consent;
 
-            Debug.Log("[Palette:MAX] Initializing...");
+            PaletteLog.Vital("[Palette:MAX] Initializing...");
 
             MaxSdk.SetVerboseLogging(verboseLogging);
             MaxSdk.SetCreativeDebuggerEnabled(verboseLogging);
@@ -90,7 +92,7 @@ namespace Sorolla.Palette.Adapters
         {
             if (!_init)
             {
-                Debug.LogWarning("[Palette:MAX] Cannot show privacy options - SDK not initialized");
+                PaletteLog.Warning("[Palette:MAX] Cannot show privacy options - SDK not initialized");
                 onComplete?.Invoke();
                 return;
             }
@@ -99,21 +101,22 @@ namespace Sorolla.Palette.Adapters
             {
                 if (!MaxSdk.CmpService.HasSupportedCmp)
                 {
-                    Debug.LogWarning("[Palette:MAX] No CMP configured - privacy options not available");
+                    PaletteLog.Warning("[Palette:MAX] No CMP configured - privacy options not available");
                     onComplete?.Invoke();
                     return;
                 }
 
-                Debug.Log("[Palette:MAX] Showing privacy options...");
+                PaletteLog.Vital("[Palette:MAX] Showing privacy options...");
                 MaxSdk.CmpService.ShowCmpForExistingUser(error =>
                 {
                     if (error != null)
                     {
-                        Debug.LogWarning($"[Palette:MAX] Privacy options error: {error.Message}");
+                        PaletteLog.Warning("[Palette:MAX] Privacy options error. Rebuild with verbose logging to inspect SDK details.");
+                        PaletteLog.Verbose($"[Palette:MAX] Privacy options error detail: {error.Message}");
                     }
                     else
                     {
-                        Debug.Log("[Palette:MAX] Privacy options dismissed");
+                        PaletteLog.Vital("[Palette:MAX] Privacy options dismissed");
                         RefreshConsentStatus();
                     }
                     onComplete?.Invoke();
@@ -121,7 +124,8 @@ namespace Sorolla.Palette.Adapters
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[Palette:MAX] CmpService not available: {e.Message}");
+                PaletteLog.Warning("[Palette:MAX] CMP service not available. Rebuild with verbose logging to inspect SDK details.");
+                PaletteLog.Verbose($"[Palette:MAX] CmpService not available: {e.Message}");
                 onComplete?.Invoke();
             }
         }
@@ -146,7 +150,7 @@ namespace Sorolla.Palette.Adapters
         {
             if (!_init)
             {
-                Debug.LogWarning("[Palette:MAX] Cannot show mediation debugger - SDK not initialized yet");
+                PaletteLog.Warning("[Palette:MAX] Cannot show mediation debugger - SDK not initialized yet");
                 return;
             }
             MaxSdk.ShowMediationDebugger();
@@ -156,7 +160,7 @@ namespace Sorolla.Palette.Adapters
         {
             if (!_init)
             {
-                Debug.LogWarning("[Palette:MAX] Cannot show creative debugger - SDK not initialized yet");
+                PaletteLog.Warning("[Palette:MAX] Cannot show creative debugger - SDK not initialized yet");
                 return;
             }
             MaxSdk.ShowCreativeDebugger();
@@ -179,11 +183,11 @@ namespace Sorolla.Palette.Adapters
             if (!cmpHandlesConsent)
             {
                 MaxSdk.SetHasUserConsent(consent);
-                Debug.Log($"[Palette:MAX] UpdateConsent({consent})");
+                PaletteLog.Vital($"[Palette:MAX] UpdateConsent({consent})");
             }
             else
             {
-                Debug.LogWarning("[Palette:MAX] UpdateConsent called but CMP is enabled - use ShowPrivacyOptions() instead");
+                PaletteLog.Warning("[Palette:MAX] UpdateConsent called but CMP is enabled - use ShowPrivacyOptions() instead");
             }
 
             if (_init && _sdkConfig != null)
@@ -196,7 +200,7 @@ namespace Sorolla.Palette.Adapters
         [Preserve]
         static void Register()
         {
-            Debug.Log("[Palette:MAX] Register() called - assembly is loaded!");
+            PaletteLog.Verbose("[Palette:MAX] Register() called - assembly is loaded!");
             var impl = new MaxAdapterImpl();
             Application.focusChanged += impl.OnAppFocusChanged;
             MaxAdapter.RegisterImpl(impl);
@@ -227,7 +231,7 @@ namespace Sorolla.Palette.Adapters
 
         void OnSdkInit(MaxSdkBase.SdkConfiguration config)
         {
-            Debug.Log("[Palette:MAX] Initialized");
+            PaletteLog.Vital("[Palette:MAX] Initialized");
 
             _init = true;
             _sdkConfig = config;
@@ -245,12 +249,12 @@ namespace Sorolla.Palette.Adapters
 
             if (cmpHandlesConsent)
             {
-                Debug.Log("[Palette:MAX] CMP enabled - consent handled by UMP");
+                PaletteLog.Vital("[Palette:MAX] CMP enabled - consent handled by UMP");
             }
             else
             {
                 MaxSdk.SetHasUserConsent(_consent);
-                Debug.Log($"[Palette:MAX] SetHasUserConsent({_consent}) - no CMP");
+                PaletteLog.Vital($"[Palette:MAX] SetHasUserConsent({_consent}) - no CMP");
             }
 
             UpdateConsentStatusFromConfig(config);
@@ -293,7 +297,7 @@ namespace Sorolla.Palette.Adapters
                 ConsentStatus = ConsentStatus.NotApplicable;
             }
 
-            Debug.Log($"[Palette:MAX] ConsentStatus: {ConsentStatus} (Geography: {config.ConsentFlowUserGeography})");
+            PaletteLog.Vital($"[Palette:MAX] ConsentStatus: {ConsentStatus} (Geography: {config.ConsentFlowUserGeography})");
 
             if (oldStatus != ConsentStatus)
             {
@@ -321,6 +325,15 @@ namespace Sorolla.Palette.Adapters
         {
             _rewardedReady = true;
             _rewardedRetryAttempt = 0;
+            if (!_rewardedLoadLogged)
+            {
+                _rewardedLoadLogged = true;
+                PaletteLog.Vital("[Palette:MAX] Rewarded ad loaded");
+            }
+            else
+            {
+                PaletteLog.Verbose("[Palette:MAX] Rewarded ad loaded");
+            }
             if (_userWaitingForRewarded)
             {
                 _userWaitingForRewarded = false;
@@ -331,6 +344,9 @@ namespace Sorolla.Palette.Adapters
         void OnRewardedAdLoadFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo)
         {
             _rewardedReady = false;
+            PaletteLog.WarningOnce($"max.rewarded.load_failed.{(int)errorInfo.Code}.{errorInfo.MediatedNetworkErrorCode}",
+                $"[Palette:MAX] Rewarded ad load failed; retrying with backoff. code={(int)errorInfo.Code}, mediatedCode={errorInfo.MediatedNetworkErrorCode}. Rebuild with verbose logging to inspect SDK details.");
+            PaletteLog.Verbose($"[Palette:MAX] Rewarded ad load failed detail: {errorInfo.Message}");
             if (_userWaitingForRewarded)
             {
                 _userWaitingForRewarded = false;
@@ -359,6 +375,8 @@ namespace Sorolla.Palette.Adapters
             }
 
             TrackAdShowFailed("rewarded", "display_error", adInfo?.NetworkName, errorInfo);
+            PaletteLog.Warning($"[Palette:MAX] Rewarded ad display failed. code={(int)errorInfo.Code}, mediatedCode={errorInfo.MediatedNetworkErrorCode}. Rebuild with verbose logging to inspect SDK details.");
+            PaletteLog.Verbose($"[Palette:MAX] Rewarded ad display failed detail: {errorInfo.Message}");
 
             _onRewardFailed?.Invoke();
             _onRewardFailed = null;
@@ -377,6 +395,7 @@ namespace Sorolla.Palette.Adapters
             _onRewardComplete?.Invoke();
             _onRewardComplete = null;
             _onRewardFailed = null;
+            PaletteLog.Vital("[Palette:MAX] Rewarded ad completed");
         }
 
         void OnRewardedAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo) => TrackAdRevenue(adInfo, "REWARDED");
@@ -395,7 +414,7 @@ namespace Sorolla.Palette.Adapters
             float delay = 1 << attempt;
             _rewardedRetryAttempt++;
             int gen = ++_rewardedRetryGen;
-            Debug.Log($"[Palette:MAX] Rewarded load retry in {delay}s (attempt {_rewardedRetryAttempt})");
+            PaletteLog.Verbose($"[Palette:MAX] Rewarded load retry in {delay}s (attempt {_rewardedRetryAttempt})");
 
             // Defensive: if Bootstrapper hasn't wired the scheduler, fall back to
             // immediate load (matches pre-fix behavior). In practice never hits —
@@ -425,7 +444,7 @@ namespace Sorolla.Palette.Adapters
             {
                 _userWaitingForRewarded = true;
                 LoadRewarded();
-                Debug.LogWarning("[Palette:MAX] Rewarded ad not ready");
+                PaletteLog.Warning("[Palette:MAX] Rewarded ad not ready");
                 TrackAdShowFailed("rewarded", "not_ready", network: null, errorInfo: null);
                 onFailed?.Invoke();
                 return;
@@ -458,6 +477,15 @@ namespace Sorolla.Palette.Adapters
         {
             _interstitialReady = true;
             _interstitialRetryAttempt = 0;
+            if (!_interstitialLoadLogged)
+            {
+                _interstitialLoadLogged = true;
+                PaletteLog.Vital("[Palette:MAX] Interstitial ad loaded");
+            }
+            else
+            {
+                PaletteLog.Verbose("[Palette:MAX] Interstitial ad loaded");
+            }
             if (_userWaitingForInterstitial)
             {
                 _userWaitingForInterstitial = false;
@@ -468,6 +496,9 @@ namespace Sorolla.Palette.Adapters
         void OnInterstitialAdLoadFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo)
         {
             _interstitialReady = false;
+            PaletteLog.WarningOnce($"max.interstitial.load_failed.{(int)errorInfo.Code}.{errorInfo.MediatedNetworkErrorCode}",
+                $"[Palette:MAX] Interstitial ad load failed; retrying with backoff. code={(int)errorInfo.Code}, mediatedCode={errorInfo.MediatedNetworkErrorCode}. Rebuild with verbose logging to inspect SDK details.");
+            PaletteLog.Verbose($"[Palette:MAX] Interstitial ad load failed detail: {errorInfo.Message}");
             if (_userWaitingForInterstitial)
             {
                 _userWaitingForInterstitial = false;
@@ -491,6 +522,7 @@ namespace Sorolla.Palette.Adapters
             _onInterstitialComplete = null;
             _onInterstitialFailed = null;
             cb?.Invoke();
+            PaletteLog.Vital("[Palette:MAX] Interstitial ad completed");
             LoadInterstitial();
         }
 
@@ -506,6 +538,8 @@ namespace Sorolla.Palette.Adapters
             }
 
             TrackAdShowFailed("interstitial", "display_error", adInfo?.NetworkName, errorInfo);
+            PaletteLog.Warning($"[Palette:MAX] Interstitial ad display failed. code={(int)errorInfo.Code}, mediatedCode={errorInfo.MediatedNetworkErrorCode}. Rebuild with verbose logging to inspect SDK details.");
+            PaletteLog.Verbose($"[Palette:MAX] Interstitial ad display failed detail: {errorInfo.Message}");
 
             Action cb = _onInterstitialFailed;
             _onInterstitialComplete = null;
@@ -530,7 +564,7 @@ namespace Sorolla.Palette.Adapters
             float delay = 1 << attempt;
             _interstitialRetryAttempt++;
             int gen = ++_interstitialRetryGen;
-            Debug.Log($"[Palette:MAX] Interstitial load retry in {delay}s (attempt {_interstitialRetryAttempt})");
+            PaletteLog.Verbose($"[Palette:MAX] Interstitial load retry in {delay}s (attempt {_interstitialRetryAttempt})");
 
             if (MaxAdapter.ScheduleDelegate == null) { LoadInterstitial(); return; }
 
@@ -550,6 +584,7 @@ namespace Sorolla.Palette.Adapters
             {
                 _userWaitingForInterstitial = true;
                 LoadInterstitial();
+                PaletteLog.Warning(_init ? "[Palette:MAX] Interstitial ad not ready" : "[Palette:MAX] Interstitial ad requested before MAX initialized");
                 TrackAdShowFailed("interstitial", !_init ? "not_initialized" : "not_ready", network: null, errorInfo: null);
                 onFailed?.Invoke();
                 return;

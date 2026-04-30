@@ -28,8 +28,9 @@ namespace Sorolla.Palette
         public static SorollaConfig Config { get; private set; }
 
         /// <summary>
-        ///     Whether verbose logging is active. Resolved from config + build type.
-        ///     Always false in non-development builds regardless of config.
+        ///     Whether detailed diagnostics are active. Resolved from config + build type.
+        ///     Always false in non-development builds regardless of config; production-safe
+        ///     health markers, warnings, and errors are still logged when this is false.
         /// </summary>
         public static bool VerboseLogging { get; private set; }
 
@@ -117,7 +118,7 @@ namespace Sorolla.Palette
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
             MaxAdapter.ShowPrivacyOptions(onComplete);
 #else
-            Debug.LogWarning($"{Tag} MAX not available - privacy options require MAX SDK.");
+            PaletteLog.Warning($"{Tag} MAX not available - privacy options require MAX SDK.");
             onComplete?.Invoke();
 #endif
         }
@@ -241,7 +242,7 @@ namespace Sorolla.Palette
         {
             if (OnShowDebuggerRequested == null)
             {
-                Debug.LogWarning($"{Tag} Debug UI not available. Import the DebugUI sample and add the prefab to your scene.");
+                PaletteLog.Warning($"{Tag} Debug UI not available. Import the DebugUI sample and add the prefab to your scene.");
                 return;
             }
             OnShowDebuggerRequested.Invoke();
@@ -255,7 +256,7 @@ namespace Sorolla.Palette
         {
             if (OnToggleDebuggerRequested == null)
             {
-                Debug.LogWarning($"{Tag} Debug UI not available. Import the DebugUI sample and add the prefab to your scene.");
+                PaletteLog.Warning($"{Tag} Debug UI not available. Import the DebugUI sample and add the prefab to your scene.");
                 return;
             }
             OnToggleDebuggerRequested.Invoke();
@@ -316,7 +317,7 @@ namespace Sorolla.Palette
         {
             if (string.IsNullOrEmpty(Config.adjustAppToken))
             {
-                Debug.LogError($"{Tag} Adjust App Token not configured.");
+                PaletteLog.Error($"{Tag} Adjust App Token not configured.");
                 return;
             }
 
@@ -324,7 +325,7 @@ namespace Sorolla.Palette
                 ? AdjustEnvironment.Sandbox
                 : AdjustEnvironment.Production;
 
-            Debug.Log($"{Tag} Initializing Adjust ({environment})...");
+            PaletteLog.Vital($"{Tag} Initializing Adjust ({environment})...");
             AdjustAdapter.Initialize(Config.adjustAppToken, environment, VerboseLogging);
         }
 
@@ -343,7 +344,7 @@ namespace Sorolla.Palette
         {
             if (IsInitialized)
             {
-                Debug.LogWarning($"{Tag} Already initialized. Remove any manual Palette.Initialize() call — the SDK auto-initializes via SorollaBootstrapper.");
+                PaletteLog.Warning($"{Tag} Already initialized. Remove any manual Palette.Initialize() call — the SDK auto-initializes via SorollaBootstrapper.");
                 return;
             }
 
@@ -355,7 +356,8 @@ namespace Sorolla.Palette
             // Resolve verbose logging: config toggle AND development build required.
             // Safety net: release builds never get verbose vendor output.
             VerboseLogging = Config != null && Config.verboseLogging && Debug.isDebugBuild;
-            Debug.Log($"{Tag} Initializing ({(isPrototype ? "Prototype" : "Full")} mode, consent: {consent}, verbose: {VerboseLogging})...");
+            PaletteLog.Configure(VerboseLogging);
+            PaletteLog.Vital($"{Tag} Initializing ({(isPrototype ? "Prototype" : "Full")} mode, consent: {consent}, verbose: {VerboseLogging})...");
 
             // GameAnalytics (always)
             GameAnalyticsAdapter.Initialize(consent, VerboseLogging);
@@ -373,24 +375,24 @@ namespace Sorolla.Palette
 
             // Firebase modules (always enabled when installed)
 #if FIREBASE_ANALYTICS_INSTALLED
-            Debug.Log($"{Tag} Initializing Firebase Analytics...");
+            PaletteLog.Verbose($"{Tag} Initializing Firebase Analytics...");
             FirebaseAdapter.Initialize(consent, VerboseLogging);
 #endif
 
 #if FIREBASE_CRASHLYTICS_INSTALLED
-            Debug.Log($"{Tag} Initializing Firebase Crashlytics...");
+            PaletteLog.Verbose($"{Tag} Initializing Firebase Crashlytics...");
             FirebaseCrashlyticsAdapter.Initialize(captureUncaughtExceptions: true);
 #endif
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            Debug.Log($"{Tag} Initializing Firebase Remote Config...");
+            PaletteLog.Verbose($"{Tag} Initializing Firebase Remote Config...");
             FirebaseRemoteConfigAdapter.Initialize(autoFetch: true);
 #endif
 
             // TikTok (optional — requires enableTikTok + both App IDs)
-            if (Config.enableTikTok && !string.IsNullOrEmpty(Config?.tiktokAppId?.Current) && !string.IsNullOrEmpty(Config?.tiktokEmAppId?.Current))
+            if (Config != null && Config.enableTikTok && !string.IsNullOrEmpty(Config.tiktokAppId?.Current) && !string.IsNullOrEmpty(Config.tiktokEmAppId?.Current))
             {
-                Debug.Log($"{Tag} Initializing TikTok...");
+                PaletteLog.Vital($"{Tag} Initializing TikTok...");
                 TikTokAdapter.Initialize(Config.tiktokEmAppId.Current, Config.tiktokAppId.Current, Config.tiktokAccessToken?.Current ?? "", VerboseLogging);
             }
 
@@ -400,9 +402,9 @@ namespace Sorolla.Palette
             IsInitialized = true;
             FlushPending();
             OnInitialized?.Invoke();
-            Debug.Log($"{Tag} Ready!");
+            PaletteLog.Vital($"{Tag} Ready!");
 #else
-            Debug.Log($"{Tag} Waiting for MAX consent resolution...");
+            PaletteLog.Vital($"{Tag} Waiting for MAX consent resolution...");
 #endif
         }
 
@@ -417,7 +419,7 @@ namespace Sorolla.Palette
             if (IsInitialized) { action(); return; }
             if (s_pendingEvents.Count >= PendingQueueCap)
             {
-                Debug.LogWarning($"{Tag} Pending event queue full ({PendingQueueCap}); dropping oldest.");
+                PaletteLog.Warning($"{Tag} Pending event queue full ({PendingQueueCap}); dropping oldest.");
                 s_pendingEvents.Dequeue();
             }
             s_pendingEvents.Enqueue(action);
@@ -426,7 +428,7 @@ namespace Sorolla.Palette
         static void FlushPending()
         {
             if (s_pendingEvents.Count == 0) return;
-            Debug.Log($"{Tag} Flushing {s_pendingEvents.Count} queued event(s).");
+            PaletteLog.Verbose($"{Tag} Flushing {s_pendingEvents.Count} queued event(s).");
             while (s_pendingEvents.Count > 0)
                 s_pendingEvents.Dequeue().Invoke();
         }
@@ -492,11 +494,11 @@ namespace Sorolla.Palette
         {
             if (Config == null)
             {
-                Debug.LogWarning($"{Tag} SorollaConfig not found.");
+                PaletteLog.Warning($"{Tag} SorollaConfig not found.");
                 return;
             }
 
-            Debug.Log($"{Tag} Initializing AppLovin MAX...");
+            PaletteLog.Vital($"{Tag} Initializing AppLovin MAX...");
 
             // Subscribe to ad loading state changes for loading overlay
             MaxAdapter.OnAdLoadingStateChanged += OnMaxAdLoadingStateChanged;
@@ -523,7 +525,7 @@ namespace Sorolla.Palette
             // during OnSdkInit, BEFORE this callback runs). Only Adjust still needs init
             // here per MAX SDK docs: "initialize other SDKs INSIDE the MAX callback".
             bool consent = HasConsent;
-            Debug.Log($"{Tag} MAX consent resolved: {MaxAdapter.ConsentStatus} (consent={consent})");
+            PaletteLog.Vital($"{Tag} MAX consent resolved: {MaxAdapter.ConsentStatus} (consent={consent})");
             LogConsentDiagnostics();
 
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
@@ -540,7 +542,7 @@ namespace Sorolla.Palette
             IsInitialized = true;
             FlushPending();
             OnInitialized?.Invoke();
-            Debug.Log($"{Tag} Ready!");
+            PaletteLog.Vital($"{Tag} Ready!");
 
             // Ship decision to analytics so we can query consent-drop cohorts from our own data.
             TrackEvent("consent_resolved", new Dictionary<string, object>
@@ -564,7 +566,7 @@ namespace Sorolla.Palette
             if (HasConsent == consent) return;
 
             HasConsent = consent;
-            Debug.Log($"{Tag} Consent updated by MAX CMP: {status} → propagating to adapters");
+            PaletteLog.Vital($"{Tag} Consent updated by MAX CMP: {status} -> propagating to adapters");
             GameAnalyticsAdapter.UpdateConsent(consent);
 #if FIREBASE_ANALYTICS_INSTALLED
             FirebaseAdapter.UpdateConsent(consent);
@@ -589,11 +591,12 @@ namespace Sorolla.Palette
             try
             {
                 bool canRequest = MaxAdapter.CanRequestAds;
-                Debug.Log($"{Tag} [Consent Diagnostics] CanRequestAds={canRequest}, ConsentStatus={MaxAdapter.ConsentStatus}");
+                PaletteLog.Vital($"{Tag} Consent summary: canRequestAds={canRequest}, consentStatus={MaxAdapter.ConsentStatus}");
             }
             catch (System.Exception e)
             {
-                Debug.LogWarning($"{Tag} [Consent Diagnostics] Could not read MAX consent state: {e.Message}");
+                PaletteLog.Warning($"{Tag} Consent summary unavailable from MAX. Rebuild with verbose logging to inspect adapter state.");
+                PaletteLog.Verbose($"{Tag} [Consent Diagnostics] Could not read MAX consent state: {e.Message}");
             }
 
 #if UNITY_ANDROID
@@ -606,21 +609,21 @@ namespace Sorolla.Palette
                     "getSharedPreferences", "IABTCF_CMP_SDK", 0);
                 string tcfString = prefs.Call<string>("getString", "IABTCF_TCString", null);
                 string purposeConsents = prefs.Call<string>("getString", "IABTCF_PurposeConsents", null);
-                Debug.Log($"{Tag} [Consent Diagnostics] IABTCF_TCString={(string.IsNullOrEmpty(tcfString) ? "EMPTY - CMP not writing TCF string!" : $"present ({tcfString.Length} chars)")}, PurposeConsents={purposeConsents ?? "null"}");
+                PaletteLog.Verbose($"{Tag} [Consent Diagnostics] Android TCF string={PaletteLog.Present(tcfString)}, purposeConsents={PaletteLog.Present(purposeConsents)}");
                 if (!string.IsNullOrEmpty(purposeConsents))
                 {
                     // Purposes 1 (storage), 3 (ad personalization), 4 (ad selection) must be '1'
                     bool p1 = purposeConsents.Length > 0 && purposeConsents[0] == '1';
                     bool p3 = purposeConsents.Length > 2 && purposeConsents[2] == '1';
                     bool p4 = purposeConsents.Length > 3 && purposeConsents[3] == '1';
-                    Debug.Log($"{Tag} [Consent Diagnostics] Purpose 1 (storage)={p1}, Purpose 3 (personalization)={p3}, Purpose 4 (ad selection)={p4}");
+                    PaletteLog.Verbose($"{Tag} [Consent Diagnostics] Purpose 1 (storage)={p1}, Purpose 3 (personalization)={p3}, Purpose 4 (ad selection)={p4}");
                     if (!p1 || !p3 || !p4)
-                        Debug.LogWarning($"{Tag} [Consent Diagnostics] Missing required TCF purposes → ads will be non-personalized despite user consent");
+                        PaletteLog.Warning($"{Tag} Consent hint: required TCF ad purposes are missing; ads may be non-personalized. Rebuild with verbose logging to inspect purpose bits.");
                 }
             }
             catch (System.Exception e)
             {
-                Debug.LogWarning($"{Tag} [Consent Diagnostics] Android TCF read failed: {e.Message}");
+                PaletteLog.Verbose($"{Tag} [Consent Diagnostics] Android TCF read failed: {e.Message}");
             }
 #endif
 #if UNITY_IOS && !UNITY_EDITOR
@@ -629,20 +632,20 @@ namespace Sorolla.Palette
                 string tcfString = UnityEngine.iOS.Device.advertisingIdentifier; // triggers ATT read as side-effect
                 string tcf = PlayerPrefs.GetString("IABTCF_TCString", null);
                 string purposes = PlayerPrefs.GetString("IABTCF_PurposeConsents", null);
-                Debug.Log($"{Tag} [Consent Diagnostics] IABTCF_TCString={(string.IsNullOrEmpty(tcf) ? "EMPTY - CMP not writing TCF string!" : $"present ({tcf.Length} chars)")}, PurposeConsents={purposes ?? "null"}");
+                PaletteLog.Verbose($"{Tag} [Consent Diagnostics] iOS TCF string={PaletteLog.Present(tcf)}, purposeConsents={PaletteLog.Present(purposes)}");
                 if (!string.IsNullOrEmpty(purposes))
                 {
                     bool p1 = purposes.Length > 0 && purposes[0] == '1';
                     bool p3 = purposes.Length > 2 && purposes[2] == '1';
                     bool p4 = purposes.Length > 3 && purposes[3] == '1';
-                    Debug.Log($"{Tag} [Consent Diagnostics] Purpose 1 (storage)={p1}, Purpose 3 (personalization)={p3}, Purpose 4 (ad selection)={p4}");
+                    PaletteLog.Verbose($"{Tag} [Consent Diagnostics] Purpose 1 (storage)={p1}, Purpose 3 (personalization)={p3}, Purpose 4 (ad selection)={p4}");
                     if (!p1 || !p3 || !p4)
-                        Debug.LogWarning($"{Tag} [Consent Diagnostics] Missing required TCF purposes → ads will be non-personalized despite user consent");
+                        PaletteLog.Warning($"{Tag} Consent hint: required TCF ad purposes are missing; ads may be non-personalized. Rebuild with verbose logging to inspect purpose bits.");
                 }
             }
             catch (System.Exception e)
             {
-                Debug.LogWarning($"{Tag} [Consent Diagnostics] iOS TCF read failed: {e.Message}");
+                PaletteLog.Verbose($"{Tag} [Consent Diagnostics] iOS TCF read failed: {e.Message}");
             }
 #endif
 #endif
@@ -666,7 +669,7 @@ namespace Sorolla.Palette
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
             MaxAdapter.ShowRewardedAd(onComplete, onFailed);
 #else
-            Debug.LogWarning($"{Tag} MAX not available.");
+            PaletteLog.Warning($"{Tag} MAX not available.");
             onFailed?.Invoke();
 #endif
         }
@@ -683,7 +686,7 @@ namespace Sorolla.Palette
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
             MaxAdapter.ShowInterstitialAd(onComplete, onFailed);
 #else
-            Debug.LogWarning($"{Tag} MAX not available - interstitial skipped, invoking onFailed.");
+            PaletteLog.Warning($"{Tag} MAX not available - interstitial skipped, invoking onFailed.");
             onFailed?.Invoke();
 #endif
         }
@@ -699,7 +702,7 @@ namespace Sorolla.Palette
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
             MaxAdapter.ShowMediationDebugger();
 #else
-            Debug.LogWarning($"{Tag} MAX not available - mediation debugger requires MAX SDK.");
+            PaletteLog.Warning($"{Tag} MAX not available - mediation debugger requires MAX SDK.");
 #endif
         }
 
@@ -713,7 +716,7 @@ namespace Sorolla.Palette
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
             MaxAdapter.ShowCreativeDebugger();
 #else
-            Debug.LogWarning($"{Tag} MAX not available - creative debugger requires MAX SDK.");
+            PaletteLog.Warning($"{Tag} MAX not available - creative debugger requires MAX SDK.");
 #endif
         }
 
