@@ -12,7 +12,7 @@ namespace Sorolla.Palette.Editor
     ///     Pre-build validation for SDK conflicts, version mismatches, and configuration issues.
     ///     Runs automatically before builds via IPreprocessBuildWithReport.
     /// </summary>
-    public static class BuildValidator
+    public static partial class BuildValidator
     {
         public enum CheckCategory
         {
@@ -1142,21 +1142,6 @@ namespace Sorolla.Palette.Editor
             }
         }
 
-        public class ValidationResult
-        {
-            public CheckCategory Category;
-            public string Fix;
-            public string Message;
-            public ValidationStatus Status;
-
-            public ValidationResult(ValidationStatus status, string message, string fix = null, CheckCategory category = CheckCategory.VersionMismatches)
-            {
-                Status = status;
-                Message = message;
-                Fix = fix;
-                Category = category;
-            }
-        }
     }
 
 }
