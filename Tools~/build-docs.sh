@@ -57,10 +57,13 @@ fi
 
 ORDER=(
   "Palette.md"
+  "Palette.Level.md"
+  "Palette.Economy.md"
   "SorollaConfig.md"
   "PlatformAdUnitId.md"
-  "ProgressionStatus.md"
-  "ResourceFlowType.md"
+  "CurrencyId.md"
+  "EconomySource.md"
+  "EconomySink.md"
 )
 
 # Verify every expected file exists
