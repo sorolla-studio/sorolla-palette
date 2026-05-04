@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [3.14.4] - 2026-04-24
 
-`Palette.Level.Start/Complete/Fail` no longer drops events on `level <= 0` or `world <= 0`. The SDK was rejecting `level=0` as invalid, but **0-indexed level schemes are valid production data** (raft-evolution: `Map1 = levelID 0`, `selectedMapID = 0` is the correct default). The `<= 0` validation bounced legitimate events and made PROGRESSION funnels appear silently empty in dashboards — the error only surfaced during long-session QA (raft-evolution map 1 ~1h to complete).
+`Palette.Level.Start/Complete/Fail` no longer drops events on `level <= 0` or `world <= 0`. The SDK was rejecting `level=0` as invalid, but **0-indexed level schemes are valid production data**. Some integrations use `0` for the first playable level/map, and the previous `<= 0` validation bounced legitimate events and made PROGRESSION funnels appear silently empty in dashboards.
 
 Policy split:
 
@@ -45,7 +45,7 @@ Palette.ShowInterstitialAd(
     onFailed:   () => { Palette.TrackEvent("interstitial_no_fill"); ResumeGame(); });
 ```
 
-Affected downstream repos: hungrysnake (`LevelFlowService.cs:754`), boat-runner (`BoatAdsManager.cs:126`), sweep. Each is a 2-line fix.
+Affected downstream integrations: any project using the old single-callback `Palette.ShowInterstitialAd` signature must pass an explicit failure callback. Each integration fix is a small call-site update.
 
 ## [3.14.2] - 2026-04-22
 
@@ -105,24 +105,24 @@ _store.OnPurchasePending += order =>     // studio keeps fulfillment-only handle
 
 ## [3.14.0] - 2026-04-22
 
-Purchase-tracking hardening + fullscreen-ad screen-wake. Purchase side triggered by a live-fire QA pass on sweep `release/1.1.44` build 2003 that showed `OnPurchaseConfirmed` firing twice per purchase ~1s apart on Google Play in-session, doubling downstream analytics revenue (Unity IAP v5 + Google Play framework quirk, separate from Unity's documented `OnPurchasePending` crash-replay behaviour). The consumer-side dedup guard that stabilised build 2003 is now enforced SDK-side so studios cannot produce duplicate purchase analytics regardless of which callback they subscribe to, and the wiring has been collapsed to a single idempotent call that cannot be miswired. Ads side closes a long-standing UX hole where some mediated networks don't set `FLAG_KEEP_SCREEN_ON` reliably during fullscreen ads, letting the device dim or sleep mid-impression.
+Purchase-tracking hardening + fullscreen-ad screen-wake. Purchase side was triggered by QA evidence that `OnPurchaseConfirmed` can fire twice per purchase about one second apart on Google Play in-session, doubling downstream analytics revenue (Unity IAP v5 + Google Play framework quirk, separate from Unity's documented `OnPurchasePending` crash-replay behaviour). The dedup guard is now enforced SDK-side so integrations cannot produce duplicate purchase analytics regardless of which callback they subscribe to, and the wiring has been collapsed to a single idempotent call that cannot be miswired. Ads side closes a long-standing UX hole where some mediated networks don't set `FLAG_KEEP_SCREEN_ON` reliably during fullscreen ads, letting the device dim or sleep mid-impression.
 
 ### Added
 - **`Palette.AttachPurchaseTracking(StoreController store)`**: one-call wiring for Unity IAP v5 purchase tracking. Subscribes `OnPurchasePending += Palette.TrackPurchase` on the SDK's behalf so analytics fan-out cannot be forgotten or miswired. Idempotent via a session-scoped `HashSet<StoreController>` — repeat calls with the same controller are logged and dropped. Manual subscription (`_store.OnPurchasePending += Palette.TrackPurchase;`) still works identically for studios that want to own the wiring. Gated on `UNITY_PURCHASING_INSTALLED`.
 
 ### Fixed
-- **Duplicate purchase analytics from Google Play `OnPurchaseConfirmed` double-fire**: observed on sweep `release/1.1.44` build 2003, where `OnPurchaseConfirmed` fired twice ~1s apart per purchase on Google Play, inflating Firebase/Adjust/GA/TikTok revenue by 2×. Fix is session-wide TxID dedup enforced inside the low-level `Palette.TrackPurchase(double, string, ...)` chokepoint that every overload funnels through. All three entry points (`TrackPurchase(PendingOrder)`, `TrackPurchase(Product)`, `TrackPurchase(double, ...)` low-level) are now idempotent per `transactionId` for the session: second call with the same non-empty TxID is dropped before fan-out to Adjust/Firebase/GA/TikTok with a `Debug.LogWarning`. Fails open on empty/null TxID (cannot dedup what we cannot observe). Placed after price/currency validation so a bad-payload first call does not burn the TxID slot for a corrected retry. Also covers Unity-documented `OnPurchasePending` crash-replay (see https://docs.unity.com/ugs/en-us/manual/iap/manual/purchases — "may be called at any point following a successful initialization ... consider implementing your own de-duplication logic"). Studios are **not required** to keep their own TxID HashSet for analytics any more.
+- **Duplicate purchase analytics from Google Play `OnPurchaseConfirmed` double-fire**: QA observed `OnPurchaseConfirmed` firing twice about one second apart per purchase on Google Play, inflating Firebase/Adjust/GA/TikTok revenue by 2x. Fix is session-wide TxID dedup enforced inside the low-level `Palette.TrackPurchase(double, string, ...)` chokepoint that every overload funnels through. All three entry points (`TrackPurchase(PendingOrder)`, `TrackPurchase(Product)`, `TrackPurchase(double, ...)` low-level) are now idempotent per `transactionId` for the session: second call with the same non-empty TxID is dropped before fan-out to Adjust/Firebase/GA/TikTok with a `Debug.LogWarning`. Fails open on empty/null TxID (cannot dedup what we cannot observe). Placed after price/currency validation so a bad-payload first call does not burn the TxID slot for a corrected retry. Also covers Unity-documented `OnPurchasePending` crash-replay (see https://docs.unity.com/ugs/en-us/manual/iap/manual/purchases — "may be called at any point following a successful initialization ... consider implementing your own de-duplication logic"). Studios are **not required** to keep their own TxID HashSet for analytics any more.
 - **Screen sleeping / dimming during fullscreen ads** (`MaxAdapterImpl`): MAX and mediated ad networks do not consistently set `FLAG_KEEP_SCREEN_ON` on every adapter, so on long rewarded/interstitial impressions the device could dim or sleep — ruining the impression and the reward handshake. `AcquireScreenWake()` (`Screen.sleepTimeout = NeverSleep`) now wraps `MaxSdk.ShowRewardedAd` / `ShowInterstitial`, paired with `ReleaseScreenWake()` in `OnRewardedAdHidden` / `OnRewardedAdDisplayFailed` / `OnInterstitialAdHidden` / `OnInterstitialAdDisplayFailed` (saves and restores the prior timeout rather than hardcoding back to `SystemSetting`). `Application.focusChanged` is subscribed as a safety net — if a callback is somehow missed, the wake lock is released the moment the app regains focus, so the device can never get stuck in never-sleep mode after an ad.
 
 ### Changed
 - **`Documentation~/architecture.md` Purchase Attribution diagram**: canonical wiring is now `Palette.AttachPurchaseTracking(_store)`; dedup chokepoint documented on the low-level `TrackPurchase`.
 
 ### Expected dashboard deltas after rollout
-- **Android Firebase / Adjust / GA purchase revenue may drop ~50%** on integrations where the studio subscribed `OnPurchaseConfirmed` and called `Palette.TrackPurchase` (or any analytics event) from there without their own dedup. Correction of the in-session double, not regression. Sweep `release/1.1.44` build 2003 had consumer-side dedup so its numbers are already accurate; other integrators may see the correction.
+- **Android Firebase / Adjust / GA purchase revenue may drop** on integrations where the studio subscribed `OnPurchaseConfirmed` and called `Palette.TrackPurchase` (or any analytics event) from there without their own dedup. Correction of the in-session double, not regression.
 
 ## [3.13.0] - 2026-04-21
 
-Revenue-integrity release. Triggered by a live-fire BQ audit of Sweep Collector (Romba Clean) that exposed Android purchases landing in Firebase with `currency="Tier"` / `value=NULL` (`firebase_error=19 / error_value="currency"` observed in raw events) and an iOS `transaction_id` regression after the consumer migrated to Unity IAP v5 CorePro. A full vendor-deprecation audit ran in parallel: every third-party API the SDK calls was cross-checked against live 2026 documentation (AppLovin / Axon, Adjust v5, Firebase Unity 13.x, Facebook v18, GameAnalytics, Unity IAP 5.2.1). This release ships the Unity IAP v5 migration path plus three best-practice gaps closed (Crashlytics fatal routing, Adjust iOS ATT wait, GA4 `items[]` shape).
+Revenue-integrity release. Triggered by a live-fire BigQuery audit that exposed Android purchases landing in Firebase with `currency="Tier"` / `value=NULL` (`firebase_error=19 / error_value="currency"` observed in raw events) and an iOS `transaction_id` regression after a Unity IAP v5 CorePro migration. A full vendor-deprecation audit ran in parallel: every third-party API the SDK calls was cross-checked against live 2026 documentation (AppLovin / Axon, Adjust v5, Firebase Unity 13.x, Facebook v18, GameAnalytics, Unity IAP 5.2.1). This release ships the Unity IAP v5 migration path plus three best-practice gaps closed (Crashlytics fatal routing, Adjust iOS ATT wait, GA4 `items[]` shape).
 
 ### Added
 - **`Palette.TrackPurchase(PendingOrder)`**: canonical Unity IAP v5 overload. Reads `order.Info.TransactionID` + `order.Info.Receipt` while the order is still in `Pending` state — the only lifecycle point that captures `transactionId` reliably on consumables. Subscribe to `StoreController.OnPurchasePending` and call **before** `StoreController.ConfirmPurchase(order)`. Per [Unity IAP 5.2.1 `IOrderInfo` docs](https://docs.unity3d.com/Packages/com.unity.purchasing@5.2/api/UnityEngine.Purchasing.IOrderInfo.html), both fields are cleared for consumables once the order transitions to `ConfirmedOrder`. Preserves the existing price/currency validation and fires `sorolla_purchase_data_quality_failure` with `source: "pending_order"` on invalid metadata.
@@ -192,7 +192,7 @@ Follow-up to `3.11.0`. Cleaned up consent fan-out to remove a redundant second p
 
 ## [3.11.0] - 2026-04-21
 
-Consent propagation hardening, prompted by a consent drop in Sweep Collector (Romba Clean) where ATT/CMP decisions were invisible in our own analytics. Three coupled fixes so Adjust honors mid-session consent, no events are lost during the MAX CMP resolution window, and the ATT / CMP decision is queryable from our own data.
+Consent propagation hardening, prompted by a production consent drop where ATT/CMP decisions were invisible in our own analytics. Three coupled fixes so Adjust honors mid-session consent, no events are lost during the MAX CMP resolution window, and the ATT / CMP decision is queryable from our own data.
 
 ### Added
 - **`AdjustAdapter.UpdateConsent(bool)`**: consent now propagates to Adjust on both initial MAX CMP resolution and mid-session changes via `ShowPrivacyOptions()`. Denied consent calls `Adjust.Disable()` (reversible - user can re-grant later via the privacy form); consent granted calls `Adjust.Enable()`. `GdprForgetMe` deliberately not used here - reserved for explicit "delete my data" user actions.
@@ -785,4 +785,3 @@ If you encounter errors after updating to 2.2.1, manual manifest fixes may be re
 - Generic SDK detection pattern
 - Reusable manifest modification helpers
 - Modular config section rendering
-

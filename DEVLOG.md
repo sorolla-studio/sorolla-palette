@@ -9,7 +9,7 @@
 
 ### 2026-04-09 - Unity 6 launcher module trap (v3.8.0)
 
-**Problem**: `DeploymentOperationFailedException: No activity with action MAIN and category LAUNCHER` on boat-runner but not hungrysnake. Same SDK, same Unity 6000.4. Hours of debugging.
+**Problem**: `DeploymentOperationFailedException: No activity with action MAIN and category LAUNCHER` on one Unity 6 integration but not another. Same SDK, same Unity 6000.4. Hours of debugging.
 
 **Root cause**: Unity 6 ALWAYS generates `launcher/src/main/AndroidManifest.xml` in the Gradle export, regardless of `useCustomLauncherManifest`. When OFF, the auto-generated manifest is a stub with NO activity. `StripLibraryLauncherIntent` checked file existence only, stripped LAUNCHER from unityLibrary, left zero LAUNCHER activities. Snake's Gradle cache was stale (pre-strip), masking the bug.
 
@@ -48,7 +48,7 @@
 
 ### 2026-04-01 - v3.6.0 Release: Firebase androidlib + asmdef defineConstraints
 
-**Summary:** Merged feat/tiktok into master, released v3.6.0. Two bugs surfaced when Sweep Collector switched from local symlink to UPM git URL.
+**Summary:** Merged feat/tiktok into master, released v3.6.0. Two bugs surfaced when a consuming project switched from local symlink to UPM git URL.
 
 **Bug 1: Firebase asmdef `defineConstraints` OR syntax**
 - `Sorolla.Adapters.Firebase.asmdef` had `"FIREBASE_ANALYTICS_INSTALLED || FIREBASE_CRASHLYTICS_INSTALLED || FIREBASE_REMOTE_CONFIG_INSTALLED"`
@@ -163,7 +163,7 @@ EDM4U Android Resolve triggers
 
 ### 2026-01-21 - DontDestroyOnLoad Fix & KISS Reminder
 
-**Problem Solved:** hungrysnake UIManager assertion failure during initialization
+**Problem Solved:** consuming project UIManager assertion failure during initialization
 
 **Solution Implemented:**
 1. Triple-defense `MakePersistent()` in SorollaBootstrapper

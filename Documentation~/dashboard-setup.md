@@ -12,8 +12,8 @@ Before touching any dashboard, get these from the studio:
 
 | Item | Example | Notes |
 |------|---------|-------|
-| Android package name | `com.gembirdstudios.raftevolution` | Final. Cannot change after any vendor app is created. |
-| iOS bundle ID | `com.gembirdstudios.raftevolution` | Final. Usually matches Android but not always. |
+| Android package name | `com.example.game` | Final. Cannot change after any vendor app is created. |
+| iOS bundle ID | `com.example.game` | Final. Usually matches Android but not always. |
 | Test APK/AAB (Android) | - | Signed with debug or release key |
 | Test IPA / TestFlight build (iOS) | - | For on-device QA |
 | Android debug key hash | SHA-1 from `keytool` | Needed for Facebook Android |
