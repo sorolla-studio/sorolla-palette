@@ -163,7 +163,7 @@ namespace Sorolla.Palette.Adapters
             e.TransactionId = transactionId;
             Adjust.VerifyAndTrackAppStorePurchase(e, verificationResult =>
             {
-                PaletteLog.Vital($"[Palette:Adjust] iOS purchase verification: status={verificationResult.VerificationStatus}");
+                PaletteLog.Vital($"[Palette:Adjust] iOS purchase verification: status={verificationResult.VerificationStatus}, code={verificationResult.Code}");
                 PaletteLog.Verbose($"[Palette:Adjust] iOS purchase verification message: {verificationResult.Message}");
             });
         }
@@ -175,7 +175,7 @@ namespace Sorolla.Palette.Adapters
             e.PurchaseToken = purchaseToken;
             Adjust.VerifyAndTrackPlayStorePurchase(e, verificationResult =>
             {
-                PaletteLog.Vital($"[Palette:Adjust] Android purchase verification: status={verificationResult.VerificationStatus}");
+                PaletteLog.Vital($"[Palette:Adjust] Android purchase verification: status={verificationResult.VerificationStatus}, code={verificationResult.Code}");
                 PaletteLog.Verbose($"[Palette:Adjust] Android purchase verification message: {verificationResult.Message}");
             });
         }

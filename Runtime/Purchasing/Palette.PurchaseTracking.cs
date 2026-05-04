@@ -49,6 +49,9 @@ namespace Sorolla.Palette
             decimal rawPrice = md?.localizedPrice ?? 0m;
             string productId = product.definition.id;
             string transactionId = order.Info?.TransactionID;
+            string receipt = order.Info?.Receipt;
+
+            LogApplePurchasePayload(order, receipt);
 
             // Defensive: Firebase strips `value` when `currency` is non-ISO (firebase_error=19,
             // error_value="currency" observed in BQ); MMPs reject non-ISO outright. Drop rather
@@ -74,7 +77,6 @@ namespace Sorolla.Palette
 
             // Android purchaseToken via unified-receipt parse; iOS path doesn't need this.
             string purchaseToken = null;
-            string receipt = order.Info?.Receipt;
             if (!string.IsNullOrEmpty(receipt))
             {
                 ParsedReceipt parsed = ReceiptParser.Parse(receipt);
@@ -235,5 +237,29 @@ namespace Sorolla.Palette
         static bool IsIso4217(string c) =>
             !string.IsNullOrEmpty(c) && c.Length == 3
             && char.IsLetter(c[0]) && char.IsLetter(c[1]) && char.IsLetter(c[2]);
+
+#if UNITY_PURCHASING_INSTALLED && UNITY_IOS
+        static void LogApplePurchasePayload(PendingOrder order, string unifiedReceipt)
+        {
+            var apple = order?.Info?.Apple;
+            if (apple == null)
+            {
+                PaletteLog.Verbose($"{Tag} TrackPurchase(PendingOrder): Apple payload unavailable.");
+                return;
+            }
+
+            PaletteLog.Vital($"{Tag} TrackPurchase(PendingOrder): Apple payload " +
+                $"unifiedReceipt={DescribePayload(unifiedReceipt)}, " +
+                $"appReceipt={DescribePayload(apple.AppReceipt)}, " +
+                $"jws={DescribePayload(apple.jwsRepresentation)}, " +
+                $"originalTransactionId={PaletteLog.Present(apple.OriginalTransactionID)}, " +
+                $"storeName='{apple.StoreName ?? "null"}'.");
+        }
+#else
+        static void LogApplePurchasePayload(object order, string unifiedReceipt) { }
+#endif
+
+        static string DescribePayload(string value) =>
+            string.IsNullOrEmpty(value) ? "missing" : $"present(len={value.Length})";
     }
 }
