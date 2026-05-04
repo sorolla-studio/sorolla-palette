@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.15.0] - 2026-05-04
+
+SDK QA hardening release. Adds purchase-verification diagnostics, MAX retry hardening, modularized build validation, and Debug UI purchase tooling.
+
+### Added
+- **Adjust iOS purchase verification diagnostics** (`Runtime/Purchasing/Palette.PurchaseTracking.cs`, `Runtime/Adapters/Adjust/AdjustAdapterImpl.cs`): logs the purchase verification callback status, numeric code, and message. Also logs Apple payload presence for the unified receipt, app receipt, JWS representation, original transaction ID, and store name. This makes sandbox/production environment mismatches and dashboard setup issues visible during QA without exposing raw receipt payloads.
+- **MAX ad load retry backoff** (`Runtime/Adapters/MAX/MaxAdapterImpl.cs`): failed rewarded/interstitial load attempts now retry through SDK-managed coroutine timing instead of immediately hammering reload calls.
+- **Debug UI IAP test harness** (`Samples~/DebugUI/Scripts/Controllers/DebugPurchaseTester.cs`): adds a Unity IAP v5 QA purchase path wired through `Palette.AttachPurchaseTracking` so SDK purchase tracking can be exercised from the sample UI.
+- **Build health notifier and modular build-validation files** (`Editor/BuildValidation*.cs`, `Editor/BuildHealthConsoleNotifier.cs`, `Editor/BuildValidatorPreprocessor.cs`): splits the build validator into focused checks for packages, Firebase, Gradle, Android manifest, config, vendor settings, and console reporting.
+- **Economy item ID sanitizer tests** (`Tests/Editor/EconomyItemIdSanitizerTests.cs`): covers item-id normalization behavior used by economy events.
+- **Firebase Remote Config public guide** (`Documentation~/guides/firebase-remote-config.md`).
+
+### Changed
+- **Runtime internals split into focused partials**: purchase tracking, remote config, and event validation were moved out of the monolithic `Palette.cs` into dedicated files. Public integration paths remain the same.
+- **Adapter logging now routes through `PaletteLog`** where touched, giving clearer presence/absence diagnostics without exposing sensitive raw payloads.
+- **Debug UI and docs updated** for the current Firebase, TikTok, Adjust, and QA purchase flows.
+- **Internal-only documents moved out of the package** so shipped UPM contents stay focused on public SDK docs and runtime/editor code.
+
+### Notes
+- For iOS sandbox purchases, Adjust Production can return `code=20040` because the App Store transaction is sandbox while Adjust is in Production. Use Adjust Sandbox for sandbox StoreKit verification checks; a real production purchase is required for end-to-end Adjust Production verification.
+
 ## [3.14.4] - 2026-04-24
 
 `Palette.Level.Start/Complete/Fail` no longer drops events on `level <= 0` or `world <= 0`. The SDK was rejecting `level=0` as invalid, but **0-indexed level schemes are valid production data**. Some integrations use `0` for the first playable level/map, and the previous `<= 0` validation bounced legitimate events and made PROGRESSION funnels appear silently empty in dashboards.
