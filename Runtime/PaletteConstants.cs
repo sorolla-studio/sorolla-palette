@@ -8,6 +8,12 @@ namespace Sorolla.Palette
         public const string MaxSdkKey =
             "R3IG4XB8AqE9Ch8c5Ebed_RgfNmTPCWeUwQA7ikp_kIrL11yGRRo1lgT_xkfF9TAfyoxv8wSADgW6bcB6NlP7o";
 
+        /// <summary>
+        ///     Publisher-level privacy policy URL used by AppLovin MAX consent flow.
+        /// </summary>
+        public const string PrivacyPolicyUrl = "https://sorolla.io/privacy-policy";
+
         public static bool IsExpectedMaxSdkKey(string sdkKey) => sdkKey == MaxSdkKey;
+        public static bool IsExpectedPrivacyPolicyUrl(string url) => url == PrivacyPolicyUrl;
     }
 }

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.15.2] - 2026-05-05
+
+Follow-up editor settings hardening.
+
+### Fixed
+- **MAX consent flow sync** (`Runtime/PaletteConstants.cs`, `Editor/MaxSettingsSanitizer.cs`, `Editor/BuildValidationVendorSettings.cs`): the publisher privacy policy URL is now centralized in `PaletteConstants` and enforced exactly in `AppLovinSettings`, same as the shared MAX SDK key. Build Health verifies that consent flow is enabled and the URL matches the expected shared value.
+
 ## [3.15.1] - 2026-05-05
 
 Hotfix for Palette editor state sync.

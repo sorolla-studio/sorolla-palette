@@ -17,6 +17,7 @@ namespace Sorolla.Palette.Editor
 
 #if SOROLLA_MAX_INSTALLED
             MaxSettingsSanitizer.SyncEmbeddedSdkKey();
+            MaxSettingsSanitizer.SyncConsentFlowSettings();
 
             if (!MaxSettingsSanitizer.IsSdkKeyConfigured())
             {
@@ -24,6 +25,16 @@ namespace Sorolla.Palette.Editor
                     CheckCategory.MaxSettings,
                     "AppLovin MAX SDK key auto-sync failed.\n" +
                     "  The shared publisher key could not be written to AppLovinSettings.",
+                    "Reopen Unity or click Refresh in Build Health; report this if it persists"));
+                return results;
+            }
+
+            if (!MaxSettingsSanitizer.IsConsentFlowConfigured())
+            {
+                results.Add(Error(
+                    CheckCategory.MaxSettings,
+                    "AppLovin consent flow auto-sync failed.\n" +
+                    "  The shared privacy policy URL could not be written to AppLovin internal settings.",
                     "Reopen Unity or click Refresh in Build Health; report this if it persists"));
                 return results;
             }

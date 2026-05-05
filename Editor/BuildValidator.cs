@@ -148,9 +148,9 @@ namespace Sorolla.Palette.Editor
             if (MaxSettingsSanitizer.EnableQualityService())
                 fixes.Add("Enabled AppLovin Ad Review (Quality Service)");
 
-            // MAX Consent Flow - auto-set privacy policy URL
-            if (MaxSettingsSanitizer.SetConsentFlowPrivacyPolicy())
-                fixes.Add("Set AppLovin consent flow privacy policy URL");
+            // MAX Consent Flow - sync shared publisher privacy policy URL
+            if (MaxSettingsSanitizer.SyncConsentFlowSettings())
+                fixes.Add("Synced AppLovin consent flow settings");
 
             // Gradle config auto-fixes (Android only)
             if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android)

@@ -13,7 +13,9 @@ namespace Sorolla.Palette.Editor
 
         // Cached Type lookup to avoid repeated reflection
         private static System.Type s_appLovinSettingsType;
+        private static System.Type s_appLovinInternalSettingsType;
         private static bool s_typeSearched;
+        private static bool s_internalTypeSearched;
 
         /// <summary>
         ///     Get the SDK key from AppLovinSettings.
@@ -153,6 +155,34 @@ namespace Sorolla.Palette.Editor
             return settingsType;
         }
 
+        private static System.Type GetAppLovinInternalSettingsType()
+        {
+            if (!s_internalTypeSearched)
+            {
+                s_internalTypeSearched = true;
+                s_appLovinInternalSettingsType = FindAppLovinInternalSettingsType();
+            }
+            return s_appLovinInternalSettingsType;
+        }
+
+        private static System.Type FindAppLovinInternalSettingsType()
+        {
+            var settingsType = System.Type.GetType(
+                "AppLovinMax.Scripts.IntegrationManager.Editor.AppLovinInternalSettings, MaxSdk.Scripts.IntegrationManager.Editor");
+
+            if (settingsType == null)
+            {
+                foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    settingsType = assembly.GetType("AppLovinMax.Scripts.IntegrationManager.Editor.AppLovinInternalSettings");
+                    if (settingsType != null)
+                        break;
+                }
+            }
+
+            return settingsType;
+        }
+
         /// <summary>
         ///     Check if Quality Service (Ad Review) is enabled.
         /// </summary>
@@ -233,15 +263,50 @@ namespace Sorolla.Palette.Editor
 #endif
         }
 
-        /// <summary>
-        ///     Auto-set consent flow privacy policy URL and enable consent flow if not already configured.
-        /// </summary>
-        public static bool SetConsentFlowPrivacyPolicy(string url = "https://sorolla.io/privacy-policy")
+        public static bool IsConsentFlowConfigured()
         {
 #if SOROLLA_MAX_INSTALLED
             try
             {
-                var settingsType = GetAppLovinSettingsType();
+                var settingsType = GetAppLovinInternalSettingsType();
+                if (settingsType == null)
+                    return false;
+
+                var instanceProp = settingsType.GetProperty("Instance",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                var instance = instanceProp?.GetValue(null);
+                if (instance == null)
+                    return false;
+
+                var urlProp = settingsType.GetProperty("ConsentFlowPrivacyPolicyUrl",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                string currentUrl = urlProp?.GetValue(instance) as string;
+
+                var enabledProp = settingsType.GetProperty("ConsentFlowEnabled",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                bool enabled = enabledProp != null && (bool)enabledProp.GetValue(instance);
+
+                return enabled && PaletteConstants.IsExpectedPrivacyPolicyUrl(currentUrl);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"{Tag} Failed to check consent flow settings: {e.Message}");
+                return false;
+            }
+#else
+            return false;
+#endif
+        }
+
+        /// <summary>
+        ///     Auto-set the shared privacy policy URL and enable consent flow.
+        /// </summary>
+        public static bool SyncConsentFlowSettings()
+        {
+#if SOROLLA_MAX_INSTALLED
+            try
+            {
+                var settingsType = GetAppLovinInternalSettingsType();
                 if (settingsType == null)
                     return false;
 
@@ -253,15 +318,15 @@ namespace Sorolla.Palette.Editor
 
                 bool changed = false;
 
-                // Set privacy policy URL if empty
+                // Enforce the shared publisher privacy policy URL.
                 var urlProp = settingsType.GetProperty("ConsentFlowPrivacyPolicyUrl",
                     System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
                 if (urlProp != null)
                 {
                     string currentUrl = urlProp.GetValue(instance) as string;
-                    if (string.IsNullOrEmpty(currentUrl))
+                    if (!PaletteConstants.IsExpectedPrivacyPolicyUrl(currentUrl))
                     {
-                        urlProp.SetValue(instance, url);
+                        urlProp.SetValue(instance, PaletteConstants.PrivacyPolicyUrl);
                         changed = true;
                     }
                 }
@@ -277,17 +342,17 @@ namespace Sorolla.Palette.Editor
 
                 if (changed)
                 {
-                    var saveMethod = settingsType.GetMethod("SaveAsync",
+                    var saveMethod = settingsType.GetMethod("Save",
                         System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
                     saveMethod?.Invoke(instance, null);
-                    Debug.Log($"{Tag} Set consent flow privacy policy URL: {url}");
+                    Debug.Log($"{Tag} Synced consent flow settings");
                 }
 
                 return changed;
             }
             catch (System.Exception e)
             {
-                Debug.LogWarning($"{Tag} Failed to set consent flow privacy policy: {e.Message}");
+                Debug.LogWarning($"{Tag} Failed to sync consent flow settings: {e.Message}");
                 return false;
             }
 #else
