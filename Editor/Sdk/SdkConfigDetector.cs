@@ -96,22 +96,6 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Checks if AppLovin MAX has a valid SDK key configured (in SorollaConfig).
-        ///     The SDK key is auto-synced to AppLovinSettings when config changes.
-        /// </summary>
-        public static ConfigStatus GetMaxStatus(SorollaConfig config)
-        {
-            if (!SdkDetector.IsInstalled(SdkId.AppLovinMAX))
-                return ConfigStatus.NotInstalled;
-
-            if (config == null)
-                return ConfigStatus.NotConfigured;
-
-            // SDK key is embedded in PaletteConstants, always configured
-            return ConfigStatus.Configured;
-        }
-
-        /// <summary>
         ///     Checks if Adjust has a valid app token configured.
         /// </summary>
         public static ConfigStatus GetAdjustStatus(SorollaConfig config)
@@ -141,14 +125,6 @@ namespace Sorolla.Palette.Editor
         public static void OpenFacebookSettings()
         {
             EditorApplication.ExecuteMenuItem("Facebook/Edit Settings");
-        }
-
-        /// <summary>
-        ///     Opens the AppLovin Integration Manager.
-        /// </summary>
-        public static void OpenMaxSettings()
-        {
-            EditorApplication.ExecuteMenuItem("AppLovin/Integration Manager");
         }
 
         /// <summary>

@@ -16,7 +16,7 @@ namespace Sorolla.Palette.Editor
         private static bool s_typeSearched;
 
         /// <summary>
-        ///     Get the SDK key from AppLovinSettings (configured in Integration Manager)
+        ///     Get the SDK key from AppLovinSettings.
         /// </summary>
         public static string GetSdkKey()
         {
@@ -49,18 +49,34 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Check if SDK key is configured in AppLovinSettings
+        ///     Check if AppLovinSettings has the shared publisher SDK key.
         /// </summary>
         public static bool IsSdkKeyConfigured()
         {
             var key = GetSdkKey();
-            return !string.IsNullOrEmpty(key) && key.Length > 10;
+            return PaletteConstants.IsExpectedMaxSdkKey(key);
         }
 
         /// <summary>
-        ///     Set the SDK key in AppLovinSettings (programmatically sync from SorollaConfig)
+        ///     Sync the embedded publisher-level SDK key to AppLovinSettings.
         /// </summary>
-        public static bool SetSdkKey(string sdkKey)
+        public static bool SyncEmbeddedSdkKey()
+        {
+#if SOROLLA_MAX_INSTALLED
+            string currentKey = GetSdkKey() ?? "";
+            if (PaletteConstants.IsExpectedMaxSdkKey(currentKey))
+                return false;
+
+            return SetExpectedSdkKey();
+#else
+            return false;
+#endif
+        }
+
+        /// <summary>
+        ///     Set the shared publisher SDK key in AppLovinSettings.
+        /// </summary>
+        static bool SetExpectedSdkKey()
         {
 #if SOROLLA_MAX_INSTALLED
             try
@@ -89,7 +105,7 @@ namespace Sorolla.Palette.Editor
                     return false;
                 }
 
-                sdkKeyProp.SetValue(instance, sdkKey);
+                sdkKeyProp.SetValue(instance, PaletteConstants.MaxSdkKey);
 
                 // Call SaveAsync to persist to AppLovinSettings.asset
                 var saveMethod = settingsType.GetMethod("SaveAsync",

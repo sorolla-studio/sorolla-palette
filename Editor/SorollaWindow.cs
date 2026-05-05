@@ -53,22 +53,8 @@ namespace Sorolla.Palette.Editor
         {
             LoadOrCreateConfig();
             RunBuildValidation();
-            SyncMaxSdkKey();
             Events.registeringPackages += OnPackagesRegistering;
             Events.registeredPackages += OnPackagesRegistered;
-        }
-
-        void SyncMaxSdkKey()
-        {
-            if (!SdkDetector.IsInstalled(SdkId.AppLovinMAX))
-                return;
-
-            string currentKey = MaxSettingsSanitizer.GetSdkKey() ?? "";
-            if (currentKey == PaletteConstants.MaxSdkKey)
-                return;
-
-            MaxSettingsSanitizer.SetSdkKey(PaletteConstants.MaxSdkKey);
-            Debug.Log("[Palette] Set MAX SDK key in AppLovinSettings");
         }
 
         void OnDisable()
@@ -88,12 +74,6 @@ namespace Sorolla.Palette.Editor
         {
             foreach (var package in args.added)
                 _installingPackages.Remove(package.name);
-
-            // Sync MAX SDK key if MAX was just installed
-            if (args.added.Any(p => p.name == "com.applovin.mediation.ads"))
-            {
-                EditorApplication.delayCall += SyncMaxSdkKey;
-            }
 
             // Re-run validation after packages are installed (no auto-install, just detect)
             EditorApplication.delayCall += () => RunBuildValidation();
@@ -166,6 +146,12 @@ namespace Sorolla.Palette.Editor
         [InitializeOnLoadMethod]
         static void AutoOpenOnLoad() => EditorApplication.delayCall += () =>
         {
+            if (SorollaSettings.HasRuntimeConfig)
+            {
+                SorollaSettings.SyncFromRuntimeConfig();
+                return;
+            }
+
             if (!SorollaSettings.IsConfigured && !Application.isPlaying)
             {
                 // Auto-select Prototype mode on fresh installs for better UX
@@ -303,9 +289,7 @@ namespace Sorolla.Palette.Editor
 
                 // Auto-sync MAX SDK key to AppLovinSettings when config changes
                 if (showMax)
-                {
-                    MaxSettingsSanitizer.SetSdkKey(PaletteConstants.MaxSdkKey);
-                }
+                    MaxSettingsSanitizer.SyncEmbeddedSdkKey();
             }
 
             EditorGUILayout.EndVertical();
@@ -398,13 +382,17 @@ namespace Sorolla.Palette.Editor
             // Calculate overall readiness
             SdkConfigDetector.ConfigStatus gaStatus = SdkConfigDetector.GetGameAnalyticsStatus();
             SdkConfigDetector.ConfigStatus fbStatus = SdkConfigDetector.GetFacebookStatus();
-            SdkConfigDetector.ConfigStatus maxStatus = SdkConfigDetector.GetMaxStatus(_config);
             SdkConfigDetector.ConfigStatus adjustStatus = SdkConfigDetector.GetAdjustStatus(_config);
+            bool maxInstalled = SdkDetector.IsInstalled(SdkId.AppLovinMAX);
+            if (maxInstalled)
+                MaxSettingsSanitizer.SyncEmbeddedSdkKey();
+            bool maxSettingsSynced = !maxInstalled || MaxSettingsSanitizer.IsSdkKeyConfigured();
 
             bool isReady = gaStatus == SdkConfigDetector.ConfigStatus.Configured &&
                            (isPrototype
                                ? fbStatus == SdkConfigDetector.ConfigStatus.Configured
-                               : maxStatus == SdkConfigDetector.ConfigStatus.Configured &&
+                               : maxInstalled &&
+                                 maxSettingsSynced &&
                                  adjustStatus == SdkConfigDetector.ConfigStatus.Configured);
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
@@ -440,12 +428,12 @@ namespace Sorolla.Palette.Editor
             if (isPrototype)
             {
                 // MAX (optional in Prototype) - expandable for ad unit IDs
-                DrawMaxOverviewItem(maxStatus, false);
+                DrawMaxOverviewItem(maxSettingsSynced, false);
             }
             else
             {
                 // Full mode: MAX + Adjust required
-                DrawMaxOverviewItem(maxStatus, true);
+                DrawMaxOverviewItem(maxSettingsSynced, true);
 
                 DrawSdkOverviewItem(
                     SdkRegistry.All[SdkId.Adjust],
@@ -500,7 +488,7 @@ namespace Sorolla.Palette.Editor
             string nameLabel = data.IsRequired ? data.Name : $"{data.Name} (optional)";
             GUILayout.Label(nameLabel, GUILayout.Width(140));
 
-            // Config status
+            // Settings sync status
             GUIStyle configStyle;
             string configText;
             if (isInstalling)
@@ -549,7 +537,7 @@ namespace Sorolla.Palette.Editor
             EditorGUILayout.EndHorizontal();
         }
 
-        void DrawMaxOverviewItem(SdkConfigDetector.ConfigStatus configStatus, bool isRequired)
+        void DrawMaxOverviewItem(bool settingsSynced, bool isRequired)
         {
             SdkInfo sdk = SdkRegistry.All[SdkId.AppLovinMAX];
             bool isInstalled = SdkDetector.IsInstalled(sdk);
@@ -581,15 +569,15 @@ namespace Sorolla.Palette.Editor
                 configStyle = s_configStyleGray;
                 configText = isAutoInstalled ? "Auto-installs on mode switch" : "—";
             }
-            else if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
+            else if (settingsSynced)
             {
                 configStyle = s_configStyleGreen;
-                configText = "✓ Configured";
+                configText = "✓ Auto-synced";
             }
             else
             {
-                configStyle = s_configStyleYellow;
-                configText = "Set SDK key";
+                configStyle = s_configStyleRed;
+                configText = "Auto-sync failed";
             }
             GUILayout.Label(configText, configStyle, GUILayout.Width(150));
 
@@ -603,9 +591,9 @@ namespace Sorolla.Palette.Editor
                     SdkInstaller.Install(sdk.Id);
                 GUI.enabled = true;
             }
-            else if (isInstalled && GUILayout.Button("Edit", GUILayout.Width(50)))
+            else if (isInstalled && !settingsSynced && GUILayout.Button("Refresh", GUILayout.Width(70)))
             {
-                SdkConfigDetector.OpenMaxSettings();
+                RunBuildValidation();
             }
 
             EditorGUILayout.EndHorizontal();

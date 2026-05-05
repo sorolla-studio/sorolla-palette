@@ -84,7 +84,7 @@ namespace Sorolla.Palette.Adapters
             MaxSdk.SetCreativeDebuggerEnabled(verboseLogging);
             MaxSdkCallbacks.OnSdkInitializedEvent += OnSdkInit;
 
-            // SDK key is read from AppLovinSettings (configured in Integration Manager)
+            // SDK key is read from AppLovinSettings; Palette editor auto-syncs the shared publisher key.
             MaxSdk.InitializeSdk();
         }
 

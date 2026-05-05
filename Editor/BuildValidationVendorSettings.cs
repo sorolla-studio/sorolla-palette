@@ -16,33 +16,19 @@ namespace Sorolla.Palette.Editor
             var results = new List<ValidationResult>();
 
 #if SOROLLA_MAX_INSTALLED
-            bool hasIssues = false;
+            MaxSettingsSanitizer.SyncEmbeddedSdkKey();
 
-            var config = Resources.Load<SorollaConfig>("SorollaConfig");
-            if (config == null)
+            if (!MaxSettingsSanitizer.IsSdkKeyConfigured())
             {
-                results.Add(Warning(
+                results.Add(Error(
                     CheckCategory.MaxSettings,
-                    "SorollaConfig not found - cannot validate MAX SDK key",
-                    "Create config via Assets > Create > Palette > Config"));
+                    "AppLovin MAX SDK key auto-sync failed.\n" +
+                    "  The shared publisher key could not be written to AppLovinSettings.",
+                    "Reopen Unity or click Refresh in Build Health; report this if it persists"));
                 return results;
             }
 
-            // Check SDK key is configured in SorollaConfig (single source of truth)
-            SdkConfigDetector.ConfigStatus maxStatus = SdkConfigDetector.GetMaxStatus(config);
-            if (maxStatus == SdkConfigDetector.ConfigStatus.NotConfigured)
-            {
-                hasIssues = true;
-                results.Add(Error(
-                    CheckCategory.MaxSettings,
-                    "AppLovin SDK key is not configured!\n" +
-                    "  SDK key must be set in Palette Configuration.\n" +
-                    "  Ads will not work without a valid SDK key.",
-                    "Open Palette > Configuration and enter MAX SDK key"));
-            }
-
-            if (!hasIssues)
-                results.Add(Valid(CheckCategory.MaxSettings, "MAX SDK key OK"));
+            results.Add(Valid(CheckCategory.MaxSettings, "MAX settings synced"));
 #else
             results.Add(Valid(CheckCategory.MaxSettings, "MAX not installed"));
 #endif

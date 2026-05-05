@@ -140,6 +140,10 @@ namespace Sorolla.Palette.Editor
             fixes.AddRange(diag.Fixes);
             _lastManifestDiagnostics = diag;
 
+            // MAX SDK key - sync shared publisher key before validating AppLovin settings
+            if (MaxSettingsSanitizer.SyncEmbeddedSdkKey())
+                fixes.Add("Synced AppLovin MAX SDK key");
+
             // MAX Ad Review - auto-enable Quality Service
             if (MaxSettingsSanitizer.EnableQualityService())
                 fixes.Add("Enabled AppLovin Ad Review (Quality Service)");

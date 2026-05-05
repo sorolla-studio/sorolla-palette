@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.15.1] - 2026-05-05
+
+Hotfix for Palette editor state sync.
+
+### Fixed
+- **MAX shared SDK key sync** (`Runtime/PaletteConstants.cs`, `Editor/MaxSettingsSanitizer.cs`, `Editor/SorollaWindow.cs`, `Editor/BuildValidationVendorSettings.cs`): restores the embedded publisher-level AppLovin MAX SDK key. Palette auto-syncs `AppLovinSettings` from this exact key during editor auto-fixes before validation; MAX is no longer treated as a user-configured SDK key.
+- **Mode source of truth** (`Editor/SorollaSettings.cs`, `Editor/SorollaWindow.cs`, `Editor/BuildValidationConfig.cs`): existing `Resources/SorollaConfig.asset` now drives Palette editor mode on reload. Fresh EditorPrefs can no longer auto-select Prototype and overwrite a project that is already configured for Full mode.
+
 ## [3.15.0] - 2026-05-04
 
 SDK QA hardening release. Adds purchase-verification diagnostics, MAX retry hardening, modularized build validation, and Debug UI purchase tooling.

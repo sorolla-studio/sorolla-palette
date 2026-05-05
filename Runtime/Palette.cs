@@ -509,7 +509,7 @@ namespace Sorolla.Palette
             // Subscribe to consent status changes from MAX CMP (UMP) to propagate to other adapters
             MaxAdapter.OnConsentStatusChanged += OnMaxConsentChanged;
 
-            // SDK key is read from AppLovinSettings (configured in Integration Manager)
+            // SDK key is read from AppLovinSettings; Palette editor auto-syncs the shared publisher key.
             MaxAdapter.Initialize(
                 Config.rewardedAdUnit.Current,
                 Config.interstitialAdUnit.Current,

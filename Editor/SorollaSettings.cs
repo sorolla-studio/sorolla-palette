@@ -32,7 +32,14 @@ namespace Sorolla.Palette.Editor
         /// </summary>
         public static SorollaMode Mode
         {
-            get => (SorollaMode)EditorPrefs.GetInt(ModeKey, (int)SorollaMode.None);
+            get
+            {
+                var config = Resources.Load<SorollaConfig>("SorollaConfig");
+                if (config != null)
+                    return config.isPrototypeMode ? SorollaMode.Prototype : SorollaMode.Full;
+
+                return (SorollaMode)EditorPrefs.GetInt(ModeKey, (int)SorollaMode.None);
+            }
             private set => EditorPrefs.SetInt(ModeKey, (int)value);
         }
 
@@ -45,6 +52,26 @@ namespace Sorolla.Palette.Editor
         ///     Whether currently in Prototype mode
         /// </summary>
         public static bool IsPrototype => Mode == SorollaMode.Prototype;
+
+        public static bool HasRuntimeConfig => Resources.Load<SorollaConfig>("SorollaConfig") != null;
+
+        public static bool SyncFromRuntimeConfig()
+        {
+            var config = Resources.Load<SorollaConfig>("SorollaConfig");
+            if (config == null)
+                return false;
+
+            var configMode = config.isPrototypeMode ? SorollaMode.Prototype : SorollaMode.Full;
+            bool changed = EditorPrefs.GetInt(ModeKey, (int)SorollaMode.None) != (int)configMode;
+
+            Mode = configMode;
+            DefineSymbols.Apply(config.isPrototypeMode);
+
+            if (changed)
+                Debug.Log($"[Palette] Synced editor mode from SorollaConfig: {configMode}");
+
+            return changed;
+        }
 
         /// <summary>
         ///     Set mode and apply all necessary changes

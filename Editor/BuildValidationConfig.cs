@@ -12,7 +12,6 @@ namespace Sorolla.Palette.Editor
         static List<ValidationResult> CheckConfigSync(Dictionary<string, object> dependencies)
         {
             var results = new List<ValidationResult>();
-            bool hasIssues = false;
 
             var config = Resources.Load<SorollaConfig>("SorollaConfig");
             if (config == null)
@@ -24,19 +23,7 @@ namespace Sorolla.Palette.Editor
                 return results;
             }
 
-            // Check mode sync
-            if (SorollaSettings.IsConfigured && config.isPrototypeMode != SorollaSettings.IsPrototype)
-            {
-                hasIssues = true;
-                results.Add(Warning(
-                    CheckCategory.ConfigSync,
-                    $"Config mode mismatch - SorollaConfig.isPrototypeMode={config.isPrototypeMode}, " +
-                    $"SorollaSettings.Mode={SorollaSettings.Mode}",
-                    "Run Palette > Configuration to sync mode settings"));
-            }
-
-            if (!hasIssues)
-                results.Add(Valid(CheckCategory.ConfigSync, "Config synced"));
+            results.Add(Valid(CheckCategory.ConfigSync, "Config synced"));
 
             return results;
         }
@@ -54,26 +41,20 @@ namespace Sorolla.Palette.Editor
 
             bool changed = false;
 
-            // Fix mode sync
-            if (SorollaSettings.IsConfigured && config.isPrototypeMode != SorollaSettings.IsPrototype)
-            {
-                config.isPrototypeMode = SorollaSettings.IsPrototype;
+            if (SorollaSettings.SyncFromRuntimeConfig())
                 changed = true;
-                Debug.Log($"{Tag} Auto-fixed: Synced config.isPrototypeMode to {SorollaSettings.IsPrototype}");
-            }
 
             // Auto-install missing required SDKs
-            if (SorollaSettings.IsConfigured && !SdkDetector.AreAllRequiredInstalled(SorollaSettings.IsPrototype))
+            if (!SdkDetector.AreAllRequiredInstalled(config.isPrototypeMode))
             {
-                string modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
+                string modeName = config.isPrototypeMode ? "Prototype" : "Full";
                 Debug.Log($"{Tag} Auto-fixing: Installing missing required SDKs for {modeName} mode...");
-                SdkInstaller.InstallRequiredSdks(SorollaSettings.IsPrototype);
+                SdkInstaller.InstallRequiredSdks(config.isPrototypeMode);
                 changed = true;
             }
 
             if (changed)
             {
-                EditorUtility.SetDirty(config);
                 AssetDatabase.SaveAssets();
                 Debug.Log($"{Tag} Config sync issues auto-fixed");
             }

@@ -6,6 +6,8 @@ namespace Sorolla.Palette
         ///     AppLovin MAX SDK key. Publisher-level, shared across all Sorolla games.
         /// </summary>
         public const string MaxSdkKey =
-            "***REDACTED***";
+            "R3IG4XB8AqE9Ch8c5Ebed_RgfNmTPCWeUwQA7ikp_kIrL11yGRRo1lgT_xkfF9TAfyoxv8wSADgW6bcB6NlP7o";
+
+        public static bool IsExpectedMaxSdkKey(string sdkKey) => sdkKey == MaxSdkKey;
     }
 }
