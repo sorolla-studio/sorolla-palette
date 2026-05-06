@@ -2,7 +2,7 @@
   href: quick-start.md
 - name: Full Mode Migration
   href: switching-to-full.md
-- name: Validation Checklist
+- name: Full Mode Validation
   href: validation.md
 - name: SDK Guides
   href: guides/toc.yml

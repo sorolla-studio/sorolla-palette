@@ -197,7 +197,7 @@ Before uploading a soft-launch build:
 - [ ] GDPR consent message is published.
 - [ ] Privacy Policy URL is set in MAX and live on the web.
 - [ ] `app-ads.txt` is live on your developer website.
-- [ ] Full-mode validation passes in the [Validation Checklist](validation.md#full-mode-soft-launch-validation).
+- [ ] Full-mode validation passes in [Full Mode Validation](validation.md#full-mode-soft-launch-validation).
 
 ---
 

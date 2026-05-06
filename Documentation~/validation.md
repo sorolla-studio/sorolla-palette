@@ -1,51 +1,16 @@
-# Validation Checklist
+# Full Mode Validation Checklist
 
-Use this page to decide whether a build is ready to hand off, test with Sorolla, or upload for soft launch.
+Use this page for Full-mode soft-launch validation.
 
-Run validation on real Android and iOS devices. Simulators are not enough for ads, consent, ATT, attribution, or store purchase behavior.
+For Prototype mode, use the embedded checklist at the end of [Prototype Mode Quick Start](quick-start.md#prototype-checklist). Keeping Prototype setup and Prototype validation on one page avoids a second path for studios.
+
+Run Full-mode validation on real Android and iOS devices. Simulators are not enough for ads, consent, ATT, attribution, or store purchase behavior.
 
 ---
 
-## Prototype Validation
+## Prototype Mode
 
-Prototype validation proves the SDK is installed, initialized, and sending the core signals needed for early review and CPI testing.
-
-### Unity
-
-- [ ] **Palette > Configuration** is set to **Prototype** mode.
-- [ ] GameAnalytics Game Key and Secret Key are configured for each target platform.
-- [ ] Facebook App ID and Client Token are configured.
-- [ ] Firebase config files are present in `Assets/`:
-  - `google-services.json` for Android
-  - `GoogleService-Info.plist` for iOS
-- [ ] **Build Health** is green.
-- [ ] No manual Palette initialization code was added.
-
-### Game Code
-
-- [ ] `Palette.Level.Start(...)` is called when gameplay starts.
-- [ ] `Palette.Level.Complete(...)` is called once when the player wins.
-- [ ] `Palette.Level.Fail(...)` is called once when the player loses.
-- [ ] A complete level run produces the expected level number, world number if used, score if used, and duration.
-
-### Device
-
-- [ ] Android build installs and launches on a real device.
-- [ ] iOS build installs and launches on a real device.
-- [ ] Sorolla Vitals opens with five taps in the top-left safe area.
-- [ ] Sorolla Vitals shows GameAnalytics, Facebook, and Firebase ready.
-- [ ] Sorolla Vitals shows the expected level event payloads after one complete level.
-- [ ] No startup errors or SDK configuration warnings appear in Vitals.
-
-### Dashboards
-
-| Dashboard | Pass |
-|-----------|------|
-| GameAnalytics | Progression events appear for start, complete, and fail. |
-| Facebook Events Manager | App install and app activity appear. |
-| Firebase Console | Analytics events appear and Crashlytics is configured. |
-
-GameAnalytics events usually appear within minutes. Firebase Analytics can take longer.
+Prototype validation lives in the [Prototype Checklist](quick-start.md#prototype-checklist).
 
 ---
 
@@ -53,7 +18,7 @@ GameAnalytics events usually appear within minutes. Firebase Analytics can take 
 
 Full-mode validation proves the build is ready for soft-launch ads, attribution, consent, crash reporting, and revenue tracking.
 
-Start only after [Prototype Validation](#prototype-validation) passes.
+Start only after the [Prototype Checklist](quick-start.md#prototype-checklist) passes.
 
 ### Identifier Lock
 

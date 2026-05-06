@@ -10,7 +10,7 @@ To avoid being overwhelmed, choose the track that matches your **Sorolla SDK Mod
 | **[Track A: Prototype Mode](#track-a-prototype-mode)** | **[Track B: Full Mode](#track-b-full-mode)** |
 |--------------------------------------------------|--------------------------------------------|
 | 🎯 **Goal**: UA Testing (CPI/Retention) | 🚀 **Goal**: Global Launch / Monetization |
-| 📦 **SDKs**: GameAnalytics + Facebook | 📦 **SDKs**: All (GA, FB, MAX, Adjust, Firebase) |
+| 📦 **SDKs**: GameAnalytics + Facebook + Firebase | 📦 **SDKs**: All (GA, FB, MAX, Adjust, Firebase) |
 | ⏱️ **Time**: ~5 minutes | ⏱️ **Time**: ~15 minutes |
 
 ---

@@ -285,9 +285,9 @@ All defines are auto-managed - never set manually. Runtime mode is not a scripti
 ## Mode System
 
 ### Prototype Mode
-- **Required**: GameAnalytics, Facebook SDK
-- **Optional**: AppLovin MAX, Firebase
-- **Use case**: CPI tests, soft launches
+- **Required for Sorolla prototype builds**: GameAnalytics, Facebook SDK, Firebase
+- **Optional**: AppLovin MAX
+- **Use case**: publisher review builds, CPI tests, gameplay iteration
 
 ### Full Mode
 - **Required**: GameAnalytics, Facebook SDK, AppLovin MAX, Adjust, Firebase

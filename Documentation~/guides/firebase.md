@@ -2,7 +2,7 @@
 
 Analytics, Crashlytics, and Remote Config.
 
-> Firebase is required in both **Prototype mode** and **Full mode**. In Full mode, packages are auto-installed.
+> Firebase is part of the Sorolla Prototype and Full-mode integration path. If the Firebase row is not installed in Prototype mode, install it from **Palette > Configuration**.
 
 ---
 
