@@ -3,7 +3,8 @@
 | Goal | Guide |
 |------|-------|
 | Get started (Prototype mode) | [Quick Start](quick-start.md) |
-| Go to production (Full mode) | [Switching to Full](switching-to-full.md) |
+| Prepare soft launch (Full mode) | [Full Mode Migration](switching-to-full.md) |
+| Validate a build | [Validation Checklist](validation.md) |
 | Look up a method signature | [API Reference](api-reference.md) *(auto-generated)* |
 | Fix an issue | [Troubleshooting](troubleshooting.md) |
 | App Store privacy questionnaire | [App Store Privacy](app-store-privacy.md) |

@@ -34,10 +34,12 @@ namespace Sorolla.Palette
         {
             if (s_instance != null) return;
 
+            SorollaDiagnostics.EnsureLogBridge();
             PaletteLog.Vital("[Palette] Auto-initializing...");
 
             var go = new GameObject("[Palette SDK]");
             MakePersistent(go);
+            SorollaDiagnosticsConsole.Ensure(go);
             s_instance = go.AddComponent<SorollaBootstrapper>();
 
             // Lend our coroutine host to adapters that need delayed callbacks

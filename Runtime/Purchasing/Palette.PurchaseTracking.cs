@@ -209,6 +209,15 @@ namespace Sorolla.Palette
 
             QueueOrExecute(() =>
             {
+                SorollaDiagnostics.RecordEventDispatch("purchase", "purchase", new Dictionary<string, object>
+                {
+                    { "product_id", productId ?? "unknown" },
+                    { "value", amount },
+                    { "currency", currency },
+                    { "transaction_id", transactionId },
+                    { "purchase_token", purchaseToken },
+                });
+
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
                 if (!string.IsNullOrEmpty(Config?.adjustPurchaseEventToken))
                     AdjustAdapter.TrackPurchase(Config.adjustPurchaseEventToken, amount, currency,

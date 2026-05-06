@@ -255,7 +255,7 @@ For IL2CPP builds, we use a belt-and-suspenders approach:
 
 ### Scripting Defines
 
-All defines are auto-managed - never set manually. Three categories with different scopes:
+All defines are auto-managed - never set manually. Runtime mode is not a scripting define.
 
 **Auto-managed by `DefineSymbols.cs` (global PlayerSettings):**
 
@@ -276,9 +276,9 @@ All defines are auto-managed - never set manually. Three categories with differe
 | `SOROLLA_FACEBOOK_ENABLED` | `Sorolla.Runtime`, `Sorolla.Adapters` | Facebook SDK package |
 | `SOROLLA_*_ASMDEF_OK` | Implementation asmdefs | Used with `defineConstraints` to gate assembly compilation |
 
-**Mode define (set by Palette > Configuration):**
+**Mode source:**
 
-- `SOROLLA_PROTOTYPE` or `SOROLLA_FULL` - mutually exclusive, set by `SorollaSettings.SetMode()`
+- Mode is resolved from the git-tracked `Assets/Resources/SorollaConfig.asset` (`isPrototypeMode`). Legacy `SOROLLA_PROTOTYPE` / `SOROLLA_FULL` scripting defines are not used as mode source of truth.
 
 ---
 
@@ -333,11 +333,16 @@ public const string FIREBASE_VERSION = "12.10.1";
 
 ### Event Tracking (v3.7.0+)
 ```
-Palette.TrackEvent("post_score", { score: 1200, level: "world1" })
+Palette.TrackEvent("post_score", new Dictionary<string, object>
+{
+    { "score", 1200 },
+    { "level", "world1" },
+})
     ├── FirebaseAdapter.TrackEvent()             ← Full structured params
     └── GameAnalyticsAdapter.TrackDesignEvent()  ← Best-effort (name + first numeric value)
 
-Palette.Level.Complete(3, world: 1, score: 1500, extraParams: { duration_sec: 45 })
+Palette.Level.Complete(3, world: 1, score: 1500,
+    extraParams: new Dictionary<string, object> { { "duration_sec", 45 } })
     ├── GameAnalyticsAdapter.TrackProgressionEvent()  ← Always (GA schema)
     └── FirebaseAdapter.TrackProgressionEvent()       ← If enabled (GA4 level_end + extraParams)
 
@@ -348,8 +353,8 @@ Palette.Economy.Earn(CurrencyId.Coins, 50, EconomySource.DailyReward, itemId: "d
 
 ### Ad Revenue
 ```
-Palette.ShowRewardedAd()
-    └── MaxAdapter.ShowRewardedAd()
+Palette.ShowRewardedAd(onComplete, onFailed)
+    └── MaxAdapter.ShowRewardedAd(onComplete, onFailed)
         └── OnAdRevenuePaidEvent
             ├── AdjustAdapter.TrackAdRevenue()
             ├── FirebaseAdapter.TrackAdImpression()
@@ -358,7 +363,7 @@ Palette.ShowRewardedAd()
 
 ### Remote Config
 ```
-Palette.GetRemoteConfig(key, default)
+Palette.GetRemoteConfig("key", "default")
     ├── Firebase ready? → return Firebase value
     ├── GA ready? → return GA value
     └── else → return default

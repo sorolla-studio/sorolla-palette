@@ -96,6 +96,19 @@ namespace Sorolla.Palette
 
                 QueueOrExecute(() =>
                 {
+                    SorollaDiagnostics.RecordEconomy(flowSource);
+                    var diagnosticParams = extraParams != null
+                        ? new Dictionary<string, object>(extraParams)
+                        : new Dictionary<string, object>();
+                    diagnosticParams["virtual_currency_name"] = currencyName;
+                    diagnosticParams["value"] = amount;
+                    diagnosticParams["item_type"] = category;
+                    if (!string.IsNullOrEmpty(effectiveItemId))
+                        diagnosticParams["item_name"] = effectiveItemId;
+                    SorollaDiagnostics.RecordEventDispatch("economy",
+                        flowSource ? "earn_virtual_currency" : "spend_virtual_currency",
+                        diagnosticParams);
+
 #if GAMEANALYTICS_INSTALLED
                     GAResourceFlowType gaFlow = flowSource ? GAResourceFlowType.Source : GAResourceFlowType.Sink;
                     GameAnalyticsAdapter.TrackResourceEvent(gaFlow, currencyName, amount, category, effectiveItemId);

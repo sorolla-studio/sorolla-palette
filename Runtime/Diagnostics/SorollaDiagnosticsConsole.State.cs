@@ -7,8 +7,11 @@ namespace Sorolla.Palette
         void RefreshDerivedState()
         {
             for (int i = 0; i < _severityCounts.Length; i++)
+            {
                 _severityCounts[i] = 0;
-            _issueCount = 0;
+                _healthCounts[i] = 0;
+            }
+            _problemCount = 0;
 
             foreach (KeyValuePair<string, SectionSummary> item in _sectionSummaries)
                 item.Value.Reset();
@@ -16,8 +19,10 @@ namespace Sorolla.Palette
             foreach (SorollaDiagnosticRow row in _rows)
             {
                 _severityCounts[SeverityIndex(row.Severity)]++;
-                if (SorollaDiagnostics.IsIssueSeverity(row.Severity))
-                    _issueCount++;
+                if (SorollaDiagnostics.NeedsAttention(row.Severity))
+                    _problemCount++;
+                if (SorollaDiagnostics.DrivesHealth(row))
+                    _healthCounts[SeverityIndex(row.Severity)]++;
                 GetSectionSummary(row.Group).Add(row.Severity);
             }
 
@@ -27,34 +32,35 @@ namespace Sorolla.Palette
                 item.Value.RebuildCountsText();
 
                 SectionState state = GetSectionState(item.Key);
-                bool hasIssues = item.Value.HasIssues;
+                bool hasProblems = item.Value.HasProblems;
                 if (!state.Initialized)
                 {
-                    state.Expanded = hasIssues;
-                    state.HadIssue = hasIssues;
+                    state.Expanded = hasProblems;
+                    state.HadProblem = hasProblems;
                     state.Initialized = true;
                 }
-                else if (hasIssues && !state.HadIssue && !state.UserToggled)
+                else if (hasProblems && !state.HadProblem && !state.UserToggled)
                 {
                     state.Expanded = true;
                 }
 
-                state.HadIssue = hasIssues;
+                state.HadProblem = hasProblems;
             }
 
             if (!_filterInitialized)
             {
-                _filter = SorollaDiagnostics.IsIssueSeverity(OverallSeverity()) ? RowFilter.Issues : RowFilter.All;
+                _filter = SorollaDiagnostics.NeedsAttention(OverallSeverity()) ? RowFilter.Problems : RowFilter.All;
                 _filterInitialized = true;
             }
 
             if (!_activeTabInitialized)
             {
-                _activeTab = _issueCount > 0 ? ConsoleTab.Issues : ConsoleTab.Overview;
+                _activeTab = ConsoleTab.Vitals;
                 _activeTabInitialized = true;
             }
 
             PruneExpandedConsoleRows();
+            PruneExpandedRuntimeProblems();
         }
 
         SectionState GetSectionState(string group)
@@ -89,8 +95,8 @@ namespace Sorolla.Palette
         {
             switch (_filter)
             {
-                case RowFilter.Issues:
-                    return SorollaDiagnostics.IsIssueSeverity(row.Severity);
+                case RowFilter.Problems:
+                    return SorollaDiagnostics.NeedsAttention(row.Severity);
                 case RowFilter.Fail:
                     return row.Severity == SorollaDiagnosticSeverity.Fail;
                 case RowFilter.Warn:
@@ -121,18 +127,18 @@ namespace Sorolla.Palette
         string OverallLabel()
         {
             SorollaDiagnosticSeverity severity = OverallSeverity();
-            return severity == SorollaDiagnosticSeverity.Fail ? "Overall FAIL" :
-                severity == SorollaDiagnosticSeverity.Warning ? "Overall WARN" :
-                severity == SorollaDiagnosticSeverity.Waiting ? "Overall WAIT" : "Overall PASS";
+            return severity == SorollaDiagnosticSeverity.Fail ? "Required FAIL" :
+                severity == SorollaDiagnosticSeverity.Warning ? "Required WARN" :
+                severity == SorollaDiagnosticSeverity.Waiting ? "Required WAIT" : "Required PASS";
         }
 
         SorollaDiagnosticSeverity OverallSeverity()
         {
-            if (_severityCounts[SeverityIndex(SorollaDiagnosticSeverity.Fail)] > 0)
+            if (_healthCounts[SeverityIndex(SorollaDiagnosticSeverity.Fail)] > 0)
                 return SorollaDiagnosticSeverity.Fail;
-            if (_severityCounts[SeverityIndex(SorollaDiagnosticSeverity.Warning)] > 0)
+            if (_healthCounts[SeverityIndex(SorollaDiagnosticSeverity.Warning)] > 0)
                 return SorollaDiagnosticSeverity.Warning;
-            if (_severityCounts[SeverityIndex(SorollaDiagnosticSeverity.Waiting)] > 0)
+            if (_healthCounts[SeverityIndex(SorollaDiagnosticSeverity.Waiting)] > 0)
                 return SorollaDiagnosticSeverity.Waiting;
             return SorollaDiagnosticSeverity.Pass;
         }
@@ -174,6 +180,32 @@ namespace Sorolla.Palette
             for (int i = 0; i < _events.Count; i++)
             {
                 if (_events[i].Id == eventId)
+                    return true;
+            }
+
+            return false;
+        }
+
+        void PruneExpandedRuntimeProblems()
+        {
+            if (_expandedRuntimeProblems.Count == 0) return;
+
+            _staleExpandedConsoleRows.Clear();
+            foreach (int problemId in _expandedRuntimeProblems)
+            {
+                if (!ContainsRuntimeProblem(problemId))
+                    _staleExpandedConsoleRows.Add(problemId);
+            }
+
+            for (int i = 0; i < _staleExpandedConsoleRows.Count; i++)
+                _expandedRuntimeProblems.Remove(_staleExpandedConsoleRows[i]);
+        }
+
+        bool ContainsRuntimeProblem(int problemId)
+        {
+            for (int i = 0; i < _runtimeProblems.Count; i++)
+            {
+                if (_runtimeProblems[i].Id == problemId)
                     return true;
             }
 

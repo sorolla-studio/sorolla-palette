@@ -15,19 +15,67 @@ namespace Sorolla.Palette
         Fail,
     }
 
+    internal enum SorollaDiagnosticKind
+    {
+        Required,
+        Observed,
+        Context,
+    }
+
     internal readonly struct SorollaDiagnosticRow
     {
         public readonly string Group;
         public readonly string Name;
         public readonly SorollaDiagnosticSeverity Severity;
         public readonly string Detail;
+        public readonly SorollaDiagnosticKind Kind;
 
-        public SorollaDiagnosticRow(string group, string name, SorollaDiagnosticSeverity severity, string detail)
+        public SorollaDiagnosticRow(string group, string name, SorollaDiagnosticSeverity severity, string detail,
+            SorollaDiagnosticKind kind)
         {
             Group = group;
             Name = name;
             Severity = severity;
             Detail = detail;
+            Kind = kind;
+        }
+    }
+
+    internal readonly struct SorollaRuntimeProblem
+    {
+        public readonly int Id;
+        public readonly string Fingerprint;
+        public readonly float FirstTimeSeconds;
+        public readonly float LastTimeSeconds;
+        public readonly int Count;
+        public readonly SorollaDiagnosticSeverity Severity;
+        public readonly string Source;
+        public readonly string Type;
+        public readonly string Message;
+        public readonly string TopFrame;
+        public readonly string StackTrace;
+
+        public SorollaRuntimeProblem(int id, string fingerprint, float firstTimeSeconds, float lastTimeSeconds,
+            int count, SorollaDiagnosticSeverity severity, string source, string type, string message,
+            string topFrame, string stackTrace)
+        {
+            Id = id;
+            Fingerprint = fingerprint;
+            FirstTimeSeconds = firstTimeSeconds;
+            LastTimeSeconds = lastTimeSeconds;
+            Count = count;
+            Severity = severity;
+            Source = source;
+            Type = type;
+            Message = message;
+            TopFrame = topFrame;
+            StackTrace = stackTrace;
+        }
+
+        public SorollaRuntimeProblem WithRepeat(float timeSeconds, SorollaDiagnosticSeverity severity)
+        {
+            return new SorollaRuntimeProblem(Id, Fingerprint, FirstTimeSeconds, timeSeconds, Count + 1,
+                severity, Source, Type, Message, TopFrame, StackTrace);
         }
     }
 
@@ -68,9 +116,13 @@ namespace Sorolla.Palette
     {
         const float IdentifierRefreshIntervalSeconds = 20f;
         const int MaxEventLogEntries = 40;
+        const int MaxRuntimeProblemEntries = 20;
+        const string RuntimeProblemsRowName = "Runtime problems";
         static readonly object s_lock = new object();
         static readonly Queue<SorollaDiagnosticEventLogEntry> s_eventLog = new Queue<SorollaDiagnosticEventLogEntry>(MaxEventLogEntries);
+        static readonly List<SorollaRuntimeProblem> s_runtimeProblems = new List<SorollaRuntimeProblem>(MaxRuntimeProblemEntries);
         static int s_nextEventId;
+        static int s_nextRuntimeProblemId;
 
         static bool s_logBridgeInstalled;
         static bool s_unityLogInstalled;
@@ -125,10 +177,6 @@ namespace Sorolla.Palette
         static int s_paletteErrorCount;
         static string s_lastPaletteWarning = "None";
         static string s_lastPaletteError = "None";
-        static int s_exceptionCount;
-        static int s_nullReferenceCount;
-        static int s_fatalCount;
-        static string s_lastRedFlag = "None";
 
         static float s_lastIdentifierRefresh = -999f;
         static float s_adIdRequestTime = -999f;
@@ -211,6 +259,14 @@ namespace Sorolla.Palette
             }
         }
 
+        internal static void ClearRuntimeProblems()
+        {
+            lock (s_lock)
+            {
+                s_runtimeProblems.Clear();
+            }
+        }
+
         internal static void CopyEventLog(List<SorollaDiagnosticEventLogEntry> target)
         {
             target.Clear();
@@ -218,6 +274,16 @@ namespace Sorolla.Palette
             {
                 foreach (SorollaDiagnosticEventLogEntry entry in s_eventLog)
                     target.Add(entry);
+            }
+        }
+
+        internal static void CopyRuntimeProblems(List<SorollaRuntimeProblem> target)
+        {
+            target.Clear();
+            lock (s_lock)
+            {
+                for (int i = 0; i < s_runtimeProblems.Count; i++)
+                    target.Add(s_runtimeProblems[i]);
             }
         }
 
@@ -291,15 +357,15 @@ namespace Sorolla.Palette
 
             bool fullMode = config != null && !config.isPrototypeMode;
 
-            Add(rows, "Boot", "Diagnostics console", SorollaDiagnosticSeverity.Pass, "Auto-installed, code-only, hidden by default");
+            AddContext(rows, "Boot", "Diagnostics console", SorollaDiagnosticSeverity.Pass, "Auto-installed, code-only, hidden by default");
             Add(rows, "Boot", "Auto-init marker", snapshot.AutoInitSeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
                 snapshot.AutoInitSeen ? "Observed" : "Waiting for bootstrap");
             Add(rows, "Boot", "Palette mode", ModeSeverity(config, snapshot), ModeDetail(config, snapshot));
             Add(rows, "Boot", "Palette ready", Palette.IsInitialized || snapshot.ReadySeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
                 Palette.IsInitialized || snapshot.ReadySeen ? "Ready" : snapshot.InitDetail);
-            Add(rows, "Boot", "Build", Debug.isDebugBuild ? SorollaDiagnosticSeverity.Info : SorollaDiagnosticSeverity.Pass,
+            AddContext(rows, "Boot", "Build", Debug.isDebugBuild ? SorollaDiagnosticSeverity.Info : SorollaDiagnosticSeverity.Pass,
                 Debug.isDebugBuild ? "Development build" : "Release build");
-            Add(rows, "Boot", "Verbose logging", Palette.VerboseLogging ? SorollaDiagnosticSeverity.Info : SorollaDiagnosticSeverity.Pass,
+            AddContext(rows, "Boot", "Verbose logging", Palette.VerboseLogging ? SorollaDiagnosticSeverity.Info : SorollaDiagnosticSeverity.Pass,
                 Palette.VerboseLogging ? "Enabled for dev diagnostics" : "Off");
             Add(rows, "Boot", "Network reachability", ReachabilitySeverity(), Application.internetReachability.ToString());
 
@@ -377,22 +443,22 @@ namespace Sorolla.Palette
             Add(rows, "Consent", "Can request ads", Palette.CanRequestAds ? SorollaDiagnosticSeverity.Pass : fullMode ? SorollaDiagnosticSeverity.Warning : SorollaDiagnosticSeverity.Info,
                 Palette.CanRequestAds ? "True" : fullMode ? "False" : "Not applicable");
             Add(rows, "Consent", "ATT", AttSeverity(), Palette.AttStatus.ToString());
-            Add(rows, "Identity", AdvertisingIdLabel(), AdvertisingIdSeverity(snapshot), AdvertisingIdDetail(snapshot));
-            Add(rows, "Identity", "Adjust ADID", AdjustIdSeverity(snapshot, fullMode), AdjustIdDetail(snapshot, fullMode));
-            Add(rows, "Identity", "Attribution", AttributionSeverity(snapshot, fullMode), AttributionDetail(snapshot));
+            AddObserved(rows, "Identity", AdvertisingIdLabel(), AdvertisingIdSeverity(snapshot), AdvertisingIdDetail(snapshot));
+            AddObserved(rows, "Identity", "Adjust ADID", AdjustIdSeverity(snapshot, fullMode), AdjustIdDetail(snapshot, fullMode));
+            AddObserved(rows, "Identity", "Attribution", AttributionSeverity(snapshot, fullMode), AttributionDetail(snapshot));
 
-            Add(rows, "Activity", "Progression start/end", CountPairSeverity(snapshot.ProgressionStartCount, snapshot.ProgressionEndCount),
+            AddObserved(rows, "Activity", "Progression start/end", CountPairSeverity(snapshot.ProgressionStartCount, snapshot.ProgressionEndCount),
                 $"{snapshot.ProgressionStartCount} start / {snapshot.ProgressionEndCount} end observed");
-            Add(rows, "Activity", "Economy earn/spend", CountPairSeverity(snapshot.EconomyEarnCount, snapshot.EconomySpendCount),
+            AddObserved(rows, "Activity", "Economy earn/spend", CountPairSeverity(snapshot.EconomyEarnCount, snapshot.EconomySpendCount),
                 $"{snapshot.EconomyEarnCount} earn / {snapshot.EconomySpendCount} spend observed");
-            Add(rows, "Activity", "Custom events", snapshot.CustomEventCount > 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
+            AddObserved(rows, "Activity", "Custom events", snapshot.CustomEventCount > 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
                 snapshot.CustomEventCount > 0 ? $"{snapshot.CustomEventCount} observed, last={snapshot.LastCustomEvent}" : "None observed");
-            Add(rows, "Activity", "IAP tracking attached", snapshot.PurchaseTrackingAttached ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
+            AddObserved(rows, "Activity", "IAP tracking attached", snapshot.PurchaseTrackingAttached ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
                 snapshot.PurchaseTrackingAttached ? "AttachPurchaseTracking wired" : "Waiting for store controller wiring");
-            Add(rows, "Activity", "Purchase accepted", snapshot.PurchaseAcceptedCount > 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
+            AddObserved(rows, "Activity", "Purchase accepted", snapshot.PurchaseAcceptedCount > 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
                 snapshot.PurchaseAcceptedCount > 0 ? $"{snapshot.PurchaseAcceptedCount} purchase event(s)" : "No purchase observed");
-            Add(rows, "Activity", "Purchase verification", PurchaseVerificationSeverity(snapshot), snapshot.PurchaseVerification);
-            Add(rows, "Activity", "Purchase issues", snapshot.PurchaseIssue == "No issue observed" ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
+            AddObserved(rows, "Activity", "Purchase verification", PurchaseVerificationSeverity(snapshot), snapshot.PurchaseVerification);
+            AddObserved(rows, "Activity", "Purchase issues", snapshot.PurchaseIssue == "No issue observed" ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
                 snapshot.PurchaseDuplicateCount > 0 ? $"{snapshot.PurchaseIssue}; duplicates={snapshot.PurchaseDuplicateCount}" : snapshot.PurchaseIssue);
 
             Add(rows, "Ads", "Interstitial", AdSeverity(snapshot.InterstitialReady, snapshot.InterstitialLoadStarted,
@@ -403,7 +469,7 @@ namespace Sorolla.Palette
                     snapshot.RewardedLoadFailed, snapshot.RewardedLoaded, snapshot.RewardedCompleted, snapshot.MaxInitialized),
                 AdDetail(snapshot.RewardedReady, snapshot.RewardedLoadStarted, snapshot.RewardedLoadFailed,
                     snapshot.RewardedLoaded, snapshot.RewardedCompleted, snapshot.RewardedLoadIssue, snapshot.MaxInitialized));
-            Add(rows, "Ads", "Ad revenue", snapshot.AdRevenueSeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
+            AddObserved(rows, "Ads", "Ad revenue", snapshot.AdRevenueSeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
                 snapshot.AdRevenueSeen ? "Observed" : "No revenue callback observed");
             Add(rows, "Ads", "Ad issues", snapshot.LastAdIssue == "No issue observed" ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
                 snapshot.LastAdIssue);
@@ -412,10 +478,7 @@ namespace Sorolla.Palette
                 snapshot.PaletteWarningCount == 0 ? "None" : $"{snapshot.PaletteWarningCount}, last={snapshot.LastPaletteWarning}");
             Add(rows, "Red flags", "SDK errors", snapshot.PaletteErrorCount == 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Fail,
                 snapshot.PaletteErrorCount == 0 ? "None" : $"{snapshot.PaletteErrorCount}, last={snapshot.LastPaletteError}");
-            Add(rows, "Red flags", "Runtime exceptions", RuntimeExceptionSeverity(snapshot),
-                snapshot.ExceptionCount == 0 && snapshot.NullReferenceCount == 0 && snapshot.FatalCount == 0
-                    ? "None observed"
-                    : $"exceptions={snapshot.ExceptionCount}, nullrefs={snapshot.NullReferenceCount}, fatal={snapshot.FatalCount}, last={snapshot.LastRedFlag}");
+            Add(rows, "Red flags", RuntimeProblemsRowName, RuntimeProblemSeverity(snapshot), RuntimeProblemDetail(snapshot));
         }
 
         static SorollaConfig LoadConfig()
@@ -484,10 +547,10 @@ namespace Sorolla.Palette
                     PaletteErrorCount = s_paletteErrorCount,
                     LastPaletteWarning = s_lastPaletteWarning,
                     LastPaletteError = s_lastPaletteError,
-                    ExceptionCount = s_exceptionCount,
-                    NullReferenceCount = s_nullReferenceCount,
-                    FatalCount = s_fatalCount,
-                    LastRedFlag = s_lastRedFlag,
+                    RuntimeProblemUniqueCount = s_runtimeProblems.Count,
+                    RuntimeProblemTotalCount = RuntimeProblemTotalCount(),
+                    RuntimeProblemSummary = RuntimeProblemHeadline(),
+                    RuntimeProblemSeverity = HighestRuntimeProblemSeverity(),
                     AdIdRequested = s_adIdRequested,
                     AdIdReceived = s_adIdReceived,
                     AdIdPresent = s_adIdPresent,
@@ -500,6 +563,59 @@ namespace Sorolla.Palette
                     AttributionRequestTime = s_attributionRequestTime,
                     AttributionSummary = s_attributionSummary,
                 };
+            }
+        }
+
+        static int RuntimeProblemTotalCount()
+        {
+            int total = 0;
+            for (int i = 0; i < s_runtimeProblems.Count; i++)
+                total += s_runtimeProblems[i].Count;
+            return total;
+        }
+
+        static string RuntimeProblemHeadline()
+        {
+            if (s_runtimeProblems.Count == 0) return "None observed";
+
+            SorollaRuntimeProblem top = s_runtimeProblems[0];
+            for (int i = 1; i < s_runtimeProblems.Count; i++)
+            {
+                SorollaRuntimeProblem candidate = s_runtimeProblems[i];
+                if (SeverityRank(candidate.Severity) > SeverityRank(top.Severity)
+                    || SeverityRank(candidate.Severity) == SeverityRank(top.Severity) && candidate.LastTimeSeconds > top.LastTimeSeconds)
+                    top = candidate;
+            }
+
+            return RuntimeProblemSummary(top);
+        }
+
+        static SorollaDiagnosticSeverity HighestRuntimeProblemSeverity()
+        {
+            SorollaDiagnosticSeverity severity = SorollaDiagnosticSeverity.Pass;
+            for (int i = 0; i < s_runtimeProblems.Count; i++)
+            {
+                if (SeverityRank(s_runtimeProblems[i].Severity) > SeverityRank(severity))
+                    severity = s_runtimeProblems[i].Severity;
+            }
+
+            return severity;
+        }
+
+        static int SeverityRank(SorollaDiagnosticSeverity severity)
+        {
+            switch (severity)
+            {
+                case SorollaDiagnosticSeverity.Fail:
+                    return 4;
+                case SorollaDiagnosticSeverity.Warning:
+                    return 3;
+                case SorollaDiagnosticSeverity.Waiting:
+                    return 2;
+                case SorollaDiagnosticSeverity.Pass:
+                    return 1;
+                default:
+                    return 0;
             }
         }
 
@@ -524,24 +640,28 @@ namespace Sorolla.Palette
             }
 
             sb.AppendLine();
+            sb.AppendLine("[Runtime Problems]");
+            AppendRuntimeProblems(sb);
+
+            sb.AppendLine();
             sb.AppendLine("[Recent Events]");
             AppendEventLog(sb);
 
             return sb.ToString();
         }
 
-        internal static string BuildIssuesSummary()
+        internal static string BuildProblemsSummary()
         {
             var rows = new List<SorollaDiagnosticRow>(64);
             BuildRows(rows);
 
             var sb = new StringBuilder(2048);
-            AppendReportHeader(sb, "Sorolla Vitals Issues", BuildReportDetail(rows));
+            AppendReportHeader(sb, "Sorolla Vitals Problems", BuildReportDetail(rows));
 
             bool any = false;
             foreach (SorollaDiagnosticRow row in rows)
             {
-                if (!IsIssueSeverity(row.Severity)) continue;
+                if (!NeedsAttention(row.Severity)) continue;
 
                 any = true;
                 sb.AppendLine($"{SeverityLabel(row.Severity),-7} [{row.Group}] {row.Name}: {row.Detail}");
@@ -553,13 +673,17 @@ namespace Sorolla.Palette
             return sb.ToString();
         }
 
-        internal static string BuildEventLogSummary()
+        internal static string BuildConsoleSummary()
         {
             var rows = new List<SorollaDiagnosticRow>(64);
             BuildRows(rows);
 
             var sb = new StringBuilder(2048);
-            AppendReportHeader(sb, "Sorolla Vitals Event Console", BuildReportDetail(rows));
+            AppendReportHeader(sb, "Sorolla Vitals Console", BuildReportDetail(rows));
+            sb.AppendLine("[Runtime Problems]");
+            AppendRuntimeProblems(sb);
+            sb.AppendLine();
+            sb.AppendLine("[Events]");
             AppendEventLog(sb);
             return sb.ToString();
         }
@@ -570,10 +694,33 @@ namespace Sorolla.Palette
                 || severity == SorollaDiagnosticSeverity.Warning;
         }
 
-        internal static bool IsIssueSeverity(SorollaDiagnosticSeverity severity)
+        internal static bool NeedsAttention(SorollaDiagnosticSeverity severity)
         {
             return IsProblemSeverity(severity)
                 || severity == SorollaDiagnosticSeverity.Waiting;
+        }
+
+        internal static bool DrivesHealth(SorollaDiagnosticRow row)
+        {
+            return row.Kind == SorollaDiagnosticKind.Required;
+        }
+
+        internal static bool IsRuntimeProblemRow(SorollaDiagnosticRow row)
+        {
+            return row.Group == "Red flags" && row.Name == RuntimeProblemsRowName;
+        }
+
+        internal static string KindLabel(SorollaDiagnosticKind kind)
+        {
+            switch (kind)
+            {
+                case SorollaDiagnosticKind.Observed:
+                    return "OBS";
+                case SorollaDiagnosticKind.Context:
+                    return "CTX";
+                default:
+                    return "REQ";
+            }
         }
 
         static void AppendReportHeader(StringBuilder sb, string title, string buildDetail)
@@ -625,6 +772,24 @@ namespace Sorolla.Palette
             }
         }
 
+        static void AppendRuntimeProblems(StringBuilder sb)
+        {
+            var problems = new List<SorollaRuntimeProblem>(MaxRuntimeProblemEntries);
+            CopyRuntimeProblems(problems);
+            if (problems.Count == 0)
+            {
+                sb.AppendLine("None observed");
+                return;
+            }
+
+            for (int i = problems.Count - 1; i >= 0; i--)
+            {
+                SorollaRuntimeProblem problem = problems[i];
+                sb.AppendLine($"{SeverityLabel(problem.Severity),-7} {FormatEventTime(problem.LastTimeSeconds),8} [{problem.Source}] {problem.Type} x{problem.Count}: {problem.Message}");
+                sb.AppendLine($"        {problem.TopFrame}");
+            }
+        }
+
         internal static string SeverityLabel(SorollaDiagnosticSeverity severity) => severity switch
         {
             SorollaDiagnosticSeverity.Pass => "PASS",
@@ -669,12 +834,148 @@ namespace Sorolla.Palette
 
             lock (s_lock)
             {
-                if (isException) s_exceptionCount++;
-                if (isNullReference) s_nullReferenceCount++;
-                if (isFatal) s_fatalCount++;
-                s_lastRedFlag = isFatal ? "Fatal runtime crash marker" :
-                    isNullReference ? "NullReferenceException" : type.ToString();
+                RecordRuntimeProblem(message, stackTrace, type, isNullReference, isFatal);
             }
+        }
+
+        static void RecordRuntimeProblem(string message, string stackTrace, LogType type, bool isNullReference, bool isFatal)
+        {
+            float now = Time.realtimeSinceStartup;
+            string safeMessage = SafeDetail(FirstLine(message));
+            string safeStack = FormatStackTrace(stackTrace);
+            string problemType = RuntimeProblemType(message, type, isNullReference, isFatal);
+            string source = RuntimeProblemSource(message, stackTrace);
+            string topFrame = RuntimeProblemTopFrame(stackTrace);
+            string fingerprint = RuntimeProblemFingerprint(problemType, safeMessage, topFrame);
+
+            for (int i = 0; i < s_runtimeProblems.Count; i++)
+            {
+                SorollaRuntimeProblem existing = s_runtimeProblems[i];
+                if (existing.Fingerprint != fingerprint) continue;
+
+                int nextCount = existing.Count + 1;
+                SorollaDiagnosticSeverity severity = RuntimeProblemSeverity(problemType, source, isNullReference, isFatal, nextCount);
+                s_runtimeProblems[i] = existing.WithRepeat(now, severity);
+                return;
+            }
+
+            if (s_runtimeProblems.Count >= MaxRuntimeProblemEntries)
+                s_runtimeProblems.RemoveAt(0);
+
+            SorollaDiagnosticSeverity initialSeverity = RuntimeProblemSeverity(problemType, source, isNullReference, isFatal, 1);
+            var problem = new SorollaRuntimeProblem(
+                unchecked(++s_nextRuntimeProblemId),
+                fingerprint,
+                now,
+                now,
+                1,
+                initialSeverity,
+                source,
+                problemType,
+                safeMessage,
+                topFrame,
+                safeStack);
+            s_runtimeProblems.Add(problem);
+        }
+
+        static string FirstLine(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
+            int newline = text.IndexOfAny(new[] { '\n', '\r' });
+            return newline < 0 ? text : text.Substring(0, newline);
+        }
+
+        static string RuntimeProblemType(string message, LogType type, bool isNullReference, bool isFatal)
+        {
+            if (isFatal) return "Fatal";
+            if (isNullReference) return "NullReferenceException";
+            string firstLine = FirstLine(message).Trim();
+            int colon = firstLine.IndexOf(':');
+            string candidate = colon > 0 ? firstLine.Substring(0, colon).Trim() : firstLine;
+            if (candidate.EndsWith("Exception", StringComparison.Ordinal) && candidate.Length <= 80)
+                return candidate;
+            return type.ToString();
+        }
+
+        static string RuntimeProblemSource(string message, string stackTrace)
+        {
+            string combined = (message ?? "") + "\n" + (stackTrace ?? "");
+            if (combined.IndexOf("SorollaDiagnostics", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Vitals";
+            if (combined.IndexOf("Sorolla.Palette", StringComparison.OrdinalIgnoreCase) >= 0
+                || combined.IndexOf("[Palette", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Sorolla SDK";
+            if (combined.IndexOf("MaxSdk", StringComparison.OrdinalIgnoreCase) >= 0
+                || combined.IndexOf("AppLovin", StringComparison.OrdinalIgnoreCase) >= 0
+                || combined.IndexOf("Adjust", StringComparison.OrdinalIgnoreCase) >= 0
+                || combined.IndexOf("Firebase", StringComparison.OrdinalIgnoreCase) >= 0
+                || combined.IndexOf("Facebook", StringComparison.OrdinalIgnoreCase) >= 0
+                || combined.IndexOf("GameAnalytics", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Vendor SDK";
+            if (combined.IndexOf("Assembly-CSharp", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Game";
+            return "Unity/System";
+        }
+
+        static string RuntimeProblemTopFrame(string stackTrace)
+        {
+            if (string.IsNullOrEmpty(stackTrace)) return "No stack trace";
+
+            string[] lines = stackTrace.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i].Trim();
+                if (IsUsefulRuntimeFrame(line))
+                    return SafeSingleLine(line, 140);
+            }
+
+            return SafeSingleLine(lines[0].Trim(), 140);
+        }
+
+        static bool IsUsefulRuntimeFrame(string frame)
+        {
+            if (string.IsNullOrEmpty(frame)) return false;
+            return frame.IndexOf("UnityEngine.", StringComparison.Ordinal) < 0
+                && frame.IndexOf("UnityEditor.", StringComparison.Ordinal) < 0
+                && frame.IndexOf("System.", StringComparison.Ordinal) < 0
+                && frame.IndexOf("Application.CallLogCallback", StringComparison.Ordinal) < 0;
+        }
+
+        static string RuntimeProblemFingerprint(string type, string message, string topFrame)
+        {
+            return $"{type}|{message}|{topFrame}";
+        }
+
+        static string FormatStackTrace(string stackTrace)
+        {
+            if (string.IsNullOrEmpty(stackTrace)) return "No stack trace";
+
+            string[] lines = stackTrace.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            var sb = new StringBuilder(768);
+            int written = 0;
+            for (int i = 0; i < lines.Length && written < 12; i++)
+            {
+                string line = lines[i].Trim();
+                if (line.Length == 0) continue;
+                if (written > 0) sb.AppendLine();
+                sb.Append(SafeSingleLine(line, 160));
+                written++;
+            }
+
+            return written == 0 ? "No stack trace" : sb.ToString();
+        }
+
+        static SorollaDiagnosticSeverity RuntimeProblemSeverity(string type, string source, bool isNullReference, bool isFatal,
+            int count)
+        {
+            if (isFatal || isNullReference || source == "Sorolla SDK" || source == "Vitals" || count >= 3)
+                return SorollaDiagnosticSeverity.Fail;
+            return SorollaDiagnosticSeverity.Warning;
+        }
+
+        static string RuntimeProblemSummary(SorollaRuntimeProblem problem)
+        {
+            return $"{problem.Source}: {problem.Type} x{problem.Count} at {problem.TopFrame}";
         }
 
         static void ParsePaletteLog(string message)
@@ -760,10 +1061,23 @@ namespace Sorolla.Palette
         }
 
         static void Add(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity, string detail) =>
-            rows.Add(new SorollaDiagnosticRow(group, name, severity, detail));
+            Add(rows, group, name, severity, detail, SorollaDiagnosticKind.Required);
 
         static void Add(List<SorollaDiagnosticRow> rows, string group, string name, (SorollaDiagnosticSeverity severity, string detail) item) =>
-            Add(rows, group, name, item.severity, item.detail);
+            Add(rows, group, name, item.severity, item.detail, SorollaDiagnosticKind.Required);
+
+        static void AddObserved(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity, string detail) =>
+            Add(rows, group, name, severity, detail, SorollaDiagnosticKind.Observed);
+
+        static void AddObserved(List<SorollaDiagnosticRow> rows, string group, string name, (SorollaDiagnosticSeverity severity, string detail) item) =>
+            Add(rows, group, name, item.severity, item.detail, SorollaDiagnosticKind.Observed);
+
+        static void AddContext(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity, string detail) =>
+            Add(rows, group, name, severity, detail, SorollaDiagnosticKind.Context);
+
+        static void Add(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity, string detail,
+            SorollaDiagnosticKind kind) =>
+            rows.Add(new SorollaDiagnosticRow(group, name, severity, detail, kind));
 
         static void EnqueueEvent(string source, string eventName, IDictionary<string, object> parameters)
         {
@@ -1043,10 +1357,15 @@ namespace Sorolla.Palette
             return "No load requested";
         }
 
-        static SorollaDiagnosticSeverity RuntimeExceptionSeverity(Snapshot snapshot)
+        static SorollaDiagnosticSeverity RuntimeProblemSeverity(Snapshot snapshot)
         {
-            if (snapshot.FatalCount > 0 || snapshot.NullReferenceCount > 0) return SorollaDiagnosticSeverity.Fail;
-            return snapshot.ExceptionCount > 0 ? SorollaDiagnosticSeverity.Warning : SorollaDiagnosticSeverity.Pass;
+            return snapshot.RuntimeProblemUniqueCount == 0 ? SorollaDiagnosticSeverity.Pass : snapshot.RuntimeProblemSeverity;
+        }
+
+        static string RuntimeProblemDetail(Snapshot snapshot)
+        {
+            if (snapshot.RuntimeProblemUniqueCount == 0) return "None observed";
+            return $"{snapshot.RuntimeProblemUniqueCount} unique / {snapshot.RuntimeProblemTotalCount} total; top={snapshot.RuntimeProblemSummary}";
         }
 
         static bool IsZeroAdvertisingId(string id)
@@ -1125,10 +1444,10 @@ namespace Sorolla.Palette
             public int PaletteErrorCount;
             public string LastPaletteWarning;
             public string LastPaletteError;
-            public int ExceptionCount;
-            public int NullReferenceCount;
-            public int FatalCount;
-            public string LastRedFlag;
+            public int RuntimeProblemUniqueCount;
+            public int RuntimeProblemTotalCount;
+            public string RuntimeProblemSummary;
+            public SorollaDiagnosticSeverity RuntimeProblemSeverity;
             public bool AdIdRequested;
             public bool AdIdReceived;
             public bool AdIdPresent;

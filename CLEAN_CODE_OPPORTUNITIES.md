@@ -26,7 +26,7 @@ Mode: review only; no behavior changes applied.
 - Principle violated: meaningful DRY; obvious code.
 - Risk level: Safe to Caution, because this touches purchase analytics.
 - Suggested fix: introduce a tiny private helper for validated purchase metadata and a single helper for purchase data-quality telemetry payloads. Keep all existing log text, event names, event parameter keys, and drop behavior unchanged during first pass.
-- Verification: add focused EditMode tests for any pure helper extracted from receipt/metadata validation where Unity IAP types allow it. Otherwise characterize via compile + manual Debug UI purchase path.
+- Verification: add focused EditMode tests for any pure helper extracted from receipt/metadata validation where Unity IAP types allow it. Otherwise characterize via compile + manual Sorolla Vitals purchase/event path.
 
 ### F3. Event name sanitization logic exists in two places
 
@@ -50,7 +50,7 @@ Mode: review only; no behavior changes applied.
   - a shared retry-delay calculation helper.
   - a callback-clear helper for each ad type.
   If that remains clean, consider a private `AdLoadState` struct for `ready`, `retryAttempt`, `retryGeneration`, and `userWaiting`.
-- Verification: manual MAX rewarded/interstitial smoke test on device plus Debug UI ad buttons. Unit-test only pure retry-delay calculation if extracted.
+- Verification: manual MAX rewarded/interstitial smoke test on device plus Sorolla Vitals ad buttons. Unit-test only pure retry-delay calculation if extracted.
 
 ### F5. MAX ad show telemetry bypasses the top-level `Palette` validation path
 
@@ -186,7 +186,7 @@ Suggested smallest test command once Unity path is known:
 1. Add event sanitization characterization tests.
 2. Move `Palette` event validation into one internal helper.
 3. Split `Palette.cs` by existing regions into partial files without changing code bodies.
-4. Verify compile and Debug UI custom event tests.
+4. Verify compile and Sorolla Vitals custom event tests.
 
 ### Phase 3. Adapter cleanup
 
@@ -230,5 +230,4 @@ Follow-up validation before any refactor:
 
 - Run existing EditMode tests.
 - Add characterization tests around the specific logic being moved.
-- For runtime adapter changes, verify with Debug UI and at least one real device path for affected SDKs.
-
+- For runtime adapter changes, verify with Sorolla Vitals and at least one real device path for affected SDKs.

@@ -2,7 +2,7 @@
 
 Analytics, Crashlytics, and Remote Config.
 
-> Firebase is **required in Full mode** and **optional in Prototype mode**. In Full mode, packages are auto-installed.
+> Firebase is required in both **Prototype mode** and **Full mode**. In Full mode, packages are auto-installed.
 
 ---
 
@@ -52,9 +52,11 @@ Palette.TrackEvent("booster_used", new Dictionary<string, object>
     { "level", 12 }
 });
 
-// Progression with extra Firebase context
-Palette.TrackProgression(ProgressionStatus.Complete, "Level_01", score: 1500,
-    extraParams: new Dictionary<string, object> { { "duration_sec", 45 } });
+// Level progression with extra Firebase context.
+// Complete/Fail auto-include duration when Start was called.
+Palette.Level.Start(level: 1);
+Palette.Level.Complete(level: 1, score: 1500,
+    extraParams: new Dictionary<string, object> { { "difficulty", "hard" } });
 ```
 
 ### User Identity

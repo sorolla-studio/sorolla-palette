@@ -177,6 +177,8 @@ namespace Sorolla.Palette
 
             QueueOrExecute(() =>
             {
+                SorollaDiagnostics.RecordCustomEvent(eventName, parameters);
+
 #if FIREBASE_ANALYTICS_INSTALLED
                 FirebaseAdapter.TrackEvent(eventName, parameters);
 #endif
@@ -228,38 +230,24 @@ namespace Sorolla.Palette
 
         #endregion
 
-        #region Debug UI
+        #region Sorolla Vitals
 
-        /// <summary>Fired when <see cref="ShowDebugger"/> is called. Subscribed by the DebugUI sample prefab.</summary>
-        public static event Action OnShowDebuggerRequested;
-        /// <summary>Fired when <see cref="HideDebugger"/> is called. Subscribed by the DebugUI sample prefab.</summary>
-        public static event Action OnHideDebuggerRequested;
-        /// <summary>Fired when <see cref="ToggleDebugger"/> is called. Subscribed by the DebugUI sample prefab.</summary>
-        public static event Action OnToggleDebuggerRequested;
-
-        /// <summary>Shows the Sorolla debug panel. Requires DebugUI sample imported and prefab in scene.</summary>
+        /// <summary>Shows the code-only Sorolla Vitals debug console. No prefab or sample scene is required.</summary>
         public static void ShowDebugger()
         {
-            if (OnShowDebuggerRequested == null)
-            {
-                PaletteLog.Warning($"{Tag} Debug UI not available. Import the DebugUI sample and add the prefab to your scene.");
-                return;
-            }
-            OnShowDebuggerRequested.Invoke();
+            SorollaDiagnosticsConsole.Show();
         }
 
-        /// <summary>Hides the Sorolla debug panel.</summary>
-        public static void HideDebugger() => OnHideDebuggerRequested?.Invoke();
+        /// <summary>Hides the code-only Sorolla Vitals debug console.</summary>
+        public static void HideDebugger()
+        {
+            SorollaDiagnosticsConsole.Hide();
+        }
 
-        /// <summary>Toggles the Sorolla debug panel visibility.</summary>
+        /// <summary>Toggles the code-only Sorolla Vitals debug console visibility.</summary>
         public static void ToggleDebugger()
         {
-            if (OnToggleDebuggerRequested == null)
-            {
-                PaletteLog.Warning($"{Tag} Debug UI not available. Import the DebugUI sample and add the prefab to your scene.");
-                return;
-            }
-            OnToggleDebuggerRequested.Invoke();
+            SorollaDiagnosticsConsole.Toggle();
         }
 
         #endregion
@@ -666,9 +654,35 @@ namespace Sorolla.Palette
         /// <summary>Show rewarded ad</summary>
         public static void ShowRewardedAd(Action onComplete, Action onFailed)
         {
+            SorollaDiagnostics.RecordEventDispatch("ads", "ad_show_requested", new Dictionary<string, object>
+            {
+                { "ad_format", "rewarded" },
+            });
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-            MaxAdapter.ShowRewardedAd(onComplete, onFailed);
+            MaxAdapter.ShowRewardedAd(
+                () =>
+                {
+                    SorollaDiagnostics.RecordEventDispatch("ads", "rewarded_ad_completed", new Dictionary<string, object>
+                    {
+                        { "ad_format", "rewarded" },
+                    });
+                    onComplete?.Invoke();
+                },
+                () =>
+                {
+                    SorollaDiagnostics.RecordEventDispatch("ads", "ad_show_failed", new Dictionary<string, object>
+                    {
+                        { "ad_format", "rewarded" },
+                        { "reason", "callback_failed" },
+                    });
+                    onFailed?.Invoke();
+                });
 #else
+            SorollaDiagnostics.RecordEventDispatch("ads", "ad_show_failed", new Dictionary<string, object>
+            {
+                { "ad_format", "rewarded" },
+                { "reason", "max_unavailable" },
+            });
             PaletteLog.Warning($"{Tag} MAX not available.");
             onFailed?.Invoke();
 #endif
@@ -683,9 +697,35 @@ namespace Sorolla.Palette
         /// </summary>
         public static void ShowInterstitialAd(Action onComplete, Action onFailed)
         {
+            SorollaDiagnostics.RecordEventDispatch("ads", "ad_show_requested", new Dictionary<string, object>
+            {
+                { "ad_format", "interstitial" },
+            });
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-            MaxAdapter.ShowInterstitialAd(onComplete, onFailed);
+            MaxAdapter.ShowInterstitialAd(
+                () =>
+                {
+                    SorollaDiagnostics.RecordEventDispatch("ads", "interstitial_ad_completed", new Dictionary<string, object>
+                    {
+                        { "ad_format", "interstitial" },
+                    });
+                    onComplete?.Invoke();
+                },
+                () =>
+                {
+                    SorollaDiagnostics.RecordEventDispatch("ads", "ad_show_failed", new Dictionary<string, object>
+                    {
+                        { "ad_format", "interstitial" },
+                        { "reason", "callback_failed" },
+                    });
+                    onFailed?.Invoke();
+                });
 #else
+            SorollaDiagnostics.RecordEventDispatch("ads", "ad_show_failed", new Dictionary<string, object>
+            {
+                { "ad_format", "interstitial" },
+                { "reason", "max_unavailable" },
+            });
             PaletteLog.Warning($"{Tag} MAX not available - interstitial skipped, invoking onFailed.");
             onFailed?.Invoke();
 #endif

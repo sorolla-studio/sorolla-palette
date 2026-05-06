@@ -10,7 +10,8 @@ Common issues and solutions for Sorolla SDK integration.
 |-------|----------|---------|
 | SDK not initializing | Check `Assets/Resources/SorollaConfig.asset` exists | [→](#sdk-initialization) |
 | Events not appearing | Verify SDK keys, wait 5-10 min | [→](#analytics) |
-| Ads not loading | Check SDK Key and Ad Unit IDs, wait 30 sec after init | [→](#ads-applovin-max) |
+| Ads not loading | Check SDK Key, Ad Unit IDs, and disable VPN/ad-blocking DNS | [→](#ads-applovin-max) |
+| Adjust not connecting | Disable VPN/ad blockers/private DNS and retry | [→](#android-vpn--dns-blocking) |
 | Remote config returns defaults | Ensure values are **published** in console | [→](#remote-config) |
 | Firebase errors | Verify config files match bundle ID | [→](#firebase-issues) |
 | Build failing | Check **Build Health** in Configuration window | [→](#build-health) |
@@ -87,6 +88,28 @@ The Configuration window includes a **Build Health** section that validates your
 2. Check Ad Unit IDs (Rewarded, Interstitial)
 3. Wait 30 seconds after init for first ad load
 4. Check device has internet connection
+5. Disable VPNs, ad blockers, threat protection, and custom/private DNS
+
+### Android VPN / DNS blocking
+
+If the device has a VPN, private DNS, or ad-blocking feature enabled, AppLovin MAX and Adjust can fail while normal web traffic still works.
+
+Known signatures:
+- MAX initializes and consent resolves, but ad load callbacks fail with `NetworkError`.
+- Logcat includes `Unable to resolve host "ms.applvn.com"` for MAX ads.
+- Adjust logs `Unable to resolve host "app.adjust.com"` or `app.adjust.io`.
+
+Confirm from adb:
+
+```bash
+adb shell ping -c 1 google.com
+adb shell ping -c 1 ms.applvn.com
+adb shell ping -c 1 app.adjust.com
+adb shell settings get global private_dns_mode
+adb shell settings get global private_dns_specifier
+```
+
+If Google resolves but AppLovin or Adjust do not, fix the device network first. Disable the VPN/ad blocker/private DNS, relaunch the app, then retry ads and attribution.
 
 ### Low fill rate
 
@@ -97,7 +120,7 @@ The Configuration window includes a **Build Health** section that validates your
 ### Ad revenue not tracking
 
 1. Verify Adjust App Token (Full mode)
-2. Check Adjust is initialized (Debug UI > Health)
+2. Check Adjust is initialized in Sorolla Vitals
 3. Revenue reports may take 24 hours
 
 ---
@@ -148,7 +171,7 @@ pod --version
 1. Verify iOS 14.5+ target
 2. Check `ContextScreen` prefab in Resources
 3. ATT only shows once per app install
-4. Use Debug UI to reset consent for testing
+4. Delete and reinstall the app to reset consent for testing
 
 ### Missing Provisioning Profile
 
@@ -368,14 +391,14 @@ Crashlytics requires:
 
 ---
 
-## Debug UI
+## Sorolla Vitals
 
-### Debug panel not appearing
+### Vitals console not appearing
 
-1. Import sample from Package Manager
-2. Add `DebugPanelManager` prefab to scene
-3. Triple-tap (mobile) or BackQuote key (desktop)
-4. Check prefab is DontDestroyOnLoad
+1. Build and run the app on device
+2. Tap five times inside the top-left safe area
+3. On desktop, press BackQuote
+4. Or call `Palette.ShowDebugger()` from game/debug code
 
 ### Health indicators red
 
@@ -390,7 +413,7 @@ Crashlytics requires:
 
 1. Check [GitHub Issues](https://github.com/sorolla-studio/sorolla-palette/issues)
 2. Review error messages in Unity Console
-3. Use Debug UI for on-device diagnostics
+3. Use Sorolla Vitals for on-device diagnostics
 4. File new issue with:
    - Unity version
    - SDK version

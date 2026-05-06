@@ -74,12 +74,12 @@ public class SettingsScreen : MonoBehaviour
 
 1. Build to device
 2. First launch should show consent dialog
-3. Use Debug UI to verify consent status
+3. Use Sorolla Vitals to verify consent status
 4. To test again: Delete app and reinstall
 
 ### Reset Consent (Testing Only)
 
-Use Debug UI → **Privacy** → **Reset Consent** to test the flow again.
+Delete and reinstall the app to test the first-run consent flow again.
 
 ---
 

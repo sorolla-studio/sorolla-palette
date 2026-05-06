@@ -54,6 +54,12 @@ Use this to determine ad loading/showing in GDPR regions.
 ```csharp title="Declaration"
 public static ConsentStatus ConsentStatus { get; }
 ```
+#### AttStatus
+iOS App Tracking Transparency authorization status. Returns Authorized on non-iOS platforms and in the Editor.
+
+```csharp title="Declaration"
+public static ATTBridge.AuthorizationStatus AttStatus { get; }
+```
 #### CanRequestAds
 Whether ads can be requested (consent obtained or not required).
 Use this to gate ad loading/showing in GDPR regions.
@@ -162,104 +168,6 @@ Palette.TrackEvent("booster_used", new Dictionary<string, object>
 | `System.String` | *eventName* | GA4-compatible event name (lowercase, underscores, max 40 chars) |
 | `System.Collections.Generic.Dictionary<System.String,System.Object>` | *parameters* | Structured params. Supported types: string, int, long, float, double, bool, enum. |
 
-#### TrackProgression(ProgressionStatus, string, string, string, int, Dictionary&lt;string, object&gt;)
-Track a progression event (level start, complete, fail).
-Firebase/GA4 mapping: Start -&gt; level_start, Complete -&gt; level_end{success=1}, Fail -&gt; level_end{success=0}.
-When Complete/Fail and score &gt; 0, a separate post_score event is fired with the score.
-
-```csharp title="Declaration"
-public static void TrackProgression(ProgressionStatus status, string progression01, string progression02 = null, string progression03 = null, int score = 0, Dictionary<string, object> extraParams = null)
-```
-
-###### Example
-
-```csharp
-Palette.TrackProgression(ProgressionStatus.Complete, "World1", "Chapter2", "Level3",
-    score: 1500,
-    extraParams: new Dictionary<string, object> { { "duration_sec", 45 } });
-```
-
-###### Parameters
-
-| Type | Name | Description |
-|:--- |:--- |:--- |
-| `ProgressionStatus` | *status* | Whether the player started, completed, or failed the progression. |
-| `System.String` | *progression01* | First progression level (e.g. world name). Required. |
-| `System.String` | *progression02* | Second progression level (e.g. chapter). Optional. |
-| `System.String` | *progression03* | Third progression level (e.g. level number). Optional. |
-| `System.Int32` | *score* | Score achieved on Complete/Fail. Fires a separate Firebase post_score event when &gt; 0. Ignored on Start. |
-| `System.Collections.Generic.Dictionary<System.String,System.Object>` | *extraParams* | Optional structured params for Firebase (e.g. world, game_mode, duration_sec).
-        Ignored by GameAnalytics. Supported types: string, int, long, float, double, bool, enum. |
-
-#### TrackDesign(string, float)
-Track a design event (custom analytics).
-
-```csharp title="Declaration"
-[Obsolete("Use Palette.TrackEvent(eventName, parameters) for structured custom events with Firebase/BigQuery support.")]
-public static void TrackDesign(string eventName, float value = 0)
-```
-
-###### Parameters
-
-| Type | Name |
-|:--- |:--- |
-| `System.String` | *eventName* |
-| `System.Single` | *value* |
-
-#### TrackResource(ResourceFlowType, string, float, string, string, Dictionary&lt;string, object&gt;)
-Track a resource event (economy source/sink).
-Firebase mapping: Source -&gt; earn_virtual_currency, Sink -&gt; spend_virtual_currency.
-
-```csharp title="Declaration"
-public static void TrackResource(ResourceFlowType flowType, string currency, float amount, string itemType, string itemId, Dictionary<string, object> extraParams = null)
-```
-
-###### Parameters
-
-| Type | Name | Description |
-|:--- |:--- |:--- |
-| `ResourceFlowType` | *flowType* | Whether the player gained (Source) or spent (Sink) resources. |
-| `System.String` | *currency* | In-game currency name (e.g. "coins", "gems"). Not a real-world ISO code. |
-| `System.Single` | *amount* | Amount of currency. Must be positive. |
-| `System.String` | *itemType* | Category of the item (e.g. "booster", "outfit"). |
-| `System.String` | *itemId* | Specific item ID (e.g. "speed_2x", "ninja_skin"). |
-| `System.Collections.Generic.Dictionary<System.String,System.Object>` | *extraParams* | Optional structured params for Firebase (e.g. source, level, world).
-        Ignored by GameAnalytics. Supported types: string, int, long, float, double, bool, enum. |
-
-#### TrackPurchase(double, string, string, string, string)
-Track an in-app purchase with optional receipt verification (Adjust), TikTok, and Firebase Analytics.
-On iOS, pass &lt;code class="paramref"&gt;transactionId&lt;/code&gt; for App Store verification.
-On Android, pass &lt;code class="paramref"&gt;purchaseToken&lt;/code&gt; for Play Store verification.
-Falls back to simple event tracking when verification params are missing.
-
-```csharp title="Declaration"
-public static void TrackPurchase(double amount, string currency = "USD", string productId = null, string transactionId = null, string purchaseToken = null)
-```
-
-###### Example
-
-```csharp
-// iOS - auto-verifies via App Store receipt
-Palette.TrackPurchase(4.99, "USD",
-    productId: "com.mygame.coins_100",
-    transactionId: storeReceipt.transactionId);
-// Android - auto-verifies via Play Store token
-Palette.TrackPurchase(4.99, "USD",
-    productId: "com.mygame.coins_100",
-    transactionId: storeReceipt.transactionId,
-    purchaseToken: storeReceipt.purchaseToken);
-```
-
-###### Parameters
-
-| Type | Name | Description |
-|:--- |:--- |:--- |
-| `System.Double` | *amount* | Purchase amount (e.g. 4.99) |
-| `System.String` | *currency* | ISO 4217 currency code (default: USD) |
-| `System.String` | *productId* | Store product ID (used for Adjust partner params and Firebase dedup) |
-| `System.String` | *transactionId* | Transaction ID (iOS verification + deduplication on all platforms) |
-| `System.String` | *purchaseToken* | Google Play purchase token (Android verification only) |
-
 #### SetUserId(string)
 Set the user ID for analytics, crash reporting, and attribution.
 Pass null to clear.
@@ -290,19 +198,19 @@ public static void SetUserProperty(string name, string value)
 | `System.String` | *value* |
 
 #### ShowDebugger()
-Shows the Sorolla debug panel. Requires DebugUI sample imported and prefab in scene.
+Shows the code-only Sorolla Vitals debug console. No prefab or sample scene is required.
 
 ```csharp title="Declaration"
 public static void ShowDebugger()
 ```
 #### HideDebugger()
-Hides the Sorolla debug panel.
+Hides the code-only Sorolla Vitals debug console.
 
 ```csharp title="Declaration"
 public static void HideDebugger()
 ```
 #### ToggleDebugger()
-Toggles the Sorolla debug panel visibility.
+Toggles the code-only Sorolla Vitals debug console visibility.
 
 ```csharp title="Declaration"
 public static void ToggleDebugger()
@@ -346,20 +254,6 @@ public static void GetAdvertisingId(Action<string> callback)
 | Type | Name | Description |
 |:--- |:--- |:--- |
 | `System.Action<System.String>` | *callback* | Callback with the advertising ID string, or null if unavailable |
-
-#### Initialize(bool)
-Initialize Palette SDK. Called automatically by SorollaBootstrapper.
-Do NOT call directly.
-
-```csharp title="Declaration"
-public static void Initialize(bool consent)
-```
-
-###### Parameters
-
-| Type | Name |
-|:--- |:--- |
-| `System.Boolean` | *consent* |
 
 #### IsRemoteConfigReady()
 Check if Remote Config is ready. Does not require `IsInitialized` -
@@ -589,11 +483,11 @@ public static void ShowRewardedAd(Action onComplete, Action onFailed)
 | `System.Action` | *onComplete* |
 | `System.Action` | *onFailed* |
 
-#### ShowInterstitialAd(Action)
-Show interstitial ad
+#### ShowInterstitialAd(Action, Action)
+Show an interstitial ad. `onComplete` fires after the user dismisses the ad. `onFailed` fires when the ad cannot be shown.
 
 ```csharp title="Declaration"
-public static void ShowInterstitialAd(Action onComplete)
+public static void ShowInterstitialAd(Action onComplete, Action onFailed)
 ```
 
 ###### Parameters
@@ -601,6 +495,48 @@ public static void ShowInterstitialAd(Action onComplete)
 | Type | Name |
 |:--- |:--- |
 | `System.Action` | *onComplete* |
+| `System.Action` | *onFailed* |
+
+#### ShowMediationDebugger()
+Open AppLovin's Mediation Debugger.
+
+```csharp title="Declaration"
+public static void ShowMediationDebugger()
+```
+#### ShowCreativeDebugger()
+Open AppLovin's Creative Debugger.
+
+```csharp title="Declaration"
+public static void ShowCreativeDebugger()
+```
+#### AttachPurchaseTracking(StoreController)
+Wire Palette purchase tracking to a Unity IAP v5 `StoreController`. Available when Unity IAP is installed.
+Call once immediately after `UnityIAPServices.StoreController()`, before `Connect()`.
+
+```csharp title="Declaration"
+public static void AttachPurchaseTracking(StoreController store)
+```
+
+###### Example
+
+```csharp
+_store = UnityIAPServices.StoreController();
+Palette.AttachPurchaseTracking(_store);
+
+_store.OnPurchasePending += order =>
+{
+    GrantRewards(order.CartOrdered);
+    _store.ConfirmPurchase(order);
+};
+
+await _store.Connect();
+```
+
+###### Parameters
+
+| Type | Name | Description |
+|:--- |:--- |:--- |
+| `UnityEngine.Purchasing.StoreController` | *store* | StoreController returned by `UnityIAPServices.StoreController()` |
 
 ### Events
 #### OnConsentStatusChanged
@@ -620,30 +556,6 @@ public static event Action OnInitialized
 ```
 ###### Event Type
 `System.Action`
-#### OnShowDebuggerRequested
-Fired when `ShowDebugger()` is called. Subscribed by the DebugUI sample prefab.
-
-```csharp title="Declaration"
-public static event Action OnShowDebuggerRequested
-```
-###### Event Type
-`System.Action`
-#### OnHideDebuggerRequested
-Fired when `HideDebugger()` is called. Subscribed by the DebugUI sample prefab.
-
-```csharp title="Declaration"
-public static event Action OnHideDebuggerRequested
-```
-###### Event Type
-`System.Action`
-#### OnToggleDebuggerRequested
-Fired when `ToggleDebugger()` is called. Subscribed by the DebugUI sample prefab.
-
-```csharp title="Declaration"
-public static event Action OnToggleDebuggerRequested
-```
-###### Event Type
-`System.Action`
 #### OnRemoteConfigUpdated
 Fired when a real-time Remote Config update is received.
 Includes the set of updated keys so games can decide whether to react.
@@ -654,6 +566,71 @@ public static event Action<IReadOnlyCollection<string>> OnRemoteConfigUpdated
 ```
 ###### Event Type
 `System.Action<System.Collections.Generic.IReadOnlyCollection<System.String>>`
+
+---
+
+## Class Palette.Level
+Typed level progression tracking. Duration is automatically measured between `Start` and `Complete`/`Fail`.
+
+###### **Assembly**: Sorolla.Runtime.dll
+
+### Methods
+#### Start(int, int?, Dictionary&lt;string, object&gt;)
+Mark the start of a level.
+
+```csharp title="Declaration"
+public static void Start(int level, int? world = null, Dictionary<string, object> extraParams = null)
+```
+
+#### Complete(int, int?, int, Dictionary&lt;string, object&gt;)
+Mark a level completed. Auto-fills `duration_sec` if `Start` was called.
+
+```csharp title="Declaration"
+public static void Complete(int level, int? world = null, int score = 0, Dictionary<string, object> extraParams = null)
+```
+
+#### Fail(int, int?, int, Dictionary&lt;string, object&gt;)
+Mark a level failed. Auto-fills `duration_sec` if `Start` was called.
+
+```csharp title="Declaration"
+public static void Fail(int level, int? world = null, int score = 0, Dictionary<string, object> extraParams = null)
+```
+
+###### Example
+
+```csharp
+Palette.Level.Start(level: 4, world: 2);
+Palette.Level.Complete(level: 4, world: 2, score: 1500);
+```
+
+---
+
+## Class Palette.Economy
+Typed in-game currency tracking using curated currency and source/sink enums.
+
+###### **Assembly**: Sorolla.Runtime.dll
+
+### Methods
+#### Earn(CurrencyId, int, EconomySource, string, Dictionary&lt;string, object&gt;)
+Track currency earned.
+
+```csharp title="Declaration"
+public static void Earn(CurrencyId currency, int amount, EconomySource source, string itemId = null, Dictionary<string, object> extraParams = null)
+```
+
+#### Spend(CurrencyId, int, EconomySink, string, Dictionary&lt;string, object&gt;)
+Track currency spent.
+
+```csharp title="Declaration"
+public static void Spend(CurrencyId currency, int amount, EconomySink sink, string itemId = null, Dictionary<string, object> extraParams = null)
+```
+
+###### Example
+
+```csharp
+Palette.Economy.Earn(CurrencyId.Coins, 100, EconomySource.LevelReward, itemId: "level_3");
+Palette.Economy.Spend(CurrencyId.Gems, 5, EconomySink.Booster, itemId: "speed_2x");
+```
 
 ---
 
@@ -672,7 +649,7 @@ public class SorollaConfig : ScriptableObject
 
 ### Fields
 #### isPrototypeMode
-Prototype = Core SDKs only (GameAnalytics + Facebook, optional MAX/Firebase).
+Prototype = Core SDKs only (GameAnalytics + Facebook + Firebase).
 Full = Core + MAX + Adjust + Firebase. Set via the Configuration window.
 
 ```csharp title="Declaration"
@@ -719,7 +696,7 @@ Must be false for production store builds.
 public bool adjustSandboxMode
 ```
 #### adjustPurchaseEventToken
-Adjust event token used by `TrackPurchase(System.Double%2cSystem.String%2cSystem.String%2cSystem.String%2cSystem.String)` for revenue tracking.
+Adjust event token used by SDK-owned purchase tracking after `Palette.AttachPurchaseTracking(store)` is wired.
 Create in Adjust Dashboard -&gt; Events.
 
 ```csharp title="Declaration"
@@ -817,56 +794,40 @@ public string ios
 
 ---
 
-## Enum ProgressionStatus
-Progression status for tracking level/stage events.
+## Enum CurrencyId
+Curated in-game currency identifiers.
 
 ###### **Assembly**: Sorolla.Runtime.dll
 
 ```csharp title="Declaration"
-public enum ProgressionStatus
+public enum CurrencyId
 ```
 ### Fields
-#### Start
-Player started the level/stage
-
-```csharp title="Declaration"
-Start = 0
-```
-#### Complete
-Player completed the level/stage successfully
-
-```csharp title="Declaration"
-Complete = 1
-```
-#### Fail
-Player failed the level/stage
-
-```csharp title="Declaration"
-Fail = 2
-```
+`Coins`, `Gems`, `Stars`, `Energy`, `Lives`, `Other`
 
 ---
 
-## Enum ResourceFlowType
-Resource flow type for tracking economy events.
+## Enum EconomySource
+Curated source categories for currency earned through `Palette.Economy.Earn`.
 
 ###### **Assembly**: Sorolla.Runtime.dll
 
 ```csharp title="Declaration"
-public enum ResourceFlowType
+public enum EconomySource
 ```
 ### Fields
-#### Source
-Player gained resources
+`LevelReward`, `DailyBonus`, `AdReward`, `IapGrant`, `Achievement`, `Gift`, `Starter`, `Other`
+
+---
+
+## Enum EconomySink
+Curated sink categories for currency spent through `Palette.Economy.Spend`.
+
+###### **Assembly**: Sorolla.Runtime.dll
 
 ```csharp title="Declaration"
-Source = 0
+public enum EconomySink
 ```
-#### Sink
-Player spent resources
-
-```csharp title="Declaration"
-Sink = 1
-```
-
+### Fields
+`Booster`, `Continue`, `Unlock`, `Cosmetic`, `ShopPurchase`, `Upgrade`, `Other`
 ---

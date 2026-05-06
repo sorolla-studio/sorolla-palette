@@ -21,26 +21,25 @@ namespace Sorolla.Palette.Editor
     /// </summary>
     public static class SorollaSettings
     {
-
-        // Scripting define symbols
-        public const string DefinePrototype = "SOROLLA_PROTOTYPE";
-        public const string DefineFull = "SOROLLA_FULL";
-        static string ModeKey => $"Sorolla_Mode_{Application.dataPath.GetHashCode()}";
+        public const string LegacyDefinePrototype = "SOROLLA_PROTOTYPE";
+        public const string LegacyDefineFull = "SOROLLA_FULL";
+        const string ConfigResourcePath = "SorollaConfig";
+        const string ConfigAssetPath = "Assets/Resources/SorollaConfig.asset";
 
         /// <summary>
-        ///     Current SDK mode
+        ///     Current SDK mode. The source of truth is the git-tracked
+        ///     Assets/Resources/SorollaConfig.asset file, not machine-local EditorPrefs.
         /// </summary>
         public static SorollaMode Mode
         {
             get
             {
-                var config = Resources.Load<SorollaConfig>("SorollaConfig");
+                var config = LoadRuntimeConfig();
                 if (config != null)
                     return config.isPrototypeMode ? SorollaMode.Prototype : SorollaMode.Full;
 
-                return (SorollaMode)EditorPrefs.GetInt(ModeKey, (int)SorollaMode.None);
+                return SorollaMode.None;
             }
-            private set => EditorPrefs.SetInt(ModeKey, (int)value);
         }
 
         /// <summary>
@@ -53,24 +52,15 @@ namespace Sorolla.Palette.Editor
         /// </summary>
         public static bool IsPrototype => Mode == SorollaMode.Prototype;
 
-        public static bool HasRuntimeConfig => Resources.Load<SorollaConfig>("SorollaConfig") != null;
+        public static bool HasRuntimeConfig => LoadRuntimeConfig() != null;
 
         public static bool SyncFromRuntimeConfig()
         {
-            var config = Resources.Load<SorollaConfig>("SorollaConfig");
+            var config = LoadRuntimeConfig();
             if (config == null)
                 return false;
 
-            var configMode = config.isPrototypeMode ? SorollaMode.Prototype : SorollaMode.Full;
-            bool changed = EditorPrefs.GetInt(ModeKey, (int)SorollaMode.None) != (int)configMode;
-
-            Mode = configMode;
-            DefineSymbols.Apply(config.isPrototypeMode);
-
-            if (changed)
-                Debug.Log($"[Palette] Synced editor mode from SorollaConfig: {configMode}");
-
-            return changed;
+            return DefineSymbols.RemoveLegacyModeDefines();
         }
 
         /// <summary>
@@ -86,13 +76,9 @@ namespace Sorolla.Palette.Editor
 
             Debug.Log($"[Palette] Setting mode to: {mode}");
 
-            Mode = mode;
-
             // Update runtime config asset
             UpdateRuntimeConfig(mode == SorollaMode.Prototype);
-
-            // Apply scripting defines
-            DefineSymbols.Apply(mode == SorollaMode.Prototype);
+            DefineSymbols.RemoveLegacyModeDefines();
 
             // Install required SDKs
             SdkInstaller.InstallRequiredSdks(mode == SorollaMode.Prototype);
@@ -109,12 +95,7 @@ namespace Sorolla.Palette.Editor
         /// </summary>
         static void UpdateRuntimeConfig(bool isPrototype)
         {
-            var config = Resources.Load<SorollaConfig>("SorollaConfig");
-            if (config == null)
-            {
-                Debug.LogWarning("[Palette] SorollaConfig not found in Resources. Runtime mode may be incorrect.");
-                return;
-            }
+            var config = GetOrCreateRuntimeConfig();
 
             if (config.isPrototypeMode != isPrototype)
             {
@@ -123,6 +104,28 @@ namespace Sorolla.Palette.Editor
                 AssetDatabase.SaveAssets();
                 Debug.Log($"[Palette] Updated SorollaConfig.isPrototypeMode = {isPrototype}");
             }
+        }
+
+        static SorollaConfig LoadRuntimeConfig() => Resources.Load<SorollaConfig>(ConfigResourcePath);
+
+        static SorollaConfig GetOrCreateRuntimeConfig()
+        {
+            var config = LoadRuntimeConfig();
+            if (config != null)
+                return config;
+
+            if (!AssetDatabase.IsValidFolder("Assets/Resources"))
+                AssetDatabase.CreateFolder("Assets", "Resources");
+
+            config = AssetDatabase.LoadAssetAtPath<SorollaConfig>(ConfigAssetPath);
+            if (config != null)
+                return config;
+
+            config = ScriptableObject.CreateInstance<SorollaConfig>();
+            AssetDatabase.CreateAsset(config, ConfigAssetPath);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[Palette] Config created at: {ConfigAssetPath}");
+            return config;
         }
 
         /// <summary>

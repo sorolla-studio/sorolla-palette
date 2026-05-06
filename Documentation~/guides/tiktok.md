@@ -31,7 +31,7 @@ TikTok initializes automatically when all three fields are populated.
 ## What Gets Tracked
 
 When configured, TikTok receives:
-- **App events** via `Palette.TrackPurchase()` (purchase amount + currency)
+- **Purchase events** from the SDK-owned Unity IAP tracking path (`Palette.AttachPurchaseTracking(store)`)
 - **Ad revenue** from MAX ILRD callbacks (revenue, currency, network, ad format)
 - **Custom events** via the TikTok adapter directly
 

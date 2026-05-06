@@ -39,7 +39,7 @@ namespace Sorolla.Palette
     public class SorollaConfig : ScriptableObject
     {
         /// <summary>
-        ///     Prototype = Core SDKs only (GameAnalytics + Facebook, optional MAX/Firebase).
+        ///     Prototype = Core SDKs only (GameAnalytics + Facebook + Firebase).
         ///     Full = Core + MAX + Adjust + Firebase. Set via the Configuration window.
         /// </summary>
         [Header("Mode")]

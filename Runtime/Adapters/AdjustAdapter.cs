@@ -60,6 +60,7 @@ namespace Sorolla.Palette.Adapters
         const string Tag = "[Palette:Adjust]";
 
         private static IAdjustAdapter s_impl;
+        static bool s_initialized;
 
         internal static void RegisterImpl(IAdjustAdapter impl)
         {
@@ -67,10 +68,16 @@ namespace Sorolla.Palette.Adapters
             PaletteLog.Vital($"{Tag} Implementation registered");
         }
 
+        public static bool IsRegistered => s_impl != null;
+        public static bool IsInitialized => s_initialized;
+
         public static void Initialize(string appToken, AdjustEnvironment environment, bool verboseLogging = false)
         {
             if (s_impl != null)
+            {
                 s_impl.Initialize(appToken, environment, verboseLogging);
+                s_initialized = true;
+            }
             else
                 PaletteLog.Warning($"{Tag} Not installed");
         }

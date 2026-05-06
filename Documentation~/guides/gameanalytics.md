@@ -40,7 +40,7 @@ Required for Sorolla team support:
 
 Events appear in the dashboard within 5-10 minutes.
 
-Use the [Debug UI](../quick-start.md#optional-debug-ui) to verify initialization on device.
+Use [Sorolla Vitals](../quick-start.md#4-build-and-verify-on-device) to verify initialization on device.
 
 ---
 
@@ -58,19 +58,17 @@ Palette.TrackEvent("booster_used", new Dictionary<string, object>
     { "level", 12 },
 });
 
-// Level progression — Firebase mapping: Start -> level_start, Complete -> level_end, Fail -> level_fail
-Palette.TrackProgression(ProgressionStatus.Complete, "World1", "Chapter2", "Level3",
-    score: 1500,
-    extraParams: new Dictionary<string, object> { { "duration_sec", 45 } });
+// Level progression. Complete/Fail auto-include duration if Start was called.
+Palette.Level.Start(level: 3, world: 1);
+Palette.Level.Complete(level: 3, world: 1, score: 1500,
+    extraParams: new Dictionary<string, object> { { "difficulty", "hard" } });
 
-// Economy events — Firebase mapping: Source -> earn_virtual_currency, Sink -> spend_virtual_currency
-Palette.TrackResource(ResourceFlowType.Source, "coins", 100, "Reward", "DailyLogin");
-Palette.TrackResource(ResourceFlowType.Sink,   "gems",    5, "Booster", "speed_2x");
+// Economy events. Source -> earn_virtual_currency, Sink -> spend_virtual_currency.
+Palette.Economy.Earn(CurrencyId.Coins, 100, EconomySource.LevelReward, itemId: "level_3");
+Palette.Economy.Spend(CurrencyId.Gems, 5, EconomySink.Booster, itemId: "speed_2x");
 
-// In-app purchase — fans out to Adjust + TikTok + Firebase
-Palette.TrackPurchase(4.99, "USD",
-    productId:     "com.mygame.coins_100",
-    transactionId: storeReceipt.transactionId);
+// In-app purchases are tracked through Unity IAP v5 wiring.
+// See Full Mode Soft Launch Migration for Palette.AttachPurchaseTracking(store).
 ```
 
 For full method signatures see [api-reference.md](../api-reference.md).

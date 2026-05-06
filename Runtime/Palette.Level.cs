@@ -69,8 +69,30 @@ namespace Sorolla.Palette
             static void Emit(string status, int level, int? world, int score, float? duration,
                 Dictionary<string, object> extraParams)
             {
+                SorollaDiagnostics.RecordProgression(status);
+
                 string p1 = world.HasValue ? $"world_{world.Value}" : $"level_{level}";
                 string p2 = world.HasValue ? $"level_{level}" : null;
+                string levelName = world.HasValue ? $"{p1}_{p2}" : p1;
+                string eventName = status == "start" ? "level_start" : "level_end";
+
+                var diagnosticParams = extraParams != null
+                    ? new Dictionary<string, object>(extraParams)
+                    : new Dictionary<string, object>();
+                diagnosticParams["level_name"] = levelName;
+                if (status != "start")
+                    diagnosticParams["success"] = status == "complete";
+                if (score > 0)
+                    diagnosticParams["score"] = score;
+                if (duration.HasValue)
+                    diagnosticParams["duration_sec"] = (float)Math.Round(duration.Value, 2);
+
+                SorollaDiagnostics.RecordEventDispatch("level", eventName, diagnosticParams);
+                if (status != "start" && score > 0)
+                    SorollaDiagnostics.RecordEventDispatch("level", "post_score", new Dictionary<string, object>
+                    {
+                        { "score", score },
+                    });
 
 #if GAMEANALYTICS_INSTALLED
                 GAProgressionStatus gaStatus = status switch

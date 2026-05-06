@@ -80,10 +80,12 @@ public void OnWatchAdClicked()
 ### Interstitial Ads
 
 ```csharp
-// Check readiness (optional - ShowInterstitialAd no-ops if not ready)
+// Check readiness before choosing whether to interrupt flow
 bool ready = Palette.IsInterstitialAdReady;
 
-Palette.ShowInterstitialAd(onComplete: () => LoadNextLevel());
+Palette.ShowInterstitialAd(
+    onComplete: LoadNextLevel,
+    onFailed: LoadNextLevel);
 ```
 
 **Frequency-capped example:**
@@ -93,7 +95,9 @@ void OnLevelComplete()
     levelsCompleted++;
     if (levelsCompleted % 3 == 0)  // Every 3 levels
     {
-        Palette.ShowInterstitialAd(onComplete: ShowNextLevel);
+        Palette.ShowInterstitialAd(
+            onComplete: ShowNextLevel,
+            onFailed: ShowNextLevel);
     }
     else
     {
@@ -112,7 +116,10 @@ Banner ads are configured via `SorollaConfig.bannerAdUnit` but the `ShowBanner`/
 
 | Issue | Solution |
 |-------|----------|
-| Ads not loading | Wait 30 sec after init, check SDK Key and Ad Unit IDs |
+| Ads not loading | Wait 30 sec after init, check SDK Key and Ad Unit IDs, disable VPN/ad-blocking DNS |
+| `NetworkError` / `ms.applvn.com` cannot resolve | Disable VPN, threat protection, ad blocker, or custom/private DNS on the test device |
 | Low fill rate | Enable mediation networks |
 | Test ads only | Use real device, not simulator |
 | Revenue not tracking | Verify Adjust token (Full mode) |
+
+On Android QA devices, VPN/ad-blocking features can block AppLovin while the rest of the internet still appears healthy. If MAX initializes but rewarded/interstitial loads fail with `Unable to resolve host "ms.applvn.com"`, turn off VPN/private DNS/ad blocking, relaunch the app, and retry before changing SDK or dashboard config.

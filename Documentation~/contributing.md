@@ -28,7 +28,7 @@ Thank you for your interest in contributing to Sorolla SDK!
    }
    ```
 
-3. Import the Debug UI sample for testing
+3. Use Sorolla Vitals for on-device testing
 
 ---
 
@@ -46,7 +46,7 @@ Editor/
 ├── SorollaSettings.cs         ← Mode management
 └── Sdk/                       ← SDK detection/installation
 
-Samples~/DebugUI/              ← Debug panel sample
+Runtime/Diagnostics/           ← Code-only Sorolla Vitals console
 ```
 
 ---
@@ -73,7 +73,7 @@ Samples~/DebugUI/              ← Debug panel sample
 1. Test in Editor with fake dialogs
 2. Test on iOS device (ATT flow)
 3. Test on Android device
-4. Use Debug UI to verify integration
+4. Use Sorolla Vitals to verify integration
 
 ---
 
@@ -104,7 +104,7 @@ Please include:
 - Platform (iOS/Android/Editor)
 - Steps to reproduce
 - Full error message
-- Debug UI screenshots if relevant
+- Sorolla Vitals screenshots or copied reports if relevant
 
 ---
 

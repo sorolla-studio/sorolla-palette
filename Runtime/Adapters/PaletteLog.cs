@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,27 +14,59 @@ namespace Sorolla.Palette.Adapters
 
         internal static bool VerboseEnabled { get; private set; }
 
+        internal static event Action<string, LogType> MessageEmitted;
+
         internal static void Configure(bool verboseEnabled)
         {
             VerboseEnabled = verboseEnabled;
         }
 
-        internal static void Vital(string message) => Debug.Log(message);
+        internal static void Vital(string message)
+        {
+            Emit(message, LogType.Log);
+            Debug.Log(message);
+        }
 
         internal static void Verbose(string message)
         {
-            if (VerboseEnabled) Debug.Log(message);
+            if (!VerboseEnabled) return;
+
+            Emit(message, LogType.Log);
+            Debug.Log(message);
         }
 
-        internal static void Warning(string message) => Debug.LogWarning(message);
+        internal static void Warning(string message)
+        {
+            Emit(message, LogType.Warning);
+            Debug.LogWarning(message);
+        }
 
         internal static void WarningOnce(string key, string message)
         {
-            if (s_onceKeys.Add($"w:{key}")) Debug.LogWarning(message);
+            if (!s_onceKeys.Add($"w:{key}")) return;
+
+            Emit(message, LogType.Warning);
+            Debug.LogWarning(message);
         }
 
-        internal static void Error(string message) => Debug.LogError(message);
+        internal static void Error(string message)
+        {
+            Emit(message, LogType.Error);
+            Debug.LogError(message);
+        }
 
         internal static string Present(string value) => string.IsNullOrEmpty(value) ? "missing" : "present";
+
+        static void Emit(string message, LogType type)
+        {
+            try
+            {
+                MessageEmitted?.Invoke(message, type);
+            }
+            catch
+            {
+                // Diagnostics must never affect SDK behavior or app logging.
+            }
+        }
     }
 }

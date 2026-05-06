@@ -1,6 +1,6 @@
 {
   "name": "com.sorolla.sdk",
-  "version": "3.15.2",
+  "version": "3.15.3",
   "displayName": "Sorolla SDK",
   "description": "Plug & Play Publisher SDK - GameAnalytics, AppLovin MAX, Facebook, Adjust, Firebase",
   "unity": "2022.3",
@@ -16,14 +16,6 @@
     "url": "https://github.com/sorolla-studio/sorolla-palette"
   },
   "dependencies": {
-    "com.unity.textmeshpro": "3.0.6",
-    "com.unity.2d.sprite": "1.0.0"
-  },
-  "samples": [
-    {
-      "displayName": "Debug UI",
-      "description": "In-game debug panel for testing SDKs, ads, analytics, and ATT/CMP flows",
-      "path": "Samples~/DebugUI"
-    }
-  ]
+    "com.unity.ugui": "1.0.0"
+  }
 }

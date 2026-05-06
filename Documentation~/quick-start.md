@@ -1,76 +1,142 @@
-# Quick Start
+# Quick Start: Prototype Mode
 
-Get your prototype running in 10 minutes.
+Use Prototype mode to add core analytics to your Unity build quickly, without taking on the full soft-launch ad, attribution, and consent stack.
+
+**Best for:** first playable builds, CPI tests, gameplay iteration, publisher review builds.
+
+Prototype mode includes:
+
+| Area | Included | What you do |
+|------|----------|-------------|
+| Analytics | GameAnalytics progression events | Add three level calls |
+| Acquisition signal | Facebook SDK configuration | Paste App ID + Client Token |
+| Firebase | Analytics, Crashlytics, Remote Config | Add config files |
+| Diagnostics | Sorolla Vitals runtime console | Open on device and verify green checks |
+
+Prototype mode does **not** require MAX ads, Adjust, GDPR/ATT consent setup, `app-ads.txt`, or purchase attribution. Add those when you migrate to [Full Mode for soft launch](switching-to-full.md).
+
+---
+
+## Before You Start
+
+Have these ready:
+
+- Unity 2022.3 or newer.
+- The Android package name and iOS bundle ID you plan to test.
+- GameAnalytics Game Key and Secret Key for each platform.
+- Facebook App ID and Client Token.
+- Firebase config files: `google-services.json` and `GoogleService-Info.plist`.
+- A real Android or iOS device for validation.
+
+If Sorolla is creating the dashboards for you, ask for the pre-filled values and skip straight to [Configure Prototype Mode](#2-configure-prototype-mode).
 
 ---
 
 ## 1. Install
 
-1. **Package Manager** → `+` → **Add package from git URL**
-2. Paste: `https://github.com/sorolla-studio/sorolla-palette.git`
-3. **Configuration window** opens automatically
+1. In Unity, open **Window > Package Manager**.
+2. Click `+` and choose **Add package from git URL**.
+3. Paste:
+
+```text
+https://github.com/sorolla-studio/sorolla-palette.git
+```
+
+4. Wait for Unity to import the package and resolve dependencies.
+5. Open **Palette > Configuration** if the configuration window does not open automatically.
+
+You do not need to add a bootstrap prefab or any manual initialization call. Palette auto-initializes at runtime through `SorollaBootstrapper`.
 
 ---
 
-## 2. Configure
+## 2. Configure Prototype Mode
 
-Open **Palette > Configuration** if not already open.
+In **Palette > Configuration**:
 
-### Checklist
+1. Set the mode to **Prototype**.
+2. Enter the required keys.
+3. Use **Build Health** to confirm the project is coherent.
 
-| SDK | Action | Guide |
-|-----|--------|-------|
-| **GameAnalytics** | Add Game Key + Secret Key | [Setup](guides/gameanalytics.md) |
-| **Facebook** | Add App ID + Client Token | [Setup](guides/facebook.md) |
-| **Firebase** | Add config files to `Assets/` | [Setup](guides/firebase.md) |
+| SDK | Required for Prototype | What you do | Pass condition |
+|-----|------------------------|---------------|----------------|
+| GameAnalytics | Yes | Add Game Key + Secret Key | SDK Overview is green |
+| Facebook | Yes | Add App ID + Client Token | SDK Overview is green |
+| Firebase | Yes | Add `google-services.json` and `GoogleService-Info.plist` to `Assets/` | Firebase checks are green |
 
-The Configuration window shows your progress:
-- **SDK Overview**: Green checkmarks = configured
-- **Build Health**: All green = ready to build
+Keep Prototype mode lean. Do not configure MAX, Adjust, TikTok, IAP, consent, or store privacy yet.
 
 ---
 
-## 3. Add Analytics
+## 3. Add Level Analytics
 
-Add level tracking to your game (required for analytics):
+Add the level calls where your game already knows a level started, completed, or failed:
 
 ```csharp
 using Sorolla.Palette;
 
-Palette.Level.Start(currentLevel);                    // Level started
-Palette.Level.Complete(currentLevel, score: 1500);    // Level won (optional score)
-Palette.Level.Fail(currentLevel);                     // Level lost
+public void OnLevelStarted(int level)
+{
+    Palette.Level.Start(level);
+}
+
+public void OnLevelWon(int level, int score)
+{
+    Palette.Level.Complete(level, score: score);
+}
+
+public void OnLevelLost(int level)
+{
+    Palette.Level.Fail(level);
+}
 ```
 
----
+If your game has worlds, pass both values:
 
-## 4. Build & Test
+```csharp
+Palette.Level.Start(level: 4, world: 2);
+Palette.Level.Complete(level: 4, world: 2, score: 1500);
+```
 
-1. Build to iOS/Android device
-2. Verify in dashboards:
-   - [GameAnalytics](https://gameanalytics.com) - Events in 5-10 min
-   - [Facebook Events Manager](https://business.facebook.com) - Install data
-   - [Firebase Console](https://console.firebase.google.com) - Analytics, Crashlytics
+Implementation rules:
 
-### Optional: Debug UI
-
-Import the Debug UI sample for on-device testing:
-1. **Package Manager** → Sorolla SDK → **Samples** → Import "Debug UI"
-2. Add `DebugPanelManager` prefab to your scene
-3. **Triple-tap** screen to open panel
+- Call `Start` when gameplay begins, not when a menu opens.
+- Call either `Complete` or `Fail` once per run.
+- Keep your existing game analytics if you need them; Palette only needs these calls for Sorolla reporting.
+- Do not manually initialize the SDK.
 
 ---
 
-## Release Checklist
+## 4. Build and Verify on Device
 
-Before launching UA campaigns:
+1. Build to a real Android or iOS device.
+2. Launch the app and play one complete level.
+3. Open Sorolla Vitals with five taps in the top-left safe area.
 
-- [ ] GameAnalytics configured (green in SDK Overview)
-- [ ] Facebook SDK configured (green in SDK Overview)
-- [ ] Firebase config files added (`google-services.json`, `GoogleService-Info.plist`)
-- [ ] `Palette.Level.Start/Complete/Fail` calls added to game code
-- [ ] Build succeeds (Build Health all green)
-- [ ] Admin access granted to `studio@sorolla.io` in GameAnalytics
+You can also open Vitals from a debug button:
+
+```csharp
+Palette.ShowDebugger();
+```
+
+In Vitals, check:
+
+- SDK readiness is green for the SDKs configured in Prototype mode.
+- Level events appear after you play a level.
+- Event payloads contain the expected level and score values.
+- No startup errors are logged.
+
+---
+
+## Prototype Definition of Done
+
+- [ ] Project is in **Prototype** mode.
+- [ ] GameAnalytics is green in SDK Overview.
+- [ ] Facebook is green in SDK Overview.
+- [ ] Firebase is green in SDK Overview.
+- [ ] `Palette.Level.Start`, `Complete`, and `Fail` are wired in game code.
+- [ ] Device build launches without SDK errors.
+- [ ] Sorolla Vitals shows expected SDK readiness and level events.
+- [ ] Prototype validation passes in the [Validation Checklist](validation.md#prototype-validation).
 
 ---
 
@@ -78,7 +144,7 @@ Before launching UA campaigns:
 
 | Goal | Link |
 |------|------|
-| Add monetization (ads) | [Ads Guide](guides/ads.md) |
-| Go to production | [Switch to Full Mode](switching-to-full.md) |
-| Track more events | [API Reference](api-reference.md) |
-| Fix issues | [Troubleshooting](troubleshooting.md) |
+| Validate this build | [Validation Checklist](validation.md#prototype-validation) |
+| Prepare for soft launch | [Switch to Full Mode](switching-to-full.md) |
+| Add Firebase features | [Firebase Guide](guides/firebase.md) |
+| Fix an integration issue | [Troubleshooting](troubleshooting.md) |

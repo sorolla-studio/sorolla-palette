@@ -20,6 +20,8 @@ namespace Sorolla.Palette
             int padY = Mathf.RoundToInt(10f * _uiScale);
             int rowPadX = Mathf.RoundToInt(5f * _uiScale);
             int rowPadY = Mathf.RoundToInt(3f * _uiScale);
+            int buttonPadX = Mathf.RoundToInt(12f * _uiScale);
+            int buttonPadY = Mathf.RoundToInt(6f * _uiScale);
 
             _panelStyle = new GUIStyle(GUI.skin.box)
             {
@@ -89,6 +91,7 @@ namespace Sorolla.Palette
                 normal = { textColor = new Color(0.92f, 0.94f, 0.96f, 1f), background = _buttonBackground },
                 hover = { textColor = Color.white, background = _buttonActiveBackground },
                 active = { textColor = Color.white, background = _buttonActiveBackground },
+                padding = new RectOffset(buttonPadX, buttonPadX, buttonPadY, buttonPadY),
             };
 
             _selectedButtonStyle = new GUIStyle(_buttonStyle)
@@ -144,7 +147,9 @@ namespace Sorolla.Palette
         void UpdateUiScale()
         {
             float dpiScale = Screen.dpi > 0f ? Mathf.Clamp(Screen.dpi / 220f, 1f, 2.1f) : 1f;
-            _uiScale = Mathf.Max(1f, dpiScale);
+            float shortSide = Mathf.Min(Screen.width, Screen.height);
+            float screenScale = shortSide > 0f ? Mathf.Clamp(shortSide / 540f, 1f, 1.6f) : 1f;
+            _uiScale = Mathf.Max(1f, dpiScale, screenScale);
         }
 
         void RebuildTextures()

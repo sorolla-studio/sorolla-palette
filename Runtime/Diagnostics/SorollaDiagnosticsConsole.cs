@@ -16,7 +16,7 @@ namespace Sorolla.Palette
         enum RowFilter
         {
             All,
-            Issues,
+            Problems,
             Fail,
             Warn,
             Wait,
@@ -25,10 +25,16 @@ namespace Sorolla.Palette
 
         enum ConsoleTab
         {
-            Issues,
-            Overview,
+            Vitals,
             Console,
             Actions,
+        }
+
+        enum ConsoleFilter
+        {
+            All,
+            Events,
+            Problems,
         }
 
         sealed class SectionState
@@ -36,7 +42,7 @@ namespace Sorolla.Palette
             public bool Expanded;
             public bool Initialized;
             public bool UserToggled;
-            public bool HadIssue;
+            public bool HadProblem;
         }
 
         sealed class SectionSummary
@@ -50,7 +56,7 @@ namespace Sorolla.Palette
             public bool Active { get; private set; }
             public string CountsText { get; private set; } = string.Empty;
 
-            public bool HasIssues => _fail > 0 || _warning > 0 || _waiting > 0;
+            public bool HasProblems => _fail > 0 || _warning > 0 || _waiting > 0;
 
             public void Reset()
             {
@@ -103,8 +109,8 @@ namespace Sorolla.Palette
 
                 switch (filter)
                 {
-                    case RowFilter.Issues:
-                        return HasIssues;
+                    case RowFilter.Problems:
+                        return HasProblems;
                     case RowFilter.Fail:
                         return _fail > 0;
                     case RowFilter.Warn:
@@ -121,12 +127,15 @@ namespace Sorolla.Palette
 
         readonly List<SorollaDiagnosticRow> _rows = new List<SorollaDiagnosticRow>(80);
         readonly List<SorollaDiagnosticEventLogEntry> _events = new List<SorollaDiagnosticEventLogEntry>(40);
+        readonly List<SorollaRuntimeProblem> _runtimeProblems = new List<SorollaRuntimeProblem>(20);
         readonly Dictionary<string, SectionState> _sectionStates = new Dictionary<string, SectionState>();
         readonly Dictionary<string, SectionSummary> _sectionSummaries = new Dictionary<string, SectionSummary>();
         readonly HashSet<int> _expandedConsoleRows = new HashSet<int>();
+        readonly HashSet<int> _expandedRuntimeProblems = new HashSet<int>();
         readonly List<int> _staleExpandedConsoleRows = new List<int>(8);
         readonly int[] _severityCounts = new int[SeverityCount];
-        int _issueCount;
+        readonly int[] _healthCounts = new int[SeverityCount];
+        int _problemCount;
         Vector2 _scroll;
         bool _visible;
         int _tapCount;
@@ -138,7 +147,8 @@ namespace Sorolla.Palette
         Vector2 _scrollTouchStartPosition;
         Vector2 _lastScrollTouchPosition;
         RowFilter _filter = RowFilter.All;
-        ConsoleTab _activeTab = ConsoleTab.Issues;
+        ConsoleTab _activeTab = ConsoleTab.Vitals;
+        ConsoleFilter _consoleFilter = ConsoleFilter.All;
         bool _filterInitialized;
         bool _activeTabInitialized;
         bool _showNewestEventsFirst = true;
@@ -266,13 +276,12 @@ namespace Sorolla.Palette
             EnsureStyles();
             SorollaDiagnostics.BuildRows(_rows);
             SorollaDiagnostics.CopyEventLog(_events);
+            SorollaDiagnostics.CopyRuntimeProblems(_runtimeProblems);
             RefreshDerivedState();
 
             GUI.depth = -1000;
-            Rect safeArea = Screen.safeArea;
             float margin = 8f * _uiScale;
-            Rect area = new Rect(safeArea.x + margin, Screen.height - safeArea.yMax + margin,
-                safeArea.width - 2f * margin, safeArea.height - 2f * margin);
+            Rect area = new Rect(margin, margin, Screen.width - 2f * margin, Screen.height - 2f * margin);
 
             GUI.DrawTexture(area, GetPanelBackground(), ScaleMode.StretchToFill, true);
             GUILayout.BeginArea(area, _panelStyle);

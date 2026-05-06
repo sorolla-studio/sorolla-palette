@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.15.3] - 2026-05-06
+
+Code-only Sorolla Vitals and studio documentation refresh.
+
+### Added
+- **Sorolla Vitals runtime console** (`Runtime/Diagnostics/*`): code-only OnGUI diagnostics console opened by five taps in the top-left safe area or `Palette.ShowDebugger()`, with SDK health, event/ad/purchase smoke checks, copied reports, and runtime problem summaries.
+- **Validation checklist** (`Documentation~/validation.md`): separate Prototype and Full-mode soft-launch validation tracks.
+
+### Changed
+- **Debug UI sample removed** (`Samples~/DebugUI`, `package.json`): the prefab/sample-based Debug UI is replaced by the built-in Vitals console; package dependencies are reduced to `com.unity.ugui`.
+- **Diagnostics capture expanded** (`Runtime/Palette*.cs`, `Runtime/Adapters/*`): level, economy, custom event, ad, MAX, Adjust, and purchase signals feed Vitals.
+- **Mode source of truth hardened** (`Editor/SorollaSettings.cs`, `Editor/Sdk/DefineSymbols.cs`): editor mode resolves from `Assets/Resources/SorollaConfig.asset` and removes legacy mode defines.
+- **Studio docs reframed** (`Documentation~/quick-start.md`, `Documentation~/switching-to-full.md`, `Documentation~/guides/*`): Prototype is the fast GameAnalytics/Facebook/Firebase path; Full mode is the soft-launch migration path; stale public API references were replaced with `Palette.Level.*`, `Palette.Economy.*`, and `Palette.AttachPurchaseTracking(...)`.
+
+### Fixed
+- **Docs build references** (`Documentation~/docfx/sdk.csproj`): added Unity Input Legacy and Text Rendering module references required by the Vitals console.
+
 ## [3.15.2] - 2026-05-05
 
 Follow-up editor settings hardening.

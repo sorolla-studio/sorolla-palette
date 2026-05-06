@@ -46,4 +46,7 @@ View revenue attribution in Adjust dashboard → **Reports** → **Ad Revenue**.
 |-------|----------|
 | No attribution data | Wait 24 hours, verify App Token |
 | Test installs not showing | Use Adjust testing mode in dashboard |
-| Ad revenue not tracking | Verify both MAX and Adjust are initialized (check Debug UI) |
+| Ad revenue not tracking | Verify both MAX and Adjust are initialized (check Sorolla Vitals) |
+| `app.adjust.com` / `app.adjust.io` cannot resolve | Disable VPN, threat protection, ad blocker, or custom/private DNS on the test device |
+
+On Android QA devices, VPN/ad-blocking features can block Adjust while normal browsing still works. If logcat shows `Unable to resolve host "app.adjust.com"` or `app.adjust.io`, fix the device network first, then relaunch the app and retry attribution/ad-revenue checks.

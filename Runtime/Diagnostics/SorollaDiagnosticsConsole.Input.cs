@@ -29,9 +29,9 @@ namespace Sorolla.Palette
 
             Rect safeArea = Screen.safeArea;
             float tapArea = 128f * _uiScale;
-            bool topLeft = screenPosition.x >= safeArea.xMin
+            bool topLeft = screenPosition.x >= 0f
                 && screenPosition.x <= safeArea.xMin + tapArea
-                && screenPosition.y <= safeArea.yMax
+                && screenPosition.y <= Screen.height
                 && screenPosition.y >= safeArea.yMax - tapArea;
             if (!topLeft) return;
 

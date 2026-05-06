@@ -28,6 +28,12 @@ namespace Sorolla.Palette.Adapters
         bool _userWaitingForInterstitial;
         bool _rewardedLoadLogged;
         bool _interstitialLoadLogged;
+        bool _rewardedLoadStarted;
+        bool _interstitialLoadStarted;
+        bool _rewardedLoadFailed;
+        bool _interstitialLoadFailed;
+        string _lastRewardedLoadIssue = "Not requested";
+        string _lastInterstitialLoadIssue = "Not requested";
 
         MaxSdkBase.SdkConfiguration _sdkConfig;
         int _savedSleepTimeout;
@@ -43,8 +49,15 @@ namespace Sorolla.Palette.Adapters
         int _interstitialRetryGen;
         int _rewardedRetryGen;
 
+        public bool IsInitialized => _init;
         public bool IsRewardedAdReady => _init && _rewardedReady && MaxSdk.IsRewardedAdReady(_rewardedId);
         public bool IsInterstitialAdReady => _init && _interstitialReady && MaxSdk.IsInterstitialReady(_interstitialId);
+        public bool HasRewardedLoadStarted => _rewardedLoadStarted;
+        public bool HasInterstitialLoadStarted => _interstitialLoadStarted;
+        public bool HasRewardedLoadFailed => _rewardedLoadFailed;
+        public bool HasInterstitialLoadFailed => _interstitialLoadFailed;
+        public string LastRewardedLoadIssue => _lastRewardedLoadIssue;
+        public string LastInterstitialLoadIssue => _lastInterstitialLoadIssue;
         public ConsentStatus ConsentStatus { get; private set; } = ConsentStatus.Unknown;
 
         public bool CanRequestAds => ConsentStatus == ConsentStatus.Obtained ||
@@ -324,6 +337,8 @@ namespace Sorolla.Palette.Adapters
         void OnRewardedAdLoaded(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
             _rewardedReady = true;
+            _rewardedLoadFailed = false;
+            _lastRewardedLoadIssue = "Loaded";
             _rewardedRetryAttempt = 0;
             if (!_rewardedLoadLogged)
             {
@@ -344,6 +359,8 @@ namespace Sorolla.Palette.Adapters
         void OnRewardedAdLoadFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo)
         {
             _rewardedReady = false;
+            _rewardedLoadFailed = true;
+            _lastRewardedLoadIssue = $"Load failed: code={(int)errorInfo.Code}, mediatedCode={errorInfo.MediatedNetworkErrorCode}";
             PaletteLog.WarningOnce($"max.rewarded.load_failed.{(int)errorInfo.Code}.{errorInfo.MediatedNetworkErrorCode}",
                 $"[Palette:MAX] Rewarded ad load failed; retrying with backoff. code={(int)errorInfo.Code}, mediatedCode={errorInfo.MediatedNetworkErrorCode}. Rebuild with verbose logging to inspect SDK details.");
             PaletteLog.Verbose($"[Palette:MAX] Rewarded ad load failed detail: {errorInfo.Message}");
@@ -402,6 +419,10 @@ namespace Sorolla.Palette.Adapters
 
         void LoadRewarded()
         {
+            _rewardedLoadStarted = true;
+            if (_lastRewardedLoadIssue == "Not requested")
+                _lastRewardedLoadIssue = "Requested";
+
             // Only show overlay when user is actively waiting for an ad
             if (_userWaitingForRewarded)
                 OnAdLoadingStateChanged?.Invoke(AdType.Rewarded, true);
@@ -476,6 +497,8 @@ namespace Sorolla.Palette.Adapters
         void OnInterstitialAdLoaded(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
             _interstitialReady = true;
+            _interstitialLoadFailed = false;
+            _lastInterstitialLoadIssue = "Loaded";
             _interstitialRetryAttempt = 0;
             if (!_interstitialLoadLogged)
             {
@@ -496,6 +519,8 @@ namespace Sorolla.Palette.Adapters
         void OnInterstitialAdLoadFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo)
         {
             _interstitialReady = false;
+            _interstitialLoadFailed = true;
+            _lastInterstitialLoadIssue = $"Load failed: code={(int)errorInfo.Code}, mediatedCode={errorInfo.MediatedNetworkErrorCode}";
             PaletteLog.WarningOnce($"max.interstitial.load_failed.{(int)errorInfo.Code}.{errorInfo.MediatedNetworkErrorCode}",
                 $"[Palette:MAX] Interstitial ad load failed; retrying with backoff. code={(int)errorInfo.Code}, mediatedCode={errorInfo.MediatedNetworkErrorCode}. Rebuild with verbose logging to inspect SDK details.");
             PaletteLog.Verbose($"[Palette:MAX] Interstitial ad load failed detail: {errorInfo.Message}");
@@ -552,6 +577,10 @@ namespace Sorolla.Palette.Adapters
 
         void LoadInterstitial()
         {
+            _interstitialLoadStarted = true;
+            if (_lastInterstitialLoadIssue == "Not requested")
+                _lastInterstitialLoadIssue = "Requested";
+
             // Only show overlay when user is actively waiting for an ad
             if (_userWaitingForInterstitial)
                 OnAdLoadingStateChanged?.Invoke(AdType.Interstitial, true);

@@ -126,12 +126,19 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Apply mode-specific defines
+        ///     Remove legacy mode defines. Mode is resolved from SorollaConfig.asset,
+        ///     so these derived symbols must not be treated as source of truth.
         /// </summary>
-        public static void Apply(bool isPrototype)
+        public static bool RemoveLegacyModeDefines()
         {
-            Set(SorollaSettings.DefinePrototype, isPrototype);
-            Set(SorollaSettings.DefineFull, !isPrototype);
+            bool changed = false;
+            changed |= SetIfChanged(SorollaSettings.LegacyDefinePrototype, false);
+            changed |= SetIfChanged(SorollaSettings.LegacyDefineFull, false);
+
+            if (changed)
+                Debug.Log("[Palette] Removed legacy mode define symbols. SorollaConfig.asset is the mode source of truth.");
+
+            return changed;
         }
 
         /// <summary>

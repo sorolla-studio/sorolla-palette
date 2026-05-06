@@ -1,7 +1,9 @@
-- name: Get Started
+- name: Prototype Quick Start
   href: quick-start.md
-- name: Switching to Full
+- name: Full Mode Migration
   href: switching-to-full.md
+- name: Validation Checklist
+  href: validation.md
 - name: SDK Guides
   href: guides/toc.yml
 - name: API Reference

@@ -35,8 +35,15 @@ namespace Sorolla.Palette.Adapters
     /// </summary>
     internal interface IMaxAdapter
     {
+        bool IsInitialized { get; }
         bool IsRewardedAdReady { get; }
         bool IsInterstitialAdReady { get; }
+        bool HasRewardedLoadStarted { get; }
+        bool HasInterstitialLoadStarted { get; }
+        bool HasRewardedLoadFailed { get; }
+        bool HasInterstitialLoadFailed { get; }
+        string LastRewardedLoadIssue { get; }
+        string LastInterstitialLoadIssue { get; }
         ConsentStatus ConsentStatus { get; }
         bool CanRequestAds { get; }
         bool IsPrivacyOptionsRequired { get; }
@@ -81,11 +88,24 @@ namespace Sorolla.Palette.Adapters
             impl.OnConsentStatusChanged += (status) => OnConsentStatusChanged?.Invoke(status);
         }
 
+        /// <summary>Whether a MAX implementation has registered</summary>
+        public static bool IsRegistered => s_impl != null;
+
+        /// <summary>Whether MAX has fired its SDK initialized callback</summary>
+        public static bool IsInitialized => s_impl?.IsInitialized ?? false;
+
         /// <summary>Whether a rewarded ad is ready to show</summary>
         public static bool IsRewardedAdReady => s_impl?.IsRewardedAdReady ?? false;
 
         /// <summary>Whether an interstitial ad is ready to show</summary>
         public static bool IsInterstitialAdReady => s_impl?.IsInterstitialAdReady ?? false;
+
+        public static bool HasRewardedLoadStarted => s_impl?.HasRewardedLoadStarted ?? false;
+        public static bool HasInterstitialLoadStarted => s_impl?.HasInterstitialLoadStarted ?? false;
+        public static bool HasRewardedLoadFailed => s_impl?.HasRewardedLoadFailed ?? false;
+        public static bool HasInterstitialLoadFailed => s_impl?.HasInterstitialLoadFailed ?? false;
+        public static string LastRewardedLoadIssue => s_impl?.LastRewardedLoadIssue ?? "Not requested";
+        public static string LastInterstitialLoadIssue => s_impl?.LastInterstitialLoadIssue ?? "Not requested";
 
         /// <summary>
         ///     Current consent status from MAX's UMP integration.
