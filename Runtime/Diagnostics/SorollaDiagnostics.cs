@@ -1,0 +1,1145 @@
+using System;
+using System.Collections.Generic;
+using System.Text;
+using Sorolla.Palette.Adapters;
+using UnityEngine;
+
+namespace Sorolla.Palette
+{
+    internal enum SorollaDiagnosticSeverity
+    {
+        Info,
+        Waiting,
+        Pass,
+        Warning,
+        Fail,
+    }
+
+    internal readonly struct SorollaDiagnosticRow
+    {
+        public readonly string Group;
+        public readonly string Name;
+        public readonly SorollaDiagnosticSeverity Severity;
+        public readonly string Detail;
+
+        public SorollaDiagnosticRow(string group, string name, SorollaDiagnosticSeverity severity, string detail)
+        {
+            Group = group;
+            Name = name;
+            Severity = severity;
+            Detail = detail;
+        }
+    }
+
+    internal readonly struct SorollaDiagnosticEventLogEntry
+    {
+        public readonly int Id;
+        public readonly float TimeSeconds;
+        public readonly string Source;
+        public readonly string Name;
+        public readonly string Payload;
+        public readonly SorollaDiagnosticPayloadLine[] PayloadLines;
+
+        public SorollaDiagnosticEventLogEntry(int id, float timeSeconds, string source, string name, string payload,
+            SorollaDiagnosticPayloadLine[] payloadLines)
+        {
+            Id = id;
+            TimeSeconds = timeSeconds;
+            Source = source;
+            Name = name;
+            Payload = payload;
+            PayloadLines = payloadLines ?? Array.Empty<SorollaDiagnosticPayloadLine>();
+        }
+    }
+
+    internal readonly struct SorollaDiagnosticPayloadLine
+    {
+        public readonly string Key;
+        public readonly string Value;
+
+        public SorollaDiagnosticPayloadLine(string key, string value)
+        {
+            Key = key;
+            Value = value;
+        }
+    }
+
+    internal static class SorollaDiagnostics
+    {
+        const float IdentifierRefreshIntervalSeconds = 20f;
+        const int MaxEventLogEntries = 40;
+        static readonly object s_lock = new object();
+        static readonly Queue<SorollaDiagnosticEventLogEntry> s_eventLog = new Queue<SorollaDiagnosticEventLogEntry>(MaxEventLogEntries);
+        static int s_nextEventId;
+
+        static bool s_logBridgeInstalled;
+        static bool s_unityLogInstalled;
+
+        static bool s_autoInitSeen;
+        static bool s_initializeSeen;
+        static bool s_readySeen;
+        static bool s_modeKnown;
+        static bool s_fullMode;
+        static string s_initDetail = "Not observed yet";
+
+        static bool s_gaInitialized;
+        static bool s_facebookInitialized;
+        static bool s_facebookFailed;
+        static bool s_maxRegistered;
+        static bool s_maxInitialized;
+        static bool s_maxConsentSeen;
+        static string s_maxConsentDetail = "Not observed yet";
+        static bool s_adjustRegistered;
+        static bool s_adjustInitializing;
+        static bool s_adjustInitialized;
+        static bool s_adjustMissingToken;
+        static string s_adjustEnvironment = "Unknown";
+        static bool s_firebaseCoreReady;
+        static bool s_firebaseAnalyticsReady;
+        static bool s_crashlyticsReady;
+        static bool s_remoteConfigFetchSeen;
+        static bool s_remoteConfigFetchSuccess;
+        static string s_remoteConfigDetail = "Not observed yet";
+
+        static bool s_purchaseTrackingAttached;
+        static int s_purchaseAcceptedCount;
+        static int s_purchaseDuplicateCount;
+        static string s_purchaseIssue = "No issue observed";
+        static string s_purchaseVerification = "Not observed";
+
+        static int s_progressionStartCount;
+        static int s_progressionEndCount;
+        static int s_economyEarnCount;
+        static int s_economySpendCount;
+        static int s_customEventCount;
+        static string s_lastCustomEvent = "None";
+
+        static bool s_rewardedLoaded;
+        static bool s_rewardedCompleted;
+        static bool s_interstitialLoaded;
+        static bool s_interstitialCompleted;
+        static bool s_adRevenueSeen;
+        static string s_lastAdIssue = "No issue observed";
+
+        static int s_paletteWarningCount;
+        static int s_paletteErrorCount;
+        static string s_lastPaletteWarning = "None";
+        static string s_lastPaletteError = "None";
+        static int s_exceptionCount;
+        static int s_nullReferenceCount;
+        static int s_fatalCount;
+        static string s_lastRedFlag = "None";
+
+        static float s_lastIdentifierRefresh = -999f;
+        static float s_adIdRequestTime = -999f;
+        static float s_adjustIdRequestTime = -999f;
+        static float s_attributionRequestTime = -999f;
+        static bool s_adIdRequested;
+        static bool s_adIdReceived;
+        static bool s_adIdPresent;
+        static bool s_adIdZeroed;
+        static bool s_adjustIdRequested;
+        static bool s_adjustIdReceived;
+        static bool s_adjustIdPresent;
+        static string s_attributionSummary = "Not requested";
+
+        internal static void EnsureLogBridge()
+        {
+            if (s_logBridgeInstalled) return;
+
+            PaletteLog.MessageEmitted += RecordPaletteLog;
+            s_logBridgeInstalled = true;
+        }
+
+        internal static void InstallUnityLogSink()
+        {
+            if (s_unityLogInstalled) return;
+
+            Application.logMessageReceived += RecordUnityLog;
+            s_unityLogInstalled = true;
+        }
+
+        internal static void UninstallUnityLogSink()
+        {
+            if (!s_unityLogInstalled) return;
+
+            Application.logMessageReceived -= RecordUnityLog;
+            s_unityLogInstalled = false;
+        }
+
+        internal static void RecordProgression(string status)
+        {
+            lock (s_lock)
+            {
+                if (status == "start") s_progressionStartCount++;
+                else s_progressionEndCount++;
+            }
+        }
+
+        internal static void RecordEconomy(bool earn)
+        {
+            lock (s_lock)
+            {
+                if (earn) s_economyEarnCount++;
+                else s_economySpendCount++;
+            }
+        }
+
+        internal static void RecordCustomEvent(string eventName, IDictionary<string, object> parameters = null)
+        {
+            lock (s_lock)
+            {
+                s_customEventCount++;
+                s_lastCustomEvent = string.IsNullOrEmpty(eventName) ? "unnamed" : eventName;
+                EnqueueEvent("custom", s_lastCustomEvent, parameters);
+            }
+        }
+
+        internal static void RecordEventDispatch(string source, string eventName, IDictionary<string, object> parameters = null)
+        {
+            lock (s_lock)
+            {
+                EnqueueEvent(source, eventName, parameters);
+            }
+        }
+
+        internal static void ClearEventLog()
+        {
+            lock (s_lock)
+            {
+                s_eventLog.Clear();
+            }
+        }
+
+        internal static void CopyEventLog(List<SorollaDiagnosticEventLogEntry> target)
+        {
+            target.Clear();
+            lock (s_lock)
+            {
+                foreach (SorollaDiagnosticEventLogEntry entry in s_eventLog)
+                    target.Add(entry);
+            }
+        }
+
+        internal static void UpdatePolling()
+        {
+            if (!Palette.IsInitialized) return;
+
+            float now = Time.realtimeSinceStartup;
+            if (now - s_lastIdentifierRefresh < IdentifierRefreshIntervalSeconds) return;
+
+            RefreshIdentifiers();
+        }
+
+        internal static void RefreshIdentifiers()
+        {
+            float now = Time.realtimeSinceStartup;
+            lock (s_lock)
+            {
+                s_lastIdentifierRefresh = now;
+                s_adIdRequested = true;
+                s_adIdReceived = false;
+                s_adIdRequestTime = now;
+                s_adjustIdRequested = true;
+                s_adjustIdReceived = false;
+                s_adjustIdRequestTime = now;
+                s_attributionRequestTime = now;
+                s_attributionSummary = "Fetching";
+            }
+
+            Palette.GetAdvertisingId(id =>
+            {
+                lock (s_lock)
+                {
+                    s_adIdReceived = true;
+                    s_adIdPresent = !string.IsNullOrEmpty(id);
+                    s_adIdZeroed = IsZeroAdvertisingId(id);
+                }
+            });
+
+            Palette.GetAdjustId(adid =>
+            {
+                lock (s_lock)
+                {
+                    s_adjustIdReceived = true;
+                    s_adjustIdPresent = !string.IsNullOrEmpty(adid);
+                }
+            });
+
+            Palette.GetAttribution(attr =>
+            {
+                lock (s_lock)
+                {
+                    if (!attr.HasValue)
+                    {
+                        s_attributionSummary = "Unavailable";
+                        return;
+                    }
+
+                    AttributionData data = attr.Value;
+                    s_attributionSummary = string.IsNullOrEmpty(data.Network) ? "Network missing" : data.Network;
+                }
+            });
+        }
+
+        internal static void BuildRows(List<SorollaDiagnosticRow> rows)
+        {
+            rows.Clear();
+
+            SorollaConfig config = LoadConfig();
+            Snapshot snapshot = CaptureSnapshot();
+
+            bool fullMode = config != null && !config.isPrototypeMode;
+
+            Add(rows, "Boot", "Diagnostics console", SorollaDiagnosticSeverity.Pass, "Auto-installed, code-only, hidden by default");
+            Add(rows, "Boot", "Auto-init marker", snapshot.AutoInitSeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
+                snapshot.AutoInitSeen ? "Observed" : "Waiting for bootstrap");
+            Add(rows, "Boot", "Palette mode", ModeSeverity(config, snapshot), ModeDetail(config, snapshot));
+            Add(rows, "Boot", "Palette ready", Palette.IsInitialized || snapshot.ReadySeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
+                Palette.IsInitialized || snapshot.ReadySeen ? "Ready" : snapshot.InitDetail);
+            Add(rows, "Boot", "Build", Debug.isDebugBuild ? SorollaDiagnosticSeverity.Info : SorollaDiagnosticSeverity.Pass,
+                Debug.isDebugBuild ? "Development build" : "Release build");
+            Add(rows, "Boot", "Verbose logging", Palette.VerboseLogging ? SorollaDiagnosticSeverity.Info : SorollaDiagnosticSeverity.Pass,
+                Palette.VerboseLogging ? "Enabled for dev diagnostics" : "Off");
+            Add(rows, "Boot", "Network reachability", ReachabilitySeverity(), Application.internetReachability.ToString());
+
+            Add(rows, "Config", "SorollaConfig", config != null ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Fail,
+                config != null ? "Loaded from Resources" : "Missing Assets/Resources/SorollaConfig.asset");
+            Add(rows, "Config", "Adjust token", ConfigPresence(config?.adjustAppToken, fullMode, snapshot.AdjustMissingToken));
+            Add(rows, "Config", "Adjust environment", AdjustEnvironmentSeverity(config, fullMode),
+                !fullMode ? "Not required in Prototype" : config == null ? "Config missing" : config.adjustSandboxMode ? "Sandbox" : "Production");
+            Add(rows, "Config", "Rewarded ad unit", ConfigPresence(config?.rewardedAdUnit?.Current, fullMode, false));
+            Add(rows, "Config", "Interstitial ad unit", ConfigPresence(config?.interstitialAdUnit?.Current, fullMode, false));
+            Add(rows, "Config", "Purchase event token", ConfigPresence(config?.adjustPurchaseEventToken, fullMode, false));
+
+#if GAMEANALYTICS_INSTALLED
+            Add(rows, "SDKs", "GameAnalytics", snapshot.GaInitialized ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
+                snapshot.GaInitialized ? "Initialized" : "Waiting for init log");
+#else
+            Add(rows, "SDKs", "GameAnalytics", SorollaDiagnosticSeverity.Fail, "Package not installed");
+#endif
+
+#if SOROLLA_FACEBOOK_ENABLED
+            Add(rows, "SDKs", "Facebook", snapshot.FacebookFailed ? SorollaDiagnosticSeverity.Fail : snapshot.FacebookInitialized ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
+                snapshot.FacebookFailed ? "Initialization failed" : snapshot.FacebookInitialized ? "Initialized" : "Waiting for init log");
+#else
+            Add(rows, "SDKs", "Facebook", SorollaDiagnosticSeverity.Info, "Package not installed");
+#endif
+
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            Add(rows, "SDKs", "MAX implementation", snapshot.MaxRegistered ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
+                snapshot.MaxRegistered ? "Registered" : "Waiting for adapter registration");
+            Add(rows, "SDKs", "MAX initialized", snapshot.MaxInitialized ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
+                snapshot.MaxInitialized ? "Initialized" : "Waiting for MAX callback");
+#else
+            Add(rows, "SDKs", "MAX", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
+                fullMode ? "Package missing for Full mode" : "Not installed");
+#endif
+
+#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+            Add(rows, "SDKs", "Adjust implementation", snapshot.AdjustRegistered ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
+                snapshot.AdjustRegistered ? "Registered" : "Waiting for adapter registration");
+            Add(rows, "SDKs", "Adjust initialized", AdjustRuntimeSeverity(snapshot, fullMode),
+                AdjustRuntimeDetail(snapshot, fullMode));
+#else
+            Add(rows, "SDKs", "Adjust", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
+                fullMode ? "Package missing for Full mode" : "Not installed");
+#endif
+
+#if FIREBASE_ANALYTICS_INSTALLED
+            Add(rows, "Firebase", "Core", snapshot.FirebaseCoreReady || FirebaseCoreManager.IsInitialized ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
+                snapshot.FirebaseCoreReady || FirebaseCoreManager.IsInitialized ? "Ready" : "Waiting for Firebase Core");
+            Add(rows, "Firebase", "Analytics", snapshot.FirebaseAnalyticsReady || FirebaseAdapter.IsReady ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
+                snapshot.FirebaseAnalyticsReady || FirebaseAdapter.IsReady ? "Ready" : "Waiting for Firebase Analytics");
+#else
+            Add(rows, "Firebase", "Analytics", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
+                fullMode ? "Package missing for Full mode" : "Not installed");
+#endif
+
+#if FIREBASE_CRASHLYTICS_INSTALLED
+            Add(rows, "Firebase", "Crashlytics", snapshot.CrashlyticsReady || FirebaseCrashlyticsAdapter.IsReady ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
+                snapshot.CrashlyticsReady || FirebaseCrashlyticsAdapter.IsReady ? "Initialized" : "Waiting for init");
+#else
+            Add(rows, "Firebase", "Crashlytics", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
+                fullMode ? "Package missing for Full mode" : "Not installed");
+#endif
+
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+            Add(rows, "Firebase", "Remote Config", RemoteConfigSeverity(snapshot),
+                snapshot.RemoteConfigFetchSeen ? snapshot.RemoteConfigDetail : "Waiting for fetch");
+#else
+            Add(rows, "Firebase", "Remote Config", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
+                fullMode ? "Package missing for Full mode" : "Not installed");
+#endif
+
+            Add(rows, "Consent", "MAX consent", ConsentSeverity(snapshot),
+                snapshot.MaxConsentSeen ? snapshot.MaxConsentDetail : "Waiting for consent status");
+            Add(rows, "Consent", "Can request ads", Palette.CanRequestAds ? SorollaDiagnosticSeverity.Pass : fullMode ? SorollaDiagnosticSeverity.Warning : SorollaDiagnosticSeverity.Info,
+                Palette.CanRequestAds ? "True" : fullMode ? "False" : "Not applicable");
+            Add(rows, "Consent", "ATT", AttSeverity(), Palette.AttStatus.ToString());
+            Add(rows, "Identity", AdvertisingIdLabel(), AdvertisingIdSeverity(snapshot), AdvertisingIdDetail(snapshot));
+            Add(rows, "Identity", "Adjust ADID", AdjustIdSeverity(snapshot, fullMode), AdjustIdDetail(snapshot, fullMode));
+            Add(rows, "Identity", "Attribution", AttributionSeverity(snapshot, fullMode), AttributionDetail(snapshot));
+
+            Add(rows, "Activity", "Progression start/end", CountPairSeverity(snapshot.ProgressionStartCount, snapshot.ProgressionEndCount),
+                $"{snapshot.ProgressionStartCount} start / {snapshot.ProgressionEndCount} end observed");
+            Add(rows, "Activity", "Economy earn/spend", CountPairSeverity(snapshot.EconomyEarnCount, snapshot.EconomySpendCount),
+                $"{snapshot.EconomyEarnCount} earn / {snapshot.EconomySpendCount} spend observed");
+            Add(rows, "Activity", "Custom events", snapshot.CustomEventCount > 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
+                snapshot.CustomEventCount > 0 ? $"{snapshot.CustomEventCount} observed, last={snapshot.LastCustomEvent}" : "None observed");
+            Add(rows, "Activity", "IAP tracking attached", snapshot.PurchaseTrackingAttached ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
+                snapshot.PurchaseTrackingAttached ? "AttachPurchaseTracking wired" : "Waiting for store controller wiring");
+            Add(rows, "Activity", "Purchase accepted", snapshot.PurchaseAcceptedCount > 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
+                snapshot.PurchaseAcceptedCount > 0 ? $"{snapshot.PurchaseAcceptedCount} purchase event(s)" : "No purchase observed");
+            Add(rows, "Activity", "Purchase verification", PurchaseVerificationSeverity(snapshot), snapshot.PurchaseVerification);
+            Add(rows, "Activity", "Purchase issues", snapshot.PurchaseIssue == "No issue observed" ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
+                snapshot.PurchaseDuplicateCount > 0 ? $"{snapshot.PurchaseIssue}; duplicates={snapshot.PurchaseDuplicateCount}" : snapshot.PurchaseIssue);
+
+            Add(rows, "Ads", "Interstitial", AdSeverity(snapshot.InterstitialReady, snapshot.InterstitialLoadStarted,
+                    snapshot.InterstitialLoadFailed, snapshot.InterstitialLoaded, snapshot.InterstitialCompleted, snapshot.MaxInitialized),
+                AdDetail(snapshot.InterstitialReady, snapshot.InterstitialLoadStarted, snapshot.InterstitialLoadFailed,
+                    snapshot.InterstitialLoaded, snapshot.InterstitialCompleted, snapshot.InterstitialLoadIssue, snapshot.MaxInitialized));
+            Add(rows, "Ads", "Rewarded", AdSeverity(snapshot.RewardedReady, snapshot.RewardedLoadStarted,
+                    snapshot.RewardedLoadFailed, snapshot.RewardedLoaded, snapshot.RewardedCompleted, snapshot.MaxInitialized),
+                AdDetail(snapshot.RewardedReady, snapshot.RewardedLoadStarted, snapshot.RewardedLoadFailed,
+                    snapshot.RewardedLoaded, snapshot.RewardedCompleted, snapshot.RewardedLoadIssue, snapshot.MaxInitialized));
+            Add(rows, "Ads", "Ad revenue", snapshot.AdRevenueSeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
+                snapshot.AdRevenueSeen ? "Observed" : "No revenue callback observed");
+            Add(rows, "Ads", "Ad issues", snapshot.LastAdIssue == "No issue observed" ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
+                snapshot.LastAdIssue);
+
+            Add(rows, "Red flags", "SDK warnings", snapshot.PaletteWarningCount == 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
+                snapshot.PaletteWarningCount == 0 ? "None" : $"{snapshot.PaletteWarningCount}, last={snapshot.LastPaletteWarning}");
+            Add(rows, "Red flags", "SDK errors", snapshot.PaletteErrorCount == 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Fail,
+                snapshot.PaletteErrorCount == 0 ? "None" : $"{snapshot.PaletteErrorCount}, last={snapshot.LastPaletteError}");
+            Add(rows, "Red flags", "Runtime exceptions", RuntimeExceptionSeverity(snapshot),
+                snapshot.ExceptionCount == 0 && snapshot.NullReferenceCount == 0 && snapshot.FatalCount == 0
+                    ? "None observed"
+                    : $"exceptions={snapshot.ExceptionCount}, nullrefs={snapshot.NullReferenceCount}, fatal={snapshot.FatalCount}, last={snapshot.LastRedFlag}");
+        }
+
+        static SorollaConfig LoadConfig()
+        {
+            return Palette.Config != null
+                ? Palette.Config
+                : Resources.Load<SorollaConfig>("SorollaConfig");
+        }
+
+        static Snapshot CaptureSnapshot()
+        {
+            lock (s_lock)
+            {
+                return new Snapshot
+                {
+                    AutoInitSeen = s_autoInitSeen,
+                    InitializeSeen = s_initializeSeen,
+                    ReadySeen = s_readySeen,
+                    ModeKnown = s_modeKnown,
+                    FullMode = s_fullMode,
+                    InitDetail = s_initDetail,
+                    GaInitialized = s_gaInitialized,
+                    FacebookInitialized = s_facebookInitialized,
+                    FacebookFailed = s_facebookFailed,
+                    MaxRegistered = s_maxRegistered || MaxAdapter.IsRegistered,
+                    MaxInitialized = s_maxInitialized || MaxAdapter.IsInitialized,
+                    MaxConsentSeen = s_maxConsentSeen,
+                    MaxConsentDetail = s_maxConsentDetail,
+                    AdjustRegistered = s_adjustRegistered || AdjustAdapter.IsRegistered,
+                    AdjustInitializing = s_adjustInitializing,
+                    AdjustInitialized = s_adjustInitialized || AdjustAdapter.IsInitialized,
+                    AdjustMissingToken = s_adjustMissingToken,
+                    AdjustEnvironment = s_adjustEnvironment,
+                    FirebaseCoreReady = s_firebaseCoreReady,
+                    FirebaseAnalyticsReady = s_firebaseAnalyticsReady,
+                    CrashlyticsReady = s_crashlyticsReady,
+                    RemoteConfigFetchSeen = s_remoteConfigFetchSeen,
+                    RemoteConfigFetchSuccess = s_remoteConfigFetchSuccess,
+                    RemoteConfigDetail = s_remoteConfigDetail,
+                    PurchaseTrackingAttached = s_purchaseTrackingAttached,
+                    PurchaseAcceptedCount = s_purchaseAcceptedCount,
+                    PurchaseDuplicateCount = s_purchaseDuplicateCount,
+                    PurchaseIssue = s_purchaseIssue,
+                    PurchaseVerification = s_purchaseVerification,
+                    ProgressionStartCount = s_progressionStartCount,
+                    ProgressionEndCount = s_progressionEndCount,
+                    EconomyEarnCount = s_economyEarnCount,
+                    EconomySpendCount = s_economySpendCount,
+                    CustomEventCount = s_customEventCount,
+                    LastCustomEvent = s_lastCustomEvent,
+                    RewardedReady = Palette.IsRewardedAdReady,
+                    RewardedLoadStarted = MaxAdapter.HasRewardedLoadStarted,
+                    RewardedLoadFailed = MaxAdapter.HasRewardedLoadFailed,
+                    RewardedLoadIssue = MaxAdapter.LastRewardedLoadIssue,
+                    RewardedLoaded = s_rewardedLoaded,
+                    RewardedCompleted = s_rewardedCompleted,
+                    InterstitialReady = Palette.IsInterstitialAdReady,
+                    InterstitialLoadStarted = MaxAdapter.HasInterstitialLoadStarted,
+                    InterstitialLoadFailed = MaxAdapter.HasInterstitialLoadFailed,
+                    InterstitialLoadIssue = MaxAdapter.LastInterstitialLoadIssue,
+                    InterstitialLoaded = s_interstitialLoaded,
+                    InterstitialCompleted = s_interstitialCompleted,
+                    AdRevenueSeen = s_adRevenueSeen,
+                    LastAdIssue = s_lastAdIssue,
+                    PaletteWarningCount = s_paletteWarningCount,
+                    PaletteErrorCount = s_paletteErrorCount,
+                    LastPaletteWarning = s_lastPaletteWarning,
+                    LastPaletteError = s_lastPaletteError,
+                    ExceptionCount = s_exceptionCount,
+                    NullReferenceCount = s_nullReferenceCount,
+                    FatalCount = s_fatalCount,
+                    LastRedFlag = s_lastRedFlag,
+                    AdIdRequested = s_adIdRequested,
+                    AdIdReceived = s_adIdReceived,
+                    AdIdPresent = s_adIdPresent,
+                    AdIdZeroed = s_adIdZeroed,
+                    AdIdRequestTime = s_adIdRequestTime,
+                    AdjustIdRequested = s_adjustIdRequested,
+                    AdjustIdReceived = s_adjustIdReceived,
+                    AdjustIdPresent = s_adjustIdPresent,
+                    AdjustIdRequestTime = s_adjustIdRequestTime,
+                    AttributionRequestTime = s_attributionRequestTime,
+                    AttributionSummary = s_attributionSummary,
+                };
+            }
+        }
+
+        internal static string BuildSummary()
+        {
+            var rows = new List<SorollaDiagnosticRow>(64);
+            BuildRows(rows);
+
+            var sb = new StringBuilder(4096);
+            AppendReportHeader(sb, "Sorolla Palette Vitals", BuildReportDetail());
+
+            string currentGroup = null;
+            foreach (SorollaDiagnosticRow row in rows)
+            {
+                if (row.Group != currentGroup)
+                {
+                    currentGroup = row.Group;
+                    sb.AppendLine($"[{currentGroup}]");
+                }
+
+                sb.AppendLine($"{SeverityLabel(row.Severity),-7} {row.Name}: {row.Detail}");
+            }
+
+            sb.AppendLine();
+            sb.AppendLine("[Recent Events]");
+            AppendEventLog(sb);
+
+            return sb.ToString();
+        }
+
+        internal static string BuildIssuesSummary()
+        {
+            var rows = new List<SorollaDiagnosticRow>(64);
+            BuildRows(rows);
+
+            var sb = new StringBuilder(2048);
+            AppendReportHeader(sb, "Sorolla Vitals Issues", BuildReportDetail(rows));
+
+            bool any = false;
+            foreach (SorollaDiagnosticRow row in rows)
+            {
+                if (!IsIssueSeverity(row.Severity)) continue;
+
+                any = true;
+                sb.AppendLine($"{SeverityLabel(row.Severity),-7} [{row.Group}] {row.Name}: {row.Detail}");
+            }
+
+            if (!any)
+                sb.AppendLine("No FAIL/WARN/WAIT diagnostics observed.");
+
+            return sb.ToString();
+        }
+
+        internal static string BuildEventLogSummary()
+        {
+            var rows = new List<SorollaDiagnosticRow>(64);
+            BuildRows(rows);
+
+            var sb = new StringBuilder(2048);
+            AppendReportHeader(sb, "Sorolla Vitals Event Console", BuildReportDetail(rows));
+            AppendEventLog(sb);
+            return sb.ToString();
+        }
+
+        internal static bool IsProblemSeverity(SorollaDiagnosticSeverity severity)
+        {
+            return severity == SorollaDiagnosticSeverity.Fail
+                || severity == SorollaDiagnosticSeverity.Warning;
+        }
+
+        internal static bool IsIssueSeverity(SorollaDiagnosticSeverity severity)
+        {
+            return IsProblemSeverity(severity)
+                || severity == SorollaDiagnosticSeverity.Waiting;
+        }
+
+        static void AppendReportHeader(StringBuilder sb, string title, string buildDetail)
+        {
+            sb.AppendLine(title);
+            sb.AppendLine($"App: {Application.identifier} {Application.version}");
+            sb.AppendLine($"Platform: {Application.platform} | Unity: {Application.unityVersion}");
+            sb.AppendLine(buildDetail);
+            sb.AppendLine($"Time: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}Z");
+            sb.AppendLine();
+        }
+
+        static string BuildReportDetail()
+        {
+            return $"Build: {(Debug.isDebugBuild ? "Development" : "Release")} | Verbose: {Palette.VerboseLogging}";
+        }
+
+        static string BuildReportDetail(List<SorollaDiagnosticRow> rows)
+        {
+            return $"Build: {(Debug.isDebugBuild ? "Development" : "Release")} | Mode: {FindDetail(rows, "Boot", "Palette mode")} | Env: {FindDetail(rows, "Config", "Adjust environment")}";
+        }
+
+        static string FindDetail(List<SorollaDiagnosticRow> rows, string group, string name)
+        {
+            foreach (SorollaDiagnosticRow row in rows)
+            {
+                if (row.Group == group && row.Name == name)
+                    return row.Detail;
+            }
+
+            return "Unknown";
+        }
+
+        static void AppendEventLog(StringBuilder sb)
+        {
+            var events = new List<SorollaDiagnosticEventLogEntry>(MaxEventLogEntries);
+            CopyEventLog(events);
+            if (events.Count == 0)
+            {
+                sb.AppendLine("None observed");
+            }
+            else
+            {
+                for (int i = events.Count - 1; i >= 0; i--)
+                {
+                    SorollaDiagnosticEventLogEntry entry = events[i];
+                    sb.AppendLine($"{FormatEventTime(entry.TimeSeconds),8} [{entry.Source}] {entry.Name} {entry.Payload}");
+                }
+            }
+        }
+
+        internal static string SeverityLabel(SorollaDiagnosticSeverity severity) => severity switch
+        {
+            SorollaDiagnosticSeverity.Pass => "PASS",
+            SorollaDiagnosticSeverity.Warning => "WARN",
+            SorollaDiagnosticSeverity.Fail => "FAIL",
+            SorollaDiagnosticSeverity.Waiting => "WAIT",
+            _ => "INFO",
+        };
+
+        static void RecordPaletteLog(string message, LogType type)
+        {
+            if (string.IsNullOrEmpty(message)) return;
+
+            lock (s_lock)
+            {
+                if (type == LogType.Warning)
+                {
+                    s_paletteWarningCount++;
+                    s_lastPaletteWarning = SafeDetail(message);
+                }
+                else if (type == LogType.Error || type == LogType.Exception)
+                {
+                    s_paletteErrorCount++;
+                    s_lastPaletteError = SafeDetail(message);
+                }
+
+                ParsePaletteLog(message);
+            }
+        }
+
+        static void RecordUnityLog(string message, string stackTrace, LogType type)
+        {
+            if (string.IsNullOrEmpty(message)) return;
+            if (message.StartsWith("[Palette", StringComparison.Ordinal)) return;
+
+            bool isException = type == LogType.Exception || type == LogType.Error;
+            bool isNullReference = message.IndexOf("NullReferenceException", StringComparison.OrdinalIgnoreCase) >= 0;
+            bool isFatal = message.IndexOf("FATAL EXCEPTION", StringComparison.OrdinalIgnoreCase) >= 0
+                || message.IndexOf("F AndroidRuntime", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            if (!isException && !isNullReference && !isFatal) return;
+
+            lock (s_lock)
+            {
+                if (isException) s_exceptionCount++;
+                if (isNullReference) s_nullReferenceCount++;
+                if (isFatal) s_fatalCount++;
+                s_lastRedFlag = isFatal ? "Fatal runtime crash marker" :
+                    isNullReference ? "NullReferenceException" : type.ToString();
+            }
+        }
+
+        static void ParsePaletteLog(string message)
+        {
+            if (message.Contains("[Palette] Auto-initializing")) s_autoInitSeen = true;
+
+            if (message.Contains("[Palette] Initializing ("))
+            {
+                s_initializeSeen = true;
+                s_modeKnown = true;
+                s_fullMode = message.Contains("(Full mode");
+                s_initDetail = SafeDetail(message);
+            }
+
+            if (message.Contains("[Palette] Ready!")) s_readySeen = true;
+
+            if (message.Contains("[Palette:GA] Initializing") || message.Contains("[Palette:GA] Already initialized"))
+                s_gaInitialized = true;
+
+            if (message.Contains("[Palette:FB] Initialized")) s_facebookInitialized = true;
+            if (message.Contains("[Palette:FB] Failed")) s_facebookFailed = true;
+
+            if (message.Contains("[Palette:MAX] Implementation registered")) s_maxRegistered = true;
+            if (message.Contains("[Palette:MAX] Initialized")) s_maxInitialized = true;
+            if (message.Contains("[Palette:MAX] ConsentStatus:"))
+            {
+                s_maxConsentSeen = true;
+                s_maxConsentDetail = SafeDetail(message);
+            }
+
+            if (message.Contains("[Palette] Consent summary:"))
+            {
+                s_maxConsentSeen = true;
+                s_maxConsentDetail = SafeDetail(message);
+            }
+
+            if (message.Contains("[Palette:Adjust] Implementation registered")) s_adjustRegistered = true;
+            if (message.Contains("[Palette] Initializing Adjust ("))
+            {
+                s_adjustInitializing = true;
+                s_adjustEnvironment = message.Contains("Production") ? "Production" : message.Contains("Sandbox") ? "Sandbox" : "Unknown";
+            }
+            if (message.Contains("[Palette:Adjust] Initialized")) s_adjustInitialized = true;
+            if (message.Contains("Adjust App Token not configured")) s_adjustMissingToken = true;
+
+            if (message.Contains("[Palette:FirebaseCore] Ready")) s_firebaseCoreReady = true;
+            if (message.Contains("[Palette:Firebase] Initialized")) s_firebaseAnalyticsReady = true;
+            if (message.Contains("[Palette:Crashlytics] Initialized")) s_crashlyticsReady = true;
+            if (message.Contains("[Palette:RemoteConfig] Fetch complete"))
+            {
+                s_remoteConfigFetchSeen = true;
+                s_remoteConfigFetchSuccess = message.Contains("lastFetchStatus: Success");
+                s_remoteConfigDetail = SafeDetail(message);
+            }
+            if (message.Contains("[Palette:RemoteConfig] Fetch failed"))
+            {
+                s_remoteConfigFetchSeen = true;
+                s_remoteConfigFetchSuccess = false;
+                s_remoteConfigDetail = SafeDetail(message);
+            }
+
+            if (message.Contains("[Palette:Purchasing] AttachPurchaseTracking: wired"))
+                s_purchaseTrackingAttached = true;
+            if (message.Contains("TrackPurchase: accepted")) s_purchaseAcceptedCount++;
+            if (message.Contains("duplicate transactionId"))
+            {
+                s_purchaseDuplicateCount++;
+                s_purchaseIssue = "Duplicate transaction dropped";
+            }
+            if (message.Contains("TrackPurchase") && (message.Contains("invalid metadata") || message.Contains("dropping event")))
+                s_purchaseIssue = SafeDetail(message);
+            if (message.Contains("purchase verification:"))
+                s_purchaseVerification = SafeDetail(message);
+
+            if (message.Contains("[Palette:MAX] Rewarded ad loaded")) s_rewardedLoaded = true;
+            if (message.Contains("[Palette:MAX] Rewarded ad completed")) s_rewardedCompleted = true;
+            if (message.Contains("[Palette:MAX] Interstitial ad loaded")) s_interstitialLoaded = true;
+            if (message.Contains("[Palette:MAX] Interstitial ad completed")) s_interstitialCompleted = true;
+            if (message.Contains("TrackAdRevenue:")) s_adRevenueSeen = true;
+            if (message.Contains("[Palette:MAX]") &&
+                (message.Contains("load failed") || message.Contains("display failed") || message.Contains("not ready")))
+                s_lastAdIssue = SafeDetail(message);
+        }
+
+        static void Add(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity, string detail) =>
+            rows.Add(new SorollaDiagnosticRow(group, name, severity, detail));
+
+        static void Add(List<SorollaDiagnosticRow> rows, string group, string name, (SorollaDiagnosticSeverity severity, string detail) item) =>
+            Add(rows, group, name, item.severity, item.detail);
+
+        static void EnqueueEvent(string source, string eventName, IDictionary<string, object> parameters)
+        {
+            if (s_eventLog.Count >= MaxEventLogEntries)
+                s_eventLog.Dequeue();
+
+            SorollaDiagnosticPayloadLine[] payloadLines = BuildPayloadLines(parameters);
+            s_eventLog.Enqueue(new SorollaDiagnosticEventLogEntry(
+                unchecked(++s_nextEventId),
+                Time.realtimeSinceStartup,
+                string.IsNullOrEmpty(source) ? "event" : source,
+                string.IsNullOrEmpty(eventName) ? "unnamed" : eventName,
+                FormatPayload(payloadLines),
+                payloadLines));
+        }
+
+        static SorollaDiagnosticPayloadLine[] BuildPayloadLines(IDictionary<string, object> parameters)
+        {
+            if (parameters == null || parameters.Count == 0)
+                return Array.Empty<SorollaDiagnosticPayloadLine>();
+
+            var lines = new SorollaDiagnosticPayloadLine[parameters.Count];
+            int index = 0;
+            foreach (KeyValuePair<string, object> item in parameters)
+            {
+                string key = string.IsNullOrEmpty(item.Key) ? "unnamed" : item.Key;
+                lines[index] = new SorollaDiagnosticPayloadLine(key, FormatPayloadValue(key, item.Value));
+                index++;
+            }
+            return lines;
+        }
+
+        static string FormatPayload(SorollaDiagnosticPayloadLine[] lines)
+        {
+            if (lines == null || lines.Length == 0)
+                return "{}";
+
+            var sb = new StringBuilder(256);
+            sb.Append('{');
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                sb.Append(lines[i].Key);
+                sb.Append('=');
+                sb.Append(lines[i].Value);
+            }
+            sb.Append('}');
+            return SafeSingleLine(sb.ToString(), 320);
+        }
+
+        static string FormatPayloadValue(string key, object value)
+        {
+            if (IsSensitivePayloadKey(key))
+                return value == null ? "missing" : "present";
+            if (value == null)
+                return "null";
+            if (value is bool b)
+                return b ? "true" : "false";
+            if (value is float f)
+                return f.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+            if (value is double d)
+                return d.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+            if (value is decimal m)
+                return m.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+            string text = value.ToString() ?? "";
+            if (text.Length > 80)
+                text = text.Substring(0, 79) + "...";
+            return text.Replace('\n', ' ').Replace('\r', ' ');
+        }
+
+        static bool IsSensitivePayloadKey(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return false;
+            string normalized = key.ToLowerInvariant();
+            string compact = normalized.Replace("_", "").Replace("-", "");
+            return normalized.Contains("token")
+                || normalized.Contains("secret")
+                || normalized.Contains("receipt")
+                || compact.Contains("transactionid")
+                || compact.Contains("purchasetoken")
+                || normalized.Contains("tcf");
+        }
+
+        internal static string FormatEventTime(float timeSeconds)
+        {
+            if (timeSeconds < 0f) return "0.0s";
+            return $"+{timeSeconds:0.0}s";
+        }
+
+        static (SorollaDiagnosticSeverity severity, string detail) ConfigPresence(string value, bool required, bool forcedFail)
+        {
+            if (forcedFail) return (SorollaDiagnosticSeverity.Fail, "Missing or rejected by SDK");
+            if (!required && string.IsNullOrEmpty(value)) return (SorollaDiagnosticSeverity.Info, "Not required");
+            return string.IsNullOrEmpty(value)
+                ? (SorollaDiagnosticSeverity.Fail, "Missing")
+                : (SorollaDiagnosticSeverity.Pass, "Present");
+        }
+
+        static SorollaDiagnosticSeverity ModeSeverity(SorollaConfig config, Snapshot snapshot)
+        {
+            if (config == null && !snapshot.ModeKnown) return SorollaDiagnosticSeverity.Fail;
+            bool full = config != null ? !config.isPrototypeMode : snapshot.FullMode;
+            return full ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Fail;
+        }
+
+        static string ModeDetail(SorollaConfig config, Snapshot snapshot)
+        {
+            if (config == null && !snapshot.ModeKnown) return "Config missing / mode unknown";
+            bool full = config != null ? !config.isPrototypeMode : snapshot.FullMode;
+            return full ? "Full mode" : "Prototype mode - QA greenlight blocker";
+        }
+
+        static SorollaDiagnosticSeverity ReachabilitySeverity() =>
+            Application.internetReachability == NetworkReachability.NotReachable
+                ? SorollaDiagnosticSeverity.Fail
+                : SorollaDiagnosticSeverity.Pass;
+
+        static SorollaDiagnosticSeverity AdjustEnvironmentSeverity(SorollaConfig config, bool fullMode)
+        {
+            if (!fullMode) return SorollaDiagnosticSeverity.Info;
+            if (config == null) return SorollaDiagnosticSeverity.Fail;
+            return config.adjustSandboxMode ? SorollaDiagnosticSeverity.Warning : SorollaDiagnosticSeverity.Pass;
+        }
+
+        static SorollaDiagnosticSeverity AdjustRuntimeSeverity(Snapshot snapshot, bool fullMode)
+        {
+            if (!fullMode) return SorollaDiagnosticSeverity.Info;
+            if (snapshot.AdjustMissingToken) return SorollaDiagnosticSeverity.Fail;
+            if (snapshot.AdjustInitialized) return SorollaDiagnosticSeverity.Pass;
+            if (snapshot.AdjustInitializing) return SorollaDiagnosticSeverity.Waiting;
+            return SorollaDiagnosticSeverity.Waiting;
+        }
+
+        static string AdjustRuntimeDetail(Snapshot snapshot, bool fullMode)
+        {
+            if (!fullMode) return "Not required in Prototype";
+            if (snapshot.AdjustMissingToken) return "App token missing";
+            if (snapshot.AdjustInitialized) return $"Initialized ({snapshot.AdjustEnvironment})";
+            if (snapshot.AdjustInitializing) return $"Initializing ({snapshot.AdjustEnvironment})";
+            return "Waiting for MAX consent before Adjust init";
+        }
+
+        static SorollaDiagnosticSeverity RemoteConfigSeverity(Snapshot snapshot)
+        {
+            if (snapshot.RemoteConfigFetchSeen)
+                return snapshot.RemoteConfigFetchSuccess ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning;
+            return SorollaDiagnosticSeverity.Waiting;
+        }
+
+        static SorollaDiagnosticSeverity ConsentSeverity(Snapshot snapshot)
+        {
+            string detail = snapshot.MaxConsentDetail ?? "";
+            if (!snapshot.MaxConsentSeen) return SorollaDiagnosticSeverity.Waiting;
+            if (detail.Contains("Obtained") || detail.Contains("NotApplicable") || detail.Contains("canRequestAds=True"))
+                return SorollaDiagnosticSeverity.Pass;
+            if (detail.Contains("Denied")) return SorollaDiagnosticSeverity.Warning;
+            return SorollaDiagnosticSeverity.Waiting;
+        }
+
+        static SorollaDiagnosticSeverity AttSeverity()
+        {
+#if UNITY_IOS
+            return Palette.AttStatus switch
+            {
+                ATT.ATTBridge.AuthorizationStatus.Authorized => SorollaDiagnosticSeverity.Pass,
+                ATT.ATTBridge.AuthorizationStatus.NotDetermined => SorollaDiagnosticSeverity.Waiting,
+                ATT.ATTBridge.AuthorizationStatus.Denied => SorollaDiagnosticSeverity.Warning,
+                ATT.ATTBridge.AuthorizationStatus.Restricted => SorollaDiagnosticSeverity.Warning,
+                _ => SorollaDiagnosticSeverity.Info,
+            };
+#else
+            return SorollaDiagnosticSeverity.Info;
+#endif
+        }
+
+        static string AdvertisingIdLabel()
+        {
+#if UNITY_IOS
+            return "IDFA";
+#elif UNITY_ANDROID
+            return "GAID";
+#else
+            return "Advertising ID";
+#endif
+        }
+
+        static SorollaDiagnosticSeverity AdvertisingIdSeverity(Snapshot snapshot)
+        {
+            if (!snapshot.AdIdRequested) return SorollaDiagnosticSeverity.Waiting;
+            if (!snapshot.AdIdReceived && Time.realtimeSinceStartup - snapshot.AdIdRequestTime < 4f)
+                return SorollaDiagnosticSeverity.Waiting;
+            if (snapshot.AdIdZeroed) return SorollaDiagnosticSeverity.Fail;
+            return snapshot.AdIdPresent ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning;
+        }
+
+        static string AdvertisingIdDetail(Snapshot snapshot)
+        {
+            if (!snapshot.AdIdRequested) return "Not requested yet";
+            if (!snapshot.AdIdReceived && Time.realtimeSinceStartup - snapshot.AdIdRequestTime < 4f) return "Fetching";
+            if (snapshot.AdIdZeroed) return "Zeroed advertising ID";
+            return snapshot.AdIdPresent ? "Present" : "Missing or unavailable";
+        }
+
+        static SorollaDiagnosticSeverity AdjustIdSeverity(Snapshot snapshot, bool fullMode)
+        {
+            if (!fullMode) return SorollaDiagnosticSeverity.Info;
+            if (!snapshot.AdjustIdRequested) return SorollaDiagnosticSeverity.Waiting;
+            if (!snapshot.AdjustIdReceived && Time.realtimeSinceStartup - snapshot.AdjustIdRequestTime < 4f)
+                return SorollaDiagnosticSeverity.Waiting;
+            return snapshot.AdjustIdPresent ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning;
+        }
+
+        static string AdjustIdDetail(Snapshot snapshot, bool fullMode)
+        {
+            if (!fullMode) return "Not required in Prototype";
+            if (!snapshot.AdjustIdRequested) return "Not requested yet";
+            if (!snapshot.AdjustIdReceived && Time.realtimeSinceStartup - snapshot.AdjustIdRequestTime < 4f) return "Fetching";
+            return snapshot.AdjustIdPresent ? "Present" : "Missing or unavailable";
+        }
+
+        static SorollaDiagnosticSeverity AttributionSeverity(Snapshot snapshot, bool fullMode)
+        {
+            if (!fullMode) return SorollaDiagnosticSeverity.Info;
+            if (snapshot.AttributionSummary == "Not requested") return SorollaDiagnosticSeverity.Waiting;
+            return snapshot.AttributionSummary == "Unavailable" || snapshot.AttributionSummary == "Network missing"
+                ? SorollaDiagnosticSeverity.Warning
+                : snapshot.AttributionSummary == "Fetching"
+                    ? Time.realtimeSinceStartup - snapshot.AttributionRequestTime < 4f
+                        ? SorollaDiagnosticSeverity.Waiting
+                        : SorollaDiagnosticSeverity.Warning
+                    : SorollaDiagnosticSeverity.Pass;
+        }
+
+        static string AttributionDetail(Snapshot snapshot)
+        {
+            if (snapshot.AttributionSummary != "Fetching") return snapshot.AttributionSummary;
+            return Time.realtimeSinceStartup - snapshot.AttributionRequestTime < 4f ? "Fetching" : "Unavailable or callback timed out";
+        }
+
+        static SorollaDiagnosticSeverity CountPairSeverity(int first, int second)
+        {
+            if (first > 0 && second > 0) return SorollaDiagnosticSeverity.Pass;
+            if (first > 0 || second > 0) return SorollaDiagnosticSeverity.Warning;
+            return SorollaDiagnosticSeverity.Info;
+        }
+
+        static SorollaDiagnosticSeverity PurchaseVerificationSeverity(Snapshot snapshot)
+        {
+            if (snapshot.PurchaseVerification == "Not observed") return SorollaDiagnosticSeverity.Info;
+            return snapshot.PurchaseVerification.Contains("success")
+                ? SorollaDiagnosticSeverity.Pass
+                : SorollaDiagnosticSeverity.Warning;
+        }
+
+        static SorollaDiagnosticSeverity AdSeverity(bool ready, bool loadStarted, bool loadFailed, bool loaded, bool completed,
+            bool maxInitialized)
+        {
+            if (!maxInitialized) return SorollaDiagnosticSeverity.Waiting;
+            if (completed) return SorollaDiagnosticSeverity.Pass;
+            if (ready) return SorollaDiagnosticSeverity.Pass;
+            if (loadFailed) return SorollaDiagnosticSeverity.Warning;
+            if (loaded) return SorollaDiagnosticSeverity.Warning;
+            if (loadStarted) return SorollaDiagnosticSeverity.Waiting;
+            return SorollaDiagnosticSeverity.Info;
+        }
+
+        static string AdDetail(bool ready, bool loadStarted, bool loadFailed, bool loaded, bool completed, string loadIssue,
+            bool maxInitialized)
+        {
+            if (!maxInitialized) return "Waiting for MAX initialization";
+            if (completed) return "Shown and completed";
+            if (ready) return "Ready to show";
+            if (loadFailed) return string.IsNullOrEmpty(loadIssue) ? "Load failed; retrying with backoff" : $"{loadIssue}; retrying";
+            if (loaded) return "Loaded, not completed yet";
+            if (loadStarted) return "Requested; waiting for network/fill";
+            return "No load requested";
+        }
+
+        static SorollaDiagnosticSeverity RuntimeExceptionSeverity(Snapshot snapshot)
+        {
+            if (snapshot.FatalCount > 0 || snapshot.NullReferenceCount > 0) return SorollaDiagnosticSeverity.Fail;
+            return snapshot.ExceptionCount > 0 ? SorollaDiagnosticSeverity.Warning : SorollaDiagnosticSeverity.Pass;
+        }
+
+        static bool IsZeroAdvertisingId(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return false;
+            string trimmed = id.Trim();
+            return trimmed == "00000000-0000-0000-0000-000000000000";
+        }
+
+        static string SafeDetail(string message)
+        {
+            if (string.IsNullOrEmpty(message)) return "";
+            const int maxLength = 140;
+            return SafeSingleLine(message, maxLength);
+        }
+
+        static string SafeSingleLine(string message, int maxLength)
+        {
+            if (string.IsNullOrEmpty(message)) return "";
+            string singleLine = message.Replace('\n', ' ').Replace('\r', ' ');
+            return singleLine.Length <= maxLength ? singleLine : singleLine.Substring(0, maxLength - 1) + "...";
+        }
+
+        struct Snapshot
+        {
+            public bool AutoInitSeen;
+            public bool InitializeSeen;
+            public bool ReadySeen;
+            public bool ModeKnown;
+            public bool FullMode;
+            public string InitDetail;
+            public bool GaInitialized;
+            public bool FacebookInitialized;
+            public bool FacebookFailed;
+            public bool MaxRegistered;
+            public bool MaxInitialized;
+            public bool MaxConsentSeen;
+            public string MaxConsentDetail;
+            public bool AdjustRegistered;
+            public bool AdjustInitializing;
+            public bool AdjustInitialized;
+            public bool AdjustMissingToken;
+            public string AdjustEnvironment;
+            public bool FirebaseCoreReady;
+            public bool FirebaseAnalyticsReady;
+            public bool CrashlyticsReady;
+            public bool RemoteConfigFetchSeen;
+            public bool RemoteConfigFetchSuccess;
+            public string RemoteConfigDetail;
+            public bool PurchaseTrackingAttached;
+            public int PurchaseAcceptedCount;
+            public int PurchaseDuplicateCount;
+            public string PurchaseIssue;
+            public string PurchaseVerification;
+            public int ProgressionStartCount;
+            public int ProgressionEndCount;
+            public int EconomyEarnCount;
+            public int EconomySpendCount;
+            public int CustomEventCount;
+            public string LastCustomEvent;
+            public bool RewardedReady;
+            public bool RewardedLoadStarted;
+            public bool RewardedLoadFailed;
+            public string RewardedLoadIssue;
+            public bool RewardedLoaded;
+            public bool RewardedCompleted;
+            public bool InterstitialReady;
+            public bool InterstitialLoadStarted;
+            public bool InterstitialLoadFailed;
+            public string InterstitialLoadIssue;
+            public bool InterstitialLoaded;
+            public bool InterstitialCompleted;
+            public bool AdRevenueSeen;
+            public string LastAdIssue;
+            public int PaletteWarningCount;
+            public int PaletteErrorCount;
+            public string LastPaletteWarning;
+            public string LastPaletteError;
+            public int ExceptionCount;
+            public int NullReferenceCount;
+            public int FatalCount;
+            public string LastRedFlag;
+            public bool AdIdRequested;
+            public bool AdIdReceived;
+            public bool AdIdPresent;
+            public bool AdIdZeroed;
+            public float AdIdRequestTime;
+            public bool AdjustIdRequested;
+            public bool AdjustIdReceived;
+            public bool AdjustIdPresent;
+            public float AdjustIdRequestTime;
+            public float AttributionRequestTime;
+            public string AttributionSummary;
+        }
+    }
+}
