@@ -8,6 +8,7 @@ namespace Sorolla.Palette
         const int RequiredTapCount = 5;
         const float TapWindowSeconds = 3f;
         const float ScrollDragThresholdPixels = 10f;
+        const float DiagnosticsRefreshIntervalSeconds = 0.2f;
 
         static SorollaDiagnosticsConsole s_instance;
 
@@ -142,6 +143,8 @@ namespace Sorolla.Palette
         float _firstTapTime;
         float _uiScale = 1f;
         float _contentWidth = 320f;
+        float _nextDiagnosticsRefreshTime;
+        bool _diagnosticsCacheDirty = true;
         int _scrollTouchId = -1;
         bool _scrollTouchDragging;
         bool _ignoreSectionToggleAfterDrag;
@@ -153,10 +156,12 @@ namespace Sorolla.Palette
         bool _filterInitialized;
         bool _activeTabInitialized;
         bool _showNewestEventsFirst = true;
+        string _headerContextLine = string.Empty;
         GUIStyle _titleStyle;
         GUIStyle _sectionStyle;
         GUIStyle _sectionButtonStyle;
         GUIStyle _rowNameStyle;
+        GUIStyle _rowNameInlineStyle;
         GUIStyle _detailStyle;
         GUIStyle _miniDetailStyle;
         GUIStyle _badgeStyle;
@@ -261,13 +266,18 @@ namespace Sorolla.Palette
         void Update()
         {
             SorollaDiagnostics.UpdatePolling();
-            UpdateUiScale();
             CheckKeyboardToggle();
 
             if (_visible)
+            {
+                UpdateUiScale();
                 CheckTouchScroll();
+                RefreshDiagnosticsCacheIfNeeded();
+            }
             else
+            {
                 CheckTouchToggle();
+            }
         }
 
         void OnGUI()
@@ -275,10 +285,6 @@ namespace Sorolla.Palette
             if (!_visible) return;
 
             EnsureStyles();
-            SorollaDiagnostics.BuildRows(_rows);
-            SorollaDiagnostics.CopyEventLog(_events);
-            SorollaDiagnostics.CopyRuntimeProblems(_runtimeProblems);
-            RefreshDerivedState();
 
             GUI.depth = -1000;
             Rect screenArea = new Rect(0f, 0f, Screen.width, Screen.height);
@@ -320,7 +326,10 @@ namespace Sorolla.Palette
             if (_visible == visible)
             {
                 if (visible)
+                {
                     SorollaDiagnostics.RefreshIdentifiers();
+                    RefreshDiagnosticsCache();
+                }
                 return;
             }
 
@@ -328,9 +337,41 @@ namespace Sorolla.Palette
             _tapCount = 0;
 
             if (visible)
+            {
                 SorollaDiagnostics.RefreshIdentifiers();
+                RefreshDiagnosticsCache();
+            }
             else
+            {
+                _diagnosticsCacheDirty = true;
                 ResetTouchScroll();
+            }
+        }
+
+        void RefreshDiagnosticsCacheIfNeeded()
+        {
+            if (!_diagnosticsCacheDirty && Time.unscaledTime < _nextDiagnosticsRefreshTime)
+                return;
+
+            RefreshDiagnosticsCache();
+        }
+
+        void RefreshDiagnosticsCache()
+        {
+            SorollaDiagnostics.BuildRows(_rows);
+            SorollaDiagnostics.CopyEventLog(_events);
+            SorollaDiagnostics.CopyRuntimeProblems(_runtimeProblems);
+            _headerContextLine = SorollaDiagnostics.BuildHeaderContext();
+            RefreshDerivedState();
+            _diagnosticsCacheDirty = false;
+            _nextDiagnosticsRefreshTime = Time.unscaledTime + DiagnosticsRefreshIntervalSeconds;
+        }
+
+        void RequestDiagnosticsRefresh()
+        {
+            _diagnosticsCacheDirty = true;
+            if (_visible)
+                RefreshDiagnosticsCache();
         }
 
     }

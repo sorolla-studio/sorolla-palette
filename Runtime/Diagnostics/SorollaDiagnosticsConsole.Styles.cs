@@ -4,24 +4,53 @@ namespace Sorolla.Palette
 {
     internal sealed partial class SorollaDiagnosticsConsole
     {
+        const float DefaultTitleFontSize = 24f;
+        const float DefaultTextFontSize = 14.7f;
+        const float DefaultSmallFontSize = 14.3f;
+        const float DefaultPanelPadX = 9.5f;
+        const float DefaultPanelPadY = 8.1f;
+        const float DefaultRowPadX = 2f;
+        const float DefaultRowPadY = 1f;
+        const float DefaultButtonPadX = 4f;
+        const float DefaultButtonPadY = 2f;
+        const float DefaultScaleReferenceShortSide = 470.4f;
+        const float DefaultMinUiScale = 1f;
+        const float DefaultMaxUiScale = 2.7f;
+
+        float _titleFontSize = DefaultTitleFontSize;
+        float _textFontSize = DefaultTextFontSize;
+        float _smallFontSize = DefaultSmallFontSize;
+        float _panelPadX = DefaultPanelPadX;
+        float _panelPadY = DefaultPanelPadY;
+        float _rowPadX = DefaultRowPadX;
+        float _rowPadY = DefaultRowPadY;
+        float _buttonPadX = DefaultButtonPadX;
+        float _buttonPadY = DefaultButtonPadY;
+        float _scaleReferenceShortSide = DefaultScaleReferenceShortSide;
+        float _minUiScale = DefaultMinUiScale;
+        float _maxUiScale = DefaultMaxUiScale;
+        float _stylesUiScale = -1f;
+
         void EnsureStyles()
         {
             UpdateUiScale();
 
-            int titleSize = Mathf.RoundToInt(20f * _uiScale);
-            int textSize = Mathf.RoundToInt(13f * _uiScale);
-            int smallSize = Mathf.RoundToInt(12f * _uiScale);
+            int titleSize = Mathf.RoundToInt(_titleFontSize * _uiScale);
+            int textSize = Mathf.RoundToInt(_textFontSize * _uiScale);
+            int smallSize = Mathf.RoundToInt(_smallFontSize * _uiScale);
 
-            if (_titleStyle != null && _titleStyle.fontSize == titleSize) return;
+            if (_titleStyle != null && _rowNameInlineStyle != null &&
+                _titleStyle.fontSize == titleSize && Mathf.Approximately(_stylesUiScale, _uiScale)) return;
 
+            _stylesUiScale = _uiScale;
             RebuildTextures();
 
-            int padX = Mathf.RoundToInt(12f * _uiScale);
-            int padY = Mathf.RoundToInt(10f * _uiScale);
-            int rowPadX = Mathf.RoundToInt(5f * _uiScale);
-            int rowPadY = Mathf.RoundToInt(3f * _uiScale);
-            int buttonPadX = Mathf.RoundToInt(12f * _uiScale);
-            int buttonPadY = Mathf.RoundToInt(6f * _uiScale);
+            int padX = Mathf.RoundToInt(_panelPadX * _uiScale);
+            int padY = Mathf.RoundToInt(_panelPadY * _uiScale);
+            int rowPadX = Mathf.RoundToInt(_rowPadX * _uiScale);
+            int rowPadY = Mathf.RoundToInt(_rowPadY * _uiScale);
+            int buttonPadX = Mathf.RoundToInt(_buttonPadX * _uiScale);
+            int buttonPadY = Mathf.RoundToInt(_buttonPadY * _uiScale);
 
             _panelStyle = new GUIStyle(GUI.skin.box)
             {
@@ -66,17 +95,23 @@ namespace Sorolla.Palette
                 normal = { textColor = new Color(0.95f, 0.97f, 0.98f, 1f) },
             };
 
+            _rowNameInlineStyle = new GUIStyle(_rowNameStyle)
+            {
+                alignment = TextAnchor.MiddleLeft,
+                wordWrap = false,
+            };
+
             _detailStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = smallSize,
                 wordWrap = true,
-                normal = { textColor = new Color(0.74f, 0.79f, 0.84f, 1f) },
+                normal = { textColor = new Color(0.8f, 0.84f, 0.88f, 1f) },
             };
 
             _miniDetailStyle = new GUIStyle(_detailStyle)
             {
                 fontSize = Mathf.Max(10, smallSize - 1),
-                normal = { textColor = new Color(0.68f, 0.73f, 0.78f, 1f) },
+                normal = { textColor = new Color(0.72f, 0.77f, 0.82f, 1f) },
             };
 
             _badgeStyle = new GUIStyle(GUI.skin.label)
@@ -151,7 +186,16 @@ namespace Sorolla.Palette
         void UpdateUiScale()
         {
             float shortSide = Mathf.Min(Screen.width, Screen.height);
-            _uiScale = shortSide > 0f ? Mathf.Clamp(shortSide / 540f, 1f, 2.7f) : 1f;
+            float reference = Mathf.Max(1f, _scaleReferenceShortSide);
+            float minScale = Mathf.Max(0.1f, _minUiScale);
+            float maxScale = Mathf.Max(minScale, _maxUiScale);
+            _uiScale = shortSide > 0f ? Mathf.Clamp(shortSide / reference, minScale, maxScale) : minScale;
+        }
+
+        void InvalidateStyles()
+        {
+            _titleStyle = null;
+            _stylesUiScale = -1f;
         }
 
         void RebuildTextures()

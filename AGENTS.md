@@ -80,6 +80,14 @@ Known current queue from the internal audit:
 - For build/integration confidence, use Unity and on-device QA rather than assuming compilation alone is enough.
 - For release validation of a game using this SDK, use the `qa-greenlight` skill/workflow and the internal docs under `/Users/arthur/workspace/sorolla-docs/platform/sdk/qa/`.
 
+## Diagnostics Console Iteration Loop
+
+- The runtime diagnostics console in `Runtime/Diagnostics/` is code-only OnGUI. Keep it lightweight; do not add assets, prefabs, UI Toolkit, or Canvas UI.
+- For small console UI/layout changes, use a lean loop: edit, search for dead references with `rg`, run `git diff --check`, then stop. Do not run Unity MCP compile checks or editor log searches by default.
+- For C# API/signature changes that could break compilation, run at most one focused local compile check such as `dotnet build Sorolla.Runtime.csproj --no-restore`. Do not retry flaky Unity MCP checks unless the user explicitly asks or the local compile check reports a real current failure.
+- Treat Unity Editor logs as noisy and potentially stale. Do not inspect them unless investigating a concrete current editor failure.
+- When deleting console files or tabs, trust source-level references plus `rg`; do not chase generated project artifacts unless they are the deliverable.
+
 ## Git And Commits
 
 - This package is its own git repo.
@@ -88,4 +96,3 @@ Known current queue from the internal audit:
 - Prefer explicit staging by filename for SDK commits.
 - Never use `git add -A` or broad staging unless the user explicitly asks and the diff has been reviewed.
 - If the worktree is dirty, preserve user changes and work with them.
-

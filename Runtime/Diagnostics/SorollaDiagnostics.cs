@@ -357,23 +357,18 @@ namespace Sorolla.Palette
 
             bool fullMode = config != null && !config.isPrototypeMode;
 
-            AddContext(rows, "Boot", "Diagnostics console", SorollaDiagnosticSeverity.Pass, "Auto-installed, code-only, hidden by default");
             Add(rows, "Boot", "Auto-init marker", snapshot.AutoInitSeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
                 snapshot.AutoInitSeen ? "Observed" : "Waiting for bootstrap");
             Add(rows, "Boot", "Palette mode", ModeSeverity(config, snapshot), ModeDetail(config, snapshot));
             Add(rows, "Boot", "Palette ready", Palette.IsInitialized || snapshot.ReadySeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
                 Palette.IsInitialized || snapshot.ReadySeen ? "Ready" : snapshot.InitDetail);
-            AddContext(rows, "Boot", "Build", Debug.isDebugBuild ? SorollaDiagnosticSeverity.Info : SorollaDiagnosticSeverity.Pass,
-                Debug.isDebugBuild ? "Development build" : "Release build");
-            AddContext(rows, "Boot", "Verbose logging", Palette.VerboseLogging ? SorollaDiagnosticSeverity.Info : SorollaDiagnosticSeverity.Pass,
-                Palette.VerboseLogging ? "Enabled for dev diagnostics" : "Off");
             Add(rows, "Boot", "Network reachability", ReachabilitySeverity(), Application.internetReachability.ToString());
 
             Add(rows, "Config", "SorollaConfig", config != null ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Fail,
                 config != null ? "Loaded from Resources" : "Missing Assets/Resources/SorollaConfig.asset");
             Add(rows, "Config", "Adjust token", ConfigPresence(config?.adjustAppToken, fullMode, snapshot.AdjustMissingToken));
             Add(rows, "Config", "Adjust environment", AdjustEnvironmentSeverity(config, fullMode),
-                !fullMode ? "Not required in Prototype" : config == null ? "Config missing" : config.adjustSandboxMode ? "Sandbox" : "Production");
+                AdjustEnvironmentDetail(config, fullMode));
             Add(rows, "Config", "Rewarded ad unit", ConfigPresence(config?.rewardedAdUnit?.Current, fullMode, false));
             Add(rows, "Config", "Interstitial ad unit", ConfigPresence(config?.interstitialAdUnit?.Current, fullMode, false));
             Add(rows, "Config", "Purchase event token", ConfigPresence(config?.adjustPurchaseEventToken, fullMode, false));
@@ -688,6 +683,22 @@ namespace Sorolla.Palette
             return sb.ToString();
         }
 
+        internal static string BuildHeaderContext()
+        {
+            SorollaConfig config = LoadConfig();
+            Snapshot snapshot = CaptureSnapshot();
+            bool fullMode = IsFullMode(config, snapshot);
+
+            var sb = new StringBuilder(192);
+            AppendContextPart(sb, "SDK " + Palette.SdkVersion);
+            AppendContextPart(sb, ModeShortLabel(config, snapshot));
+            AppendContextPart(sb, AdjustEnvironmentHeaderLabel(config, fullMode));
+            AppendContextPart(sb, ConsentHeaderLabel(fullMode));
+            if (Palette.VerboseLogging)
+                AppendContextPart(sb, "Verbose logs");
+            return sb.ToString();
+        }
+
         internal static bool IsProblemSeverity(SorollaDiagnosticSeverity severity)
         {
             return severity == SorollaDiagnosticSeverity.Fail
@@ -735,7 +746,7 @@ namespace Sorolla.Palette
 
         static string BuildReportDetail()
         {
-            return $"Build: {(Debug.isDebugBuild ? "Development" : "Release")} | Verbose: {Palette.VerboseLogging}";
+            return $"Build: {(Debug.isDebugBuild ? "Development" : "Release")} | {BuildHeaderContext()}";
         }
 
         static string BuildReportDetail(List<SorollaDiagnosticRow> rows)
@@ -1164,8 +1175,18 @@ namespace Sorolla.Palette
 
         internal static string FormatEventTime(float timeSeconds)
         {
-            if (timeSeconds < 0f) return "0.0s";
-            return $"+{timeSeconds:0.0}s";
+            if (timeSeconds < 0f) timeSeconds = 0f;
+
+            int totalSeconds = Mathf.FloorToInt(timeSeconds);
+            int hours = totalSeconds / 3600;
+            int minutes = totalSeconds / 60 % 60;
+            int seconds = totalSeconds % 60;
+            int tenths = Mathf.FloorToInt((timeSeconds - totalSeconds) * 10f);
+
+            if (hours > 0)
+                return $"{hours:0}:{minutes:00}:{seconds:00}";
+
+            return $"{minutes:00}:{seconds:00}.{tenths:0}";
         }
 
         static (SorollaDiagnosticSeverity severity, string detail) ConfigPresence(string value, bool required, bool forcedFail)
@@ -1180,15 +1201,26 @@ namespace Sorolla.Palette
         static SorollaDiagnosticSeverity ModeSeverity(SorollaConfig config, Snapshot snapshot)
         {
             if (config == null && !snapshot.ModeKnown) return SorollaDiagnosticSeverity.Fail;
-            bool full = config != null ? !config.isPrototypeMode : snapshot.FullMode;
+            bool full = IsFullMode(config, snapshot);
             return full ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Fail;
         }
 
         static string ModeDetail(SorollaConfig config, Snapshot snapshot)
         {
             if (config == null && !snapshot.ModeKnown) return "Config missing / mode unknown";
-            bool full = config != null ? !config.isPrototypeMode : snapshot.FullMode;
-            return full ? "Full mode" : "Prototype mode - QA greenlight blocker";
+            return IsFullMode(config, snapshot) ? "Full mode" : "Prototype mode - QA greenlight blocker";
+        }
+
+        static bool IsFullMode(SorollaConfig config, Snapshot snapshot)
+        {
+            if (config != null) return !config.isPrototypeMode;
+            return snapshot.ModeKnown && snapshot.FullMode;
+        }
+
+        static string ModeShortLabel(SorollaConfig config, Snapshot snapshot)
+        {
+            if (config == null && !snapshot.ModeKnown) return "Mode unknown";
+            return IsFullMode(config, snapshot) ? "Full" : "Prototype";
         }
 
         static SorollaDiagnosticSeverity ReachabilitySeverity() =>
@@ -1200,7 +1232,51 @@ namespace Sorolla.Palette
         {
             if (!fullMode) return SorollaDiagnosticSeverity.Info;
             if (config == null) return SorollaDiagnosticSeverity.Fail;
-            return config.adjustSandboxMode ? SorollaDiagnosticSeverity.Warning : SorollaDiagnosticSeverity.Pass;
+            if (!config.adjustSandboxMode) return SorollaDiagnosticSeverity.Pass;
+            return Debug.isDebugBuild ? SorollaDiagnosticSeverity.Info : SorollaDiagnosticSeverity.Fail;
+        }
+
+        static string AdjustEnvironmentDetail(SorollaConfig config, bool fullMode)
+        {
+            if (!fullMode) return "Not required in Prototype";
+            if (config == null) return "Config missing";
+            if (!config.adjustSandboxMode) return "Production";
+            return Debug.isDebugBuild ? "Sandbox (development)" : "Sandbox in release build";
+        }
+
+        static string AdjustEnvironmentHeaderLabel(SorollaConfig config, bool fullMode)
+        {
+            if (!fullMode) return "Adjust n/a";
+            if (config == null) return "Adjust missing";
+            return config.adjustSandboxMode ? "Adjust Sandbox" : "Adjust Production";
+        }
+
+        static string ConsentHeaderLabel(bool fullMode)
+        {
+            if (!fullMode) return "Consent n/a";
+            if (Palette.CanRequestAds) return "Ads OK";
+
+            switch (Palette.ConsentStatus)
+            {
+                case ConsentStatus.Required:
+                    return "Consent Required";
+                case ConsentStatus.Denied:
+                    return "Consent Denied";
+                case ConsentStatus.Unknown:
+                    return "Consent Unknown";
+                default:
+                    return "Ads Blocked";
+            }
+        }
+
+        static void AppendContextPart(StringBuilder sb, string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return;
+
+            if (sb.Length > 0)
+                sb.Append("  |  ");
+            sb.Append(value);
         }
 
         static SorollaDiagnosticSeverity AdjustRuntimeSeverity(Snapshot snapshot, bool fullMode)
