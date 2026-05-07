@@ -141,6 +141,7 @@ namespace Sorolla.Palette
         int _tapCount;
         float _firstTapTime;
         float _uiScale = 1f;
+        float _contentWidth = 320f;
         int _scrollTouchId = -1;
         bool _scrollTouchDragging;
         bool _ignoreSectionToggleAfterDrag;
@@ -280,16 +281,33 @@ namespace Sorolla.Palette
             RefreshDerivedState();
 
             GUI.depth = -1000;
-            float margin = 8f * _uiScale;
-            Rect area = new Rect(margin, margin, Screen.width - 2f * margin, Screen.height - 2f * margin);
+            Rect screenArea = new Rect(0f, 0f, Screen.width, Screen.height);
+            Rect area = SafeAreaForGui();
+            UpdateLayoutMetrics(area);
 
-            GUI.DrawTexture(area, GetPanelBackground(), ScaleMode.StretchToFill, true);
+            GUI.DrawTexture(screenArea, GetPanelBackground(), ScaleMode.StretchToFill, true);
             GUILayout.BeginArea(area, _panelStyle);
             DrawHeader();
             _scroll = GUILayout.BeginScrollView(_scroll);
             DrawActiveTab();
             GUILayout.EndScrollView();
             GUILayout.EndArea();
+        }
+
+        void UpdateLayoutMetrics(Rect area)
+        {
+            int horizontalPadding = _panelStyle?.padding.horizontal ?? 0;
+            _contentWidth = Mathf.Max(1f, area.width - horizontalPadding);
+        }
+
+        static Rect SafeAreaForGui()
+        {
+            Rect safeArea = Screen.safeArea;
+            if (safeArea.width <= 0f || safeArea.height <= 0f)
+                return new Rect(0f, 0f, Screen.width, Screen.height);
+
+            float y = Screen.height - safeArea.yMax;
+            return new Rect(safeArea.x, y, safeArea.width, safeArea.height);
         }
 
         void ToggleVisible()

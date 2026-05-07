@@ -30,13 +30,10 @@ namespace Sorolla.Palette
         void DrawReportActions()
         {
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Refresh", _buttonStyle, GUILayout.Width(108f * _uiScale), GUILayout.Height(ButtonHeight())))
+            if (GUILayout.Button("Refresh", _buttonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(ButtonHeight())))
                 SorollaDiagnostics.RefreshIdentifiers();
-            if (GUILayout.Button("Copy Report", _buttonStyle, GUILayout.Width(124f * _uiScale), GUILayout.Height(ButtonHeight())))
+            if (GUILayout.Button("Copy Report", _buttonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(ButtonHeight())))
                 GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildSummary();
-            if (GUILayout.Button("Copy Problems", _buttonStyle, GUILayout.Width(148f * _uiScale), GUILayout.Height(ButtonHeight())))
-                GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildProblemsSummary();
-            GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
         }
 
@@ -50,14 +47,15 @@ namespace Sorolla.Palette
             GUILayout.BeginVertical(_summaryStyle);
             GUILayout.BeginHorizontal();
             DrawSummaryBadge(OverallLabel(), OverallSeverity());
-            DrawCountBadge("FAIL", _healthCounts[SeverityIndex(SorollaDiagnosticSeverity.Fail)], SorollaDiagnosticSeverity.Fail);
-            DrawCountBadge("WARN", _healthCounts[SeverityIndex(SorollaDiagnosticSeverity.Warning)], SorollaDiagnosticSeverity.Warning);
-            DrawCountBadge("WAIT", _healthCounts[SeverityIndex(SorollaDiagnosticSeverity.Waiting)], SorollaDiagnosticSeverity.Waiting);
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            DrawCountBadge("PASS", _healthCounts[SeverityIndex(SorollaDiagnosticSeverity.Pass)], SorollaDiagnosticSeverity.Pass);
-            DrawCountBadge("INFO", _healthCounts[SeverityIndex(SorollaDiagnosticSeverity.Info)], SorollaDiagnosticSeverity.Info);
+            float countWidth = HealthCountBadgeWidth();
+            DrawCountBadge("FAIL", _healthCounts[SeverityIndex(SorollaDiagnosticSeverity.Fail)], SorollaDiagnosticSeverity.Fail, countWidth);
+            DrawCountBadge("WARN", _healthCounts[SeverityIndex(SorollaDiagnosticSeverity.Warning)], SorollaDiagnosticSeverity.Warning, countWidth);
+            DrawCountBadge("WAIT", _healthCounts[SeverityIndex(SorollaDiagnosticSeverity.Waiting)], SorollaDiagnosticSeverity.Waiting, countWidth);
+            DrawCountBadge("PASS", _healthCounts[SeverityIndex(SorollaDiagnosticSeverity.Pass)], SorollaDiagnosticSeverity.Pass, countWidth);
+            DrawCountBadge("INFO", _healthCounts[SeverityIndex(SorollaDiagnosticSeverity.Info)], SorollaDiagnosticSeverity.Info, countWidth);
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
@@ -71,10 +69,9 @@ namespace Sorolla.Palette
 
             int shown = 0;
             GUILayout.BeginVertical(_summaryStyle);
-            GUILayout.BeginHorizontal();
             GUILayout.Label("Needs attention", _sectionStyle);
-            GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Copy Problems", _buttonStyle, GUILayout.Width(148f * _uiScale), GUILayout.Height(ButtonHeight())))
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Copy Problems", _buttonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(ButtonHeight())))
                 GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildProblemsSummary();
             GUILayout.EndHorizontal();
 
@@ -137,12 +134,15 @@ namespace Sorolla.Palette
 
         void DrawAdAction(string label, bool ready, System.Action onClick)
         {
-            GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true));
+            GUILayout.BeginVertical(_rowStyle);
+            GUILayout.BeginHorizontal();
             DrawSummaryBadge(label, ready ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting, 104f);
-            GUILayout.Label(ready ? "Ready to show" : "Not ready - probe", _detailStyle, GUILayout.Width(128f * _uiScale));
+            GUILayout.Label(ready ? "Ready to show" : "Not ready - probe", _detailStyle);
+            GUILayout.EndHorizontal();
             if (GUILayout.Button(ready ? "Show" : "Probe", _buttonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(ButtonHeight())))
                 onClick();
-            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
+            GUILayout.Space(4f * _uiScale);
         }
 
         void DrawEventActions()
@@ -150,6 +150,9 @@ namespace Sorolla.Palette
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Test Event", _buttonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(ButtonHeight())))
                 TrackVitalsTestEvent();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
             if (GUILayout.Button("Copy Console", _buttonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(ButtonHeight())))
                 GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildConsoleSummary();
             if (GUILayout.Button("Clear Console", _buttonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(ButtonHeight())))
@@ -168,14 +171,13 @@ namespace Sorolla.Palette
             DrawTabButton(ConsoleTab.Vitals, "Vitals");
             DrawTabButton(ConsoleTab.Console, "Console " + (_events.Count + _runtimeProblems.Count));
             DrawTabButton(ConsoleTab.Actions, "Actions");
-            GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
         }
 
         void DrawTabButton(ConsoleTab tab, string label)
         {
             GUIStyle style = _activeTab == tab ? _activeTabStyle : _tabStyle;
-            if (GUILayout.Button(label, style, GUILayout.Width(126f * _uiScale), GUILayout.Height(TabHeight())))
+            if (GUILayout.Button(label, style, GUILayout.ExpandWidth(true), GUILayout.Height(TabHeight())))
             {
                 if (_activeTab != tab)
                 {
@@ -211,19 +213,16 @@ namespace Sorolla.Palette
         void DrawFilters()
         {
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Show", _detailStyle, GUILayout.Width(44f * _uiScale));
-            DrawFilterButton(RowFilter.All, "All");
-            DrawFilterButton(RowFilter.Problems, "Problems");
-            GUILayout.FlexibleSpace();
+            DrawFilterButton(RowFilter.All, "All", HalfButtonWidth());
+            DrawFilterButton(RowFilter.Problems, "Problems", HalfButtonWidth());
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
-            GUILayout.Space(44f * _uiScale);
-            DrawFilterButton(RowFilter.Fail, "Fail");
-            DrawFilterButton(RowFilter.Warn, "Warn");
-            DrawFilterButton(RowFilter.Wait, "Wait");
-            DrawFilterButton(RowFilter.Pass, "Pass");
-            GUILayout.FlexibleSpace();
+            float width = QuarterButtonWidth();
+            DrawFilterButton(RowFilter.Fail, "Fail", width);
+            DrawFilterButton(RowFilter.Warn, "Warn", width);
+            DrawFilterButton(RowFilter.Wait, "Wait", width);
+            DrawFilterButton(RowFilter.Pass, "Pass", width);
             GUILayout.EndHorizontal();
         }
 
@@ -280,12 +279,14 @@ namespace Sorolla.Palette
         {
             GUIStyle rowStyle = RowStyle(row, rowIndex, compact);
 
-            GUILayout.BeginHorizontal(rowStyle);
+            GUILayout.BeginVertical(rowStyle);
+            GUILayout.BeginHorizontal();
             DrawSummaryBadge(SorollaDiagnostics.SeverityLabel(row.Severity), row.Severity, 66f);
             DrawSummaryBadge(SorollaDiagnostics.KindLabel(row.Kind), SorollaDiagnosticSeverity.Info, 44f);
-            GUILayout.Label(row.Name, _rowNameStyle, GUILayout.Width(compact ? 150f * _uiScale : 170f * _uiScale));
-            GUILayout.Label(row.Detail, compact ? _miniDetailStyle : _detailStyle);
+            GUILayout.Label(row.Name, _rowNameStyle);
             GUILayout.EndHorizontal();
+            GUILayout.Label(row.Detail, compact ? _miniDetailStyle : _detailStyle);
+            GUILayout.EndVertical();
         }
 
         void DrawConsoleTab()
@@ -307,13 +308,16 @@ namespace Sorolla.Palette
 
         void DrawConsoleToolbar()
         {
-            GUILayout.BeginHorizontal();
             GUILayout.Label($"Console   {_runtimeProblems.Count} problems / {_events.Count} events", _sectionStyle);
-            GUILayout.FlexibleSpace();
-            _showNewestEventsFirst = GUILayout.Toggle(_showNewestEventsFirst, "Newest first", _detailStyle, GUILayout.Width(112f * _uiScale));
-            if (GUILayout.Button("Copy", _buttonStyle, GUILayout.Width(84f * _uiScale), GUILayout.Height(ButtonHeight())))
+
+            GUILayout.BeginHorizontal();
+            _showNewestEventsFirst = GUILayout.Toggle(_showNewestEventsFirst, "Newest first", _detailStyle, GUILayout.ExpandWidth(true));
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Copy", _buttonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(ButtonHeight())))
                 GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildConsoleSummary();
-            if (GUILayout.Button("Clear", _buttonStyle, GUILayout.Width(84f * _uiScale), GUILayout.Height(ButtonHeight())))
+            if (GUILayout.Button("Clear", _buttonStyle, GUILayout.ExpandWidth(true), GUILayout.Height(ButtonHeight())))
             {
                 SorollaDiagnostics.ClearEventLog();
                 SorollaDiagnostics.ClearRuntimeProblems();
@@ -323,10 +327,10 @@ namespace Sorolla.Palette
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
-            DrawConsoleFilterButton(ConsoleFilter.All, "All");
-            DrawConsoleFilterButton(ConsoleFilter.Problems, "Problems");
-            DrawConsoleFilterButton(ConsoleFilter.Events, "Events");
-            GUILayout.FlexibleSpace();
+            float width = ThirdButtonWidth();
+            DrawConsoleFilterButton(ConsoleFilter.All, "All", width);
+            DrawConsoleFilterButton(ConsoleFilter.Problems, "Problems", width);
+            DrawConsoleFilterButton(ConsoleFilter.Events, "Events", width);
             GUILayout.EndHorizontal();
         }
 
@@ -396,10 +400,15 @@ namespace Sorolla.Palette
             }
             GUILayout.Label(SorollaDiagnostics.FormatEventTime(problem.LastTimeSeconds), _badgeStyle, GUILayout.Width(70f * _uiScale));
             DrawSummaryBadge(SorollaDiagnostics.SeverityLabel(problem.Severity), problem.Severity, 66f);
-            DrawSummaryBadge(problem.Source, SorollaDiagnosticSeverity.Info, 96f);
-            GUILayout.Label($"{problem.Type} x{problem.Count}", _rowNameStyle, GUILayout.Width(180f * _uiScale));
-            GUILayout.Label(problem.Message, _detailStyle);
+            GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            DrawSummaryBadge(problem.Source, SorollaDiagnosticSeverity.Info, 96f);
+            GUILayout.Label($"{problem.Type} x{problem.Count}", _rowNameStyle);
+            GUILayout.EndHorizontal();
+            if (!expanded && !string.IsNullOrEmpty(problem.Message))
+                GUILayout.Label(problem.Message, _miniDetailStyle);
 
             if (expanded)
                 DrawRuntimeProblemDetails(problem);
@@ -410,6 +419,7 @@ namespace Sorolla.Palette
 
         void DrawRuntimeProblemDetails(SorollaRuntimeProblem problem)
         {
+            DrawKeyValue("Message", problem.Message);
             DrawKeyValue("Top frame", problem.TopFrame);
             DrawKeyValue("First seen", SorollaDiagnostics.FormatEventTime(problem.FirstTimeSeconds));
             DrawKeyValue("Last seen", SorollaDiagnostics.FormatEventTime(problem.LastTimeSeconds));
@@ -431,9 +441,16 @@ namespace Sorolla.Palette
                     _expandedConsoleRows.Add(entry.Id);
             }
             GUILayout.Label(SorollaDiagnostics.FormatEventTime(entry.TimeSeconds), _badgeStyle, GUILayout.Width(70f * _uiScale));
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
             DrawSummaryBadge(entry.Source, SorollaDiagnosticSeverity.Info, 96f);
             GUILayout.Label(entry.Name, _rowNameStyle);
             GUILayout.EndHorizontal();
+            if (!expanded && !string.IsNullOrEmpty(entry.Payload) && entry.Payload != "{}")
+                GUILayout.Label(entry.Payload, _miniDetailStyle);
+
             if (expanded)
                 DrawConsoleDetails(entry);
             GUILayout.EndVertical();
@@ -451,19 +468,19 @@ namespace Sorolla.Palette
             for (int i = 0; i < entry.PayloadLines.Length; i++)
             {
                 SorollaDiagnosticPayloadLine line = entry.PayloadLines[i];
-                GUILayout.BeginHorizontal();
-                GUILayout.Label(line.Key, _miniDetailStyle, GUILayout.Width(130f * _uiScale));
+                GUILayout.BeginVertical();
+                GUILayout.Label(line.Key, _miniDetailStyle);
                 GUILayout.Label(line.Value, _miniDetailStyle);
-                GUILayout.EndHorizontal();
+                GUILayout.EndVertical();
             }
         }
 
         void DrawKeyValue(string key, string value)
         {
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(key, _miniDetailStyle, GUILayout.Width(130f * _uiScale));
+            GUILayout.BeginVertical();
+            GUILayout.Label(key, _miniDetailStyle);
             GUILayout.Label(string.IsNullOrEmpty(value) ? "None" : value, _miniDetailStyle);
-            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
         }
 
         GUIStyle RowStyle(SorollaDiagnosticRow row, int rowIndex, bool compact)
@@ -492,20 +509,45 @@ namespace Sorolla.Palette
             DrawSummaryBadge($"{count} {label}", severity, 82f);
         }
 
-        void DrawFilterButton(RowFilter filter, string label)
+        void DrawCountBadge(string label, int count, SorollaDiagnosticSeverity severity, float width)
+        {
+            DrawSummaryBadge($"{count} {label}", severity, width / _uiScale);
+        }
+
+        void DrawFilterButton(RowFilter filter, string label, float width)
         {
             bool selected = _filter == filter;
             GUIStyle style = selected ? _selectedButtonStyle : _buttonStyle;
-            if (GUILayout.Button(label, style, GUILayout.Width((label.Length > 5 ? 104f : 82f) * _uiScale), GUILayout.Height(ButtonHeight())))
+            if (GUILayout.Button(label, style, GUILayout.Width(width), GUILayout.Height(ButtonHeight())))
                 _filter = filter;
         }
 
-        void DrawConsoleFilterButton(ConsoleFilter filter, string label)
+        void DrawConsoleFilterButton(ConsoleFilter filter, string label, float width)
         {
             bool selected = _consoleFilter == filter;
             GUIStyle style = selected ? _selectedButtonStyle : _buttonStyle;
-            if (GUILayout.Button(label, style, GUILayout.Width((label.Length > 6 ? 112f : 86f) * _uiScale), GUILayout.Height(ButtonHeight())))
+            if (GUILayout.Button(label, style, GUILayout.Width(width), GUILayout.Height(ButtonHeight())))
                 _consoleFilter = filter;
+        }
+
+        float HalfButtonWidth()
+        {
+            return Mathf.Max(72f * _uiScale, (_contentWidth - 6f * _uiScale) * 0.5f);
+        }
+
+        float HealthCountBadgeWidth()
+        {
+            return Mathf.Max(56f * _uiScale, (_contentWidth - 24f * _uiScale) * 0.2f);
+        }
+
+        float ThirdButtonWidth()
+        {
+            return Mathf.Max(66f * _uiScale, (_contentWidth - 12f * _uiScale) / 3f);
+        }
+
+        float QuarterButtonWidth()
+        {
+            return Mathf.Max(58f * _uiScale, (_contentWidth - 18f * _uiScale) * 0.25f);
         }
 
         float ButtonHeight()

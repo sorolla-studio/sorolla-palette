@@ -34,6 +34,7 @@ namespace Sorolla.Palette
             {
                 fontSize = titleSize,
                 fontStyle = FontStyle.Bold,
+                wordWrap = true,
                 normal = { textColor = new Color(0.95f, 0.96f, 0.97f, 1f) },
             };
 
@@ -41,6 +42,7 @@ namespace Sorolla.Palette
             {
                 fontSize = textSize,
                 fontStyle = FontStyle.Bold,
+                wordWrap = true,
                 normal = { textColor = new Color(0.5f, 0.9f, 0.94f, 1f) },
             };
 
@@ -49,6 +51,7 @@ namespace Sorolla.Palette
                 fontSize = textSize,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleLeft,
+                wordWrap = true,
                 normal = { textColor = new Color(0.82f, 0.9f, 0.94f, 1f), background = _sectionBackground },
                 hover = { textColor = Color.white, background = _buttonActiveBackground },
                 active = { textColor = Color.white, background = _buttonActiveBackground },
@@ -59,6 +62,7 @@ namespace Sorolla.Palette
             {
                 fontSize = textSize,
                 fontStyle = FontStyle.Bold,
+                wordWrap = true,
                 normal = { textColor = new Color(0.95f, 0.97f, 0.98f, 1f) },
             };
 
@@ -146,10 +150,8 @@ namespace Sorolla.Palette
 
         void UpdateUiScale()
         {
-            float dpiScale = Screen.dpi > 0f ? Mathf.Clamp(Screen.dpi / 220f, 1f, 2.1f) : 1f;
             float shortSide = Mathf.Min(Screen.width, Screen.height);
-            float screenScale = shortSide > 0f ? Mathf.Clamp(shortSide / 540f, 1f, 1.6f) : 1f;
-            _uiScale = Mathf.Max(1f, dpiScale, screenScale);
+            _uiScale = shortSide > 0f ? Mathf.Clamp(shortSide / 540f, 1f, 2.7f) : 1f;
         }
 
         void RebuildTextures()
@@ -166,8 +168,8 @@ namespace Sorolla.Palette
             _buttonBackground = CreateTexture(new Color(0.16f, 0.18f, 0.21f, 1f));
             _buttonActiveBackground = CreateTexture(new Color(0.22f, 0.25f, 0.29f, 1f));
             _buttonSelectedBackground = CreateTexture(new Color(0.12f, 0.26f, 0.31f, 1f));
-            _tabBackground = CreateTexture(new Color(0.07f, 0.08f, 0.095f, 1f));
-            _activeTabBackground = CreateTexture(new Color(0.15f, 0.18f, 0.21f, 1f));
+            _tabBackground = CreateTexture(new Color(0.055f, 0.065f, 0.08f, 1f));
+            _activeTabBackground = CreateTexture(new Color(0.08f, 0.32f, 0.38f, 1f));
             _passBackground = CreateTexture(new Color(0.12f, 0.58f, 0.32f, 1f));
             _warnBackground = CreateTexture(new Color(1f, 0.78f, 0.28f, 1f));
             _failBackground = CreateTexture(new Color(0.9f, 0.25f, 0.28f, 1f));
