@@ -9,6 +9,17 @@ It wraps GameAnalytics, Facebook, AppLovin MAX, Adjust, Firebase, TikTok, Unity 
 
 The parent Unity project is only a local testbed shell. SDK source changes belong in this package repo.
 
+## Terminology — write the full name, never bare "GA"
+
+Two unrelated vendors collide in the same two letters; bare "GA" in commits, docs, or chat has caused real confusion (and one shipped bug where review focused on the wrong vendor's spec). Always use the full name:
+
+- **GameAnalytics** — the third-party `com.gameanalytics` vendor SDK. Adapter: `GameAnalyticsAdapter` (Real path under `#if GAMEANALYTICS_INSTALLED`). Note: the GameAnalytics whitelist drops some economy events server-side anyway, so this is the **secondary** analytics destination.
+- **Firebase** — Firebase Analytics SDK; the client library wrapped by `FirebaseAdapter` / `FirebaseAdapterImpl`. Events flow Firebase → GA4 → BigQuery.
+- **GA4** — Google Analytics 4, the **backend behind Firebase**. Where event-schema specs come from (`developers.google.com/analytics/devguides/collection/ga4/reference/events`). Same backend that auto-exports to BigQuery.
+- **BigQuery** — the analyst-facing data warehouse populated by GA4's auto-export. Studios run their dashboards off BQ tables. Firebase / GA4 / BigQuery are one pipeline; getting Firebase emission right is what matters for studio analytics.
+
+GameAnalytics ≠ GA4. Never write "the GA spec said so" — write "the GA4 spec said so" if you mean Firebase's backend, or "GameAnalytics' contract requires X" if you mean the vendor SDK. Same in commit messages.
+
 ## Current Context
 
 - Package name: `com.sorolla.sdk`
@@ -71,6 +82,16 @@ Known current queue from the internal audit:
 - Check existing SDK APIs before writing JNI/Objective-C/native wrappers.
 - `UNITY_IOS` is defined in the Editor when target platform is iOS; gate native iOS calls with `#if !UNITY_EDITOR`.
 - Mobile hot paths should avoid unnecessary GC.
+
+## Adapter Endpoint Review (mandatory)
+
+When touching any method under `Runtime/Adapters/*/`*AdapterImpl.cs* (Firebase, MAX, Adjust, TikTok, Facebook, GameAnalytics), apply this checklist **before staging the diff**. It exists because **v3.6.0** silently shipped a payload regression in `FirebaseAdapterImpl.TrackResourceEvent`: the prior implementation emitted both `itemType` (as `placement`) and `itemId` (as `item_id`) on **both** earn and spend; the "use GA4 canonical constants" rewrite (commit `4ad6891`) collapsed three populated slots to two on spend and one on earn — `placement` was deleted, `item_id` was deleted, and the remaining `item_name` slot was gated to spend only. The commit was framed as constants-conversion, so review optimized for "are the canonical names correct" and never noticed the silent payload reduction. Six weeks of `earn_virtual_currency` rows in BigQuery carried only `virtual_currency_name` + `value`; placement-attribution queries on earn were impossible until boat-runner caught it on 2026-05-11.
+
+1. **Every input parameter must be referenced in the body, or there must be a one-line comment explaining why it's intentionally ignored.** Unused params on a public adapter surface are bugs.
+2. **Symmetric event pairs (earn/spend, level_start/level_end, ad_loaded/ad_shown) must emit the same parameter keys** unless the GA4 spec explicitly differs. If a param is added on one half, audit the other half in the same commit.
+3. **Map the call site to the adapter: read the caller (`Palette.*.cs`) and confirm every value it passes is either emitted by the adapter, validated and dropped with a `PaletteLog.Warning`, or has a code comment explaining the discard.** Silent drop is forbidden.
+4. **`SorollaDiagnostics.RecordEventDispatch` is not a substitute for adapter emission.** Diagnostics records caller intent; the adapter is the source of truth for what hits Firebase / GameAnalytics / Adjust. Treat parity between the two as a hard invariant.
+5. **Commit message must explicitly list any field that is added, renamed, dropped, or made conditional on the event payload.** "GA4 spec compliance" is not enough — name the exact params that change.
 
 ## Testing And Validation
 

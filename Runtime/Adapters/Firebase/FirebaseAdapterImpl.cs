@@ -165,7 +165,15 @@ namespace Sorolla.Palette.Adapters
 
             QueueOrExecute(() =>
             {
-                string eventName = flowType == "source"
+                // GA4 spec: earn_virtual_currency canonical params are virtual_currency_name + value
+                // only; spend_virtual_currency additionally supports item_name. We respect that
+                // asymmetry instead of stuffing item_name onto earn. The EconomySource/Sink enum
+                // (itemType) and the granular itemId go to direction-specific custom params so
+                // analysts can segment without abusing the canonical item_name slot on earn:
+                //   earn  -> source (=enum), source_item (=itemId, only when caller supplied one)
+                //   spend -> item_name (=itemId, canonical), sink (=enum)
+                bool isSource = flowType == "source";
+                string eventName = isSource
                     ? FirebaseAnalytics.EventEarnVirtualCurrency
                     : FirebaseAnalytics.EventSpendVirtualCurrency;
 
@@ -174,21 +182,45 @@ namespace Sorolla.Palette.Adapters
                     new Parameter(FirebaseAnalytics.ParameterVirtualCurrencyName, currency),
                     new Parameter(FirebaseAnalytics.ParameterValue, amount),
                 };
-
-                if (flowType != "source" && !string.IsNullOrEmpty(itemId))
-                    parameters.Add(new Parameter(FirebaseAnalytics.ParameterItemName, itemId));
-
-                // Merge extra params (skip collisions with base params)
-                if (extraCopy != null)
+                var reservedKeys = new HashSet<string>
                 {
-                    var reservedKeys = new HashSet<string>
+                    FirebaseAnalytics.ParameterVirtualCurrencyName,
+                    FirebaseAnalytics.ParameterValue,
+                    "source",
+                    "source_item",
+                    FirebaseAnalytics.ParameterItemName,
+                    "sink",
+                };
+
+                if (isSource)
+                {
+                    if (!string.IsNullOrEmpty(itemType))
                     {
-                        FirebaseAnalytics.ParameterVirtualCurrencyName,
-                        FirebaseAnalytics.ParameterValue,
-                        FirebaseAnalytics.ParameterItemName,
-                    };
-                    MergeExtraParams(parameters, extraCopy, reservedKeys);
+                        parameters.Add(new Parameter("source", itemType));
+                        reservedKeys.Add("source");
+                    }
+                    if (!string.IsNullOrEmpty(itemId))
+                    {
+                        parameters.Add(new Parameter("source_item", itemId));
+                        reservedKeys.Add("source_item");
+                    }
                 }
+                else
+                {
+                    if (!string.IsNullOrEmpty(itemId))
+                    {
+                        parameters.Add(new Parameter(FirebaseAnalytics.ParameterItemName, itemId));
+                        reservedKeys.Add(FirebaseAnalytics.ParameterItemName);
+                    }
+                    if (!string.IsNullOrEmpty(itemType))
+                    {
+                        parameters.Add(new Parameter("sink", itemType));
+                        reservedKeys.Add("sink");
+                    }
+                }
+
+                if (extraCopy != null)
+                    MergeExtraParams(parameters, extraCopy, reservedKeys);
 
                 FirebaseAnalytics.LogEvent(eventName, parameters.ToArray());
             });

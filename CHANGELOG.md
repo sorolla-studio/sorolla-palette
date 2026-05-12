@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.15.4] - 2026-05-11
+
+Firebase economy event placement-attribution fix.
+
+### Fixed
+- **Economy earn events lose source category in BigQuery** (`Runtime/Adapters/Firebase/FirebaseAdapterImpl.cs`, `Runtime/Palette.Economy.cs`): `TrackResourceEvent` previously dropped the `EconomySource`/`EconomySink` enum entirely on both flows and gated the granular itemId to spend events only. Earn events arrived in BigQuery with `virtual_currency_name` + `value` only — analysts could not tell apart `LevelReward` run-rewards from `LevelReward` chest claims, or distinguish `AdReward` bonuses from progression rewards. Reported by boat-runner (Raft Evolution) integration QA.
+
+  Param shape, post-fix — mirrors GA4's spec-defined asymmetry between earn and spend (canonical `item_name` slot exists on spend, not on earn):
+  - `earn_virtual_currency` emits `virtual_currency_name`, `value`, **`source`** (snake-cased `EconomySource` enum), and **`source_item`** (the granular `itemId` string when the caller supplies one — absent otherwise).
+  - `spend_virtual_currency` emits `virtual_currency_name`, `value`, **`item_name`** (canonical GA4 slot, the granular `itemId` when supplied), and **`sink`** (snake-cased `EconomySink` enum).
+
+  The Vitals diagnostics console records the same schema-owned keys per direction so what shows in-app matches what lands in BigQuery. Non-reserved context extras such as `map` / `level` continue to pass through, but attempts to pass Sorolla-owned economy keys (`virtual_currency_name`, `value`, `source`, `source_item`, `item_name`, `sink`) via `extraParams` are rejected with a warning before Firebase dispatch. `GameAnalyticsAdapter.TrackResourceEvent` is unchanged — it keeps receiving the synthesized fallback itemId because its native call requires both `itemType` and `itemId` strings.
+
+### Migration
+No public Palette API change: `Palette.Economy.Earn(currency, amount, source, itemId)` and `Palette.Economy.Spend(currency, amount, sink, itemId)` keep the same signature. The change is purely in the param names that land in Firebase / BigQuery. Studios should query `source` / `sink` for the category dimension and `source_item` / `item_name` for the granular itemId.
+
 ## [3.15.3] - 2026-05-06
 
 Code-only Sorolla Vitals and studio documentation refresh.

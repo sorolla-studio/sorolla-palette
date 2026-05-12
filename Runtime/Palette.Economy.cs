@@ -65,13 +65,23 @@ namespace Sorolla.Palette
         /// </summary>
         public static class Economy
         {
-            /// <summary>Track currency earned. Fires earn_virtual_currency (Firebase) / GA Source event.</summary>
+            static readonly HashSet<string> s_reservedFirebaseEconomyParams = new HashSet<string>
+            {
+                "virtual_currency_name",
+                "value",
+                "source",
+                "source_item",
+                "item_name",
+                "sink",
+            };
+
+            /// <summary>Track currency earned. Fires earn_virtual_currency (Firebase) / GameAnalytics Source event.</summary>
             public static void Earn(CurrencyId currency, int amount, EconomySource source, string itemId = null,
                 Dictionary<string, object> extraParams = null)
                 => Track(flowSource: true, currency, amount, EnumToSnake(source), source == EconomySource.Other,
                     itemId, extraParams);
 
-            /// <summary>Track currency spent. Fires spend_virtual_currency (Firebase) / GA Sink event.</summary>
+            /// <summary>Track currency spent. Fires spend_virtual_currency (Firebase) / GameAnalytics Sink event.</summary>
             public static void Spend(CurrencyId currency, int amount, EconomySink sink, string itemId = null,
                 Dictionary<string, object> extraParams = null)
                 => Track(flowSource: false, currency, amount, EnumToSnake(sink), sink == EconomySink.Other,
@@ -92,19 +102,36 @@ namespace Sorolla.Palette
                     PaletteLog.Warning($"{Tag} Economy.{verb} used '{category}' category (itemId='{itemId}'). Consider adding a curated Economy{(flowSource ? "Source" : "Sink")} enum value in a patch release.");
 
                 string currencyName = EnumToSnake(currency);
-                string effectiveItemId = string.IsNullOrWhiteSpace(itemId) ? category : Sanitize(itemId);
+                // Sanitize once. sanitizedItemId is null when the caller didn't provide one OR
+                // when Sanitize stripped the input to empty (e.g. itemId="___"). Preserved nullable
+                // for Firebase so it emits the granular slot only when the game actually supplied
+                // usable content. effectiveItemId synthesizes from the category for GameAnalytics,
+                // whose native call rejects empty strings.
+                string sanitizedItemId = string.IsNullOrWhiteSpace(itemId) ? null : Sanitize(itemId);
+                if (string.IsNullOrEmpty(sanitizedItemId)) sanitizedItemId = null;
+                string effectiveItemId = sanitizedItemId ?? category;
+                Dictionary<string, object> allowedExtraParams = FilterReservedEconomyExtraParams(extraParams);
 
                 QueueOrExecute(() =>
                 {
                     SorollaDiagnostics.RecordEconomy(flowSource);
-                    var diagnosticParams = extraParams != null
-                        ? new Dictionary<string, object>(extraParams)
+                    var diagnosticParams = allowedExtraParams != null
+                        ? new Dictionary<string, object>(allowedExtraParams)
                         : new Dictionary<string, object>();
                     diagnosticParams["virtual_currency_name"] = currencyName;
                     diagnosticParams["value"] = amount;
-                    diagnosticParams["item_type"] = category;
-                    if (!string.IsNullOrEmpty(effectiveItemId))
-                        diagnosticParams["item_name"] = effectiveItemId;
+                    if (flowSource)
+                    {
+                        diagnosticParams["source"] = category;
+                        if (sanitizedItemId != null)
+                            diagnosticParams["source_item"] = sanitizedItemId;
+                    }
+                    else
+                    {
+                        if (sanitizedItemId != null)
+                            diagnosticParams["item_name"] = sanitizedItemId;
+                        diagnosticParams["sink"] = category;
+                    }
                     SorollaDiagnostics.RecordEventDispatch("economy",
                         flowSource ? "earn_virtual_currency" : "spend_virtual_currency",
                         diagnosticParams);
@@ -118,9 +145,32 @@ namespace Sorolla.Palette
 
 #if FIREBASE_ANALYTICS_INSTALLED
                     FirebaseAdapter.TrackResourceEvent(flowSource ? "source" : "sink", currencyName, amount,
-                        category, effectiveItemId, extraParams);
+                        category, sanitizedItemId, allowedExtraParams);
 #endif
                 });
+            }
+
+            static Dictionary<string, object> FilterReservedEconomyExtraParams(Dictionary<string, object> extraParams)
+            {
+                if (extraParams == null || extraParams.Count == 0) return null;
+
+                Dictionary<string, object> allowed = null;
+                foreach (KeyValuePair<string, object> kvp in extraParams)
+                {
+                    string sanitizedKey = EventNameSanitizer.SanitizeParamName(kvp.Key);
+                    if (sanitizedKey == null) continue;
+
+                    if (s_reservedFirebaseEconomyParams.Contains(sanitizedKey))
+                    {
+                        PaletteLog.Warning($"{Tag} Economy extra param '{kvp.Key}' is reserved for Sorolla's Firebase economy schema and was rejected. Use the source/sink argument or itemId instead.");
+                        continue;
+                    }
+
+                    allowed ??= new Dictionary<string, object>();
+                    allowed[kvp.Key] = kvp.Value;
+                }
+
+                return allowed;
             }
 
             static string EnumToSnake(Enum e)
