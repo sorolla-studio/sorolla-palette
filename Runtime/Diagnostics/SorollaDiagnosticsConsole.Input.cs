@@ -6,19 +6,22 @@ namespace Sorolla.Palette
     {
         void CheckKeyboardToggle()
         {
-            if (Input.GetKeyDown(KeyCode.BackQuote))
+            if (SorollaDiagnosticsInput.IsKeyboardTogglePressed())
                 ToggleVisible();
         }
 
         void CheckTouchToggle()
         {
-            if (Input.touchCount == 0 && Input.GetMouseButtonDown(0))
-                RegisterTap(Input.mousePosition);
+            int touchCount = SorollaDiagnosticsInput.TouchCount;
+            if (touchCount == 0 && SorollaDiagnosticsInput.TryGetPointerTap(out Vector2 pointerPosition))
+                RegisterTap(pointerPosition);
 
-            for (int i = 0; i < Input.touchCount; i++)
+            for (int i = 0; i < touchCount; i++)
             {
-                Touch touch = Input.GetTouch(i);
-                if (touch.phase == TouchPhase.Began)
+                if (!SorollaDiagnosticsInput.TryGetTouch(i, out SorollaDiagnosticsInputTouch touch))
+                    continue;
+
+                if (touch.Phase == SorollaDiagnosticsInputTouchPhase.Began)
                     RegisterTap(touch.position);
             }
         }
@@ -50,17 +53,19 @@ namespace Sorolla.Palette
 
         void CheckTouchScroll()
         {
-            if (Input.touchCount == 0)
+            int touchCount = SorollaDiagnosticsInput.TouchCount;
+            if (touchCount == 0)
             {
                 ResetTouchScroll();
                 return;
             }
 
-            for (int i = 0; i < Input.touchCount; i++)
+            for (int i = 0; i < touchCount; i++)
             {
-                Touch touch = Input.GetTouch(i);
+                if (!SorollaDiagnosticsInput.TryGetTouch(i, out SorollaDiagnosticsInputTouch touch))
+                    continue;
 
-                if (_scrollTouchId == -1 && touch.phase == TouchPhase.Began)
+                if (_scrollTouchId == -1 && touch.Phase == SorollaDiagnosticsInputTouchPhase.Began)
                 {
                     _scrollTouchId = touch.fingerId;
                     _scrollTouchDragging = false;
@@ -73,7 +78,7 @@ namespace Sorolla.Palette
                 if (touch.fingerId != _scrollTouchId)
                     continue;
 
-                if (touch.phase == TouchPhase.Moved)
+                if (touch.Phase == SorollaDiagnosticsInputTouchPhase.Moved)
                 {
                     Vector2 delta = touch.position - _lastScrollTouchPosition;
                     if (!_scrollTouchDragging)
@@ -91,7 +96,7 @@ namespace Sorolla.Palette
                     _lastScrollTouchPosition = touch.position;
                 }
 
-                if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled)
+                if (touch.Phase == SorollaDiagnosticsInputTouchPhase.Ended || touch.Phase == SorollaDiagnosticsInputTouchPhase.Canceled)
                 {
                     _scrollTouchId = -1;
                     _scrollTouchDragging = false;
