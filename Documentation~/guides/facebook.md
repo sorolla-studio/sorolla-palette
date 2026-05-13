@@ -34,7 +34,7 @@ Required for UA campaign attribution:
 
 1. Go to **Settings** → **Advanced**
 2. Scroll to **Advertising Accounts**
-3. In **Authorized Ad Account IDs**, enter: `1294030715889860`
+3. In **Authorized Ad Account IDs**, enter: `2220619588747821`
 4. Save
 
 ## 5. Configure in Unity

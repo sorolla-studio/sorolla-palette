@@ -12,6 +12,8 @@ namespace Sorolla.Palette
 
         void CheckTouchToggle()
         {
+            UpdateUiScale();
+
             int touchCount = SorollaDiagnosticsInput.TouchCount;
             if (touchCount == 0 && SorollaDiagnosticsInput.TryGetPointerTap(out Vector2 pointerPosition))
                 RegisterTap(pointerPosition);

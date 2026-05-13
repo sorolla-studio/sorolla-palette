@@ -76,7 +76,7 @@ Full details: [GameAnalytics Setup](guides/gameanalytics.md).
 Authorize Sorolla's ad account if Sorolla will run UA:
 
 1. In Facebook, open **Settings > Advanced**.
-2. In **Authorized Ad Account IDs**, add `1294030715889860`.
+2. In **Authorized Ad Account IDs**, add `2220619588747821`.
 
 Full details: [Facebook SDK Setup](guides/facebook.md).
 
