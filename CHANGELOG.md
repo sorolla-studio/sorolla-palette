@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.15.5] - 2026-05-13
+
+Diagnostics input-system compatibility release.
+
+### Fixed
+- **Sorolla Vitals input handling now follows the host project's active Unity input backend** (`Runtime/Diagnostics/*`): new Input System-only games compile and run the diagnostics gesture/mouse path without touching `UnityEngine.Input`, while old Input Manager-only projects keep the legacy path without taking a dependency on `com.unity.inputsystem`.
+- **Input System support is isolated in an optional companion assembly** (`Runtime/Diagnostics/InputSystem/*`): the new backend is compiled only when `ENABLE_INPUT_SYSTEM` is present and registers itself at runtime, avoiding compile-time dependency issues for legacy projects.
+
+### Notes
+- The SDK does not mutate a game's `EventSystem`. Projects using uGUI still need the EventSystem input module that matches their Player Settings (`InputSystemUIInputModule` for new Input System-only, `StandaloneInputModule` for old Input Manager-only).
+
 ## [3.15.4] - 2026-05-11
 
 Firebase economy event placement-attribution fix.
