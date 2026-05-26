@@ -25,4 +25,9 @@
     <assembly fullname="Sorolla.Adapters.MAX" preserve="all" ignoreIfMissing="1"/>
     <assembly fullname="Sorolla.Adapters.Adjust" preserve="all" ignoreIfMissing="1"/>
     <assembly fullname="Sorolla.Adapters.Firebase" preserve="all" ignoreIfMissing="1"/>
+
+    <!-- Diagnostics console input backend - self-registers via [RuntimeInitializeOnLoadMethod] and
+         is referenced by nothing, so it strips on device without this (console won't open on device).
+         Only exists when the Input System package is present. -->
+    <assembly fullname="Sorolla.Runtime.InputSystem" preserve="all" ignoreIfMissing="1"/>
 </linker>

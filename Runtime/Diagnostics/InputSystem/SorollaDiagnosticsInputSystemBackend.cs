@@ -2,14 +2,17 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.EnhancedTouch;
+using UnityEngine.Scripting;
 using InputSystemTouch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 using InputSystemTouchPhase = UnityEngine.InputSystem.TouchPhase;
 
 namespace Sorolla.Palette
 {
+    [Preserve]
     internal sealed class SorollaDiagnosticsInputSystemBackend : ISorollaDiagnosticsInputBackend
     {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        [Preserve]
         static void Register()
         {
             if (!EnhancedTouchSupport.enabled)
