@@ -822,5 +822,96 @@ namespace Sorolla.Palette.Editor
             }
         }
 
+        /// <summary>
+        ///     Inject Google Consent Mode v2 default meta-data into the unityLibrary application
+        ///     element so it merges into the final app manifest. These defaults govern the very first
+        ///     native ping (notably first_open, which fires at launch before the runtime CMP resolves):
+        ///     analytics_storage defaults GRANTED so the install is counted with an app-instance-id
+        ///     (otherwise first_open is cookieless and uncountable in GA4 standard reports); ad signals
+        ///     default DENIED until the CMP resolves. Runtime SetConsent (FirebaseAdapterImpl) overrides
+        ///     these once consent is known. Mirrors SorollaIOSPostProcessor's plist keys. Existing
+        ///     entries (studio overrides) are left untouched.
+        /// </summary>
+        /// <param name="unityLibraryPath">Path passed by Unity to IPostGenerateGradleAndroidProject.</param>
+        internal static void EnsureConsentModeDefaults(string unityLibraryPath)
+        {
+            var manifestPath = Path.Combine(unityLibraryPath, "src", "main", "AndroidManifest.xml");
+            if (!File.Exists(manifestPath))
+                return;
+
+            var defaults = new (string name, string value)[]
+            {
+                ("google_analytics_default_allow_analytics_storage", "true"),
+                ("google_analytics_default_allow_ad_storage", "false"),
+                ("google_analytics_default_allow_ad_user_data", "false"),
+                ("google_analytics_default_allow_ad_personalization_signals", "false"),
+            };
+
+            try
+            {
+                var doc = XDocument.Load(manifestPath);
+                var application = doc.Root?.Element("application");
+                if (application == null)
+                    return;
+
+                // Collect existing meta-data names from BOTH the unityLibrary manifest AND the
+                // higher-priority launcher manifest. Injecting a key another module already declares
+                // with a different value fails the Gradle manifest merger — so we skip any key present
+                // in either. This respects studio/plugin overrides AND guarantees we never introduce a
+                // merge conflict (a hotfix must not break builds).
+                var existing = new HashSet<string>();
+                CollectMetaDataNames(application, existing);
+
+                var launcherManifestPath = Path.GetFullPath(
+                    Path.Combine(unityLibraryPath, "..", "launcher", "src", "main", "AndroidManifest.xml"));
+                if (File.Exists(launcherManifestPath))
+                {
+                    try
+                    {
+                        var launcherApp = XDocument.Load(launcherManifestPath).Root?.Element("application");
+                        if (launcherApp != null)
+                            CollectMetaDataNames(launcherApp, existing);
+                    }
+                    catch (System.Exception e)
+                    {
+                        // Can't verify the launcher manifest → fail safe, don't risk an undetectable
+                        // conflict. iOS plist defaults still apply; Android resolves consent fast enough
+                        // that the runtime default mostly covers it anyway.
+                        Debug.LogWarning($"{Tag} Skipping Consent Mode defaults — could not read launcher manifest: {e.Message}");
+                        return;
+                    }
+                }
+
+                var modified = false;
+                foreach (var (name, value) in defaults)
+                {
+                    if (existing.Contains(name))
+                        continue;
+                    application.Add(new XElement("meta-data",
+                        new XAttribute(AndroidNs + "name", name),
+                        new XAttribute(AndroidNs + "value", value)));
+                    modified = true;
+                }
+
+                if (modified)
+                {
+                    doc.Save(manifestPath);
+                    Debug.Log($"{Tag} Injected Consent Mode default meta-data (analytics_storage granted, ad signals denied)");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"{Tag} Failed to inject Consent Mode defaults: {e.Message}");
+            }
+        }
+
+        static void CollectMetaDataNames(XElement application, HashSet<string> into)
+        {
+            foreach (string name in application.Elements("meta-data")
+                         .Select(e => e.Attribute(AndroidNs + "name")?.Value)
+                         .Where(n => !string.IsNullOrEmpty(n)))
+                into.Add(name);
+        }
+
     }
 }

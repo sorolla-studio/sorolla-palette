@@ -14,6 +14,17 @@ Privacy compliance for EU users and iOS App Tracking Transparency.
 
 ---
 
+## Analytics consent vs ad consent
+
+Palette treats **analytics** and **ad** consent separately, using Firebase Consent Mode v2:
+
+- **`analytics_storage` defaults to granted**, so installs (`first_open`) and core analytics are counted from the very first launch. The SDK ships this default in the Android manifest and iOS `Info.plist` (so it applies to the first native event, before the CMP resolves), and only downgrades it to *denied* for a user who explicitly declines in a GDPR region.
+- **Ad signals** (`ad_storage`, `ad_personalization`, `ad_user_data`) default to *denied* and are granted only after the CMP resolves consent. Ad personalization is always gated by the CMP.
+
+Practical effect: an EEA user emits one identified `first_open` before the CMP resolves; ad personalization is never enabled pre-consent. This keeps Firebase install counts in parity with Adjust / GameAnalytics (which count the install at SDK init). Studios with stricter EEA analytics requirements can adjust the posture in `FirebaseAdapterImpl.ApplyConsentSignals` and the injected Consent Mode defaults.
+
+---
+
 ## 1. AdMob Setup (GDPR)
 
 1. Create account at [admob.google.com](https://admob.google.com)

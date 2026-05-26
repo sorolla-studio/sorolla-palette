@@ -9,8 +9,8 @@ namespace Sorolla.Palette.Adapters
     internal interface IFirebaseAdapter
     {
         bool IsReady { get; }
-        void Initialize(bool consent, bool verboseLogging = false);
-        void UpdateConsent(bool consent);
+        void Initialize(bool adConsent, bool analyticsConsent, bool verboseLogging = false);
+        void UpdateConsent(bool adConsent, bool analyticsConsent);
         void TrackEvent(string eventName, Dictionary<string, object> parameters);
         void TrackDesignEvent(string eventName, float value);
         void TrackProgressionEvent(string status, string p1, string p2, string p3, int score,
@@ -51,17 +51,17 @@ namespace Sorolla.Palette.Adapters
 
         public static bool IsReady => s_impl?.IsReady ?? false;
 
-        public static void Initialize(bool consent, bool verboseLogging = false)
+        public static void Initialize(bool adConsent, bool analyticsConsent, bool verboseLogging = false)
         {
             if (s_impl != null)
-                s_impl.Initialize(consent, verboseLogging);
+                s_impl.Initialize(adConsent, analyticsConsent, verboseLogging);
             else
                 PaletteLog.Warning($"{Tag} Not installed");
         }
 
-        public static void UpdateConsent(bool consent)
+        public static void UpdateConsent(bool adConsent, bool analyticsConsent)
         {
-            s_impl?.UpdateConsent(consent);
+            s_impl?.UpdateConsent(adConsent, analyticsConsent);
         }
 
         public static void TrackEvent(string eventName, Dictionary<string, object> parameters = null)

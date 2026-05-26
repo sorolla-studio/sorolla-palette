@@ -19,7 +19,7 @@ namespace Sorolla.Palette
         const string Tag = "[Palette]";
 
         /// <summary>Package version of the Sorolla Palette SDK.</summary>
-        public const string SdkVersion = "3.15.5";
+        public const string SdkVersion = "3.16.0";
 
         /// <summary>Whether the SDK is initialized</summary>
         public static bool IsInitialized { get; private set; }
@@ -367,7 +367,12 @@ namespace Sorolla.Palette
             // Firebase modules (always enabled when installed)
 #if FIREBASE_ANALYTICS_INSTALLED
             PaletteLog.Verbose($"{Tag} Initializing Firebase Analytics...");
-            FirebaseAdapter.Initialize(consent, VerboseLogging);
+            // Boot analytics consent GRANTED by default (collection on) so first_open is countable
+            // even before the CMP resolves; ad consent follows the boot value (denied on MAX path
+            // until UMP resolves). analytics_storage is downgraded only for a confirmed GDPR decline
+            // in OnMaxConsentChanged. See SorollaIOSPostProcessor / GradlePropertiesFixer for the
+            // matching platform Consent Mode defaults that govern the very first native ping.
+            FirebaseAdapter.Initialize(adConsent: consent, analyticsConsent: true, verboseLogging: VerboseLogging);
 #endif
 
 #if FIREBASE_CRASHLYTICS_INSTALLED
@@ -553,26 +558,36 @@ namespace Sorolla.Palette
 
         static void OnMaxConsentChanged(Adapters.ConsentStatus status)
         {
-            bool consent = status == Adapters.ConsentStatus.Obtained || status == Adapters.ConsentStatus.NotApplicable;
-            if (HasConsent == consent) return;
+            bool adConsent = status == Adapters.ConsentStatus.Obtained || status == Adapters.ConsentStatus.NotApplicable;
+            // Analytics consent is broader than ad consent: granted for everyone EXCEPT a confirmed
+            // GDPR decline. This keeps installs/first_open countable for non-GDPR (NotApplicable),
+            // undetermined geography (Required/Unknown), and consenting (Obtained) users, while only
+            // a real opt-out (Denied) goes cookieless. Ad signals stay gated on adConsent.
+            bool analyticsConsent = status != Adapters.ConsentStatus.Denied;
 
-            HasConsent = consent;
-            PaletteLog.Vital($"{Tag} Consent updated by MAX CMP: {status} -> propagating to adapters");
-            GameAnalyticsAdapter.UpdateConsent(consent);
+            // Always propagate analytics consent — even when adConsent is unchanged (e.g. Required/
+            // Unknown keep adConsent=false from boot). The early-return below only guards ad-side work.
+            GameAnalyticsAdapter.UpdateConsent(analyticsConsent);
 #if FIREBASE_ANALYTICS_INSTALLED
-            FirebaseAdapter.UpdateConsent(consent);
+            FirebaseAdapter.UpdateConsent(adConsent, analyticsConsent);
 #endif
+
+            if (HasConsent == adConsent) return;
+
+            HasConsent = adConsent;
+            PaletteLog.Vital($"{Tag} Consent updated by MAX CMP: {status} -> propagating to adapters (ad={adConsent}, analytics={analyticsConsent})");
 #if SOROLLA_FACEBOOK_ENABLED
-            FacebookAdapter.UpdateConsent(consent);
+            FacebookAdapter.UpdateConsent(adConsent);
 #endif
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
-            AdjustAdapter.UpdateConsent(consent);
+            AdjustAdapter.UpdateConsent(adConsent);
 #endif
 
             TrackEvent("consent_changed", new Dictionary<string, object>
             {
                 { "max_status", status.ToString() },
-                { "consent", consent },
+                { "consent", adConsent },
+                { "analytics_consent", analyticsConsent },
             });
         }
 

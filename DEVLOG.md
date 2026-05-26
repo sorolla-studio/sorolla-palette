@@ -7,6 +7,34 @@
 
 ## Recent Session Learnings
 
+### 2026-05-26 - Firebase iOS install undercount: cookieless first_open (v3.16.0)
+
+**Problem**: Firebase reported far fewer installs than Adjust/GameAnalytics across every game, including US/non-GDPR traffic. Adjust ≈ GA, both well above Firebase. "Not always the case" — it started in April 2026.
+
+**Root cause**: On the MAX path the SDK booted Firebase analytics consent denied (`Palette.Initialize(consent:false)` → `SetConsent(...denied)` + `SetAnalyticsCollectionEnabled(false)`) and waited for the CMP. iOS fires native `first_open` at launch, BEFORE the CMP/ATT resolves — so the install fired with `analytics_storage=denied`, no app-instance-id (`user_pseudo_id` null). GA4 standard reports can't count cookieless events as installs/users below the ~1000/day behavioral-modeling threshold, so they vanished from the UI. Adjust/GA register the install at SDK init regardless of consent, so they matched each other and ran higher.
+
+**Evidence (BigQuery)**: iOS `first_open` split by `privacy_info.analytics_storage` × `user_pseudo_id` null-ness — ~50% cookieless (Sweep Collector) / ~27% (Hungry Snake); Android ~0–10% (consent resolves fast, no ATT). Monthly split dated the regression: 0% cookieless through March 2026, first appears April. Maps to v3.6.0 (2026-04-01, consent-gated collection + boot-denied) and the cookieless signature to v3.9.1 (2026-04-16, Consent Mode v2).
+
+**Fix**: decouple analytics consent from ad consent. `analytics_storage` defaults GRANTED via platform Consent Mode defaults (Android manifest `<meta-data google_analytics_default_allow_*>`, iOS `Info.plist GOOGLE_ANALYTICS_DEFAULT_ALLOW_*`) so they govern the first native ping; runtime downgrades to denied only for a confirmed GDPR `Denied`. Ad signals stay denied until the CMP. Removed the hard `SetAnalyticsCollectionEnabled(false)`.
+
+**Rule**: `analytics_storage=denied` is NOT a no-op — it strips the app-instance-id and makes events uncountable in standard GA4 reports. To count installs, the default must be granted before the first native ping; only the platform manifest/plist Consent Mode defaults govern `first_open` (runtime `SetConsent` is too late on iOS). Never conflate analytics consent with ad consent.
+
+**Verification trap**: Firebase BigQuery cannot show the suppressed cohort directly (their events were cookieless). Size the gap by comparing Firebase `first_open` vs Adjust/GA installs; diagnose by reading `privacy_info.analytics_storage` + `user_pseudo_id` on `first_open`.
+
+### 2026-05-26 - Diagnostics console can't open on device: stripped input backend (v3.16.0)
+
+**Problem**: Sorolla Vitals 5-tap open gesture worked in the Editor but did nothing on device.
+
+**Root cause**: The new-Input-System touch backend (`Sorolla.Runtime.InputSystem` assembly) self-registers via `[RuntimeInitializeOnLoadMethod]` and is referenced by nothing. It had NO stripping protection (no `[assembly: AlwaysLinkAssembly]`, no `[Preserve]`, absent from `link.xml`) — unlike every adapter assembly. IL2CPP managed stripping removed it on device, so the backend never registered and `SorollaDiagnosticsInput` saw zero touches. Editor works because Mono doesn't strip.
+
+**Diagnosis**: a one-build temp on-screen HUD printed `backend=NULL-stripped?`, `touchCount=0`, `tapsReceived=0` — instantly ruling out the tap-zone / coordinate / uiScale / pointer-vs-touch hypotheses (the zone was 294px, generous) and pinpointing the stripped backend. After the fix the same HUD showed `backend=SorollaDiagnosticsInputSystemBackend` and `tapsReceived` climbing.
+
+**Fix**: `AssemblyInfo.cs` with `[assembly: AlwaysLinkAssembly]`, `[Preserve]` on the backend class + `Register()`, and a `link.xml` entry — matching the adapter pattern. Gated by the assembly's `ENABLE_INPUT_SYSTEM` define constraint, so legacy-Input-Manager-only projects (assembly absent) are unaffected.
+
+**Rule**: any assembly whose only entry point is a `[RuntimeInitializeOnLoadMethod]` (referenced by nothing else) MUST have `[assembly: AlwaysLinkAssembly]` + `[Preserve]`, or IL2CPP strips it on device. "Works in Editor, not device" + self-registering code ⇒ suspect stripping first.
+
+**Smart-diagnostic lesson**: when a device-only bug resists static analysis, ship a tiny on-screen HUD that prints the live state of every candidate cause in ONE build, instead of guessing fix-by-fix. It collapsed several wrong hypotheses in one device run.
+
 ### 2026-04-09 - Unity 6 launcher module trap (v3.8.0)
 
 **Problem**: `DeploymentOperationFailedException: No activity with action MAIN and category LAUNCHER` on one Unity 6 integration but not another. Same SDK, same Unity 6000.4. Hours of debugging.

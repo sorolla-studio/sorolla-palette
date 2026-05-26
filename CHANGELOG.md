@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.16.0] - 2026-05-26
+
+Firebase install-count recovery (iOS Consent Mode) + diagnostics console device-input fix.
+
+### Fixed
+- **Firebase severely undercounted installs on iOS — `first_open` fired cookieless and was uncountable in GA4** (`Runtime/Adapters/Firebase/FirebaseAdapterImpl.cs`, `Runtime/Adapters/FirebaseAdapter.cs`, `Runtime/Palette.cs`, `Editor/SorollaIOSPostProcessor.cs`, `Editor/AndroidManifestSanitizer.cs`, `Editor/GradlePropertiesFixer.cs`). On the MAX (Full-mode) path the SDK booted Firebase with analytics consent **denied** and waited for the CMP to resolve. iOS fires the native `first_open` at launch — before the CMP/ATT resolves — so the install was tagged `analytics_storage=denied` with no app-instance-id (`user_pseudo_id` null), and GA4 standard reports cannot count cookieless events as installs/users below the ~1000/day behavioral-modeling threshold. Adjust and GameAnalytics register the install at SDK init regardless of consent, which is why their numbers matched each other and ran well above Firebase across all games. Confirmed in BigQuery: ~50% of iOS `first_open` cookieless on Sweep Collector, ~27% on Hungry Snake; Android ~0–10% (consent resolves fast, no ATT). Regression dates to v3.6.0 (consent-gated collection + boot-denied); the cookieless signature began at v3.9.1 (Consent Mode v2).
+
+  Fix: analytics consent is now **decoupled from ad consent**. `analytics_storage` defaults **granted** so `first_open` is counted with an app-instance-id; the three ad signals (`ad_storage` / `ad_personalization` / `ad_user_data`) stay **denied** until the CMP resolves. The defaults are written as platform Consent Mode v2 defaults so they govern the first native ping: Android `<meta-data google_analytics_default_allow_*>` injected into the merged manifest at `IPostGenerateGradleAndroidProject`, and iOS `GOOGLE_ANALYTICS_DEFAULT_ALLOW_*` `Info.plist` keys at `OnPostProcessBuild`. At runtime `analytics_storage` is downgraded to denied only for a confirmed GDPR decline (`ConsentStatus.Denied`); every other state (NotApplicable / Required / Unknown / Obtained) keeps analytics granted. The hard `SetAnalyticsCollectionEnabled(false)` call is removed — it didn't reliably suppress on iOS and only stripped the install's identifier; collection is now always enabled, which also clears the persisted-disabled state older builds left on returning devices.
+
+- **Sorolla Vitals diagnostics console could not be opened on device (worked in the Editor)** (`Runtime/Diagnostics/InputSystem/AssemblyInfo.cs` (new), `Runtime/Diagnostics/InputSystem/SorollaDiagnosticsInputSystemBackend.cs`, `Runtime/link.xml`). The new-Input-System touch backend lives in an optional companion assembly that nothing references — it self-registers via `[RuntimeInitializeOnLoadMethod]`. Unlike every adapter assembly it had no stripping protection, so IL2CPP managed stripping removed it on device builds: the backend never registered, the console received no touch input, and the 5-tap open gesture did nothing (the Editor works because Mono doesn't strip). Fix: added `[assembly: AlwaysLinkAssembly]` (`AssemblyInfo.cs`), `[Preserve]` on the backend class + its `Register()` method, and a `link.xml` entry — matching the adapter assemblies. The protection is gated by the assembly's `ENABLE_INPUT_SYSTEM` define constraint, so legacy-Input-Manager-only projects (where the assembly does not compile) are unaffected.
+
+### Behavior change
+- Builds now ship Consent Mode v2 default keys in the Android manifest and iOS `Info.plist` (analytics granted, ads denied), and Firebase analytics collection is always enabled. An EEA user emits one identified `first_open` before the CMP resolves; ad personalization remains gated by the CMP at all times. This restores install parity with Adjust / GameAnalytics. Studios with strict EEA analytics requirements should review the posture in `FirebaseAdapterImpl.ApplyConsentSignals` and the injected Consent Mode defaults.
+
+### Migration
+No public Palette API change — `SorollaConfig` and the consent flow are unchanged. Rebuild iOS/Android for the new Consent Mode defaults to take effect; on iOS the cookieless-`first_open` share should collapse toward the Android baseline within a reporting window.
+
 ## [3.15.5] - 2026-05-13
 
 Diagnostics input-system compatibility release.
