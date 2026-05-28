@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
@@ -160,27 +159,6 @@ namespace Sorolla.Palette.Editor
             {
                 ManifestManager.RemoveDependencies(toRemove);
                 Debug.Log($"[Palette] Removed {toRemove.Count} package(s) from manifest.");
-            }
-        }
-
-        /// <summary>
-        ///     Trigger Android dependency resolution via EDM
-        /// </summary>
-        public static void TryResolveDependencies()
-        {
-            try
-            {
-                var resolverType = Type.GetType("Google.JarResolver.PlayServicesResolver, Google.JarResolver");
-                MethodInfo resolveMethod = resolverType?.GetMethod("Resolve", BindingFlags.Public | BindingFlags.Static);
-                if (resolveMethod != null)
-                {
-                    Debug.Log("[Palette] Triggering EDM resolution...");
-                    resolveMethod.Invoke(null, new object[] { null, null, true });
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[Palette] Could not auto-resolve dependencies: {e.Message}");
             }
         }
 

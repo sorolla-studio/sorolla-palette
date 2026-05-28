@@ -693,14 +693,6 @@ namespace Sorolla.Palette
                 GUILayout.Label(detail, style);
         }
 
-        void DrawBadgeNameLine(string badge, SorollaDiagnosticSeverity severity, float badgeWidth, string name)
-        {
-            GUILayout.BeginHorizontal();
-            DrawSummaryBadge(badge, severity, badgeWidth);
-            DrawInlineRowName(name);
-            GUILayout.EndHorizontal();
-        }
-
         void DrawInlineRowName(string name)
         {
             GUILayout.Space(BadgeTextGap());

@@ -100,12 +100,5 @@ namespace Sorolla.Palette
             SorollaDiagnostics.RefreshIdentifiers();
             RequestDiagnosticsRefresh();
         }
-
-        void RefreshVitalsProbe()
-        {
-            Palette.RefreshConsentStatus();
-            SorollaDiagnostics.RefreshIdentifiers();
-            RequestDiagnosticsRefresh();
-        }
     }
 }

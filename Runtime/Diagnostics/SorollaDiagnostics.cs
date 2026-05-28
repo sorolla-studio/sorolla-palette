@@ -716,11 +716,6 @@ namespace Sorolla.Palette
             return row.Kind == SorollaDiagnosticKind.Required;
         }
 
-        internal static bool IsRuntimeProblemRow(SorollaDiagnosticRow row)
-        {
-            return row.Group == "Red flags" && row.Name == RuntimeProblemsRowName;
-        }
-
         internal static string KindLabel(SorollaDiagnosticKind kind)
         {
             switch (kind)
@@ -1080,12 +1075,6 @@ namespace Sorolla.Palette
         static void AddObserved(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity, string detail) =>
             Add(rows, group, name, severity, detail, SorollaDiagnosticKind.Observed);
 
-        static void AddObserved(List<SorollaDiagnosticRow> rows, string group, string name, (SorollaDiagnosticSeverity severity, string detail) item) =>
-            Add(rows, group, name, item.severity, item.detail, SorollaDiagnosticKind.Observed);
-
-        static void AddContext(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity, string detail) =>
-            Add(rows, group, name, severity, detail, SorollaDiagnosticKind.Context);
-
         static void Add(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity, string detail,
             SorollaDiagnosticKind kind) =>
             rows.Add(new SorollaDiagnosticRow(group, name, severity, detail, kind));
@@ -1284,7 +1273,8 @@ namespace Sorolla.Palette
             if (!fullMode) return SorollaDiagnosticSeverity.Info;
             if (snapshot.AdjustMissingToken) return SorollaDiagnosticSeverity.Fail;
             if (snapshot.AdjustInitialized) return SorollaDiagnosticSeverity.Pass;
-            if (snapshot.AdjustInitializing) return SorollaDiagnosticSeverity.Waiting;
+            // Not yet initialized (waiting for MAX consent, or mid-init) — both surface as Waiting;
+            // AdjustRuntimeDetail differentiates the two states for the human-readable string.
             return SorollaDiagnosticSeverity.Waiting;
         }
 

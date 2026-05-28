@@ -269,45 +269,23 @@ namespace Sorolla.Palette.Adapters
             }
         }
 
-        public bool GetBool(string key, bool defaultValue)
-        {
-            if (!_init) return defaultValue;
-            try
-            {
-                ConfigValue configValue = FirebaseRemoteConfig.DefaultInstance.GetValue(key);
-                if (configValue.Source == ValueSource.StaticValue && string.IsNullOrEmpty(configValue.StringValue))
-                    return defaultValue;
-                return configValue.BooleanValue;
-            }
-            catch (Exception ex)
-            {
-                PaletteLog.Error($"{Tag} Error getting Remote Config key '{key}'.");
-                PaletteLog.Verbose($"{Tag} Error getting '{key}': {ex.Message}");
-                return defaultValue;
-            }
-        }
+        public bool GetBool(string key, bool defaultValue) =>
+            GetTypedValue(key, defaultValue, cv => cv.BooleanValue);
 
-        public long GetLong(string key, long defaultValue)
-        {
-            if (!_init) return defaultValue;
-            try
-            {
-                ConfigValue configValue = FirebaseRemoteConfig.DefaultInstance.GetValue(key);
-                if (configValue.Source == ValueSource.StaticValue && string.IsNullOrEmpty(configValue.StringValue))
-                    return defaultValue;
-                return configValue.LongValue;
-            }
-            catch (Exception ex)
-            {
-                PaletteLog.Error($"{Tag} Error getting Remote Config key '{key}'.");
-                PaletteLog.Verbose($"{Tag} Error getting '{key}': {ex.Message}");
-                return defaultValue;
-            }
-        }
+        public long GetLong(string key, long defaultValue) =>
+            GetTypedValue(key, defaultValue, cv => cv.LongValue);
 
         public int GetInt(string key, int defaultValue) => (int)GetLong(key, defaultValue);
 
-        public double GetDouble(string key, double defaultValue)
+        public double GetDouble(string key, double defaultValue) =>
+            GetTypedValue(key, defaultValue, cv => cv.DoubleValue);
+
+        public float GetFloat(string key, float defaultValue) => (float)GetDouble(key, defaultValue);
+
+        // Shared read path for non-string typed getters: init guard, static-default detection,
+        // and uniform error handling. The reader lambdas are non-capturing, so the C# compiler
+        // caches them as static delegates — no per-call allocation on this read path.
+        T GetTypedValue<T>(string key, T defaultValue, Func<ConfigValue, T> read)
         {
             if (!_init) return defaultValue;
             try
@@ -315,7 +293,7 @@ namespace Sorolla.Palette.Adapters
                 ConfigValue configValue = FirebaseRemoteConfig.DefaultInstance.GetValue(key);
                 if (configValue.Source == ValueSource.StaticValue && string.IsNullOrEmpty(configValue.StringValue))
                     return defaultValue;
-                return configValue.DoubleValue;
+                return read(configValue);
             }
             catch (Exception ex)
             {
@@ -324,8 +302,6 @@ namespace Sorolla.Palette.Adapters
                 return defaultValue;
             }
         }
-
-        public float GetFloat(string key, float defaultValue) => (float)GetDouble(key, defaultValue);
 
         public IEnumerable<string> GetKeys()
         {

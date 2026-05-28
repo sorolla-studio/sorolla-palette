@@ -36,7 +36,6 @@ namespace Sorolla.Palette.Editor
 
                 // Use reflection to check if game keys are configured
                 var settingsType = settings.GetType();
-                var platformsField = settingsType.GetMethod("GetAllPlatformGameKeys");
                 
                 // Alternative: check the gameKey list directly
                 var gameKeyField = settingsType.GetField("gameKey", 

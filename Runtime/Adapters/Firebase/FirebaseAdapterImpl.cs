@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using Firebase;
 using Firebase.Analytics;
 using UnityEngine;
@@ -376,7 +375,7 @@ namespace Sorolla.Palette.Adapters
         static Parameter ToFirebaseParameter(string key, object value)
         {
             // Sanitize param name
-            string sanitizedKey = SanitizeParamName(key);
+            string sanitizedKey = EventNameSanitizer.SanitizeParamName(key);
             if (sanitizedKey == null) return null;
 
             return value switch
@@ -415,7 +414,7 @@ namespace Sorolla.Palette.Adapters
         {
             foreach (var kvp in extra)
             {
-                string sanitizedKey = SanitizeParamName(kvp.Key);
+                string sanitizedKey = EventNameSanitizer.SanitizeParamName(kvp.Key);
                 if (sanitizedKey == null) continue;
 
                 if (reservedKeys.Contains(sanitizedKey))
@@ -432,28 +431,12 @@ namespace Sorolla.Palette.Adapters
 
         static string SanitizeEventName(string name)
         {
-            if (string.IsNullOrEmpty(name)) return null;
+            // Shared GA4 normalization (separators -> '_', strip invalid, lowercase, letter-start, max 40).
+            string finalName = EventNameSanitizer.SanitizeEventName(name);
+            if (finalName == null) return null;
 
-            string sanitized = name.Replace(":", "_").Replace("-", "_").Replace(" ", "_").Replace(".", "_");
-
-            var result = new StringBuilder();
-            foreach (char c in sanitized)
-            {
-                if (char.IsLetterOrDigit(c) || c == '_')
-                    result.Append(char.ToLowerInvariant(c));
-            }
-
-            if (result.Length > 0 && !char.IsLetter(result[0]))
-                result.Insert(0, 'e');
-
-            if (result.Length > 40)
-                result.Length = 40;
-
-            if (result.Length == 0) return null;
-
-            string finalName = result.ToString();
-
-            // Drop GA4-reserved names. Firebase silently rejects these server-side - warn so studios notice.
+            // Firebase/GA4-specific rejection on top of the shared normalization: these names and
+            // prefixes are silently dropped server-side, so drop here too and warn so studios notice.
             if (ReservedEventNames.Contains(finalName))
             {
                 PaletteLog.Warning($"{Tag} Event name '{finalName}' is GA4-reserved - dropped");
@@ -479,25 +462,6 @@ namespace Sorolla.Palette.Adapters
                 if (name.StartsWith(ReservedNamePrefixes[i])) return true;
             }
             return false;
-        }
-
-        static string SanitizeParamName(string name)
-        {
-            if (string.IsNullOrEmpty(name)) return null;
-
-            string sanitized = name.Replace(":", "_").Replace("-", "_").Replace(" ", "_").Replace(".", "_");
-
-            var result = new StringBuilder();
-            foreach (char c in sanitized)
-            {
-                if (char.IsLetterOrDigit(c) || c == '_')
-                    result.Append(char.ToLowerInvariant(c));
-            }
-
-            if (result.Length > 40)
-                return result.ToString(0, 40);
-
-            return result.Length > 0 ? result.ToString() : null;
         }
 
         #endregion

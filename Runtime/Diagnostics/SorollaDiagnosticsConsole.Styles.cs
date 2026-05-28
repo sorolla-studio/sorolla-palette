@@ -192,12 +192,6 @@ namespace Sorolla.Palette
             _uiScale = shortSide > 0f ? Mathf.Clamp(shortSide / reference, minScale, maxScale) : minScale;
         }
 
-        void InvalidateStyles()
-        {
-            _titleStyle = null;
-            _stylesUiScale = -1f;
-        }
-
         void RebuildTextures()
         {
             DestroyStyleResources();

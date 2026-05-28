@@ -2,17 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Sorolla.Palette.Adapters;
-using UnityEngine;
 
 namespace Sorolla.Palette
 {
     public static partial class Palette
     {
-        const int MaxEventNameLength = 40;
-        const int MaxParamNameLength = 40;
-        const int MaxParamsPerEvent = 25;
-
-        static readonly string[] s_reservedPrefixes = { "firebase_", "google_", "ga_" };
+        // Name/param sanitization rules and limits live in the shared
+        // EventNameSanitizer (Sorolla.Palette.Adapters) so the Palette validation
+        // gate and the adapter implementations cannot drift apart.
 
         /// <summary>
         ///     Validate and sanitize an event name and its parameters.
@@ -21,14 +18,14 @@ namespace Sorolla.Palette
         static bool ValidateEvent(ref string eventName, Dictionary<string, object> parameters)
         {
             string originalName = eventName;
-            eventName = SanitizeEventName(eventName);
+            eventName = EventNameSanitizer.SanitizeEventName(eventName);
             if (eventName == null)
             {
-                PaletteLog.Error($"{Tag} Event rejected: '{originalName}' is empty or invalid after sanitization. Use lowercase letters, digits, and underscores (max {MaxEventNameLength} chars).");
+                PaletteLog.Error($"{Tag} Event rejected: '{originalName}' is empty or invalid after sanitization. Use lowercase letters, digits, and underscores (max {EventNameSanitizer.MaxEventNameLength} chars).");
                 return false;
             }
 
-            foreach (var prefix in s_reservedPrefixes)
+            foreach (var prefix in EventNameSanitizer.ReservedPrefixes)
             {
                 if (eventName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 {
@@ -50,18 +47,18 @@ namespace Sorolla.Palette
         /// </summary>
         static bool ValidateParams(Dictionary<string, object> parameters)
         {
-            if (parameters.Count > MaxParamsPerEvent)
+            if (parameters.Count > EventNameSanitizer.MaxParamsPerEvent)
             {
-                PaletteLog.Error($"{Tag} Event rejected: {parameters.Count} params exceeds max {MaxParamsPerEvent}. Remove {parameters.Count - MaxParamsPerEvent} param(s).");
+                PaletteLog.Error($"{Tag} Event rejected: {parameters.Count} params exceeds max {EventNameSanitizer.MaxParamsPerEvent}. Remove {parameters.Count - EventNameSanitizer.MaxParamsPerEvent} param(s).");
                 return false;
             }
 
             foreach (var kvp in parameters)
             {
-                var sanitizedKey = SanitizeParameterName(kvp.Key);
+                var sanitizedKey = EventNameSanitizer.SanitizeParamName(kvp.Key);
                 if (sanitizedKey == null)
                 {
-                    PaletteLog.Error($"{Tag} Event rejected: param name '{kvp.Key}' is invalid after sanitization. Use lowercase letters, digits, and underscores (max {MaxParamNameLength} chars).");
+                    PaletteLog.Error($"{Tag} Event rejected: param name '{kvp.Key}' is invalid after sanitization. Use lowercase letters, digits, and underscores (max {EventNameSanitizer.MaxParamNameLength} chars).");
                     return false;
                 }
 
@@ -74,47 +71,6 @@ namespace Sorolla.Palette
             }
 
             return true;
-        }
-
-        static string SanitizeEventName(string name)
-        {
-            if (string.IsNullOrEmpty(name)) return null;
-
-            var sanitized = name.Replace(":", "_").Replace("-", "_").Replace(" ", "_").Replace(".", "_");
-
-            var result = new System.Text.StringBuilder();
-            foreach (var c in sanitized)
-            {
-                if (char.IsLetterOrDigit(c) || c == '_')
-                    result.Append(char.ToLowerInvariant(c));
-            }
-
-            if (result.Length > 0 && !char.IsLetter(result[0]))
-                result.Insert(0, 'e');
-
-            if (result.Length > MaxEventNameLength)
-                return result.ToString(0, MaxEventNameLength);
-
-            return result.Length > 0 ? result.ToString() : null;
-        }
-
-        static string SanitizeParameterName(string name)
-        {
-            if (string.IsNullOrEmpty(name)) return null;
-
-            var sanitized = name.Replace(":", "_").Replace("-", "_").Replace(" ", "_").Replace(".", "_");
-
-            var result = new System.Text.StringBuilder();
-            foreach (var c in sanitized)
-            {
-                if (char.IsLetterOrDigit(c) || c == '_')
-                    result.Append(char.ToLowerInvariant(c));
-            }
-
-            if (result.Length > MaxParamNameLength)
-                return result.ToString(0, MaxParamNameLength);
-
-            return result.Length > 0 ? result.ToString() : null;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
