@@ -129,7 +129,7 @@ namespace Sorolla.Palette
             // on the non-MAX path so this fires immediately (not queued).
             Palette.TrackEvent("att_decision", new Dictionary<string, object>
             {
-                { "att_status", finalStatus.ToString() },
+                { "att_status", Palette.AttString(finalStatus) },
                 { "source", "standalone" },
             });
             yield break;

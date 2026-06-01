@@ -28,18 +28,20 @@ namespace Sorolla.Palette.Adapters
 
         static readonly string[] ReservedNamePrefixes = { "ga_", "google_", "firebase_" };
         readonly Queue<Action> _pendingEvents = new Queue<Action>();
-        bool _adConsent;
+        bool _adStorageConsent;
+        bool _adPersonalizationConsent;
         bool _analyticsConsent;
         bool _initFailed;
         bool _initRequested;
 
         public bool IsReady { get; private set; }
 
-        public void Initialize(bool adConsent, bool analyticsConsent, bool verboseLogging = false)
+        public void Initialize(bool adStorageConsent, bool adPersonalizationConsent, bool analyticsConsent, bool verboseLogging = false)
         {
             if (_initRequested) return;
             _initRequested = true;
-            _adConsent = adConsent;
+            _adStorageConsent = adStorageConsent;
+            _adPersonalizationConsent = adPersonalizationConsent;
             _analyticsConsent = analyticsConsent;
 
             FirebaseCoreManager.Initialize(available =>
@@ -50,14 +52,14 @@ namespace Sorolla.Palette.Adapters
                         ? LogLevel.Debug
                         : LogLevel.Warning;
 
-                    ApplyConsentSignals(_adConsent, _analyticsConsent);
+                    ApplyConsentSignals(_adStorageConsent, _adPersonalizationConsent, _analyticsConsent);
                     // Never disable collection. SetAnalyticsCollectionEnabled(false) only strips
                     // first_open's app-instance-id (making installs uncountable) and is unreliable
                     // on iOS — Consent Mode (SetConsent) governs identifiers instead. Force-enable
                     // to undo any persisted disabled state from prior SDK versions (the flag
                     // persists across launches per Firebase docs).
                     FirebaseAnalytics.SetAnalyticsCollectionEnabled(true);
-                    PaletteLog.Vital($"{Tag} Initialized (collection: on, analytics_consent: {_analyticsConsent}, ad_consent: {_adConsent}, verbose: {verboseLogging})");
+                    PaletteLog.Vital($"{Tag} Initialized (collection: on, analytics_consent: {_analyticsConsent}, ad_storage_consent: {_adStorageConsent}, ad_personalization_consent: {_adPersonalizationConsent}, verbose: {verboseLogging})");
                     IsReady = true;
                     FlushPendingEvents();
                 }
@@ -71,12 +73,13 @@ namespace Sorolla.Palette.Adapters
             });
         }
 
-        public void UpdateConsent(bool adConsent, bool analyticsConsent)
+        public void UpdateConsent(bool adStorageConsent, bool adPersonalizationConsent, bool analyticsConsent)
         {
-            _adConsent = adConsent;
+            _adStorageConsent = adStorageConsent;
+            _adPersonalizationConsent = adPersonalizationConsent;
             _analyticsConsent = analyticsConsent;
             if (IsReady)
-                ApplyConsentSignals(adConsent, analyticsConsent);
+                ApplyConsentSignals(adStorageConsent, adPersonalizationConsent, analyticsConsent);
         }
 
         public void TrackEvent(string eventName, Dictionary<string, object> parameters)
@@ -297,31 +300,43 @@ namespace Sorolla.Palette.Adapters
         }
 
         /// <summary>
-        ///     Sets Firebase Consent Mode v2 signals. Analytics and ad consent are decoupled:
-        ///     analytics_storage is gated on <paramref name="analyticsConsent"/> (granted unless the
-        ///     user is a confirmed GDPR decline) so installs/first_open stay countable, while the
-        ///     three ad signals are gated on <paramref name="adConsent"/> (granted only once the CMP
-        ///     resolves). Collection itself is never toggled here — see Initialize.
+        ///     Sets Firebase Consent Mode v2 signals. The three axes are decoupled:
+        ///     <list type="bullet">
+        ///       <item><paramref name="analyticsConsent"/> gates analytics_storage (granted unless the
+        ///       user is a confirmed GDPR decline) so installs/first_open stay countable.</item>
+        ///       <item><paramref name="adStorageConsent"/> gates ad_storage and follows the GDPR/UMP
+        ///       decision (granted only once the CMP resolves).</item>
+        ///       <item><paramref name="adPersonalizationConsent"/> gates ad_personalization AND
+        ///       ad_user_data. On iOS this additionally requires ATT authorization: personalized ads
+        ///       need BOTH GDPR consent AND ATT, so an ATT-denied user is reported non-personalized
+        ///       (Firebase sets non_personalized_ads=1) even when GDPR consent was granted.</item>
+        ///     </list>
+        ///     All four signals are re-asserted together every call, which preserves the stored
+        ///     ad_personalization choice across an analytics/ad_storage toggle. Collection itself is
+        ///     never toggled here — see Initialize.
         /// </summary>
-        static void ApplyConsentSignals(bool adConsent, bool analyticsConsent)
+        static void ApplyConsentSignals(bool adStorageConsent, bool adPersonalizationConsent, bool analyticsConsent)
         {
             Firebase.Analytics.ConsentStatus analyticsStatus = analyticsConsent
                 ? Firebase.Analytics.ConsentStatus.Granted
                 : Firebase.Analytics.ConsentStatus.Denied;
-            Firebase.Analytics.ConsentStatus adStatus = adConsent
+            Firebase.Analytics.ConsentStatus adStorageStatus = adStorageConsent
+                ? Firebase.Analytics.ConsentStatus.Granted
+                : Firebase.Analytics.ConsentStatus.Denied;
+            Firebase.Analytics.ConsentStatus adPersonalizationStatus = adPersonalizationConsent
                 ? Firebase.Analytics.ConsentStatus.Granted
                 : Firebase.Analytics.ConsentStatus.Denied;
 
             FirebaseAnalytics.SetConsent(new Dictionary<ConsentType, Firebase.Analytics.ConsentStatus>
             {
                 { ConsentType.AnalyticsStorage, analyticsStatus },
-                { ConsentType.AdStorage, adStatus },
-                { ConsentType.AdPersonalization, adStatus },
-                { ConsentType.AdUserData, adStatus },
+                { ConsentType.AdStorage, adStorageStatus },
+                { ConsentType.AdPersonalization, adPersonalizationStatus },
+                { ConsentType.AdUserData, adPersonalizationStatus },
             });
 
             PaletteLog.Vital(
-                $"{Tag} Consent mode signals: analytics_storage={analyticsStatus}, ad_storage={adStatus}, ad_personalization={adStatus}, ad_user_data={adStatus}");
+                $"{Tag} Consent mode signals: analytics_storage={analyticsStatus}, ad_storage={adStorageStatus}, ad_personalization={adPersonalizationStatus}, ad_user_data={adPersonalizationStatus}");
         }
 
         void FlushPendingEvents()
@@ -335,11 +350,18 @@ namespace Sorolla.Palette.Adapters
 
         void QueueOrExecute(Action action)
         {
-            if (IsReady)
-                action();
-            else if (!_initFailed)
-                _pendingEvents.Enqueue(action);
-            // _initFailed: drop silently - Firebase permanently unavailable, queueing would leak.
+            if (IsReady) { action(); return; }
+            if (_initFailed)
+            {
+                // Firebase permanently unavailable — drop (queueing would leak). Warn once so the
+                // loss is visible: such events still show in Sorolla Vitals (recorded before the
+                // Firebase hand-off) but never reach Firebase, which reads as "in the game, not in
+                // Firebase realtime". Usual root cause: missing GoogleService-Info.plist / deps.
+                PaletteLog.WarningOnce("firebase.event_dropped_init_failed",
+                    $"{Tag} Firebase init failed — dropping analytics events. They appear in Sorolla Vitals but will NOT reach Firebase. Check GoogleService-Info.plist and Firebase dependencies.");
+                return;
+            }
+            _pendingEvents.Enqueue(action);
         }
 
         #region Helpers

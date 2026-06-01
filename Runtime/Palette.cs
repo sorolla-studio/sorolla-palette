@@ -59,6 +59,15 @@ namespace Sorolla.Palette
         /// </summary>
         public static ATTBridge.AuthorizationStatus AttStatus => ATTBridge.GetStatus();
 
+        /// <summary>Lowercase snake_case ATT status for analytics params: authorized | denied | restricted | not_determined.</summary>
+        internal static string AttString(ATTBridge.AuthorizationStatus status) => status switch
+        {
+            ATTBridge.AuthorizationStatus.Authorized => "authorized",
+            ATTBridge.AuthorizationStatus.Denied => "denied",
+            ATTBridge.AuthorizationStatus.Restricted => "restricted",
+            _ => "not_determined",
+        };
+
         /// <summary>
         ///     Whether ads can be requested (consent obtained or not required).
         ///     Use this to gate ad loading/showing in GDPR regions.
@@ -368,11 +377,12 @@ namespace Sorolla.Palette
 #if FIREBASE_ANALYTICS_INSTALLED
             PaletteLog.Verbose($"{Tag} Initializing Firebase Analytics...");
             // Boot analytics consent GRANTED by default (collection on) so first_open is countable
-            // even before the CMP resolves; ad consent follows the boot value (denied on MAX path
-            // until UMP resolves). analytics_storage is downgraded only for a confirmed GDPR decline
-            // in OnMaxConsentChanged. See SorollaIOSPostProcessor / GradlePropertiesFixer for the
+            // even before the CMP resolves; ad consent (storage + personalization) follows the boot
+            // value (denied on MAX path until UMP resolves). analytics_storage is downgraded only for
+            // a confirmed GDPR decline, and ad_personalization is refined with ATT, in
+            // OnMaxConsentChanged. See SorollaIOSPostProcessor / GradlePropertiesFixer for the
             // matching platform Consent Mode defaults that govern the very first native ping.
-            FirebaseAdapter.Initialize(adConsent: consent, analyticsConsent: true, verboseLogging: VerboseLogging);
+            FirebaseAdapter.Initialize(adStorageConsent: consent, adPersonalizationConsent: consent, analyticsConsent: true, verboseLogging: VerboseLogging);
 #endif
 
 #if FIREBASE_CRASHLYTICS_INSTALLED
@@ -540,17 +550,25 @@ namespace Sorolla.Palette
             OnInitialized?.Invoke();
             PaletteLog.Vital($"{Tag} Ready!");
 
-            // Ship decision to analytics so we can query consent-drop cohorts from our own data.
-            TrackEvent("consent_resolved", new Dictionary<string, object>
+            // Ship the consent decision to analytics so we can query consent-drop cohorts from our own
+            // data. `gdpr` + `att` are the two raw user decisions; `personalized_ads` + `analytics` are
+            // what the SDK RESOLVED them into. On iOS personalized ads require BOTH gdpr ad-consent AND
+            // att=authorized, so gdpr=obtained + att=denied -> personalized_ads=false is a valid,
+            // non-personalized user. Read the resolved booleans, not the raw decisions, for behavior.
+            var resolved = new Dictionary<string, object>
             {
-                { "max_status", MaxAdapter.ConsentStatus.ToString() },
-                { "consent", consent },
-                { "source", "max" },
-            });
+                { "gdpr", GdprString(MaxAdapter.ConsentStatus) },
+                { "personalized_ads", AdPersonalizationAllowed(consent) },
+                { "analytics", MaxAdapter.ConsentStatus != Adapters.ConsentStatus.Denied },
+            };
+#if UNITY_IOS && !UNITY_EDITOR
+            resolved["att_status"] = AttString(ATTBridge.GetStatus());
+#endif
+            TrackEvent("consent_resolved", resolved);
 #if UNITY_IOS && !UNITY_EDITOR
             TrackEvent("att_decision", new Dictionary<string, object>
             {
-                { "att_status", ATTBridge.GetStatus().ToString() },
+                { "att_status", AttString(ATTBridge.GetStatus()) },
                 { "source", "max" },
             });
 #endif
@@ -564,32 +582,65 @@ namespace Sorolla.Palette
             // undetermined geography (Required/Unknown), and consenting (Obtained) users, while only
             // a real opt-out (Denied) goes cookieless. Ad signals stay gated on adConsent.
             bool analyticsConsent = status != Adapters.ConsentStatus.Denied;
+            // ad_storage follows the GDPR/UMP decision; ad_personalization + ad_user_data additionally
+            // require ATT authorization on iOS (personalized ads need BOTH consent AND ATT). So an
+            // ATT-denied user is reported non-personalized (non_personalized_ads=1) even when GDPR
+            // consent was granted, and a non-GDPR (NotApplicable) iOS user who denies ATT no longer
+            // leaks ad_personalization=Granted. AdPersonalizationAllowed is a no-op off-iOS.
+            bool adPersonalizationConsent = AdPersonalizationAllowed(adConsent);
 
             // Always propagate analytics consent — even when adConsent is unchanged (e.g. Required/
             // Unknown keep adConsent=false from boot). The early-return below only guards ad-side work.
             GameAnalyticsAdapter.UpdateConsent(analyticsConsent);
 #if FIREBASE_ANALYTICS_INSTALLED
-            FirebaseAdapter.UpdateConsent(adConsent, analyticsConsent);
+            FirebaseAdapter.UpdateConsent(adStorageConsent: adConsent, adPersonalizationConsent: adPersonalizationConsent, analyticsConsent: analyticsConsent);
+#endif
+
+            // Facebook advertiser tracking mirrors ATT + consent. Re-assert on every resolution
+            // (idempotent; no-ops before FB init) instead of gating it behind the ad-bucket
+            // early-return below, so an ATT change is never missed when the GDPR bucket is unchanged.
+#if SOROLLA_FACEBOOK_ENABLED
+            FacebookAdapter.UpdateConsent(adPersonalizationConsent);
 #endif
 
             if (HasConsent == adConsent) return;
 
             HasConsent = adConsent;
-            PaletteLog.Vital($"{Tag} Consent updated by MAX CMP: {status} -> propagating to adapters (ad={adConsent}, analytics={analyticsConsent})");
-#if SOROLLA_FACEBOOK_ENABLED
-            FacebookAdapter.UpdateConsent(adConsent);
-#endif
+            PaletteLog.Vital($"{Tag} Consent updated by MAX CMP: {status} -> propagating to adapters (ad={adConsent}, adPersonalization={adPersonalizationConsent}, analytics={analyticsConsent})");
+            // Adjust stays enabled with the IDFA withheld natively when ATT is denied (Adjust's own
+            // ATT handling + AttConsentWaitingInterval), so it is gated on adConsent only — NOT on ATT.
+            // Disabling it on ATT-deny would break SKAdNetwork / organic install attribution.
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
             AdjustAdapter.UpdateConsent(adConsent);
 #endif
 
-            TrackEvent("consent_changed", new Dictionary<string, object>
+            var changed = new Dictionary<string, object>
             {
-                { "max_status", status.ToString() },
-                { "consent", adConsent },
-                { "analytics_consent", analyticsConsent },
-            });
+                { "gdpr", GdprString(status) },
+                { "personalized_ads", adPersonalizationConsent },
+                { "analytics", analyticsConsent },
+            };
+#if UNITY_IOS && !UNITY_EDITOR
+            changed["att_status"] = AttString(ATTBridge.GetStatus());
+#endif
+            TrackEvent("consent_changed", changed);
         }
+
+        // On iOS, ad personalization and ad_user_data require BOTH GDPR/UMP consent AND ATT
+        // authorization (Apple: personalized ads need ATT; ad_storage may still follow GDPR alone).
+        // AttStatus returns Authorized off-iOS / in Editor, so this collapses to adConsent on Android.
+        static bool AdPersonalizationAllowed(bool adConsent) =>
+            adConsent && AttStatus == ATTBridge.AuthorizationStatus.Authorized;
+
+        // Lowercase snake_case GDPR/UMP decision for analytics params.
+        static string GdprString(Adapters.ConsentStatus status) => status switch
+        {
+            Adapters.ConsentStatus.Obtained => "obtained",
+            Adapters.ConsentStatus.Denied => "denied",
+            Adapters.ConsentStatus.NotApplicable => "not_applicable",
+            Adapters.ConsentStatus.Required => "required",
+            _ => "unknown",
+        };
 
         static void LogConsentDiagnostics()
         {
