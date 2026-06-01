@@ -3,7 +3,6 @@ namespace Sorolla.Palette.Adapters
     internal interface ITikTokAdapter
     {
         void Initialize(string appId, string tiktokAppId, string accessToken, bool debugMode);
-        void TrackEvent(string eventName);
         void TrackPurchase(double value, string currency);
         void TrackAdRevenue(double value, string currency, string networkName,
             string adFormat, string adUnitId, string placement);
@@ -43,12 +42,6 @@ namespace Sorolla.Palette.Adapters
             {
                 PaletteLog.Warning($"{Tag} Not installed");
             }
-        }
-
-        public static void TrackEvent(string eventName)
-        {
-            if (s_initialized)
-                s_impl.TrackEvent(eventName);
         }
 
         public static void TrackPurchase(double value, string currency = "USD")

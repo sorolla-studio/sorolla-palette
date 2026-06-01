@@ -63,20 +63,6 @@ namespace Sorolla.Palette.Adapters
             PaletteLog.Vital($"[Palette:Adjust] UpdateConsent({consent}) -> Adjust.{(consent ? "Enable" : "Disable")}()");
         }
 
-        public void TrackEvent(string eventToken)
-        {
-            if (!_init) return;
-            Adjust.TrackEvent(new AdjustEvent(eventToken));
-        }
-
-        public void TrackRevenue(string eventToken, double amount, string currency)
-        {
-            if (!_init) return;
-            var e = new AdjustEvent(eventToken);
-            e.SetRevenue(amount, currency);
-            Adjust.TrackEvent(e);
-        }
-
         public void TrackAdRevenue(AdRevenueInfo info)
         {
             if (!_init)

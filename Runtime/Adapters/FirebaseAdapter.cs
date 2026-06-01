@@ -12,7 +12,6 @@ namespace Sorolla.Palette.Adapters
         void Initialize(bool adConsent, bool analyticsConsent, bool verboseLogging = false);
         void UpdateConsent(bool adConsent, bool analyticsConsent);
         void TrackEvent(string eventName, Dictionary<string, object> parameters);
-        void TrackDesignEvent(string eventName, float value);
         void TrackProgressionEvent(string status, string p1, string p2, string p3, int score,
             Dictionary<string, object> extraParams);
         void TrackResourceEvent(string flowType, string currency, float amount, string itemType, string itemId,
@@ -67,11 +66,6 @@ namespace Sorolla.Palette.Adapters
         public static void TrackEvent(string eventName, Dictionary<string, object> parameters = null)
         {
             s_impl?.TrackEvent(eventName, parameters);
-        }
-
-        public static void TrackDesignEvent(string eventName, float value = 0)
-        {
-            s_impl?.TrackDesignEvent(eventName, value);
         }
 
         public static void TrackProgressionEvent(string status, string p1, string p2 = null, string p3 = null,

@@ -102,17 +102,6 @@ namespace Sorolla.Palette.Adapters
             });
         }
 
-        public void TrackDesignEvent(string eventName, float value) => QueueOrExecute(() =>
-        {
-            string sanitized = SanitizeEventName(eventName);
-            if (sanitized == null) return;
-
-            if (value != 0)
-                FirebaseAnalytics.LogEvent(sanitized, "value", value);
-            else
-                FirebaseAnalytics.LogEvent(sanitized);
-        });
-
         public void TrackProgressionEvent(string status, string p1, string p2, string p3, int score,
             Dictionary<string, object> extraParams)
         {

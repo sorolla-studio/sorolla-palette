@@ -110,10 +110,5 @@ namespace Sorolla.Palette.Adapters
         {
             QueueOrExecute(() => Crashlytics.SetCustomKey(key, value));
         }
-
-        public void SetUserId(string userId)
-        {
-            QueueOrExecute(() => Crashlytics.SetUserId(userId));
-        }
     }
 }

@@ -13,7 +13,6 @@ namespace Sorolla.Palette.Adapters
         void LogException(Exception exception);
         void Log(string message);
         void SetCustomKey(string key, string value);
-        void SetUserId(string userId);
     }
 
     /// <summary>
@@ -48,6 +47,5 @@ namespace Sorolla.Palette.Adapters
         public static void SetCustomKey(string key, int value) => s_impl?.SetCustomKey(key, value.ToString());
         public static void SetCustomKey(string key, bool value) => s_impl?.SetCustomKey(key, value.ToString());
         public static void SetCustomKey(string key, float value) => s_impl?.SetCustomKey(key, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        public static void SetUserId(string userId) => s_impl?.SetUserId(userId);
     }
 }

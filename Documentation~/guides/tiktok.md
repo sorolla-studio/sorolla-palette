@@ -22,7 +22,7 @@ Event tracking for TikTok ad campaigns.
 
 1. Open **Palette > Configuration**
 2. Under **TikTok**, enter all three values for Android and/or iOS
-3. Leave `tiktokDebugMode` **off** for distributed builds
+3. Leave **Verbose Logging** (`verboseLogging`) **off** for distributed builds (auto-forced off in release builds regardless)
 
 TikTok initializes automatically when all three fields are populated.
 
@@ -42,6 +42,6 @@ When configured, TikTok receives:
 | Issue | Solution |
 |-------|----------|
 | Events not appearing | Check TikTok Events Manager > Test Events; verify all three config fields |
-| Debug mode left on | Set `tiktokDebugMode = false` before any distributed build |
+| Debug logging left on | `verboseLogging` is auto-forced off in release builds; no action needed |
 | Field name confusion | `tiktokEmAppId` is the Events Manager App ID; `tiktokAppId` is the long numeric TikTok App ID |
 | Android init failure | TikTok requires UI thread init - check logcat for `[Palette:TikTok]` errors |

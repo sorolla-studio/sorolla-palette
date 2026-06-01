@@ -65,29 +65,6 @@ namespace Sorolla.Palette.Adapters
 #endif
         }
 
-        public void TrackEvent(string eventName)
-        {
-#if UNITY_ANDROID && !UNITY_EDITOR
-            try
-            {
-                using var eventBuilder = new AndroidJavaClass("com.tiktok.appevents.base.TTBaseEvent")
-                    .CallStatic<AndroidJavaObject>("newBuilder", eventName);
-                using var ttEvent = eventBuilder.Call<AndroidJavaObject>("build");
-                using var sdkClass = new AndroidJavaClass("com.tiktok.TikTokBusinessSdk");
-                sdkClass.CallStatic("trackTTEvent", ttEvent);
-            }
-            catch (System.Exception e)
-            {
-                PaletteLog.Error($"{Tag} TrackEvent failed. Rebuild with verbose logging to inspect native bridge details.");
-                PaletteLog.Verbose($"{Tag} TrackEvent failed: {e.Message}");
-            }
-#elif UNITY_IOS && !UNITY_EDITOR
-            _SorollaTikTok_TrackEvent(eventName);
-#else
-            PaletteLog.Verbose($"{Tag} TrackEvent: {eventName}");
-#endif
-        }
-
         public void TrackPurchase(double value, string currency)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -153,7 +130,6 @@ namespace Sorolla.Palette.Adapters
 
 #if UNITY_IOS && !UNITY_EDITOR
         [DllImport("__Internal")] static extern void _SorollaTikTok_Initialize(string appId, string tiktokAppId, string accessToken, bool debugBuild);
-        [DllImport("__Internal")] static extern void _SorollaTikTok_TrackEvent(string eventName);
         [DllImport("__Internal")] static extern void _SorollaTikTok_TrackPurchase(double value, string currency);
         [DllImport("__Internal")] static extern void _SorollaTikTok_TrackAdRevenue(double value, string currency, string networkName);
 #endif

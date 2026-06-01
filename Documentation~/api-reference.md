@@ -743,15 +743,6 @@ Production-safe SDK health markers, warnings, and errors are always logged even 
 [Tooltip("Enable detailed SDK diagnostics and vendor debug logs. Forced OFF in release builds; production-safe health logs remain on.")]
 public bool verboseLogging
 ```
-#### tiktokDebugMode
-When true, TikTok SDK logs verbose debug output. MUST be false in distributed builds
-or credentials may leak to logcat / device log.
-
-```csharp title="Declaration"
-[Tooltip("Enable TikTok SDK debug logging. Do NOT enable in distributed builds.")]
-[Obsolete("Use verboseLogging instead. This field is kept for migration only.")]
-public bool tiktokDebugMode
-```
 
 ---
 

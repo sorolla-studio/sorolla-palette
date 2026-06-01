@@ -38,8 +38,6 @@ namespace Sorolla.Palette.Adapters
     {
         void Initialize(string appToken, AdjustEnvironment environment, bool verboseLogging = false);
         void UpdateConsent(bool consent);
-        void TrackEvent(string eventToken);
-        void TrackRevenue(string eventToken, double amount, string currency);
         void TrackAdRevenue(AdRevenueInfo info);
         void TrackPurchaseIOS(string eventToken, double amount, string currency, string productId, string transactionId, string deduplicationId);
         void TrackPurchaseAndroid(string eventToken, double amount, string currency, string productId, string purchaseToken, string deduplicationId);
@@ -87,41 +85,15 @@ namespace Sorolla.Palette.Adapters
             s_impl?.UpdateConsent(consent);
         }
 
-        public static void TrackEvent(string eventToken)
-        {
-            s_impl?.TrackEvent(eventToken);
-        }
-
-        public static void TrackRevenue(string eventToken, double amount, string currency = "USD")
-        {
-            s_impl?.TrackRevenue(eventToken, amount, currency);
-        }
-
         public static void TrackAdRevenue(AdRevenueInfo info)
         {
             s_impl?.TrackAdRevenue(info);
-        }
-
-        public static void TrackPurchaseIOS(string eventToken, double amount, string currency, string productId, string transactionId, string deduplicationId)
-        {
-            s_impl?.TrackPurchaseIOS(eventToken, amount, currency, productId, transactionId, deduplicationId);
-        }
-
-        public static void TrackPurchaseAndroid(string eventToken, double amount, string currency, string productId, string purchaseToken, string deduplicationId)
-        {
-            s_impl?.TrackPurchaseAndroid(eventToken, amount, currency, productId, purchaseToken, deduplicationId);
         }
 
         public static void TrackPurchase(string eventToken, double amount, string currency,
             string productId, string transactionId, string purchaseToken)
         {
             s_impl?.TrackPurchase(eventToken, amount, currency, productId, transactionId, purchaseToken);
-        }
-
-        public static void TrackPurchaseSimple(string eventToken, double amount, string currency,
-            string deduplicationId, string productId = null)
-        {
-            s_impl?.TrackPurchaseSimple(eventToken, amount, currency, deduplicationId, productId);
         }
 
         public static void SetUserId(string userId)

@@ -91,9 +91,7 @@ namespace Sorolla.Palette.Adapters
 
         public static string GetString(string key, string defaultValue = "") => s_impl?.GetString(key, defaultValue) ?? defaultValue;
         public static bool GetBool(string key, bool defaultValue = false) => s_impl?.GetBool(key, defaultValue) ?? defaultValue;
-        public static long GetLong(string key, long defaultValue = 0) => s_impl?.GetLong(key, defaultValue) ?? defaultValue;
         public static int GetInt(string key, int defaultValue = 0) => s_impl?.GetInt(key, defaultValue) ?? defaultValue;
-        public static double GetDouble(string key, double defaultValue = 0.0) => s_impl?.GetDouble(key, defaultValue) ?? defaultValue;
         public static float GetFloat(string key, float defaultValue = 0f) => s_impl?.GetFloat(key, defaultValue) ?? defaultValue;
         public static IEnumerable<string> GetKeys() => s_impl?.GetKeys() ?? Array.Empty<string>();
 

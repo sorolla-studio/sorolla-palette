@@ -108,14 +108,6 @@ namespace Sorolla.Palette
         [Tooltip("Enable detailed SDK diagnostics and vendor debug logs. Forced OFF in release builds; production-safe health logs remain on.")]
         public bool verboseLogging;
 
-        /// <summary>
-        ///     When true, TikTok SDK logs verbose debug output. MUST be false in distributed builds
-        ///     or credentials may leak to logcat / device log.
-        /// </summary>
-        [Tooltip("Enable TikTok SDK debug logging. Do NOT enable in distributed builds.")]
-        [System.Obsolete("Use verboseLogging instead. This field is kept for migration only.")]
-        public bool tiktokDebugMode;
-
         // Note: Firebase modules (Analytics, Crashlytics, Remote Config) are always enabled
         // when Firebase is installed. No toggles needed as of v3.1.0.
     }

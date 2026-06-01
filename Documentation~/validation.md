@@ -91,6 +91,6 @@ Run the Android checks, plus:
 Before uploading a soft-launch build:
 
 - [ ] `adjustSandboxMode` is **false**.
-- [ ] `tiktokDebugMode` is **false** if TikTok is enabled.
+- [ ] `verboseLogging` is **false** (auto-forced off in release builds regardless).
 - [ ] Mediation network test modes are off for production ad units.
 - [ ] Sorolla Vitals is green on real Android and iOS devices.
