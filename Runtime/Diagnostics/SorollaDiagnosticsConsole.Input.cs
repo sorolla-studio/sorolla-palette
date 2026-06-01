@@ -34,11 +34,11 @@ namespace Sorolla.Palette
 
             Rect safeArea = Screen.safeArea;
             float tapArea = 128f * _uiScale;
-            bool topLeft = screenPosition.x >= 0f
-                && screenPosition.x <= safeArea.xMin + tapArea
+            bool topRight = screenPosition.x >= safeArea.xMax - tapArea
+                && screenPosition.x <= Screen.width
                 && screenPosition.y <= Screen.height
                 && screenPosition.y >= safeArea.yMax - tapArea;
-            if (!topLeft) return;
+            if (!topRight) return;
 
             float now = Time.unscaledTime;
             if (now - _firstTapTime > TapWindowSeconds)
