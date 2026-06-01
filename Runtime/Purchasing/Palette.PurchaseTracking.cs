@@ -90,20 +90,74 @@ namespace Sorolla.Palette
                 transactionId: transactionId,
                 purchaseToken: purchaseToken);
         }
+
+        /// <summary>
+        ///     <b>[Obsolete]</b> Track a purchase from a legacy Unity IAP <see cref="Product"/>.
+        ///     Unity IAP v5 marks <c>Product.transactionID</c> and <c>Product.receipt</c> as
+        ///     <see cref="System.ObsoleteAttribute">Obsolete</see>. On consumable products those fields
+        ///     are empty after <c>StoreController.ConfirmPurchase</c>, causing missing transaction_id in
+        ///     Firebase and breaking MMP deduplication. Use <see cref="TrackPurchase(PendingOrder)"/> instead.
+        /// </summary>
+        [Obsolete("Unity IAP v5 obsoleted Product.transactionID and Product.receipt. Use Palette.AttachPurchaseTracking(store) — it subscribes to StoreController.OnPurchasePending internally. Internal since 3.14.1; retained only for the legacy AutoTracker shim.")]
+        internal static void TrackPurchase(Product product)
+        {
+            if (product == null)
+            {
+                PaletteLog.Warning($"{Tag} TrackPurchase(Product): null product - skipping.");
+                return;
+            }
+
+            var md = product.metadata;
+            string rawCurrency = md?.isoCurrencyCode;
+            decimal rawPrice = md?.localizedPrice ?? 0m;
+            string productId = product.definition.id;
+
+            if (rawPrice <= 0m || !IsIso4217(rawCurrency))
+            {
+                PaletteLog.Error($"{Tag} TrackPurchase(Product): invalid metadata - " +
+                    $"product_id='{productId}', localizedPrice={rawPrice}, isoCurrencyCode='{rawCurrency}'. " +
+                    $"Dropping event. Migrate to TrackPurchase(PendingOrder) for Unity IAP v5.");
+#if FIREBASE_ANALYTICS_INSTALLED
+                FirebaseAdapter.TrackEvent("sorolla_purchase_data_quality_failure", new Dictionary<string, object>
+                {
+                    { "reason", rawPrice <= 0m ? "non_positive_price" : "non_iso_currency" },
+                    { "raw_currency", rawCurrency ?? "null" },
+                    { "raw_price", (double)rawPrice },
+                    { "product_id", productId ?? "null" },
+                    { "platform", Application.platform.ToString() },
+                    { "source", "product_legacy" },
+                });
+#endif
+                return;
+            }
+
+            #pragma warning disable CS0618 // Legacy v4 fields — intentional in this obsolete overload
+            ParsedReceipt parsed = ReceiptParser.Parse(product.receipt);
+            string txId = !string.IsNullOrEmpty(product.transactionID) ? product.transactionID : parsed.TransactionId;
+            #pragma warning restore CS0618
+
+            TrackPurchase(
+                amount:        (double)rawPrice,
+                currency:      rawCurrency,
+                productId:     productId,
+                transactionId: txId,
+                purchaseToken: parsed.PurchaseToken);
+        }
 #endif
 
         // Session-scoped TxID dedup for the entire TrackPurchase fan-out. Unity IAP v5 can
         // fire OnPurchasePending more than once (Unity-documented crash-replay), and the
         // PendingOrder overload funnels here after metadata validation. Internal since
-        // 3.14.1 — the only reachable caller is the SDK-owned AttachPurchaseTracking
-        // subscription; studios have no way to invoke this path directly, so duplicate
-        // analytics are structurally impossible.
+        // 3.14.1 — the only reachable callers are the SDK-owned AttachPurchaseTracking
+        // subscription and the legacy [Obsolete] AutoTracker/Product shims; studios have
+        // no way to invoke this path directly, so duplicate analytics are structurally
+        // impossible.
         static readonly HashSet<string> s_processedTxIds = new HashSet<string>();
 
         /// <summary>
         ///     Low-level purchase fan-out. Internal since 3.14.1 — no supported studio-facing entry point.
-        ///     Reached only via the SDK-owned subscription installed by <see cref="AttachPurchaseTracking"/>.
-        ///     Enforces ISO-4217 / positive-price validation and TxID dedup
+        ///     Reached only via the SDK-owned subscription installed by <see cref="AttachPurchaseTracking"/>
+        ///     and the legacy Obsolete shims. Enforces ISO-4217 / positive-price validation and TxID dedup
         ///     before fanning out to Adjust / TikTok / Firebase / GameAnalytics.
         /// </summary>
         /// <param name="amount">Purchase amount in local currency (must be &gt; 0).</param>
