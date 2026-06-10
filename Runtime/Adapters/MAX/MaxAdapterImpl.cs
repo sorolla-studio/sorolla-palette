@@ -14,6 +14,10 @@ namespace Sorolla.Palette.Adapters
         string _bannerId;
         bool _consent;
         bool _init;
+        // _init only flips true after MAX finishes (OnSdkInit), so a second Initialize() in the
+        // CMP window would pass an `if (_init)` guard and re-subscribe OnSdkInitializedEvent,
+        // double-registering the ad-revenue callbacks. _initStarted is set at entry to block that (DR-02).
+        bool _initStarted;
         string _interstitialId;
         bool _interstitialReady;
         Action _onInterstitialComplete;
@@ -84,7 +88,8 @@ namespace Sorolla.Palette.Adapters
 
         public void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent, bool verboseLogging = false)
         {
-            if (_init) return;
+            if (_init || _initStarted) return;
+            _initStarted = true;
 
             _rewardedId = rewardedId;
             _interstitialId = interstitialId;

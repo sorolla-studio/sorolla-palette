@@ -25,7 +25,7 @@ namespace Sorolla.Palette
         ///     <c>ConfirmPurchase</c>, popups) can still subscribe to <c>OnPurchasePending</c> / <c>OnPurchaseConfirmed</c>
         ///     independently — this method only adds the analytics subscription.
         ///
-        ///     TxID dedup is enforced inside <see cref="TrackPurchase(double, string, string, string, string)"/>
+        ///     TxID dedup is enforced inside <see cref="TrackPurchase(double, string, string, string, string, string)"/>
         ///     itself, so duplicate callbacks from Google Play or crash-replay cannot produce duplicate analytics events.
         /// </remarks>
         /// <param name="store">StoreController returned by <c>UnityIAPServices.StoreController()</c>.</param>

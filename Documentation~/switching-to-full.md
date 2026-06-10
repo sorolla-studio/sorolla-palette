@@ -159,6 +159,11 @@ await _store.Connect();
 
 Palette subscribes to purchase events for analytics. Your game still owns reward fulfillment and purchase confirmation.
 
+Firebase `purchase` is client-side telemetry, not verified revenue. iOS purchases include a
+`store_environment` label (`production`, `sandbox`, `xcode`, or `unknown`) decoded from the
+StoreKit JWS so TestFlight can be filtered with `store_environment == "sandbox"`. Android and
+legacy purchase paths are labelled `unknown`; do not treat `unknown` as production revenue.
+
 If the game has no IAP, skip this section.
 
 ---

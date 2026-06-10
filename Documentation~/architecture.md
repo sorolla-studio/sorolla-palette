@@ -381,7 +381,7 @@ Palette.AttachPurchaseTracking(store)                    ← ONLY studio-facing 
         └── internal Palette.TrackPurchase(PendingOrder) ← Reads Info.TransactionID / Info.Receipt
                                                            while order is still Pending
                                                            (consumables lose both on ConfirmPurchase)
-            └── internal Palette.TrackPurchase(amount, currency, productId, transactionId, purchaseToken)
+            └── internal Palette.TrackPurchase(amount, currency, productId, transactionId, purchaseToken, storeEnvironment)
                     │   ── TxID dedup enforced here ──   ← Session-wide HashSet<string> on
                     │                                      non-empty transactionId. Blocks
                     │                                      Google Play in-session doubles and
@@ -390,8 +390,17 @@ Palette.AttachPurchaseTracking(store)                    ← ONLY studio-facing 
                     │                                      empty TxID.
                     ├── AdjustAdapter.TrackPurchase()     ← Platform-routed verification
                     ├── TikTokAdapter.TrackPurchase()     ← If enabled
-                    └── FirebaseAdapter.TrackPurchase()   ← If enabled (analytics only, no verification)
+                    └── FirebaseAdapter.TrackPurchase()   ← If enabled (analytics only, no verification;
+                                                           emits store_environment for filtering)
 ```
+
+Firebase `purchase` is client-side telemetry, not verified revenue. The `store_environment`
+param is a bounded client label (`production`, `sandbox`, `xcode`, `unknown`). On iOS it is
+decoded from the StoreKit JWS environment claim; on Android, legacy `Product` tracking, or
+missing/undecodable iOS JWS it is `unknown`. Dashboards that need iOS production-only client
+purchase telemetry should filter `store_environment == "production"`. Cross-platform canonical
+production revenue still needs server-side / Adjust receipt verification rather than treating
+`unknown` as production.
 
 ---
 

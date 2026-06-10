@@ -19,10 +19,15 @@ namespace Sorolla.Palette
         const string Tag = "[Palette]";
 
         /// <summary>Package version of the Sorolla Palette SDK.</summary>
-        public const string SdkVersion = "3.16.0";
+        public const string SdkVersion = "3.16.1";
 
         /// <summary>Whether the SDK is initialized</summary>
         public static bool IsInitialized { get; private set; }
+
+        // Set synchronously at the top of Initialize, before IsInitialized (which on the MAX
+        // path only flips after the CMP window). Guards against a second Initialize() in that
+        // window double-subscribing adapter callbacks (DR-02).
+        static bool s_initStarted;
 
         /// <summary>Current user consent status (legacy - use ConsentStatus for GDPR compliance)</summary>
         public static bool HasConsent { get; private set; }
@@ -342,11 +347,17 @@ namespace Sorolla.Palette
         /// </summary>
         internal static void Initialize(bool consent)
         {
-            if (IsInitialized)
+            // DR-02: IsInitialized stays false for the whole CMP window on the MAX path
+            // (set in OnMaxSdkInitialized ~1-3s later), so guarding on it alone lets a second
+            // Initialize() in that window re-run InitializeMax() and double-subscribe the MAX
+            // callbacks, doubling ad revenue all session. s_initStarted is set synchronously at
+            // entry so the second call is rejected immediately, before any subscription.
+            if (IsInitialized || s_initStarted)
             {
-                PaletteLog.Warning($"{Tag} Already initialized. Remove any manual Palette.Initialize() call — the SDK auto-initializes via SorollaBootstrapper.");
+                PaletteLog.Warning($"{Tag} Already initializing/initialized. Remove any manual Palette.Initialize() call - the SDK auto-initializes via SorollaBootstrapper.");
                 return;
             }
+            s_initStarted = true;
 
             HasConsent = consent;
             Config = Resources.Load<SorollaConfig>("SorollaConfig");

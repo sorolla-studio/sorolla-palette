@@ -25,6 +25,15 @@ namespace Sorolla.Palette
 
         void Start()
         {
+            // Only the AutoInit-created instance drives initialization. A second bootstrapper
+            // (e.g. one manually dropped into a scene) would otherwise call Palette.Initialize
+            // a second time and double-subscribe MAX callbacks during the CMP window (DR-02).
+            if (s_instance != this)
+            {
+                PaletteLog.Warning("[Palette] Extra SorollaBootstrapper found - the SDK auto-creates its own. Destroying this duplicate.");
+                Destroy(this);
+                return;
+            }
             EnsurePersistent();
             StartCoroutine(Initialize());
         }

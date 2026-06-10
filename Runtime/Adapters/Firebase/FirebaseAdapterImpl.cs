@@ -269,7 +269,7 @@ namespace Sorolla.Palette.Adapters
             FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventAdImpression, parameters);
         });
 
-        public void TrackPurchase(string productId, double price, string currency, string transactionId) => QueueOrExecute(() =>
+        public void TrackPurchase(string productId, double price, string currency, string transactionId, string storeEnvironment) => QueueOrExecute(() =>
         {
             // GA4 canonical purchase shape requires items[] with item_id + price + quantity for
             // the Monetization > In-app purchases per-product revenue breakdown to populate.
@@ -286,8 +286,12 @@ namespace Sorolla.Palette.Adapters
                 },
             };
 
+            // store_environment lets GA4/BQ filter sandbox/TestFlight revenue from client-side
+            // purchase telemetry. It is a StoreKit JWS-sourced client label on iOS, not receipt
+            // verification; "unknown" on Android, where client-side sandbox detection is not reliable.
             FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventPurchase, new Parameter(FirebaseAnalytics.ParameterCurrency, currency ?? "USD"),
                 new Parameter(FirebaseAnalytics.ParameterValue, price), new Parameter(FirebaseAnalytics.ParameterTransactionID, transactionId ?? ""),
+                new Parameter("store_environment", storeEnvironment ?? "unknown"),
                 new Parameter(FirebaseAnalytics.ParameterItems, items));
         });
 

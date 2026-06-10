@@ -79,6 +79,13 @@ Do NOT create a duplicate app. Facebook deduplicates by package name/bundle ID -
 4. Download `google-services.json` (Android) and `GoogleService-Info.plist` (iOS)
 5. Place both in Unity `Assets/` with exact filenames (no suffixes like `(2)`)
 
+Purchase dashboard note:
+
+- The SDK emits Firebase GA4 `purchase` from client-side Unity IAP telemetry. It is not receipt-verified revenue.
+- Register/use the custom event parameter `store_environment` for purchase filtering. Expected values are `production`, `sandbox`, `xcode`, and `unknown`.
+- For iOS production-only client purchase views, filter `store_environment == "production"`. TestFlight appears as `sandbox`.
+- Do not treat `unknown` as production. Android, legacy purchase tracking, and missing/undecodable iOS JWS values are labelled `unknown`; cross-platform canonical revenue still needs server-side / Adjust verification.
+
 ---
 
 ### 4. AppLovin MAX
