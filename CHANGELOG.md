@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.17.0] - 2026-06-11
+
+Remote Config redesign: the SDK now owns the fetch lifecycle (auto-fetch, retry, real-time), and the public API shrinks to declare/read/react. The operation-sequence APIs whose ordering and semantics every studio had to get right (and that produced the audit's RC trap cluster DR-45/55/97/113 plus real default-drift bugs in two games) are deleted.
+
+### Added
+- **`Palette.RemoteConfigStatus`** (`Defaults` -> `Cached` -> `Live`, monotonic per session): which generation of values the getters serve. `Cached` = last session's fetched values served from Firebase's disk cache; `Live` = fetched or real-time-updated this session. Closes DR-45's invisible three-phase drift: gate A/B bucketing or gameplay start on `>= Cached`.
+- **`Palette.OnRemoteConfigChanged(IReadOnlyCollection<string> changedKeys)`**: fires on every served-value swap - first cached load, fetch activation, real-time update, GameAnalytics configs ready. Late subscribers fire immediately if values are already readable, so there is no subscribe-before-fetch ordering to get right. Keys are empty when the change is unspecified (re-read what you care about). Replaces both the `FetchRemoteConfig` callback and `OnRemoteConfigUpdated`.
+- **`Palette.OnRemoteConfigUpdateAvailable(keys)`**: fires instead of activation when `AutoActivateRemoteConfigUpdates` is false; the game applies the update via `ActivateRemoteConfigAsync()` at a safe moment (then `OnRemoteConfigChanged` fires).
+- **`Palette.WaitForRemoteConfig(timeoutSeconds = 5, minStatus = Cached)`**: awaitable gate for fetch-critical moments (loading screen, behind a network wall). Devices that have fetched before pass instantly via the disk cache.
+- **Fetch retry** (`FirebaseRemoteConfigAdapterImpl`): the boot fetch was one-shot - a transient network blip at cold start (cellular waking, captive wifi) lost the whole session to defaults with no retry (observed as intermittent "RC not fetched" sessions on romba). Failed fetches now retry at 5s/30s/120s and on every app-foreground until one lands.
+- **Dev-build key diagnostics**: once values are readable, reading a key that exists in no tier (remote, GA, registered defaults) warns once per key - typos and unpublished parameters were previously silent forever. Unparseable values (e.g. `"abc"` read as int) also warn.
+- **Cached-freshness signal at boot**: values activated in a previous session are detected (`ConfigInfo.FetchTime`) and reported as `Cached` before the fetch completes.
+
+### Changed
+- **One resolution path for every getter** (`Palette.RemoteConfig.cs`): Firebase (remote/cached/in-app default) -> GameAnalytics -> `SetRemoteConfigDefaults` values -> call-site default, identical for string and typed reads. Previously the string getter fell back per-key to GA while typed getters never consulted GA once Firebase was ready (DR-97), so one logical key could be served by two backends in one session.
+- **Uniform value parsing**: bools accept `true/false`, `1/0`, `yes/no`, `on/off` case-insensitively on every tier (GA-tier bools previously only parsed `true`/`false`, silently dropping dashboard-typical `1`/`0` - DR-113); numbers parse invariant-culture on every tier. A remote value explicitly set to `""` is now delivered (previously mapped to the call-site default).
+- **`SetRemoteConfigDefaults` is vendor-neutral**: values are kept in SDK state (serving the GA-only path, previously a silent no-op without Firebase) and still registered with Firebase so dashboard `useInAppDefault` parameters resolve. Defaults set before init now merge instead of queue-replace.
+- **GameAnalytics remote configs join the lifecycle**: GA configs becoming ready raises `OnRemoteConfigChanged` (and drives status when Firebase RC is absent or failed). Previously there was no readiness signal at all on the GA path - studios had to poll.
+
+### Removed (no deprecation shims)
+- **`Palette.FetchRemoteConfig(Action<bool>)`** - it stopped fetching after the first success and reported `true` without touching the network (DR-55), and its callback bool conflated fresh-fetch / already-fetched / GA-readable / failure. The SDK fetches and retries on its own; subscribe `OnRemoteConfigChanged` or await `WaitForRemoteConfig` instead.
+- **`Palette.IsRemoteConfigReady()`** - "ready" meant "readable, maybe stale, maybe never fetched". Use `RemoteConfigStatus`.
+- **`Palette.OnRemoteConfigUpdated`** - replaced by `OnRemoteConfigChanged` (fires on first load too) and `OnRemoteConfigUpdateAvailable` (manual-activation mode).
+- **`Palette.GetRemoteConfigKeys()`** - Firebase-only enumeration with no consumer; misleading on the GA tier.
+- Internal: `IFirebaseRemoteConfigAdapter` shrinks to lifecycle + `TryGetRaw`; typed parsing moved to the shared resolution layer; new `RemoteConfigState` (Runtime/Adapters) holds freshness, defaults, subscribers, and waiters.
+
+### Migration
+- `Palette.FetchRemoteConfig(cb)` -> delete the call; move the callback body to `Palette.OnRemoteConfigChanged += keys => ...` (it also fires on first load and immediately at subscribe time if values are readable). For a boot gate: `await Palette.WaitForRemoteConfig(5f)`.
+- `Palette.IsRemoteConfigReady()` -> `Palette.RemoteConfigStatus >= RemoteConfigStatus.Cached` (or `Live` for this-session freshness).
+- `Palette.OnRemoteConfigUpdated += h` -> `Palette.OnRemoteConfigChanged += h` (same signature). If you set `AutoActivateRemoteConfigUpdates = false`, subscribe `OnRemoteConfigUpdateAvailable` for the not-yet-activated signal.
+- Getter signatures (`GetRemoteConfig/Int/Float/Bool`) and `SetRemoteConfigDefaults` are unchanged - read sites need no edits.
+- Behavior seam: with Firebase RC installed, a key registered via `SetRemoteConfigDefaults` resolves at the Firebase tier (in-app default) and is never served from GameAnalytics. If you run GA A/B experiments alongside Firebase RC, do not register defaults for GA-experiment keys.
+- Game-side wrappers that existed to sequence boot (subscribe `Palette.OnInitialized` -> fetch -> reload-on-callback) collapse to one `OnRemoteConfigChanged` subscription.
+
 ## [3.16.2] - 2026-06-11
 
 Correctness batch: stop two silent revenue/analytics-quality leaks (negative ad-revenue sentinel, wiped Remote Config defaults), make event rejection and the ad-revenue health row consistent across vendors, and harden the pre-consent flush so one vendor throw can't strand the queue. No public `Palette` API changed.
