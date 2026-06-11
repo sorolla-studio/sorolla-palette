@@ -688,7 +688,7 @@ namespace Sorolla.Palette.Adapters
 
             // Record the dispatch directly so the Sorolla Vitals "Ad revenue" row reflects a real
             // forwarded impression, independent of log verbosity / installed vendors (DR-09).
-            SorollaDiagnostics.RecordAdRevenue(adInfo.NetworkName, revenue, "USD", adFormat, revenuePrecision);
+            MaxAdapter.RecordAdRevenue(new MaxAdRevenueInfo(adInfo.NetworkName, revenue, "USD", adFormat, revenuePrecision));
 
 #if SOROLLA_ADJUST_ENABLED
             AdjustAdapter.TrackAdRevenue(new AdRevenueInfo

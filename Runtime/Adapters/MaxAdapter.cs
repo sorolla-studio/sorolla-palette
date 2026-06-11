@@ -62,6 +62,24 @@ namespace Sorolla.Palette.Adapters
         void ShowCreativeDebugger();
     }
 
+    internal readonly struct MaxAdRevenueInfo
+    {
+        public readonly string Network;
+        public readonly double Revenue;
+        public readonly string Currency;
+        public readonly string AdFormat;
+        public readonly string RevenuePrecision;
+
+        public MaxAdRevenueInfo(string network, double revenue, string currency, string adFormat, string revenuePrecision)
+        {
+            Network = network;
+            Revenue = revenue;
+            Currency = currency;
+            AdFormat = adFormat;
+            RevenuePrecision = revenuePrecision;
+        }
+    }
+
     /// <summary>
     ///     AppLovin MAX adapter. Delegates to implementation when available.
     /// </summary>
@@ -133,6 +151,13 @@ namespace Sorolla.Palette.Adapters
 
         /// <summary>Event fired when consent status changes.</summary>
         public static event Action<ConsentStatus> OnConsentStatusChanged;
+
+        internal static event Action<MaxAdRevenueInfo> OnAdRevenueTracked;
+
+        internal static void RecordAdRevenue(MaxAdRevenueInfo info)
+        {
+            OnAdRevenueTracked?.Invoke(info);
+        }
 
         public static void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent, bool verboseLogging = false)
         {

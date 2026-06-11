@@ -127,6 +127,11 @@ namespace Sorolla.Palette
         static bool s_logBridgeInstalled;
         static bool s_unityLogInstalled;
 
+        static SorollaDiagnostics()
+        {
+            MaxAdapter.OnAdRevenueTracked += RecordAdRevenue;
+        }
+
         static bool s_autoInitSeen;
         static bool s_initializeSeen;
         static bool s_readySeen;
@@ -271,6 +276,11 @@ namespace Sorolla.Palette
                     parameters["revenue_precision"] = revenuePrecision;
                 EnqueueEvent("ads", "ad_revenue", parameters);
             }
+        }
+
+        static void RecordAdRevenue(MaxAdRevenueInfo info)
+        {
+            RecordAdRevenue(info.Network, info.Revenue, info.Currency, info.AdFormat, info.RevenuePrecision);
         }
 
         internal static void ClearEventLog()
