@@ -21,12 +21,15 @@ namespace Sorolla.Palette
             if (s_init) return;
 
 #if GAMEANALYTICS_INSTALLED
+            GameAnalytics.OnRemoteConfigsUpdatedEvent += OnGaRemoteConfigsUpdated;
+
             if (GameAnalytics.Initialized)
             {
                 PaletteLog.Vital($"{Tag} Already initialized externally");
                 s_init = true;
                 GameAnalytics.SetEnabledEventSubmission(consent);
                 PaletteLog.Vital($"{Tag} Event submission: {consent}");
+                if (GameAnalytics.IsRemoteConfigsReady()) OnGaRemoteConfigsUpdated();
                 return;
             }
 
@@ -37,6 +40,7 @@ namespace Sorolla.Palette
             GameAnalytics.Initialize();
             GameAnalytics.SetEnabledEventSubmission(consent);
             s_init = true;
+            if (GameAnalytics.IsRemoteConfigsReady()) OnGaRemoteConfigsUpdated();
 #else
             PaletteLog.Warning($"{Tag} SDK not installed");
             s_init = true;
@@ -60,14 +64,26 @@ namespace Sorolla.Palette
             return false;
         }
 
-        public static bool IsRemoteConfigReady()
+        /// <summary>
+        ///     Raw string value for a key known to GameAnalytics Remote Configs.
+        ///     False when GA is not installed, not initialized, configs are not ready,
+        ///     or the key is absent.
+        /// </summary>
+        public static bool TryGetRemoteConfigValue(string key, out string value)
         {
+            value = null;
 #if GAMEANALYTICS_INSTALLED
-            return s_init && GameAnalytics.IsRemoteConfigsReady();
+            if (!s_init || !GameAnalytics.IsRemoteConfigsReady()) return false;
+            value = GameAnalytics.GetRemoteConfigsValueAsString(key, null);
+            return value != null;
 #else
             return false;
 #endif
         }
+
+#if GAMEANALYTICS_INSTALLED
+        static void OnGaRemoteConfigsUpdated() => RemoteConfigState.NotifyGaReady();
+#endif
 
 #if GAMEANALYTICS_INSTALLED
         public static void TrackProgressionEvent(GAProgressionStatus status, string p1, string p2 = null, string p3 = null, int score = 0)
@@ -125,8 +141,6 @@ namespace Sorolla.Palette
 #endif
         }
 
-        public static string GetRemoteConfigValue(string key, string defaultValue = "") =>
-            s_init && IsRemoteConfigReady() ? GameAnalytics.GetRemoteConfigsValueAsString(key, defaultValue) : defaultValue;
 #else
         public static void TrackProgressionEvent(string status, string p1, string p2 = null, string p3 = null, int score = 0) { }
         public static void TrackDesignEvent(string eventName, float value = 0) { }
@@ -134,7 +148,6 @@ namespace Sorolla.Palette
         public static void TrackBusinessEvent(string currency, int amountInCents, string itemType, string itemId, string cartType) { }
         public static void TrackBusinessEventGooglePlay(string currency, int amountInCents, string itemType, string itemId, string cartType, string receipt, string signature) { }
         public static void TrackBusinessEventIOS(string currency, int amountInCents, string itemType, string itemId, string cartType, string receipt) { }
-        public static string GetRemoteConfigValue(string key, string defaultValue = "") => defaultValue;
 #endif
     }
 }

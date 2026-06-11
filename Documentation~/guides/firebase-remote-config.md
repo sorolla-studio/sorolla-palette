@@ -215,7 +215,7 @@ In-app defaults, reading values, reacting to live updates, fetch interval behavi
 5. **etag mismatch (REST API only):** CLI handles transparently. Direct REST needs `If-Match: <etag>` from prior GET.
 6. **`jq` on `remoteconfig:get`:** default output is colored table, not JSON. Use `-o file.json` for parseable JSON.
 7. **In-app default missing or mistyped key:** `Get*` silently returns the C# default forever. No warning, no log. Audit defaults dictionary against the published template.
-8. **Device "not seeing" deploys:** usually the 12h fetch cap on `FetchRemoteConfig`, or a stale in-app cache. Relaunch the app, or wait for the real-time listener.
+8. **Device "not seeing" deploys:** usually Firebase's 12h minimum fetch interval serving the previous template, or a stale in-app cache. The real-time listener pushes published changes to live sessions; otherwise relaunch after the interval. `Palette.RemoteConfigStatus == Live` confirms this session fetched.
 9. **CLI permissions:** opaque errors when caller lacks Firebase Remote Config Admin role. Check IAM before debugging the template.
 
 ---

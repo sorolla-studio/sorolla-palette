@@ -96,39 +96,62 @@ catch (Exception ex) { Palette.LogException(ex); }
 
 For authoring and publishing the dashboard-side template (CLI setup, deploy, rollback, schema, CI tokens), see the dedicated [Firebase Remote Config CLI guide](firebase-remote-config.md). The runtime API below is what consumes those values inside the game.
 
-Unified API that checks Firebase first, then GameAnalytics, then in-app defaults:
+The SDK owns the fetch lifecycle: it fetches automatically at init, retries on failure
+(short backoff, then on every app-foreground), and applies real-time updates. The game
+declares defaults, reads values, and reacts to changes - there is nothing to fetch manually.
 
 ```csharp
-// Set fallback values
+// Optional: register in-app defaults (any time, before or after init)
 Palette.SetRemoteConfigDefaults(new Dictionary<string, object>
 {
     { "difficulty", 1.0f },
     { "new_feature", false }
 });
 
-Palette.FetchRemoteConfig(success => {
-    float difficulty = Palette.GetRemoteConfigFloat("difficulty", 1.0f);
-    bool feature = Palette.GetRemoteConfigBool("new_feature", false);
-});
+// React to value changes. Fires on the first load too, and immediately at
+// subscribe time if values are already readable - no ordering to get right.
+Palette.OnRemoteConfigChanged += changedKeys => ReloadTuning();
+
+// Read anywhere, any time. Resolution: Firebase -> GameAnalytics -> registered
+// defaults -> call-site default. Identical for every type.
+float difficulty = Palette.GetRemoteConfigFloat("difficulty", 1.0f);
+bool feature = Palette.GetRemoteConfigBool("new_feature", false);
 ```
 
 Create parameters in Firebase Console -> **Remote Config** -> **Publish changes**.
 
-### Real-Time Remote Config
+### Freshness: status and gating
 
-Config changes stream to the app instantly, no restart needed:
+`Palette.RemoteConfigStatus` tells you which generation of values the getters serve:
+`Defaults` (no fetch ever succeeded on this device) -> `Cached` (last session's values,
+served from disk) -> `Live` (fetched this session). Monotonic within a session.
+
+Anything that must not run on stale balance (A/B bucketing, gameplay start behind a
+network wall) should gate on it:
 
 ```csharp
-// React to live changes
-Palette.OnRemoteConfigUpdated += (changedKeys) =>
+// Hold the loading screen briefly for values; devices that fetched before pass instantly.
+bool ready = await Palette.WaitForRemoteConfig(timeoutSeconds: 5f);
+if (!ready) { /* proceeding on shipped defaults - keep them sane */ }
+```
+
+### Real-Time Remote Config
+
+Config changes stream to the app instantly, no restart needed - they activate
+automatically and `OnRemoteConfigChanged` fires with the updated keys:
+
+```csharp
+Palette.OnRemoteConfigChanged += changedKeys =>
 {
     if (changedKeys.Contains("difficulty"))
         UpdateDifficulty();
 };
 
-// For competitive games: defer activation to between rounds
+// For games where mid-session flips would be jarring: defer activation.
 Palette.AutoActivateRemoteConfigUpdates = false;
-await Palette.ActivateRemoteConfigAsync();
+Palette.OnRemoteConfigUpdateAvailable += keys => _pendingConfigUpdate = true;
+// ...then between rounds:
+await Palette.ActivateRemoteConfigAsync();   // OnRemoteConfigChanged fires after this
 ```
 
 ---

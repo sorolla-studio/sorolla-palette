@@ -131,8 +131,9 @@ If Google resolves but AppLovin or Adjust do not, fix the device network first. 
 
 **Firebase:**
 1. Verify parameters are **published** in Firebase Console
-2. Call `FetchRemoteConfig()` before getting values
+2. Check `Palette.RemoteConfigStatus` - `Defaults` means no fetch has ever succeeded on this device (the SDK fetches and retries automatically; look for `[Palette:RemoteConfig] Fetch failed` in the logs)
 3. Check Firebase config files present
+4. Dev builds warn once per key read that exists nowhere (typo / unpublished parameter) - watch for `Remote Config key '...' not found`
 
 **GameAnalytics:**
 1. Configure A/B tests in GA dashboard

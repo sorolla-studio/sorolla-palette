@@ -11,30 +11,33 @@ namespace Sorolla.Palette.Adapters
 {
     /// <summary>
     ///     Firebase Remote Config adapter implementation. Registered at runtime.
+    ///     Owns the fetch lifecycle: auto-fetch at init, retry with backoff and on
+    ///     app-foreground after failure, real-time updates. Reports freshness
+    ///     transitions to <see cref="RemoteConfigState" />.
     /// </summary>
     [Preserve]
     internal class FirebaseRemoteConfigAdapterImpl : IFirebaseRemoteConfigAdapter
     {
         const string Tag = "[Palette:RemoteConfig]";
-        private bool _initRequested;
-        private bool _init;
-        private bool _initFailed;
-        private bool _fetching;
-        private bool _fetchedOnce;
-        private List<Action<bool>> _fetchCallbacks;
-        private Dictionary<string, object> _pendingDefaults;
-        private bool _pendingAutoFetch;
+        static readonly int[] RetryDelaysSeconds = { 5, 30, 120 };
+
+        bool _initRequested;
+        bool _init;
+        bool _fetching;
+        bool _fetchedOnce;
+        int _retriesScheduled;
+        bool _focusHooked;
+        Dictionary<string, object> _pendingDefaults;
+        bool _pendingAutoFetch;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         [Preserve]
-        private static void Register()
+        static void Register()
         {
             FirebaseRemoteConfigAdapter.RegisterImpl(new FirebaseRemoteConfigAdapterImpl());
         }
 
-        public bool IsReady { get; private set; }
         public bool AutoActivateUpdates { get; set; } = true;
-        public event Action<IReadOnlyCollection<string>> OnConfigUpdated;
 
         public void Initialize(Dictionary<string, object> defaults, bool autoFetch)
         {
@@ -62,16 +65,14 @@ namespace Sorolla.Palette.Adapters
                 else
                 {
                     PaletteLog.Error($"{Tag} Firebase not available");
-                    _initFailed = true;
-                    InvokeFetchCallbacks(false);
+                    RemoteConfigState.NotifyFirebaseUnavailable();
                 }
             });
         }
 
-        private void InitializeInternal()
+        void InitializeInternal()
         {
             if (_init) return;
-            _init = true;
 
 #if UNITY_EDITOR
             ConfigSettings settings = FirebaseRemoteConfig.DefaultInstance.ConfigSettings;
@@ -81,7 +82,8 @@ namespace Sorolla.Palette.Adapters
 
             if (_pendingDefaults != null && _pendingDefaults.Count > 0)
             {
-                FirebaseRemoteConfig.DefaultInstance.SetDefaultsAsync(_pendingDefaults).ContinueWithOnMainThread(task =>
+                Dictionary<string, object> pending = _pendingDefaults;
+                FirebaseRemoteConfig.DefaultInstance.SetDefaultsAsync(pending).ContinueWithOnMainThread(task =>
                 {
                     if (task.IsFaulted)
                     {
@@ -90,7 +92,7 @@ namespace Sorolla.Palette.Adapters
                     }
                     else
                     {
-                        PaletteLog.Verbose($"{Tag} Defaults set ({_pendingDefaults.Count} values)");
+                        PaletteLog.Verbose($"{Tag} Defaults set ({pending.Count} values)");
                     }
 
                     _pendingDefaults = null;
@@ -103,18 +105,83 @@ namespace Sorolla.Palette.Adapters
             }
         }
 
-        private void OnReady()
+        void OnReady()
         {
-            IsReady = true;
+            _init = true;
 
             FirebaseRemoteConfig.DefaultInstance.OnConfigUpdateListener += OnConfigUpdateReceived;
             Application.quitting += OnApplicationQuitting;
 
-            if (_fetchCallbacks?.Count > 0 || _pendingAutoFetch)
-                FetchAndActivate(null);
+            // Values activated in a previous session are already readable from disk.
+            ConfigInfo info = FirebaseRemoteConfig.DefaultInstance.Info;
+            if (info.FetchTime.Year > 2000)
+            {
+                PaletteLog.Vital($"{Tag} Cached config available (last fetch: {info.FetchTime:u})");
+                RemoteConfigState.NotifyFirebaseCached();
+            }
+
+            if (_pendingAutoFetch)
+                Fetch();
         }
 
-        private void OnConfigUpdateReceived(object sender, ConfigUpdateEventArgs args)
+        void Fetch()
+        {
+            // A backoff retry can fire after exiting play mode in the Editor.
+            if (!Application.isPlaying) return;
+            if (_fetching || _fetchedOnce || !_init) return;
+            _fetching = true;
+
+            FirebaseRemoteConfig.DefaultInstance.FetchAndActivateAsync().ContinueWithOnMainThread(task =>
+            {
+                _fetching = false;
+
+                if (task.IsFaulted)
+                {
+                    PaletteLog.Error($"{Tag} Fetch failed. Rebuild with verbose logging to inspect Firebase details.");
+                    PaletteLog.Verbose($"{Tag} Fetch failed: {task.Exception?.Message}");
+                    ScheduleRetry();
+                    return;
+                }
+
+                ConfigInfo info = FirebaseRemoteConfig.DefaultInstance.Info;
+                PaletteLog.Vital($"{Tag} Fetch complete (newValuesActivated: {task.Result}, lastFetchStatus: {info.LastFetchStatus})");
+                _fetchedOnce = true;
+                UnhookFocus();
+                RemoteConfigState.NotifyFirebaseLive(null);
+            });
+        }
+
+        // Transient boot-time network failures (cellular waking up, captive wifi) previously
+        // lost the whole session to defaults: the single auto-fetch was the only attempt.
+        // Retry on a short backoff and on every app-foreground until one fetch lands.
+        void ScheduleRetry()
+        {
+            if (!_focusHooked)
+            {
+                Application.focusChanged += OnFocusChanged;
+                _focusHooked = true;
+            }
+
+            if (_retriesScheduled >= RetryDelaysSeconds.Length) return;
+            int delay = RetryDelaysSeconds[_retriesScheduled];
+            _retriesScheduled++;
+            PaletteLog.Vital($"{Tag} Retrying fetch in {delay}s (attempt {_retriesScheduled}/{RetryDelaysSeconds.Length})");
+            Task.Delay(TimeSpan.FromSeconds(delay)).ContinueWithOnMainThread(_ => Fetch());
+        }
+
+        void OnFocusChanged(bool focused)
+        {
+            if (focused && !_fetchedOnce) Fetch();
+        }
+
+        void UnhookFocus()
+        {
+            if (!_focusHooked) return;
+            Application.focusChanged -= OnFocusChanged;
+            _focusHooked = false;
+        }
+
+        void OnConfigUpdateReceived(object sender, ConfigUpdateEventArgs args)
         {
             if (args.Error != RemoteConfigError.None)
             {
@@ -136,23 +203,22 @@ namespace Sorolla.Palette.Adapters
                     }
                     else
                     {
-                        OnConfigUpdated?.Invoke(updatedKeys.AsReadOnly());
+                        RemoteConfigState.NotifyFirebaseLive(updatedKeys.AsReadOnly());
                     }
                 });
             }
             else
             {
-                // Notify with keys but don't activate - game decides when
-                OnConfigUpdated?.Invoke(updatedKeys.AsReadOnly());
+                // Notify with keys but don't activate - game decides when via ActivateAsync.
+                RemoteConfigState.NotifyUpdateAvailable(updatedKeys.AsReadOnly());
             }
         }
 
-        private void OnApplicationQuitting()
+        void OnApplicationQuitting()
         {
             if (_init)
-            {
                 FirebaseRemoteConfig.DefaultInstance.OnConfigUpdateListener -= OnConfigUpdateReceived;
-            }
+            UnhookFocus();
         }
 
         public void SetDefaults(Dictionary<string, object> defaults)
@@ -161,8 +227,12 @@ namespace Sorolla.Palette.Adapters
 
             if (!_init)
             {
-                // Store for when init completes
-                _pendingDefaults = defaults;
+                // Merge into the pending set applied at init (same posture as Initialize).
+                if (_pendingDefaults == null)
+                    _pendingDefaults = defaults;
+                else
+                    foreach (KeyValuePair<string, object> kvp in defaults)
+                        _pendingDefaults[kvp.Key] = kvp.Value;
                 return;
             }
 
@@ -180,67 +250,6 @@ namespace Sorolla.Palette.Adapters
             });
         }
 
-        public void FetchAndActivate(Action<bool> onComplete)
-        {
-            if (onComplete != null)
-                (_fetchCallbacks ??= new()).Add(onComplete);
-
-            if (_initFailed)
-            {
-                InvokeFetchCallbacks(false);
-                return;
-            }
-
-            if (!_init)
-            {
-                if (_initRequested)
-                    return; // callbacks parked, will fire after init -> OnReady -> fetch
-
-                PaletteLog.Warning($"{Tag} Not initialized");
-                InvokeFetchCallbacks(false);
-                return;
-            }
-
-            if (_fetching) return; // callback parked, will fire when in-flight fetch completes
-
-            if (_fetchedOnce)
-            {
-                // Auto-fetch already succeeded this session - skip redundant network call.
-                // Real-time updates handle subsequent changes via OnConfigUpdateListener.
-                InvokeFetchCallbacks(true);
-                return;
-            }
-
-            _fetching = true;
-
-            FirebaseRemoteConfig.DefaultInstance.FetchAndActivateAsync().ContinueWithOnMainThread(task =>
-            {
-                _fetching = false;
-
-                if (task.IsFaulted)
-                {
-                    PaletteLog.Error($"{Tag} Fetch failed. Rebuild with verbose logging to inspect Firebase details.");
-                    PaletteLog.Verbose($"{Tag} Fetch failed: {task.Exception?.Message}");
-                    InvokeFetchCallbacks(false);
-                    return;
-                }
-
-                var info = FirebaseRemoteConfig.DefaultInstance.Info;
-                PaletteLog.Vital($"{Tag} Fetch complete (newValuesActivated: {task.Result}, lastFetchStatus: {info.LastFetchStatus})");
-                _fetchedOnce = true;
-                InvokeFetchCallbacks(true);
-            });
-        }
-
-        private void InvokeFetchCallbacks(bool success)
-        {
-            if (_fetchCallbacks == null || _fetchCallbacks.Count == 0) return;
-            var callbacks = _fetchCallbacks;
-            _fetchCallbacks = null;
-            foreach (var cb in callbacks)
-                cb.Invoke(success);
-        }
-
         public Task<bool> ActivateAsync()
         {
             if (!_init) return Task.FromResult(false);
@@ -256,67 +265,37 @@ namespace Sorolla.Palette.Adapters
                 }
                 else
                 {
-                    PaletteLog.Vital($"{Tag} Config activated");
-                    tcs.SetResult(true);
+                    // Result is false when there was nothing new to activate - don't claim
+                    // Live freshness or raise a spurious change event for a no-op.
+                    if (task.Result)
+                    {
+                        PaletteLog.Vital($"{Tag} Config activated");
+                        RemoteConfigState.NotifyFirebaseLive(null);
+                    }
+                    tcs.SetResult(task.Result);
                 }
             });
             return tcs.Task;
         }
 
-        public string GetString(string key, string defaultValue)
+        public bool TryGetRaw(string key, out string value)
         {
-            if (!_init) return defaultValue;
-            try
-            {
-                string value = FirebaseRemoteConfig.DefaultInstance.GetValue(key).StringValue;
-                return string.IsNullOrEmpty(value) ? defaultValue : value;
-            }
-            catch (Exception ex)
-            {
-                PaletteLog.Error($"{Tag} Error getting Remote Config key '{key}'.");
-                PaletteLog.Verbose($"{Tag} Error getting '{key}': {ex.Message}");
-                return defaultValue;
-            }
-        }
-
-        public bool GetBool(string key, bool defaultValue) =>
-            GetTypedValue(key, defaultValue, cv => cv.BooleanValue);
-
-        public long GetLong(string key, long defaultValue) =>
-            GetTypedValue(key, defaultValue, cv => cv.LongValue);
-
-        public int GetInt(string key, int defaultValue) => (int)GetLong(key, defaultValue);
-
-        public double GetDouble(string key, double defaultValue) =>
-            GetTypedValue(key, defaultValue, cv => cv.DoubleValue);
-
-        public float GetFloat(string key, float defaultValue) => (float)GetDouble(key, defaultValue);
-
-        // Shared read path for non-string typed getters: init guard, static-default detection,
-        // and uniform error handling. The reader lambdas are non-capturing, so the C# compiler
-        // caches them as static delegates — no per-call allocation on this read path.
-        T GetTypedValue<T>(string key, T defaultValue, Func<ConfigValue, T> read)
-        {
-            if (!_init) return defaultValue;
+            value = null;
+            if (!_init) return false;
             try
             {
                 ConfigValue configValue = FirebaseRemoteConfig.DefaultInstance.GetValue(key);
-                if (configValue.Source == ValueSource.StaticValue && string.IsNullOrEmpty(configValue.StringValue))
-                    return defaultValue;
-                return read(configValue);
+                // StaticValue = key unknown to Firebase (not remote, not cached, no in-app default).
+                if (configValue.Source == ValueSource.StaticValue) return false;
+                value = configValue.StringValue;
+                return true;
             }
             catch (Exception ex)
             {
                 PaletteLog.Error($"{Tag} Error getting Remote Config key '{key}'.");
                 PaletteLog.Verbose($"{Tag} Error getting '{key}': {ex.Message}");
-                return defaultValue;
+                return false;
             }
-        }
-
-        public IEnumerable<string> GetKeys()
-        {
-            if (!_init) return Array.Empty<string>();
-            return FirebaseRemoteConfig.DefaultInstance.Keys;
         }
     }
 }

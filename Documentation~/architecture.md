@@ -361,17 +361,24 @@ Palette.ShowRewardedAd(onComplete, onFailed)
             └── GameAnalytics ILRD
 ```
 
-### Remote Config
+### Remote Config (v3.17.0+)
 ```
-Palette.GetRemoteConfig("key", "default")
-    ├── Firebase ready? → return Firebase value
-    ├── GA ready? → return GA value
-    └── else → return default
+SDK owns the lifecycle (RemoteConfigState):
+    init → auto-fetch → retry on failure (5s/30s/120s + app-foreground)
+    RemoteConfigStatus: Defaults → Cached (disk, previous session) → Live (this session)
+    OnRemoteConfigChanged fires on every value swap (late subscribers fire immediately)
 
-Real-time (v3.7.0+):
-    Firebase real-time listener → OnConfigUpdated event
-    ├── AutoActivateUpdates = true  → values active immediately
-    └── AutoActivateUpdates = false → call ActivateRemoteConfigAsync() manually
+Palette.GetRemoteConfig*("key", default)   ← same resolution for every type
+    ├── Firebase knows key (remote/cached/in-app default)? → Firebase value
+    ├── GA knows key? → GA value
+    ├── registered via SetRemoteConfigDefaults? → that value
+    └── else → call-site default (dev builds warn once per unknown key)
+
+Real-time:
+    Firebase real-time listener
+    ├── AutoActivateUpdates = true  → activate → OnRemoteConfigChanged(keys)
+    └── AutoActivateUpdates = false → OnRemoteConfigUpdateAvailable(keys)
+                                      → game calls ActivateRemoteConfigAsync() when safe
 ```
 
 ### Purchase Attribution
