@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Sorolla.Palette.Adapters
 {
     /// <summary>
@@ -11,6 +13,20 @@ namespace Sorolla.Palette.Adapters
         internal const int MaxParamsPerEvent = 25;
 
         internal static readonly string[] ReservedPrefixes = { "firebase_", "google_", "ga_" };
+
+        // GA4 reserved event names. Firebase/GA4 drop these server-side, so the shared Palette
+        // validation gate rejects them for EVERY vendor, not just Firebase. Rejecting only on the
+        // Firebase side let a reserved name (e.g. "error") still land in GameAnalytics while being
+        // invisible in BigQuery, so the two vendors disagreed on what was tracked (DR-14).
+        // Source: https://firebase.google.com/docs/reference/cpp/group/event-names
+        internal static readonly HashSet<string> ReservedEventNames = new HashSet<string>
+        {
+            "ad_activeview", "ad_click", "ad_exposure", "ad_query", "ad_reward", "adunit_exposure",
+            "app_clear_data", "app_install", "app_remove", "app_update", "app_exception", "app_upgrade",
+            "error", "first_open", "first_visit", "in_app_purchase",
+            "notification_dismiss", "notification_foreground", "notification_open", "notification_receive",
+            "os_update", "screen_view", "session_start", "session_start_with_rollout", "user_engagement",
+        };
 
         /// <summary>
         ///     Sanitize a GA4 event name: replace separators with underscores,

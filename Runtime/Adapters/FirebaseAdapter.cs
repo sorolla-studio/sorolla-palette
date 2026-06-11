@@ -16,7 +16,7 @@ namespace Sorolla.Palette.Adapters
             Dictionary<string, object> extraParams);
         void TrackResourceEvent(string flowType, string currency, float amount, string itemType, string itemId,
             Dictionary<string, object> extraParams);
-        void TrackAdImpression(string adPlatform, string adSource, string adFormat, string adUnitName, double revenue, string currency);
+        void TrackAdImpression(string adPlatform, string adSource, string adFormat, string adUnitName, double revenue, string currency, string revenuePrecision);
         void TrackPurchase(string productId, double price, string currency, string transactionId, string storeEnvironment);
         void SetUserId(string userId);
         void SetUserProperty(string name, string value);
@@ -90,9 +90,9 @@ namespace Sorolla.Palette.Adapters
             s_impl?.SetUserProperty(name, value);
         }
 
-        public static void TrackAdImpression(string adPlatform, string adSource, string adFormat, string adUnitName, double revenue, string currency = "USD")
+        public static void TrackAdImpression(string adPlatform, string adSource, string adFormat, string adUnitName, double revenue, string currency = "USD", string revenuePrecision = null)
         {
-            s_impl?.TrackAdImpression(adPlatform, adSource, adFormat, adUnitName, revenue, currency);
+            s_impl?.TrackAdImpression(adPlatform, adSource, adFormat, adUnitName, revenue, currency, revenuePrecision);
         }
 
         public static void TrackPurchase(string productId, double price, string currency, string transactionId, string storeEnvironment)

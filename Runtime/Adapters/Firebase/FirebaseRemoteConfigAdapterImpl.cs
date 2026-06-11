@@ -40,7 +40,17 @@ namespace Sorolla.Palette.Adapters
         {
             if (_initRequested) return;
             _initRequested = true;
-            _pendingDefaults = defaults;
+            // Merge, don't overwrite. Palette.Initialize calls this with defaults=null, which would
+            // otherwise wipe defaults a studio set earlier via SetRemoteConfigDefaults from Awake/
+            // OnEnable (DR-93). Only touch _pendingDefaults when the caller actually supplied some.
+            if (defaults != null)
+            {
+                if (_pendingDefaults == null)
+                    _pendingDefaults = defaults;
+                else
+                    foreach (KeyValuePair<string, object> kvp in defaults)
+                        _pendingDefaults[kvp.Key] = kvp.Value;
+            }
             _pendingAutoFetch = autoFetch;
 
             FirebaseCoreManager.Initialize(available =>

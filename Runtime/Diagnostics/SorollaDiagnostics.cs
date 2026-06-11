@@ -251,6 +251,28 @@ namespace Sorolla.Palette
             }
         }
 
+        // Records a forwarded ad-revenue impression. Drives the Vitals "Ad revenue" row directly so
+        // it reflects real dispatch regardless of log verbosity (the old "TrackAdRevenue:" log-sniff
+        // only fired on Verbose/debug builds, so release builds always read "No revenue callback
+        // observed") and regardless of which revenue vendors are installed (DR-09).
+        internal static void RecordAdRevenue(string network, double revenue, string currency, string adFormat, string revenuePrecision = null)
+        {
+            lock (s_lock)
+            {
+                s_adRevenueSeen = true;
+                var parameters = new Dictionary<string, object>
+                {
+                    { "network", network ?? "unknown" },
+                    { "ad_format", adFormat ?? "unknown" },
+                    { "revenue", revenue },
+                    { "currency", currency ?? "USD" },
+                };
+                if (!string.IsNullOrEmpty(revenuePrecision))
+                    parameters["revenue_precision"] = revenuePrecision;
+                EnqueueEvent("ads", "ad_revenue", parameters);
+            }
+        }
+
         internal static void ClearEventLog()
         {
             lock (s_lock)
@@ -1060,7 +1082,8 @@ namespace Sorolla.Palette
             if (message.Contains("[Palette:MAX] Rewarded ad completed")) s_rewardedCompleted = true;
             if (message.Contains("[Palette:MAX] Interstitial ad loaded")) s_interstitialLoaded = true;
             if (message.Contains("[Palette:MAX] Interstitial ad completed")) s_interstitialCompleted = true;
-            if (message.Contains("TrackAdRevenue:")) s_adRevenueSeen = true;
+            // Ad-revenue is now recorded directly via RecordAdRevenue (DR-09); the old verbose-only
+            // "TrackAdRevenue:" log-sniff is removed so the Vitals row no longer depends on log level.
             if (message.Contains("[Palette:MAX]") &&
                 (message.Contains("load failed") || message.Contains("display failed") || message.Contains("not ready")))
                 s_lastAdIssue = SafeDetail(message);

@@ -144,7 +144,8 @@ public static void RefreshConsentStatus()
 ```
 #### TrackEvent(string, Dictionary&lt;string, object&gt;)
 Track a custom structured event with arbitrary parameters.
-Firebase receives full structured params. GA receives best-effort design event.
+Firebase receives full structured params. GA receives a best-effort design event whose
+numeric value is taken from the `value` param (0 if you do not include one).
 Use GA4 recommended event names where possible (e.g. "post_score", "tutorial_begin").
 
 ```csharp title="Declaration"

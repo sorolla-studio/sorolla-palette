@@ -15,17 +15,10 @@ namespace Sorolla.Palette.Adapters
     {
         const string Tag = "[Palette:Firebase]";
 
-        // GA4 reserved event names - dropped server-side anyway, drop here with a warning so studios notice.
-        // Source: https://firebase.google.com/docs/reference/cpp/group/event-names
-        static readonly HashSet<string> ReservedEventNames = new HashSet<string>
-        {
-            "ad_activeview", "ad_click", "ad_exposure", "ad_query", "ad_reward", "adunit_exposure",
-            "app_clear_data", "app_install", "app_remove", "app_update", "app_exception", "app_upgrade",
-            "error", "first_open", "first_visit", "in_app_purchase",
-            "notification_dismiss", "notification_foreground", "notification_open", "notification_receive",
-            "os_update", "screen_view", "session_start", "session_start_with_rollout", "user_engagement",
-        };
-
+        // GA4-reserved exact event NAMES are rejected upstream in the shared Palette validation gate
+        // (EventNameSanitizer.ReservedEventNames) so every vendor agrees (DR-14). Prefixes are still
+        // checked here as a defensive layer for the internal callers that reach FirebaseAdapter
+        // directly, bypassing the Palette gate (e.g. MAX ad telemetry, purchase quality events).
         static readonly string[] ReservedNamePrefixes = { "ga_", "google_", "firebase_" };
         readonly Queue<Action> _pendingEvents = new Queue<Action>();
         bool _adStorageConsent;
@@ -254,9 +247,9 @@ namespace Sorolla.Palette.Adapters
             QueueOrExecute(() => FirebaseAnalytics.SetUserProperty(name, sanitizedValue));
         }
 
-        public void TrackAdImpression(string adPlatform, string adSource, string adFormat, string adUnitName, double revenue, string currency) => QueueOrExecute(() =>
+        public void TrackAdImpression(string adPlatform, string adSource, string adFormat, string adUnitName, double revenue, string currency, string revenuePrecision) => QueueOrExecute(() =>
         {
-            var parameters = new[]
+            var parameters = new List<Parameter>(7)
             {
                 new Parameter(FirebaseAnalytics.ParameterAdPlatform, adPlatform ?? ""),
                 new Parameter(FirebaseAnalytics.ParameterAdSource, adSource ?? ""),
@@ -266,7 +259,12 @@ namespace Sorolla.Palette.Adapters
                 new Parameter(FirebaseAnalytics.ParameterCurrency, currency ?? "USD"),
             };
 
-            FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventAdImpression, parameters);
+            // AppLovin revenuePrecision (publisher_defined | exact | estimated | undefined | "");
+            // attach only when present so revenue can be filtered by estimate quality (DR-06).
+            if (!string.IsNullOrEmpty(revenuePrecision))
+                parameters.Add(new Parameter("revenue_precision", revenuePrecision));
+
+            FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventAdImpression, parameters.ToArray());
         });
 
         public void TrackPurchase(string productId, double price, string currency, string transactionId, string storeEnvironment) => QueueOrExecute(() =>
@@ -345,10 +343,12 @@ namespace Sorolla.Palette.Adapters
 
         void FlushPendingEvents()
         {
+            // Catch-continue per event so one vendor/SDK throw can't strand the rest of the queue (DR-38).
             while (_pendingEvents.Count > 0)
             {
                 Action action = _pendingEvents.Dequeue();
-                action?.Invoke();
+                try { action?.Invoke(); }
+                catch (Exception e) { PaletteLog.Warning($"{Tag} Queued event threw during flush: {e.Message}"); }
             }
         }
 
@@ -450,13 +450,9 @@ namespace Sorolla.Palette.Adapters
             string finalName = EventNameSanitizer.SanitizeEventName(name);
             if (finalName == null) return null;
 
-            // Firebase/GA4-specific rejection on top of the shared normalization: these names and
-            // prefixes are silently dropped server-side, so drop here too and warn so studios notice.
-            if (ReservedEventNames.Contains(finalName))
-            {
-                PaletteLog.Warning($"{Tag} Event name '{finalName}' is GA4-reserved - dropped");
-                return null;
-            }
+            // Firebase/GA4-specific defensive rejection for direct callers that bypass the Palette
+            // gate: reserved prefixes are silently dropped server-side, so drop here too and warn.
+            // (Exact reserved names are handled by the shared gate, see ReservedNamePrefixes comment.)
             for (int i = 0; i < ReservedNamePrefixes.Length; i++)
             {
                 if (finalName.StartsWith(ReservedNamePrefixes[i]))

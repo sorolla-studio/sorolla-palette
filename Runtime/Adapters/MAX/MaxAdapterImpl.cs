@@ -420,7 +420,7 @@ namespace Sorolla.Palette.Adapters
             PaletteLog.Vital("[Palette:MAX] Rewarded ad completed");
         }
 
-        void OnRewardedAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo) => TrackAdRevenue(adInfo, "REWARDED");
+        void OnRewardedAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo) => TrackAdRevenue(adInfo, "rewarded");
 
         void LoadRewarded()
         {
@@ -578,7 +578,7 @@ namespace Sorolla.Palette.Adapters
             LoadInterstitial();
         }
 
-        void OnInterstitialAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo) => TrackAdRevenue(adInfo, "INTERSTITIAL");
+        void OnInterstitialAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo) => TrackAdRevenue(adInfo, "interstitial");
 
         void LoadInterstitial()
         {
@@ -672,11 +672,29 @@ namespace Sorolla.Palette.Adapters
 
         void TrackAdRevenue(MaxSdkBase.AdInfo adInfo, string adFormat)
         {
+            double revenue = adInfo.Revenue;
+
+            // MAX returns Revenue = -1 when the impression has no valid revenue (error or test mode,
+            // per AppLovin docs). Forwarding it would push negative revenue into Adjust/Firebase/
+            // TikTok and corrupt ROAS, so drop the fan-out and warn with the raw value (DR-06).
+            if (revenue < 0)
+            {
+                PaletteLog.Warning($"[Palette:MAX] Ad revenue unavailable (revenue={revenue}, network={adInfo.NetworkName}, format={adFormat}) - skipping revenue fan-out.");
+                return;
+            }
+
+            // revenuePrecision is one of: publisher_defined | exact | estimated | undefined | "".
+            string revenuePrecision = adInfo.RevenuePrecision;
+
+            // Record the dispatch directly so the Sorolla Vitals "Ad revenue" row reflects a real
+            // forwarded impression, independent of log verbosity / installed vendors (DR-09).
+            SorollaDiagnostics.RecordAdRevenue(adInfo.NetworkName, revenue, "USD", adFormat, revenuePrecision);
+
 #if SOROLLA_ADJUST_ENABLED
             AdjustAdapter.TrackAdRevenue(new AdRevenueInfo
             {
                 Source = AdRevenueInfo.DefaultSource,
-                Revenue = adInfo.Revenue,
+                Revenue = revenue,
                 Currency = "USD",
                 Network = adInfo.NetworkName,
                 AdUnit = adInfo.AdUnitIdentifier,
@@ -684,8 +702,8 @@ namespace Sorolla.Palette.Adapters
             });
 #endif
 
-            // TikTok ad revenue (always call — stub no-ops if not initialized)
-            TikTokAdapter.TrackAdRevenue(adInfo.Revenue, "USD", adInfo.NetworkName,
+            // TikTok ad revenue (always call - stub no-ops if not initialized)
+            TikTokAdapter.TrackAdRevenue(revenue, "USD", adInfo.NetworkName,
                 adFormat, adInfo.AdUnitIdentifier, adInfo.Placement);
 
             // Firebase ad_impression event
@@ -694,8 +712,9 @@ namespace Sorolla.Palette.Adapters
                 adSource: adInfo.NetworkName,
                 adFormat: adFormat,
                 adUnitName: adInfo.AdUnitIdentifier,
-                revenue: adInfo.Revenue,
-                currency: "USD"
+                revenue: revenue,
+                currency: "USD",
+                revenuePrecision: revenuePrecision
             );
         }
 

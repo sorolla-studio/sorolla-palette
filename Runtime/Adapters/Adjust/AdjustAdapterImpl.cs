@@ -88,7 +88,10 @@ namespace Sorolla.Palette.Adapters
 
         public void GetAttribution(Action<AttributionData?> callback)
         {
-            if (!_init) return;
+            // Honor the documented contract (Palette.GetAttribution): always invoke the callback,
+            // with null when attribution is unavailable. Dropping it pre-init hangs callers and
+            // makes the Vitals identity rows log false timeout Warnings (DR-42/DR-64).
+            if (!_init) { callback?.Invoke(null); return; }
             Adjust.GetAttribution(attr =>
             {
                 if (attr == null) { callback?.Invoke(null); return; }
@@ -105,19 +108,19 @@ namespace Sorolla.Palette.Adapters
 
         public void GetAdid(Action<string> callback)
         {
-            if (!_init) return;
+            if (!_init) { callback?.Invoke(null); return; }
             Adjust.GetAdid(callback);
         }
 
         public void GetGoogleAdId(Action<string> callback)
         {
-            if (!_init) return;
+            if (!_init) { callback?.Invoke(null); return; }
             Adjust.GetGoogleAdId(callback);
         }
 
         public void GetIdfa(Action<string> callback)
         {
-            if (!_init) return;
+            if (!_init) { callback?.Invoke(null); return; }
             Adjust.GetIdfa(callback);
         }
 

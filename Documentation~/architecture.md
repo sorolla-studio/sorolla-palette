@@ -339,7 +339,7 @@ Palette.TrackEvent("post_score", new Dictionary<string, object>
     { "level", "world1" },
 })
     ├── FirebaseAdapter.TrackEvent()             ← Full structured params
-    └── GameAnalyticsAdapter.TrackDesignEvent()  ← Best-effort (name + first numeric value)
+    └── GameAnalyticsAdapter.TrackDesignEvent()  ← Best-effort (name + the `value` param, else 0)
 
 Palette.Level.Complete(3, world: 1, score: 1500,
     extraParams: new Dictionary<string, object> { { "duration_sec", 45 } })

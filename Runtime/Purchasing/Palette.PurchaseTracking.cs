@@ -265,6 +265,10 @@ namespace Sorolla.Palette
                     $"Recommended: Palette.AttachPurchaseTracking(store), which derives this automatically from Unity IAP.");
                 return;
             }
+            // Uppercase so a lowercase ISO code (e.g. "usd") is forwarded canonically. The gate
+            // below is case-insensitive, but Firebase/GA4 and MMPs expect uppercase ISO-4217 and
+            // would otherwise reject or fail to join the lowercased value (DR-28).
+            currency = currency?.ToUpperInvariant();
             if (!IsIso4217(currency))
             {
                 // Firebase strips `value` server-side on non-ISO currency (observed:

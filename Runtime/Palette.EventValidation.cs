@@ -25,6 +25,14 @@ namespace Sorolla.Palette
                 return false;
             }
 
+            // GA4-reserved exact names are dropped server-side by Firebase, so reject here for ALL
+            // vendors (DR-14). eventName is already lowercased by SanitizeEventName, matching the set.
+            if (EventNameSanitizer.ReservedEventNames.Contains(eventName))
+            {
+                PaletteLog.Error($"{Tag} Event rejected: '{eventName}' is a GA4-reserved name and would be dropped by Firebase/GA4. Use a different name.");
+                return false;
+            }
+
             foreach (var prefix in EventNameSanitizer.ReservedPrefixes)
             {
                 if (eventName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
@@ -78,22 +86,24 @@ namespace Sorolla.Palette
             value is string or int or long or float or double or bool or Enum;
 
         /// <summary>
-        ///     Extract the first numeric value from parameters for GA best-effort design event.
+        ///     Value forwarded as the GameAnalytics design-event value for a custom event.
+        ///     Only the documented <c>value</c> key is read: GA design events carry a single numeric
+        ///     value, and picking "the first numeric param" made it depend on Dictionary iteration
+        ///     order, so the same event could send different values run to run (DR-15). To attach a
+        ///     GA design value, include a numeric <c>value</c> param; otherwise no value is sent (0).
         /// </summary>
-        static float ExtractFirstNumericValue(Dictionary<string, object> parameters)
+        static float ExtractDesignEventValue(Dictionary<string, object> parameters)
         {
             if (parameters == null) return 0f;
-            foreach (var kvp in parameters)
+            if (!parameters.TryGetValue("value", out object v)) return 0f;
+            return v switch
             {
-                switch (kvp.Value)
-                {
-                    case int i: return i;
-                    case long l: return l;
-                    case float f: return f;
-                    case double d: return (float)d;
-                }
-            }
-            return 0f;
+                int i => i,
+                long l => l,
+                float f => f,
+                double d => (float)d,
+                _ => 0f,
+            };
         }
     }
 }

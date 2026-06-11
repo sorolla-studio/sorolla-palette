@@ -19,7 +19,7 @@ namespace Sorolla.Palette
         const string Tag = "[Palette]";
 
         /// <summary>Package version of the Sorolla Palette SDK.</summary>
-        public const string SdkVersion = "3.16.1";
+        public const string SdkVersion = "3.16.2";
 
         /// <summary>Whether the SDK is initialized</summary>
         public static bool IsInitialized { get; private set; }
@@ -200,8 +200,8 @@ namespace Sorolla.Palette
                 FirebaseAdapter.TrackEvent(eventName, parameters);
 #endif
 
-                // GA best-effort: design event with first numeric value
-                GameAnalyticsAdapter.TrackDesignEvent(eventName, ExtractFirstNumericValue(parameters));
+                // GA best-effort: design event with the documented `value` param (0 if absent).
+                GameAnalyticsAdapter.TrackDesignEvent(eventName, ExtractDesignEventValue(parameters));
             });
         }
 
@@ -446,8 +446,13 @@ namespace Sorolla.Palette
         {
             if (s_pendingEvents.Count == 0) return;
             PaletteLog.Verbose($"{Tag} Flushing {s_pendingEvents.Count} queued event(s).");
+            // Catch-continue per event: one vendor throw must not strand the rest of the queue or
+            // (since this runs inside OnMaxSdkInitialized) skip OnInitialized / consent markers (DR-38).
             while (s_pendingEvents.Count > 0)
-                s_pendingEvents.Dequeue().Invoke();
+            {
+                try { s_pendingEvents.Dequeue().Invoke(); }
+                catch (Exception e) { PaletteLog.Warning($"{Tag} Queued event threw during flush: {e.Message}"); }
+            }
         }
 
         #endregion
@@ -557,10 +562,13 @@ namespace Sorolla.Palette
 #endif
 
             IsInitialized = true;
-            FlushPending();
-            OnInitialized?.Invoke();
-            PaletteLog.Vital($"{Tag} Ready!");
 
+            // Emit the consent markers BEFORE flushing the pre-consent queue (DR-41). FlushPending
+            // dispatches every event that landed during the CMP window; if consent_resolved went out
+            // after that, BQ queries that window on the consent_resolved marker would miss the whole
+            // flushed batch. IsInitialized is already true here, so these TrackEvent calls dispatch
+            // synchronously (not re-queued behind the pending events) and therefore lead the flush.
+            //
             // Ship the consent decision to analytics so we can query consent-drop cohorts from our own
             // data. `gdpr` + `att` are the two raw user decisions; `personalized_ads` + `analytics` are
             // what the SDK RESOLVED them into. On iOS personalized ads require BOTH gdpr ad-consent AND
@@ -583,6 +591,10 @@ namespace Sorolla.Palette
                 { "source", "max" },
             });
 #endif
+
+            FlushPending();
+            OnInitialized?.Invoke();
+            PaletteLog.Vital($"{Tag} Ready!");
         }
 
         static void OnMaxConsentChanged(Adapters.ConsentStatus status)

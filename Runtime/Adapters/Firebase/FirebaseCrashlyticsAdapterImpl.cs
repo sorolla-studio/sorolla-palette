@@ -64,10 +64,12 @@ namespace Sorolla.Palette.Adapters
 
         private void FlushPendingActions()
         {
+            // Catch-continue per action so one throw can't strand the rest of the queue (DR-38).
             while (_pendingActions.Count > 0)
             {
                 var action = _pendingActions.Dequeue();
-                action?.Invoke();
+                try { action?.Invoke(); }
+                catch (Exception e) { PaletteLog.Warning($"{Tag} Queued action threw during flush: {e.Message}"); }
             }
         }
 
