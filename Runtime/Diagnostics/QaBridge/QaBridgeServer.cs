@@ -25,7 +25,12 @@ namespace Sorolla.Palette
     internal sealed class QaBridgeServer : MonoBehaviour
     {
         internal const int Port = 8765;
-        const string Prefix = "http://127.0.0.1:8765/";
+        // Both loopback prefixes are registered so the agent/studios can curl either host: HttpListener
+        // rejects a request whose Host header does not match a prefix ("127.0.0.1" alone returns 400 to
+        // `curl localhost:8765`, the documented command). "localhost" resolves to the loopback adapter,
+        // so this stays loopback-only - it never binds 0.0.0.0 and never trips the iOS Local Network prompt.
+        const string LoopbackPrefix = "http://127.0.0.1:8765/";
+        const string LocalhostPrefix = "http://localhost:8765/";
 
         static QaBridgeServer s_instance;
 
@@ -95,11 +100,12 @@ namespace Sorolla.Palette
             try
             {
                 _listener = new HttpListener();
-                _listener.Prefixes.Add(Prefix);
+                _listener.Prefixes.Add(LoopbackPrefix);
+                _listener.Prefixes.Add(LocalhostPrefix);
                 _listener.Start();
                 _running = true;
                 _listener.BeginGetContext(OnContext, null);
-                PaletteLog.Vital($"[Palette:QaBridge] Listening on {Prefix}");
+                PaletteLog.Vital($"[Palette:QaBridge] Listening on {LoopbackPrefix} (and localhost)");
             }
             catch (Exception e)
             {
@@ -107,7 +113,7 @@ namespace Sorolla.Palette
                 // plumbing. Log one line and stay dormant; the agent remaps the local forward side.
                 _running = false;
                 SafeCloseListener();
-                PaletteLog.Vital($"[Palette:QaBridge] Could not bind {Prefix}: {e.Message}");
+                PaletteLog.Vital($"[Palette:QaBridge] Could not bind {LoopbackPrefix}: {e.Message}");
             }
         }
 
