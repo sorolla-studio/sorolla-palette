@@ -51,6 +51,18 @@ namespace Sorolla.Palette
         public bool RewardedCompleted;
         public bool AdRevenueSeen;
 
+        // Per-name event aggregation (count + last params). Makes one end-of-run snapshot sufficient.
+        public SorollaQaEvent[] Events;
+
+        // IAP. Purchase facts the SDK already tracks; per-purchase product visibility comes through the
+        // event aggregation ("purchase" event). Store-init / product-count is deferred: Unity IAP v5
+        // games own the StoreController, so that needs a game-side hook (Phase 3), not an SDK surface.
+        public bool IapTrackingAttached;
+        public int IapPurchaseCount;
+        public int IapDuplicateCount;
+        public string IapVerification;
+        public string IapLastIssue;
+
         // Red flags
         public int SdkWarningCount;
         public int SdkErrorCount;
@@ -58,5 +70,13 @@ namespace Sorolla.Palette
         public int RuntimeProblemUniqueCount;
         public int RuntimeProblemTotalCount;
         public string RuntimeProblemSummary;
+    }
+
+    /// <summary>One aggregated event in the QA snapshot: a dispatched name, how many times it fired, and the last params seen.</summary>
+    internal struct SorollaQaEvent
+    {
+        public string Name;
+        public int Count;
+        public SorollaDiagnosticPayloadLine[] LastParams;
     }
 }

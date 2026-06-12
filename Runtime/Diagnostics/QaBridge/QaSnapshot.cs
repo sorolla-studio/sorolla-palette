@@ -43,13 +43,72 @@ namespace Sorolla.Palette
             WriteIdentity(state, sb);
 
             QaJson.Comma(sb, ref first);
+            QaJson.Key(sb, "events");
+            WriteEvents(state, sb);
+
+            QaJson.Comma(sb, ref first);
             QaJson.Key(sb, "ads");
             WriteAds(state, sb);
+
+            QaJson.Comma(sb, ref first);
+            QaJson.Key(sb, "iap");
+            WriteIap(state, sb);
 
             QaJson.Comma(sb, ref first);
             QaJson.Key(sb, "problems");
             WriteProblems(state, sb);
 
+            sb.Append('}');
+        }
+
+        static void WriteEvents(in SorollaQaState state, StringBuilder sb)
+        {
+            sb.Append('[');
+            SorollaQaEvent[] events = state.Events;
+            if (events != null)
+            {
+                for (int i = 0; i < events.Length; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    WriteEvent(events[i], sb);
+                }
+            }
+            sb.Append(']');
+        }
+
+        static void WriteEvent(SorollaQaEvent e, StringBuilder sb)
+        {
+            bool first = true;
+            sb.Append('{');
+            QaJson.StringMember(sb, ref first, "name", e.Name);
+            QaJson.IntMember(sb, ref first, "count", e.Count);
+            QaJson.Comma(sb, ref first);
+            QaJson.Key(sb, "last_params");
+            WriteParams(e.LastParams, sb);
+            sb.Append('}');
+        }
+
+        static void WriteParams(SorollaDiagnosticPayloadLine[] lines, StringBuilder sb)
+        {
+            bool first = true;
+            sb.Append('{');
+            if (lines != null)
+            {
+                for (int i = 0; i < lines.Length; i++)
+                    QaJson.StringMember(sb, ref first, lines[i].Key, lines[i].Value);
+            }
+            sb.Append('}');
+        }
+
+        static void WriteIap(in SorollaQaState state, StringBuilder sb)
+        {
+            bool first = true;
+            sb.Append('{');
+            QaJson.BoolMember(sb, ref first, "tracking_attached", state.IapTrackingAttached);
+            QaJson.IntMember(sb, ref first, "purchase_count", state.IapPurchaseCount);
+            QaJson.IntMember(sb, ref first, "duplicate_count", state.IapDuplicateCount);
+            QaJson.StringMember(sb, ref first, "verification", state.IapVerification);
+            QaJson.StringMember(sb, ref first, "last_issue", state.IapLastIssue);
             sb.Append('}');
         }
 

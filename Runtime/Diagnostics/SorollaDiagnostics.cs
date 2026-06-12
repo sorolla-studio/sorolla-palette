@@ -117,10 +117,23 @@ namespace Sorolla.Palette
         const float IdentifierRefreshIntervalSeconds = 20f;
         const int MaxEventLogEntries = 40;
         const int MaxRuntimeProblemEntries = 20;
+        const int MaxEventAggregates = 64;
         const string RuntimeProblemsRowName = "Runtime problems";
         static readonly object s_lock = new object();
         static readonly Queue<SorollaDiagnosticEventLogEntry> s_eventLog = new Queue<SorollaDiagnosticEventLogEntry>(MaxEventLogEntries);
         static readonly List<SorollaRuntimeProblem> s_runtimeProblems = new List<SorollaRuntimeProblem>(MaxRuntimeProblemEntries);
+
+        // Per-name event aggregation (count + last params). The 40-entry ring evicts boot events
+        // (first_open, consent_resolved) during a normal play session; this map is what makes ONE
+        // end-of-run snapshot sufficient. Bounded by distinct name count (the event taxonomy is curated).
+        sealed class SorollaEventAggregate
+        {
+            public int Count;
+            public SorollaDiagnosticPayloadLine[] LastParams;
+        }
+
+        static readonly Dictionary<string, SorollaEventAggregate> s_eventAggregates =
+            new Dictionary<string, SorollaEventAggregate>(MaxEventAggregates);
         static int s_nextEventId;
         static int s_nextRuntimeProblemId;
 
@@ -323,6 +336,7 @@ namespace Sorolla.Palette
             lock (s_lock)
             {
                 s_eventLog.Clear();
+                s_eventAggregates.Clear();
             }
         }
 
@@ -644,8 +658,18 @@ namespace Sorolla.Palette
 
             ReadIabtcf(out bool tcStringPresent, out string purposeConsents);
 
+            var events = new List<SorollaQaEvent>(s_eventAggregates.Count);
+            CopyEventAggregates(events);
+
             return new SorollaQaState
             {
+                Events = events.ToArray(),
+                IapTrackingAttached = snap.PurchaseTrackingAttached,
+                IapPurchaseCount = snap.PurchaseAcceptedCount,
+                IapDuplicateCount = snap.PurchaseDuplicateCount,
+                IapVerification = snap.PurchaseVerification,
+                IapLastIssue = snap.PurchaseIssue,
+
                 SdkVersion = Palette.SdkVersion,
                 Mode = ModeForSnapshot(config, snap),
                 DevelopmentBuild = Debug.isDebugBuild,
@@ -1323,14 +1347,47 @@ namespace Sorolla.Palette
             if (s_eventLog.Count >= MaxEventLogEntries)
                 s_eventLog.Dequeue();
 
+            string name = string.IsNullOrEmpty(eventName) ? "unnamed" : eventName;
             SorollaDiagnosticPayloadLine[] payloadLines = BuildPayloadLines(parameters);
             s_eventLog.Enqueue(new SorollaDiagnosticEventLogEntry(
                 unchecked(++s_nextEventId),
                 Time.realtimeSinceStartup,
                 string.IsNullOrEmpty(source) ? "event" : source,
-                string.IsNullOrEmpty(eventName) ? "unnamed" : eventName,
+                name,
                 FormatPayload(payloadLines),
                 payloadLines));
+
+            UpdateEventAggregate(name, payloadLines);
+        }
+
+        static void UpdateEventAggregate(string name, SorollaDiagnosticPayloadLine[] payloadLines)
+        {
+            if (s_eventAggregates.TryGetValue(name, out SorollaEventAggregate aggregate))
+            {
+                aggregate.Count++;
+                aggregate.LastParams = payloadLines;
+                return;
+            }
+
+            // Bounded: once the distinct-name cap is hit, stop adding new names. The recency ring still
+            // carries the newest events, so a runaway custom-event name space can't grow this unboundedly.
+            if (s_eventAggregates.Count >= MaxEventAggregates) return;
+            s_eventAggregates.Add(name, new SorollaEventAggregate { Count = 1, LastParams = payloadLines });
+        }
+
+        internal static void CopyEventAggregates(List<SorollaQaEvent> target)
+        {
+            target.Clear();
+            lock (s_lock)
+            {
+                foreach (KeyValuePair<string, SorollaEventAggregate> pair in s_eventAggregates)
+                    target.Add(new SorollaQaEvent
+                    {
+                        Name = pair.Key,
+                        Count = pair.Value.Count,
+                        LastParams = pair.Value.LastParams,
+                    });
+            }
         }
 
         static SorollaDiagnosticPayloadLine[] BuildPayloadLines(IDictionary<string, object> parameters)

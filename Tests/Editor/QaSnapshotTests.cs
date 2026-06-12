@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -89,7 +91,74 @@ namespace Sorolla.Palette.Editor.Tests
             string json = Serialize(state);
 
             Assert.That(json, Does.Contain("\"sdk\":null"));
+            // Null Events array serializes as an empty list; iap object always present.
+            Assert.That(json, Does.Contain("\"events\":[]"));
+            Assert.That(json, Does.Contain("\"iap\":{"));
+            Assert.That(json, Does.Contain("\"tracking_attached\":false"));
             AssertBalanced(json);
+        }
+
+        [Test]
+        public void EventAggregation_CountsRepeatsAndKeepsLastParams()
+        {
+            Type diag = RequiredType("Sorolla.Palette.SorollaDiagnostics");
+            InvokeStatic(diag, "ClearEventLog");
+
+            RecordEvent(diag, "vitals", "level_start", new Dictionary<string, object> { { "level", "1" } });
+            RecordEvent(diag, "vitals", "level_start", new Dictionary<string, object> { { "level", "2" } });
+            RecordEvent(diag, "vitals", "earn_virtual_currency", null);
+
+            IList aggregates = CopyAggregates(diag);
+
+            object levelStart = aggregates.Cast<object>().FirstOrDefault(a => Field<string>(a, "Name") == "level_start");
+            object earn = aggregates.Cast<object>().FirstOrDefault(a => Field<string>(a, "Name") == "earn_virtual_currency");
+
+            Assert.NotNull(levelStart, "level_start should be aggregated.");
+            Assert.NotNull(earn, "earn_virtual_currency should be aggregated.");
+            Assert.That(Field<int>(levelStart, "Count"), Is.EqualTo(2), "Repeated event name should accumulate.");
+            Assert.That(Field<int>(earn, "Count"), Is.EqualTo(1));
+
+            // Last params reflect the MOST RECENT dispatch (level=2), not the first.
+            var lastParams = (Array)levelStart.GetType().GetField("LastParams").GetValue(levelStart);
+            string levelValue = null;
+            foreach (object line in lastParams)
+            {
+                if (Field<string>(line, "Key") == "level")
+                    levelValue = Field<string>(line, "Value");
+            }
+            Assert.That(levelValue, Is.EqualTo("2"), "Aggregate should keep the last dispatch's params.");
+        }
+
+        static void RecordEvent(Type diag, string source, string name, IDictionary<string, object> parameters)
+        {
+            MethodInfo record = diag.GetMethod("RecordEventDispatch", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(record, "SorollaDiagnostics.RecordEventDispatch should exist.");
+            record.Invoke(null, new object[] { source, name, parameters });
+        }
+
+        static IList CopyAggregates(Type diag)
+        {
+            Type eventType = RequiredType("Sorolla.Palette.SorollaQaEvent");
+            Type listType = typeof(List<>).MakeGenericType(eventType);
+            var list = (IList)Activator.CreateInstance(listType);
+            MethodInfo copy = diag.GetMethod("CopyEventAggregates", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(copy, "SorollaDiagnostics.CopyEventAggregates should exist.");
+            copy.Invoke(null, new object[] { list });
+            return list;
+        }
+
+        static void InvokeStatic(Type type, string methodName, params object[] args)
+        {
+            MethodInfo method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method, $"{type.Name}.{methodName} should exist.");
+            method.Invoke(null, args);
+        }
+
+        static T Field<T>(object instance, string fieldName)
+        {
+            FieldInfo info = instance.GetType().GetField(fieldName, BindingFlags.Public | BindingFlags.Instance);
+            Assert.NotNull(info, $"{instance.GetType().Name}.{fieldName} should exist.");
+            return (T)info.GetValue(instance);
         }
 
         static string Serialize(object state)

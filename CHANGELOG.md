@@ -10,6 +10,7 @@ QA agent bridge (Phase 1+2): a loopback HTTP bridge inside the diagnostics layer
 - **QA bridge `GET /qa/snapshot`** (`Runtime/Diagnostics/QaBridge/`): structured JSON of SDK state (sdk/mode/build, consent + resolved consent-mode signals + IABTCF presence, adapter statuses, identity/attribution, ads, runtime problems) on `127.0.0.1:8765`. Built only from state the SDK already tracks (no ad-adapter changes). Reached over a USB forward (`adb forward tcp:8765 tcp:8765` / usbmux `iproxy 8765 8765`).
 - **Access-gated bridge lifecycle**: compiled into ALL builds (no compile define). Auto-starts in the Editor and development builds; in release builds it stays dormant until a human arms it from the debug console ("QA Bridge" section), and a relaunch starts dormant again. Binds loopback only, never `0.0.0.0` (no iOS Local Network prompt).
 - **Resolved consent-mode signals + form-shown flag** recorded at the Palette consent layer for the snapshot (`analytics_storage`/`ad_storage`/`ad_personalization`/`ad_user_data`, and `form_shown_this_session` for relaunch-persistence assertions).
+- **Per-name event aggregation** (`events[]`: name, count, last params) so one end-of-run snapshot is sufficient even after the 40-entry recency ring evicts boot events. IAP facts (`iap{}`: tracking attached, purchase/duplicate counts, verification, last issue); per-purchase product visibility comes through the `purchase` event aggregation.
 
 ## [3.17.0] - 2026-06-11
 
