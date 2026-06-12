@@ -165,6 +165,32 @@ namespace Sorolla.Palette.Editor.Tests
                 "Progression outside the scope should count normally.");
         }
 
+        [Test]
+        public void Registry_UnknownAction_ReturnsUnknownAction()
+        {
+            object[] args = { "nope_not_a_real_action", null, null };
+            bool ok = TryInvoke(args);
+            Assert.IsFalse(ok, "An unregistered action name should not dispatch.");
+            Assert.That(args[2], Is.EqualTo("unknown_action"), "out detail should report unknown_action.");
+        }
+
+        [Test]
+        public void Registry_KnownAction_Dispatches()
+        {
+            object[] args = { "track_test_event", null, null };
+            bool ok = TryInvoke(args);
+            Assert.IsTrue(ok, "track_test_event should be a registered action.");
+            Assert.That(args[2], Is.Null, "A dispatched action returns null detail.");
+        }
+
+        static bool TryInvoke(object[] args)
+        {
+            Type registry = RequiredType("Sorolla.Palette.QaActionRegistry");
+            MethodInfo tryInvoke = registry.GetMethod("TryInvoke", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(tryInvoke, "QaActionRegistry.TryInvoke should exist.");
+            return (bool)tryInvoke.Invoke(null, args);
+        }
+
         static void RecordCustom(Type diag, string name, IDictionary<string, object> parameters)
         {
             MethodInfo method = diag.GetMethod("RecordCustomEvent", BindingFlags.NonPublic | BindingFlags.Static);

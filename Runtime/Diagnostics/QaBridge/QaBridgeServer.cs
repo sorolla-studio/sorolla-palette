@@ -196,6 +196,12 @@ namespace Sorolla.Palette
                     return;
                 }
 
+                if (path == "/qa/exec" && method == "POST")
+                {
+                    HandleExec(ctx);
+                    return;
+                }
+
                 WriteJson(ctx, 404, "{\"ok\":false,\"detail\":\"unknown_endpoint\"}");
             }
             catch (Exception e)
@@ -203,6 +209,47 @@ namespace Sorolla.Palette
                 PaletteLog.Verbose($"[Palette:QaBridge] Request handling failed: {e.Message}");
                 TryAbort(ctx);
             }
+        }
+
+        // Fire-and-ack: parse the action, dispatch it on the main thread, reply immediately. The snapshot
+        // is the single source of truth for the outcome (no blocking, no completion sources, no timeout).
+        void HandleExec(HttpListenerContext ctx)
+        {
+            string action;
+            try
+            {
+                string body = ReadBody(ctx.Request);
+                action = string.IsNullOrEmpty(body) ? null : JsonUtility.FromJson<ExecRequest>(body)?.action;
+            }
+            catch (Exception e)
+            {
+                PaletteLog.Verbose($"[Palette:QaBridge] exec body parse failed: {e.Message}");
+                WriteJson(ctx, 400, "{\"ok\":false,\"detail\":\"bad_request\"}");
+                return;
+            }
+
+            if (QaActionRegistry.TryInvoke(action, null, out string detail))
+            {
+                WriteJson(ctx, 200, "{\"ok\":true}");
+                return;
+            }
+
+            WriteJson(ctx, 400, BuildError(detail));
+        }
+
+        static string ReadBody(HttpListenerRequest request)
+        {
+            using var reader = new System.IO.StreamReader(request.InputStream, request.ContentEncoding ?? Encoding.UTF8);
+            return reader.ReadToEnd();
+        }
+
+        static string BuildError(string detail)
+        {
+            var sb = new StringBuilder(48);
+            sb.Append("{\"ok\":false,\"detail\":");
+            QaJson.AppendString(sb, detail);
+            sb.Append('}');
+            return sb.ToString();
         }
 
         static void WriteJson(HttpListenerContext ctx, int statusCode, string json)
@@ -226,6 +273,14 @@ namespace Sorolla.Palette
         {
             try { ctx.Response.Abort(); }
             catch { /* connection already gone */ }
+        }
+
+        // POST /qa/exec body shape. args (Phase 3) is intentionally not deserialized yet: the v1 generic
+        // actions are parameterless, and JsonUtility ignores the unparsed "args" object.
+        [Serializable]
+        sealed class ExecRequest
+        {
+            public string action;
         }
 
         void OnApplicationQuit()
