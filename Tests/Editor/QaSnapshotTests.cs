@@ -129,6 +129,56 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.That(levelValue, Is.EqualTo("2"), "Aggregate should keep the last dispatch's params.");
         }
 
+        [Test]
+        public void HealthCounters_ExcludeSelfAndTaggedCustomEvents()
+        {
+            Type diag = RequiredType("Sorolla.Palette.SorollaDiagnostics");
+            int before = StaticInt(diag, "s_customEventCount");
+
+            RecordCustom(diag, "consent_resolved", null);
+            Assert.That(StaticInt(diag, "s_customEventCount"), Is.EqualTo(before),
+                "SDK-self event must not drive the custom-event health counter (DR-60).");
+
+            RecordCustom(diag, "game_event", new Dictionary<string, object> { { "sorolla_qa_test", true } });
+            Assert.That(StaticInt(diag, "s_customEventCount"), Is.EqualTo(before),
+                "Tagged QA test event must not drive the health counter (DR-33).");
+
+            RecordCustom(diag, "real_game_event", null);
+            Assert.That(StaticInt(diag, "s_customEventCount"), Is.EqualTo(before + 1),
+                "A normal game custom event should still count.");
+        }
+
+        [Test]
+        public void HealthCounters_TestActionScopeExcludesProgression()
+        {
+            Type diag = RequiredType("Sorolla.Palette.SorollaDiagnostics");
+            int before = StaticInt(diag, "s_progressionStartCount");
+
+            InvokeStatic(diag, "BeginTestAction");
+            InvokeStatic(diag, "RecordProgression", "start");
+            InvokeStatic(diag, "EndTestAction");
+            Assert.That(StaticInt(diag, "s_progressionStartCount"), Is.EqualTo(before),
+                "Progression fired inside a test-action scope must be excluded.");
+
+            InvokeStatic(diag, "RecordProgression", "start");
+            Assert.That(StaticInt(diag, "s_progressionStartCount"), Is.EqualTo(before + 1),
+                "Progression outside the scope should count normally.");
+        }
+
+        static void RecordCustom(Type diag, string name, IDictionary<string, object> parameters)
+        {
+            MethodInfo method = diag.GetMethod("RecordCustomEvent", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method, "SorollaDiagnostics.RecordCustomEvent should exist.");
+            method.Invoke(null, new object[] { name, parameters });
+        }
+
+        static int StaticInt(Type type, string fieldName)
+        {
+            FieldInfo info = type.GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(info, $"{type.Name}.{fieldName} should exist.");
+            return (int)info.GetValue(null);
+        }
+
         static void RecordEvent(Type diag, string source, string name, IDictionary<string, object> parameters)
         {
             MethodInfo record = diag.GetMethod("RecordEventDispatch", BindingFlags.NonPublic | BindingFlags.Static);

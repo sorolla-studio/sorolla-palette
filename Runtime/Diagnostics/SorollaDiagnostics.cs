@@ -134,6 +134,29 @@ namespace Sorolla.Palette
 
         static readonly Dictionary<string, SorollaEventAggregate> s_eventAggregates =
             new Dictionary<string, SorollaEventAggregate>(MaxEventAggregates);
+
+        // Reserved param key marking an event as QA/test-fired, injected by the console/bridge test
+        // actions. Flows to Firebase via the existing param plumbing (production-data hygiene on RC
+        // builds: tagging is the only thing separating test traffic from real players), and excludes
+        // the event from the game-integration health counters. GameAnalytics progression/economy/design
+        // APIs are schema-fixed and cannot carry it, so GameAnalytics test events stay untagged (DR-33).
+        internal const string QaTestEventParam = "sorolla_qa_test";
+
+        // SDK-self custom events (DR-60): the SDK emits these itself, so they must never green the
+        // game-integration Activity rows. Excluded from the custom-event health counter; still logged
+        // and aggregated for visibility.
+        static readonly HashSet<string> s_selfEventNames = new HashSet<string>
+        {
+            "consent_resolved",
+            "consent_changed",
+            "att_decision",
+        };
+
+        // Depth of the current QA/test-action scope (console/bridge). While > 0, dispatched progression/
+        // economy/custom events are excluded from the game-integration health counters. Relies on the
+        // test action dispatching synchronously (post-init, the normal QA case); a pre-init test event
+        // would flush outside the scope. Main-thread; guarded by s_lock.
+        static int s_testActionDepth;
         static int s_nextEventId;
         static int s_nextRuntimeProblemId;
 
@@ -247,6 +270,7 @@ namespace Sorolla.Palette
         {
             lock (s_lock)
             {
+                if (s_testActionDepth > 0) return; // QA/test action: excluded from game-integration health
                 if (status == "start") s_progressionStartCount++;
                 else s_progressionEndCount++;
             }
@@ -256,10 +280,29 @@ namespace Sorolla.Palette
         {
             lock (s_lock)
             {
+                if (s_testActionDepth > 0) return; // QA/test action: excluded from game-integration health
                 if (earn) s_economyEarnCount++;
                 else s_economySpendCount++;
             }
         }
+
+        // Opens/closes a QA/test-action scope so the events the console or bridge fire do not drive the
+        // game-integration health counters. Always pair Begin with End (try/finally).
+        internal static void BeginTestAction()
+        {
+            lock (s_lock) { s_testActionDepth++; }
+        }
+
+        internal static void EndTestAction()
+        {
+            lock (s_lock)
+            {
+                if (s_testActionDepth > 0) s_testActionDepth--;
+            }
+        }
+
+        static bool HasTestTag(IDictionary<string, object> parameters) =>
+            parameters != null && parameters.ContainsKey(QaTestEventParam);
 
         // Records the four resolved GA4/Firebase consent-mode signals. Called from the Palette consent
         // layer on every resolution so the snapshot reports what the SDK actually resolved consent into,
@@ -290,9 +333,16 @@ namespace Sorolla.Palette
         {
             lock (s_lock)
             {
-                s_customEventCount++;
-                s_lastCustomEvent = string.IsNullOrEmpty(eventName) ? "unnamed" : eventName;
-                EnqueueEvent("custom", s_lastCustomEvent, parameters);
+                string name = string.IsNullOrEmpty(eventName) ? "unnamed" : eventName;
+                // Exclude QA/test events (scope or tag) and SDK-self events from the Activity health row,
+                // but still log + aggregate them so they remain visible in the console and the snapshot.
+                bool excluded = s_testActionDepth > 0 || s_selfEventNames.Contains(name) || HasTestTag(parameters);
+                if (!excluded)
+                {
+                    s_customEventCount++;
+                    s_lastCustomEvent = name;
+                }
+                EnqueueEvent("custom", name, parameters);
             }
         }
 

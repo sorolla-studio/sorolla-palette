@@ -12,6 +12,13 @@ QA agent bridge (Phase 1+2): a loopback HTTP bridge inside the diagnostics layer
 - **Resolved consent-mode signals + form-shown flag** recorded at the Palette consent layer for the snapshot (`analytics_storage`/`ad_storage`/`ad_personalization`/`ad_user_data`, and `form_shown_this_session` for relaunch-persistence assertions).
 - **Per-name event aggregation** (`events[]`: name, count, last params) so one end-of-run snapshot is sufficient even after the 40-entry recency ring evicts boot events. IAP facts (`iap{}`: tracking attached, purchase/duplicate counts, verification, last issue); per-purchase product visibility comes through the `purchase` event aggregation.
 
+### Changed
+- **Test/QA events excluded from the Activity health rows** (DR-33/DR-60): events fired by the debug console or the bridge, and SDK-self events (`consent_resolved`, `consent_changed`, `att_decision`), no longer green the progression/economy/custom-event game-integration counters. They are still logged and aggregated for visibility.
+- **Console/bridge test events tagged for Firebase** with a reserved `sorolla_qa_test` param, so test traffic against production vendor endpoints (QA happens on release-candidate builds) is filterable in BigQuery. GameAnalytics progression/economy/design APIs are schema-fixed and cannot carry it, so GameAnalytics test events stay untagged; broader vendor tagging (GameAnalytics custom dimension, Adjust) is a follow-up that needs vendor-doc verification and an Adapter Endpoint Review.
+
+### Notes
+- The discoverable 5-tap gesture to open the debug console is intentionally retained for now; replacing it with a hardened access path (the release-build half of DR-33) is deferred and tracked separately. The bridge's release-build dormancy (armed only from the debug UI) already gates the new surface.
+
 ## [3.17.0] - 2026-06-11
 
 Remote Config redesign: the SDK now owns the fetch lifecycle (auto-fetch, retry, real-time), and the public API shrinks to declare/read/react. The operation-sequence APIs whose ordering and semantics every studio had to get right (and that produced the audit's RC trap cluster DR-45/55/97/113 plus real default-drift bugs in two games) are deleted.
