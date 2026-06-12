@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 3.17.1
+
+QA agent bridge (Phase 1+2): a loopback HTTP bridge inside the diagnostics layer so QA tooling reads structured SDK state instead of grepping device logs. One diagnostics core, two frontends: anything the bridge exposes is also visible/tappable in the on-screen debug console.
+
+### Added
+- **QA bridge `GET /qa/snapshot`** (`Runtime/Diagnostics/QaBridge/`): structured JSON of SDK state (sdk/mode/build, consent + resolved consent-mode signals + IABTCF presence, adapter statuses, identity/attribution, ads, runtime problems) on `127.0.0.1:8765`. Built only from state the SDK already tracks (no ad-adapter changes). Reached over a USB forward (`adb forward tcp:8765 tcp:8765` / usbmux `iproxy 8765 8765`).
+- **Access-gated bridge lifecycle**: compiled into ALL builds (no compile define). Auto-starts in the Editor and development builds; in release builds it stays dormant until a human arms it from the debug console ("QA Bridge" section), and a relaunch starts dormant again. Binds loopback only, never `0.0.0.0` (no iOS Local Network prompt).
+- **Resolved consent-mode signals + form-shown flag** recorded at the Palette consent layer for the snapshot (`analytics_storage`/`ad_storage`/`ad_personalization`/`ad_user_data`, and `form_shown_this_session` for relaunch-persistence assertions).
+
 ## [3.17.0] - 2026-06-11
 
 Remote Config redesign: the SDK now owns the fetch lifecycle (auto-fetch, retry, real-time), and the public API shrinks to declare/read/react. The operation-sequence APIs whose ordering and semantics every studio had to get right (and that produced the audit's RC trap cluster DR-45/55/97/113 plus real default-drift bugs in two games) are deleted.

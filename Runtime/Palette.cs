@@ -19,7 +19,7 @@ namespace Sorolla.Palette
         const string Tag = "[Palette]";
 
         /// <summary>Package version of the Sorolla Palette SDK.</summary>
-        public const string SdkVersion = "3.17.0";
+        public const string SdkVersion = "3.17.1";
 
         /// <summary>Whether the SDK is initialized</summary>
         public static bool IsInitialized { get; private set; }
@@ -133,6 +133,8 @@ namespace Sorolla.Palette
         public static void ShowPrivacyOptions(Action onComplete = null)
         {
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            // The UMP form is being displayed; mark it for the QA snapshot's persistence signal.
+            SorollaDiagnostics.MarkConsentFormShown();
             MaxAdapter.ShowPrivacyOptions(onComplete);
 #else
             PaletteLog.Warning($"{Tag} MAX not available - privacy options require MAX SDK.");
@@ -369,6 +371,11 @@ namespace Sorolla.Palette
             VerboseLogging = Config != null && Config.verboseLogging && Debug.isDebugBuild;
             PaletteLog.Configure(VerboseLogging);
             PaletteLog.Vital($"{Tag} Initializing ({(isPrototype ? "Prototype" : "Full")} mode, consent: {consent}, verbose: {VerboseLogging})...");
+
+            // Record the boot consent-mode signals for the QA snapshot (analytics granted by default so
+            // first_open is countable; ad signals follow the boot consent value). OnMaxConsentChanged
+            // refines these once UMP resolves. Diagnostics-only; does not drive adapter behavior.
+            SorollaDiagnostics.RecordConsentSignals(adStorage: consent, adPersonalization: consent, adUserData: consent, analyticsStorage: true);
 
             // GameAnalytics (always)
             GameAnalyticsAdapter.Initialize(consent, VerboseLogging);
@@ -625,6 +632,11 @@ namespace Sorolla.Palette
 #if SOROLLA_FACEBOOK_ENABLED
             FacebookAdapter.UpdateConsent(adPersonalizationConsent);
 #endif
+
+            // Record the resolved consent-mode signals for the QA snapshot on every resolution (before
+            // the ad-side early return below, which only guards ad-bucket work). ad_user_data tracks
+            // ad_personalization: both additionally require ATT authorization on iOS.
+            SorollaDiagnostics.RecordConsentSignals(adStorage: adConsent, adPersonalization: adPersonalizationConsent, adUserData: adPersonalizationConsent, analyticsStorage: analyticsConsent);
 
             if (HasConsent == adConsent) return;
 

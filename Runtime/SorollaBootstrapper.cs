@@ -49,6 +49,7 @@ namespace Sorolla.Palette
             var go = new GameObject("[Palette SDK]");
             MakePersistent(go);
             SorollaDiagnosticsConsole.Ensure(go);
+            QaBridgeServer.Ensure(go);
             s_instance = go.AddComponent<SorollaBootstrapper>();
 
             // Lend our coroutine host to adapters that need delayed callbacks

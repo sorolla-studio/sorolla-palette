@@ -1,0 +1,62 @@
+namespace Sorolla.Palette
+{
+    /// <summary>
+    ///     Plain data snapshot of SDK state for the QA bridge, captured on the Unity main thread by
+    ///     <see cref="SorollaDiagnostics.CaptureQaState"/> and serialized by <see cref="QaSnapshot"/>.
+    ///     Holds only values the SDK already tracks (no ad-adapter changes) so the snapshot stays out
+    ///     of Adapter Endpoint Review scope. Strings are the display-formatted values diagnostics
+    ///     already produces (sensitive keys masked), so serialization is trivial and PII-free.
+    /// </summary>
+    internal struct SorollaQaState
+    {
+        // Header
+        public string SdkVersion;
+        public string Mode;              // "full" | "prototype" | "unknown"
+        public bool DevelopmentBuild;
+        public bool BridgeArmed;
+        public bool Ready;
+
+        // Consent
+        public string ConsentStatus;     // Unknown | NotApplicable | Required | Obtained | Denied
+        public string ConsentGeography;  // gdpr | non_gdpr | unknown (derived from consent status)
+        public string Att;               // authorized | denied | restricted | not_determined
+        public bool CanRequestAds;
+        public bool ConsentFormShownThisSession;
+        public bool ConsentSignalsKnown;
+        public bool AdStorageConsent;
+        public bool AdPersonalizationConsent;
+        public bool AdUserDataConsent;
+        public bool AnalyticsStorageConsent;
+        public bool TcStringPresent;
+        public string PurposeConsents;   // raw IAB bit string, or "" when absent
+
+        // Adapters (status strings; enums can grow a "failed" state later without re-keying gates)
+        public string MaxAdapter;
+        public string AdjustAdapter;
+        public string FirebaseAdapter;
+        public string GameAnalyticsAdapter;
+        public string FacebookAdapter;
+
+        // Identity / attribution
+        public bool AdvertisingIdPresent;
+        public bool AdvertisingIdZeroed;
+        public bool AdjustAdidPresent;
+        public string AttributionNetwork;
+        public string AdjustEnvironment;
+
+        // Ads (at-least-once facts; verbose-independent, already tracked)
+        public bool InterstitialLoaded;
+        public bool InterstitialCompleted;
+        public bool RewardedLoaded;
+        public bool RewardedCompleted;
+        public bool AdRevenueSeen;
+
+        // Red flags
+        public int SdkWarningCount;
+        public int SdkErrorCount;
+        public string LastSdkError;
+        public int RuntimeProblemUniqueCount;
+        public int RuntimeProblemTotalCount;
+        public string RuntimeProblemSummary;
+    }
+}

@@ -89,6 +89,15 @@ namespace Sorolla.Palette
             RequestDiagnosticsRefresh();
         }
 
+        void ToggleQaBridge()
+        {
+            if (QaBridgeServer.IsArmed)
+                QaBridgeServer.Disarm();
+            else
+                QaBridgeServer.Arm();
+            RequestDiagnosticsRefresh();
+        }
+
         void RefreshConsentProbe()
         {
             Palette.RefreshConsentStatus();

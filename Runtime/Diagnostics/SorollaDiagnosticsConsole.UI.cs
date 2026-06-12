@@ -147,6 +147,13 @@ namespace Sorolla.Palette
                 "Refresh", RefreshConsentProbe);
             GUILayout.Space(_sectionTopGap * _uiScale);
 
+            GUILayout.Label("QA Bridge", _sectionStyle);
+            bool bridgeArmed = QaBridgeServer.IsArmed;
+            DrawActionRow("Bridge", bridgeArmed ? "Armed on 127.0.0.1:" + QaBridgeServer.Port : "Dormant",
+                bridgeArmed ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
+                bridgeArmed ? "Disarm" : "Arm", ToggleQaBridge);
+            GUILayout.Space(_sectionTopGap * _uiScale);
+
             GUILayout.Label("Events", _sectionStyle);
             DrawActionButtons("Custom", TrackVitalsTestEvent, "Level Start", TrackVitalsLevelStart);
             DrawActionButtons("Level End", TrackVitalsLevelComplete, "Earn", TrackVitalsEconomyEarn);
