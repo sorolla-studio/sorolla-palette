@@ -19,4 +19,8 @@ ralph.md
 ralph.md.meta
 BUG-REPORT-*.md
 BUG-REPORT-*.md.meta
+DESIGN_RISK_*.md
+DESIGN_RISK_*.md.meta
+REMEDIATION_PLAN_*.md
+REMEDIATION_PLAN_*.md.meta
 Internal~/
