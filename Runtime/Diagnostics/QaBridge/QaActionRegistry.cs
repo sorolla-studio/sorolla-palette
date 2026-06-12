@@ -18,6 +18,7 @@ namespace Sorolla.Palette
         internal const string ShowRewarded = "show_rewarded";
         internal const string ShowInterstitial = "show_interstitial";
         internal const string OpenPrivacyOptions = "open_privacy_options";
+        internal const string ResetConsent = "reset_consent";
         internal const string RefreshConsent = "refresh_consent";
         internal const string TrackTestEvent = "track_test_event";
         internal const string LevelStart = "level_start";
@@ -31,6 +32,7 @@ namespace Sorolla.Palette
                 { ShowRewarded, _ => DoShowRewarded() },
                 { ShowInterstitial, _ => DoShowInterstitial() },
                 { OpenPrivacyOptions, _ => DoOpenPrivacyOptions() },
+                { ResetConsent, _ => DoResetConsent() },
                 { RefreshConsent, _ => DoRefreshConsent() },
                 { TrackTestEvent, _ => DoTrackTestEvent() },
                 { LevelStart, _ => DoLevelStart() },
@@ -81,6 +83,22 @@ namespace Sorolla.Palette
             Palette.ShowPrivacyOptions(() =>
             {
                 SorollaDiagnostics.RecordEventDispatch("vitals", "privacy_options_closed");
+                SorollaDiagnostics.RefreshIdentifiers();
+            });
+        }
+
+        static void DoResetConsent()
+        {
+            // AppLovin MAX MaxSdk.CmpService.ShowCmpForExistingUser both RE-SHOWS the consent form AND
+            // RESETS the user's existing consent (verified against AppLovin/Axon docs 2026-06-12). It is
+            // the same supported call behind open_privacy_options - there is no separate reset API - so
+            // re-testing a consent scenario no longer needs a reinstall (only iOS ATT still does).
+            // reset_consent records a distinct marker so a QA run can tell a consent re-test apart from a
+            // settings-screen privacy-options open.
+            SorollaDiagnostics.RecordEventDispatch("vitals", "consent_reset_requested");
+            Palette.ShowPrivacyOptions(() =>
+            {
+                SorollaDiagnostics.RecordEventDispatch("vitals", "consent_reset_closed");
                 SorollaDiagnostics.RefreshIdentifiers();
             });
         }

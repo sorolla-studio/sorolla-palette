@@ -25,6 +25,8 @@ namespace Sorolla.Palette
 
         void RefreshConsentProbe() => RunRegistryAction(QaActionRegistry.RefreshConsent);
 
+        void ResetConsentProbe() => RunRegistryAction(QaActionRegistry.ResetConsent);
+
         void RunRegistryAction(string action)
         {
             QaActionRegistry.TryInvoke(action, null, out _);

@@ -145,6 +145,8 @@ namespace Sorolla.Palette
                 "Open", ShowPrivacyOptionsProbe);
             DrawActionRow("Consent", Palette.ConsentStatus.ToString(), Palette.CanRequestAds ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
                 "Refresh", RefreshConsentProbe);
+            DrawActionRow("Reset consent", "Re-run CMP (resets consent)", SorollaDiagnosticSeverity.Info,
+                "Reset", ResetConsentProbe);
             GUILayout.Space(_sectionTopGap * _uiScale);
 
             GUILayout.Label("QA Bridge", _sectionStyle);
