@@ -41,6 +41,10 @@ Read these before substantial changes:
 - `/Users/arthur/workspace/sorolla-docs/platform/sdk/research/dx-first-audit-2026-04.md` - current public API risk queue
 - `/Users/arthur/workspace/sorolla-docs/platform/sdk/qa/agent/SKILL.md` - authoritative QA greenlight workflow
 
+## Internal Docs Routing
+
+This repo is **public**. Never commit internal working docs here: audits, remediation plans, QA checklists/prep notes, devlogs, refactor backlogs, risk analyses. They live in the private `sorolla-docs` repo under `platform/sdk/` (audits in `platform/sdk/design-risk/`, QA material in `platform/sdk/qa/`). Public-facing docs for SDK consumers go in `Documentation~/` and `CHANGELOG.md` only. `.gitignore` blocks the known internal-doc patterns as a backstop, but the rule is by intent, not pattern: if a doc is not for SDK consumers, it does not get committed here.
+
 ## Architecture Rules
 
 - Optional SDKs use the stub plus implementation assembly pattern.

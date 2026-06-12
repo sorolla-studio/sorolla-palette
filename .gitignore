@@ -23,4 +23,10 @@ DESIGN_RISK_*.md
 DESIGN_RISK_*.md.meta
 REMEDIATION_PLAN_*.md
 REMEDIATION_PLAN_*.md.meta
+DEVLOG.md
+DEVLOG.md.meta
+CLEAN_CODE_*.md
+CLEAN_CODE_*.md.meta
+QA_CHECKLIST_*.md
+QA_CHECKLIST_*.md.meta
 Internal~/
