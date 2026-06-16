@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 3.17.2
+## [3.17.2] - 2026-06-16
 
 Remote Config freshness is now first-class in the QA surfaces: the bridge snapshot and the on-device console report RC status from the authoritative `Palette.RemoteConfigStatus`, not from log scraping.
 
