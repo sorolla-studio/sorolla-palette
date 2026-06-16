@@ -105,8 +105,8 @@ namespace Sorolla.Palette.Editor
         // VERSION CONSTANTS - Update these when upgrading SDK versions
         // ============================================================
         public const string EDM_VERSION = "1.2.187";
-        public const string GA_VERSION = "7.10.6";
-        public const string MAX_VERSION = "8.6.2";
+        public const string GA_VERSION = "8.0.1";
+        public const string MAX_VERSION = "8.6.4";
         public const string FB_VERSION = "18.0.1";
         public const string FIREBASE_VERSION = "13.7.0";
 
