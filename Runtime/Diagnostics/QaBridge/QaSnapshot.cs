@@ -35,6 +35,10 @@ namespace Sorolla.Palette
             WriteConsent(state, sb);
 
             QaJson.Comma(sb, ref first);
+            QaJson.Key(sb, "remote_config");
+            WriteRemoteConfig(state, sb);
+
+            QaJson.Comma(sb, ref first);
             QaJson.Key(sb, "adapters");
             WriteAdapters(state, sb);
 
@@ -109,6 +113,16 @@ namespace Sorolla.Palette
             QaJson.IntMember(sb, ref first, "duplicate_count", state.IapDuplicateCount);
             QaJson.StringMember(sb, ref first, "verification", state.IapVerification);
             QaJson.StringMember(sb, ref first, "last_issue", state.IapLastIssue);
+            sb.Append('}');
+        }
+
+        static void WriteRemoteConfig(in SorollaQaState state, StringBuilder sb)
+        {
+            bool first = true;
+            sb.Append('{');
+            QaJson.StringMember(sb, ref first, "status", state.RemoteConfigStatus);
+            QaJson.BoolMember(sb, ref first, "fetch_seen", state.RemoteConfigFetchSeen);
+            QaJson.BoolMember(sb, ref first, "fetch_success", state.RemoteConfigFetchSuccess);
             sb.Append('}');
         }
 

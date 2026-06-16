@@ -30,6 +30,11 @@ namespace Sorolla.Palette
         public bool TcStringPresent;
         public string PurposeConsents;   // raw IAB bit string, or "" when absent
 
+        // Remote Config (verbose-independent; sourced from Palette.RemoteConfigStatus)
+        public string RemoteConfigStatus;       // "defaults" | "cached" | "live"
+        public bool RemoteConfigFetchSeen;       // secondary: a Firebase fetch-complete was observed this session
+        public bool RemoteConfigFetchSuccess;    // secondary: that observed fetch succeeded
+
         // Adapters (status strings; enums can grow a "failed" state later without re-keying gates)
         public string MaxAdapter;
         public string AdjustAdapter;

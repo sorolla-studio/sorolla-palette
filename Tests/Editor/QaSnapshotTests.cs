@@ -19,7 +19,7 @@ namespace Sorolla.Palette.Editor.Tests
         public void WriteJson_KnownState_SerializesEverySection()
         {
             object state = NewState();
-            Set(state, "SdkVersion", "3.17.1");
+            Set(state, "SdkVersion", "3.17.2");
             Set(state, "Mode", "full");
             Set(state, "DevelopmentBuild", true);
             Set(state, "BridgeArmed", true);
@@ -44,13 +44,16 @@ namespace Sorolla.Palette.Editor.Tests
             Set(state, "AttributionNetwork", "Organic");
             Set(state, "AdjustEnvironment", "Production");
             Set(state, "RewardedCompleted", true);
+            Set(state, "RemoteConfigStatus", "live");
+            Set(state, "RemoteConfigFetchSeen", true);
+            Set(state, "RemoteConfigFetchSuccess", true);
 
             string json = Serialize(state);
 
             // Header
             Assert.That(json, Does.StartWith("{"));
             Assert.That(json, Does.EndWith("}"));
-            Assert.That(json, Does.Contain("\"sdk\":\"3.17.1\""));
+            Assert.That(json, Does.Contain("\"sdk\":\"3.17.2\""));
             Assert.That(json, Does.Contain("\"mode\":\"full\""));
             Assert.That(json, Does.Contain("\"armed\":true"));
             // Consent + resolved signals (mixed granted/denied)
@@ -66,6 +69,10 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.That(json, Does.Contain("\"advertising_id_present\":true"));
             Assert.That(json, Does.Contain("\"rewarded\":{"));
             Assert.That(json, Does.Contain("\"completed\":true"));
+            // Remote Config
+            Assert.That(json, Does.Contain("\"remote_config\":{"));
+            Assert.That(json, Does.Contain("\"status\":\"live\""));
+            Assert.That(json, Does.Contain("\"fetch_success\":true"));
 
             AssertBalanced(json);
         }

@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 3.17.2
+
+Remote Config freshness is now first-class in the QA surfaces: the bridge snapshot and the on-device console report RC status from the authoritative `Palette.RemoteConfigStatus`, not from log scraping.
+
+### Added
+- **`remote_config` block in `GET /qa/snapshot`**: `{ status, fetch_seen, fetch_success }`. `status` is `defaults` | `cached` | `live`, sourced from `Palette.RemoteConfigStatus` (verbose-independent, so it is correct on prod / non-verbose builds). Lets the qa-greenlight gate assert RC freshness on a release-candidate build instead of grepping suppressible logs. `fetch_seen` / `fetch_success` are secondary signals from the Firebase fetch-complete log and only reflect a Firebase fetch this session, so gate on `status`.
+
+### Fixed
+- **Console "Remote Config" row no longer stalls at "Waiting for fetch" on a cached relaunch**: it was driven by the `Fetch complete` log scrape, which never matches the disk-cache load path (`Cached config available`), so a fetch-less relaunch read "Waiting for fetch" forever while values were being served from cache. It now reads `Palette.RemoteConfigStatus` directly (`Defaults` -> info, `Cached`/`Live` -> pass); the scraped fetch line stays as secondary detail.
+
 ## [Unreleased] - 3.17.1
 
 QA agent bridge (Phase 1+2): a loopback HTTP bridge inside the diagnostics layer so QA tooling reads structured SDK state instead of grepping device logs. One diagnostics core, two frontends: anything the bridge exposes is also visible/tappable in the on-screen debug console.

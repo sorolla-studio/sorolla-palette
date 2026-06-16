@@ -557,8 +557,10 @@ namespace Sorolla.Palette
 #endif
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
-            Add(rows, "Firebase", "Remote Config", RemoteConfigSeverity(snapshot),
-                snapshot.RemoteConfigFetchSeen ? snapshot.RemoteConfigDetail : "Waiting for fetch");
+            RemoteConfigStatus remoteConfigStatus = Palette.RemoteConfigStatus;
+            Add(rows, "Firebase", "Remote Config",
+                remoteConfigStatus == RemoteConfigStatus.Defaults ? SorollaDiagnosticSeverity.Info : SorollaDiagnosticSeverity.Pass,
+                RemoteConfigRowDetail(remoteConfigStatus, snapshot));
 #else
             Add(rows, "Firebase", "Remote Config", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
                 fullMode ? "Package missing for Full mode" : "Not installed");
@@ -738,6 +740,10 @@ namespace Sorolla.Palette
                 AnalyticsStorageConsent = snap.AnalyticsStorageConsent,
                 TcStringPresent = tcStringPresent,
                 PurposeConsents = purposeConsents,
+
+                RemoteConfigStatus = Palette.RemoteConfigStatus.ToString().ToLowerInvariant(),
+                RemoteConfigFetchSeen = snap.RemoteConfigFetchSeen,
+                RemoteConfigFetchSuccess = snap.RemoteConfigFetchSuccess,
 
                 MaxAdapter = MaxAdapterStatus(snap, fullMode),
                 AdjustAdapter = AdjustAdapterStatus(snap, fullMode),
@@ -1633,11 +1639,16 @@ namespace Sorolla.Palette
             return "Waiting for MAX consent before Adjust init";
         }
 
-        static SorollaDiagnosticSeverity RemoteConfigSeverity(Snapshot snapshot)
+        static string RemoteConfigRowDetail(RemoteConfigStatus status, Snapshot snapshot)
         {
-            if (snapshot.RemoteConfigFetchSeen)
-                return snapshot.RemoteConfigFetchSuccess ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning;
-            return SorollaDiagnosticSeverity.Waiting;
+            // Status is authoritative; the scraped fetch line is appended as secondary "last fetch" detail.
+            string fetch = snapshot.RemoteConfigFetchSeen ? $" ({snapshot.RemoteConfigDetail})" : "";
+            return status switch
+            {
+                RemoteConfigStatus.Live => $"Live{fetch}",
+                RemoteConfigStatus.Cached => $"Cached{fetch}",
+                _ => "Serving in-code defaults",
+            };
         }
 
         static SorollaDiagnosticSeverity ConsentSeverity(Snapshot snapshot)
