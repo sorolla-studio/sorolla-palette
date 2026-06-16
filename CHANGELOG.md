@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.17.3] - 2026-06-16
+
+### Changed
+- **Vendor dependency bumps** in `SdkRegistry.cs` (the SSOT the package resolver reconciles `manifest.json` against): GameAnalytics `7.10.6` -> `8.0.1`, AppLovin MAX `8.6.2` -> `8.6.4`. Both device-validated on Android (`com.sorolla.palette`): clean init, GA ships events, MAX reports `Max-Unity-8.6.4`, `[Palette] Ready!` reached. GA 8.x's `configurations` -> `configurations_v3` Remote Config export change does not affect us (we use Firebase Remote Config, not GA). Firebase/Facebook/Adjust deps unchanged.
+
 ## [3.17.2] - 2026-06-16
 
 Remote Config freshness is now first-class in the QA surfaces: the bridge snapshot and the on-device console report RC status from the authoritative `Palette.RemoteConfigStatus`, not from log scraping.
@@ -12,7 +17,7 @@ Remote Config freshness is now first-class in the QA surfaces: the bridge snapsh
 ### Fixed
 - **Console "Remote Config" row no longer stalls at "Waiting for fetch" on a cached relaunch**: it was driven by the `Fetch complete` log scrape, which never matches the disk-cache load path (`Cached config available`), so a fetch-less relaunch read "Waiting for fetch" forever while values were being served from cache. It now reads `Palette.RemoteConfigStatus` directly (`Defaults` -> info, `Cached`/`Live` -> pass); the scraped fetch line stays as secondary detail.
 
-## [Unreleased] - 3.17.1
+## [3.17.1] - 2026-06-12
 
 QA agent bridge (Phase 1+2): a loopback HTTP bridge inside the diagnostics layer so QA tooling reads structured SDK state instead of grepping device logs. One diagnostics core, two frontends: anything the bridge exposes is also visible/tappable in the on-screen debug console.
 
