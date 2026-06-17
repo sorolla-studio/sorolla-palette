@@ -151,9 +151,9 @@ namespace Sorolla.Palette
 
             GUILayout.Label("QA Bridge", _sectionStyle);
             bool bridgeArmed = QaBridgeServer.IsArmed;
-            DrawActionRow("Bridge", bridgeArmed ? "Armed on 127.0.0.1:" + QaBridgeServer.Port : "Dormant",
-                bridgeArmed ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
-                bridgeArmed ? "Disarm" : "Arm", ToggleQaBridge);
+            DrawActionRow("Bridge", bridgeArmed ? "Auto on 127.0.0.1:" + QaBridgeServer.Port : "Bind failed or unavailable",
+                bridgeArmed ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
+                bridgeArmed ? "Restart" : "Retry", RestartQaBridge);
             GUILayout.Space(_sectionTopGap * _uiScale);
 
             GUILayout.Label("Events", _sectionStyle);

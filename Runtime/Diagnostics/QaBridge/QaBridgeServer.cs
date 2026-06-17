@@ -13,10 +13,9 @@ namespace Sorolla.Palette
     ///     forward (<c>adb forward</c> / usbmux). Binds 127.0.0.1 only, never 0.0.0.0, so it never
     ///     trips the iOS Local Network prompt and is not reachable off-device.
     ///
-    ///     Access-gated, not build-gated (Arthur 2026-06-12): compiled into ALL builds. In the Editor
-    ///     and development builds it auto-starts. In release builds it stays DORMANT (never binds the
-    ///     port) until a human arms it from the debug UI; arming is not persisted, so a relaunch starts
-    ///     dormant again. The debug UI itself still gates access (5-tap today).
+    ///     Trusted-studio support surface: compiled into ALL builds and auto-started in Editor,
+    ///     development, and release builds. The bridge still binds loopback only, and every
+    ///     <c>/qa/*</c> request must present the hardcoded QA bridge password.
     ///
     ///     Threading: HttpListener callbacks run on worker threads. They only enqueue the context;
     ///     every Unity/SDK read and the response write happen on the main thread in <see cref="Update"/>
@@ -50,7 +49,7 @@ namespace Sorolla.Palette
                 s_instance = host.AddComponent<QaBridgeServer>();
         }
 
-        /// <summary>Binds the port and starts accepting. Called automatically in Editor/dev builds, or by the debug UI in release.</summary>
+        /// <summary>Binds the port and starts accepting. Idempotent recovery path for the diagnostics console.</summary>
         internal static void Arm()
         {
             if (s_instance == null) return;
@@ -79,13 +78,8 @@ namespace Sorolla.Palette
             SorollaDiagnostics.EnsureLogBridge();
             SorollaDiagnostics.InstallUnityLogSink();
 
-            if (ShouldAutoStart())
-                StartServer();
+            StartServer();
         }
-
-        // Editor + development builds auto-start so the agent dev loop needs no human. Release builds
-        // stay dormant until armed from the debug UI (access-gated model).
-        static bool ShouldAutoStart() => Application.isEditor || Debug.isDebugBuild;
 
         void StartServer()
         {
@@ -110,7 +104,7 @@ namespace Sorolla.Palette
             catch (Exception e)
             {
                 // Bind failure (port in use, platform restriction) must never crash the game over QA
-                // plumbing. Log one line and stay dormant; the agent remaps the local forward side.
+                // plumbing. Log one line and let the console retry/restart path recover if possible.
                 _running = false;
                 SafeCloseListener();
                 PaletteLog.Vital($"[Palette:QaBridge] Could not bind {LoopbackPrefix}: {e.Message}");
@@ -196,6 +190,18 @@ namespace Sorolla.Palette
                 string path = ctx.Request.Url?.AbsolutePath ?? "";
                 string method = ctx.Request.HttpMethod;
 
+                if (!IsQaPath(path))
+                {
+                    WriteJson(ctx, 404, "{\"ok\":false,\"detail\":\"unknown_endpoint\"}");
+                    return;
+                }
+
+                if (!QaBridgeAuth.IsAuthorized(ctx.Request))
+                {
+                    WriteJson(ctx, 403, QaBridgeAuth.ForbiddenJson);
+                    return;
+                }
+
                 if (path == "/qa/snapshot" && method == "GET")
                 {
                     WriteJson(ctx, 200, QaSnapshot.Build());
@@ -216,6 +222,9 @@ namespace Sorolla.Palette
                 TryAbort(ctx);
             }
         }
+
+        static bool IsQaPath(string path) =>
+            path == "/qa" || path.StartsWith("/qa/", StringComparison.Ordinal);
 
         // Fire-and-ack: parse the action, dispatch it on the main thread, reply immediately. The snapshot
         // is the single source of truth for the outcome (no blocking, no completion sources, no timeout).

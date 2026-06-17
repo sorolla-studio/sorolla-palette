@@ -33,12 +33,10 @@ namespace Sorolla.Palette
             RequestDiagnosticsRefresh();
         }
 
-        void ToggleQaBridge()
+        void RestartQaBridge()
         {
-            if (QaBridgeServer.IsArmed)
-                QaBridgeServer.Disarm();
-            else
-                QaBridgeServer.Arm();
+            QaBridgeServer.Disarm();
+            QaBridgeServer.Arm();
             RequestDiagnosticsRefresh();
         }
     }

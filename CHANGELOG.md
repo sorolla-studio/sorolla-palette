@@ -2,10 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.17.4] - 2026-06-17
+
+### Changed
+- **QA bridge auto-starts in all builds** (`Runtime/Diagnostics/QaBridge/`): release builds now bind the loopback bridge on launch instead of staying dormant until a debug-console arm tap. The bridge still binds only `127.0.0.1` / `localhost` and is reached by local process or USB forward.
+- **QA bridge password gate**: every `/qa/*` request now requires the shared QA bridge password via `X-Sorolla-QA-Password`, `Authorization: Bearer ...`, or `qa_password=...`. There is one auth rule across Editor, development, and release builds.
+- **Diagnostics console bridge row simplified**: the old `Dormant` / `Arm` / `Disarm` release-state UI is replaced by an auto-running status with a `Restart` / `Retry` recovery button for port-bind failures.
+
+### Fixed
+- **Runtime SDK version truth**: `Palette.SdkVersion` and `package.json` now both report `3.17.4`, carrying forward the local `3.17.3` cleanup so Sorolla Vitals and `/qa/snapshot` identify the tested SDK line correctly.
+
 ## [3.17.3] - 2026-06-16
 
 ### Changed
-- **Vendor dependency bumps** in `SdkRegistry.cs` (the SSOT the package resolver reconciles `manifest.json` against): GameAnalytics `7.10.6` -> `8.0.1`, AppLovin MAX `8.6.2` -> `8.6.4`. Both device-validated on Android (`com.sorolla.palette`): clean init, GA ships events, MAX reports `Max-Unity-8.6.4`, `[Palette] Ready!` reached. GA 8.x's `configurations` -> `configurations_v3` Remote Config export change does not affect us (we use Firebase Remote Config, not GA). Firebase/Facebook/Adjust deps unchanged.
+- **Vendor dependency bumps** in `SdkRegistry.cs` (the SSOT the package resolver reconciles `manifest.json` against): GameAnalytics `7.10.6` -> `8.0.1`, AppLovin MAX `8.6.2` -> `8.6.4`. Both device-validated on Android (`com.sorolla.palette`): clean init, GameAnalytics ships events, AppLovin MAX reports `Max-Unity-8.6.4`, `[Palette] Ready!` reached. GameAnalytics 8.x's `configurations` -> `configurations_v3` Remote Config export change does not affect us (we use Firebase Remote Config, not GameAnalytics Remote Config). Firebase/Facebook/Adjust deps unchanged.
+
+### Fixed
+- **Runtime SDK version truth**: `Palette.SdkVersion` now matches `package.json` (`3.17.3`). This fixes Sorolla Vitals and `/qa/snapshot` reporting `3.17.2` on builds that include the GameAnalytics / AppLovin MAX dependency bumps.
 
 ## [3.17.2] - 2026-06-16
 
