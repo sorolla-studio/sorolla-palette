@@ -6,7 +6,7 @@ namespace Sorolla.Palette
     internal sealed partial class SorollaDiagnosticsConsole : MonoBehaviour
     {
         const int RequiredTapCount = 5;
-        const float TapWindowSeconds = 3f;
+        const float TapWindowSeconds = 2f;
         const float ScrollDragThresholdPixels = 10f;
         const float DiagnosticsRefreshIntervalSeconds = 0.2f;
 
