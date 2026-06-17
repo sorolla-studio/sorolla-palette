@@ -64,6 +64,8 @@ namespace Sorolla.Palette.Adapters
         {
             s_impl = impl;
             PaletteLog.Vital($"{Tag} Implementation registered");
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Adjust, AdapterDiagnosticStatus.Registered,
+                "registered", "Implementation registered");
         }
 
         public static bool IsRegistered => s_impl != null;
@@ -77,7 +79,11 @@ namespace Sorolla.Palette.Adapters
                 s_initialized = true;
             }
             else
+            {
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Adjust, AdapterDiagnosticStatus.Unavailable,
+                    "not_installed", "Adjust implementation not installed");
                 PaletteLog.Warning($"{Tag} Not installed");
+            }
         }
 
         public static void UpdateConsent(bool consent)
@@ -105,24 +111,32 @@ namespace Sorolla.Palette.Adapters
         {
             if (s_impl != null)
                 s_impl.GetAttribution(callback);
+            else
+                callback?.Invoke(null);
         }
 
         public static void GetAdid(Action<string> callback)
         {
             if (s_impl != null)
                 s_impl.GetAdid(callback);
+            else
+                callback?.Invoke(null);
         }
 
         public static void GetGoogleAdId(Action<string> callback)
         {
             if (s_impl != null)
                 s_impl.GetGoogleAdId(callback);
+            else
+                callback?.Invoke(null);
         }
 
         public static void GetIdfa(Action<string> callback)
         {
             if (s_impl != null)
                 s_impl.GetIdfa(callback);
+            else
+                callback?.Invoke(null);
         }
     }
 }

@@ -22,6 +22,8 @@ namespace Sorolla.Palette.Adapters
             if (s_init) return;
 
             PaletteLog.Vital($"{Tag} Initializing...");
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Initializing,
+                "init_requested", "Initializing");
 
             if (!FB.IsInitialized)
                 FB.Init(OnInit, OnHideUnity);
@@ -29,6 +31,8 @@ namespace Sorolla.Palette.Adapters
             {
                 ApplyConsent();
                 s_init = true;
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Ready,
+                    "already_initialized", "Already initialized");
             }
         }
 
@@ -39,9 +43,15 @@ namespace Sorolla.Palette.Adapters
                 ApplyConsent();
                 s_init = true;
                 PaletteLog.Vital($"{Tag} Initialized (tracking: {s_consent})");
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Ready,
+                    "initialized", $"Initialized (tracking: {s_consent})");
             }
             else
+            {
                 PaletteLog.Error($"{Tag} Failed to initialize");
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Failed,
+                    "init_failed", "Initialization failed");
+            }
         }
 
         public static void UpdateConsent(bool consent)
@@ -75,7 +85,12 @@ namespace Sorolla.Palette.Adapters
         #pragma warning disable CS0067 // Event is never used (stub for API compatibility)
         public static event System.Action<bool> OnGameVisibilityChanged;
         #pragma warning restore CS0067
-        public static void Initialize(bool consent) => PaletteLog.Warning("[Palette:FB] Not installed");
+        public static void Initialize(bool consent)
+        {
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Unavailable,
+                "not_installed", "Facebook implementation not installed");
+            PaletteLog.Warning("[Palette:FB] Not installed");
+        }
         public static void UpdateConsent(bool consent) { }
 
     }

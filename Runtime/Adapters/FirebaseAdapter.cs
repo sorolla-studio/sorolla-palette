@@ -46,6 +46,8 @@ namespace Sorolla.Palette.Adapters
         {
             s_impl = impl;
             PaletteLog.Vital($"{Tag} Implementation registered");
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics, AdapterDiagnosticStatus.Registered,
+                "registered", "Implementation registered");
         }
 
         public static bool IsReady => s_impl?.IsReady ?? false;
@@ -55,7 +57,11 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize(adStorageConsent, adPersonalizationConsent, analyticsConsent, verboseLogging);
             else
+            {
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics, AdapterDiagnosticStatus.Unavailable,
+                    "not_installed", "Firebase Analytics implementation not installed");
                 PaletteLog.Warning($"{Tag} Not installed");
+            }
         }
 
         public static void UpdateConsent(bool adStorageConsent, bool adPersonalizationConsent, bool analyticsConsent)
@@ -115,6 +121,8 @@ namespace Sorolla.Palette.Adapters
         {
             s_impl = impl;
             PaletteLog.Vital($"{Tag} Implementation registered");
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCore, AdapterDiagnosticStatus.Registered,
+                "registered", "Implementation registered");
         }
 
         public static bool IsInitializing => s_impl?.IsInitializing ?? false;
@@ -126,7 +134,11 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize(onReady);
             else
+            {
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCore, AdapterDiagnosticStatus.Unavailable,
+                    "not_installed", "Firebase Core implementation not installed");
                 onReady?.Invoke(false);
+            }
         }
     }
 }

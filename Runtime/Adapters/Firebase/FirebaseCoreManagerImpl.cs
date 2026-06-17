@@ -44,6 +44,8 @@ namespace Sorolla.Palette.Adapters
 
             _initRequested = true;
             PaletteLog.Vital($"{Tag} Initializing...");
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCore, AdapterDiagnosticStatus.Initializing,
+                "init_requested", "Initializing");
 
             try
             {
@@ -56,6 +58,8 @@ namespace Sorolla.Palette.Adapters
                         PaletteLog.Error($"{Tag} Failed dependency check. Rebuild with verbose logging to inspect Firebase details.");
                         PaletteLog.Verbose($"{Tag} Failed: {task.Exception?.Message ?? "Cancelled"}");
                         _available = false;
+                        AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCore, AdapterDiagnosticStatus.Failed,
+                            "dependency_check_failed", "Failed dependency check");
                         InvokePendingCallbacks(false);
                         return;
                     }
@@ -64,9 +68,17 @@ namespace Sorolla.Palette.Adapters
                     _available = status == DependencyStatus.Available;
 
                     if (_available)
+                    {
                         PaletteLog.Vital($"{Tag} Ready");
+                        AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCore, AdapterDiagnosticStatus.Ready,
+                            "ready", "Ready");
+                    }
                     else
+                    {
                         PaletteLog.Error($"{Tag} Dependencies not available: {status}");
+                        AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCore, AdapterDiagnosticStatus.Failed,
+                            "dependencies_unavailable", $"Dependencies not available: {status}");
+                    }
 
                     InvokePendingCallbacks(_available);
                 });
@@ -74,12 +86,18 @@ namespace Sorolla.Palette.Adapters
             catch (Exception ex)
             {
                 if (ex is TypeInitializationException || ex.InnerException is TypeInitializationException)
+                {
                     PaletteLog.Error($"{Tag} Firebase native library not available in Editor. " +
                         "This does not affect Android/iOS device builds.");
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCore, AdapterDiagnosticStatus.Unavailable,
+                        "native_library_unavailable", "Firebase native library not available");
+                }
                 else
                 {
                     PaletteLog.Error($"{Tag} Exception during Firebase initialization. Rebuild with verbose logging to inspect details.");
                     PaletteLog.Verbose($"{Tag} Exception: {ex.Message}");
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCore, AdapterDiagnosticStatus.Failed,
+                        "init_exception", "Exception during Firebase initialization");
                 }
 
                 _initialized = true;

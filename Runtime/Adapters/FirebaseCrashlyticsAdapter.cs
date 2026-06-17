@@ -28,6 +28,8 @@ namespace Sorolla.Palette.Adapters
         {
             s_impl = impl;
             PaletteLog.Vital($"{Tag} Implementation registered");
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCrashlytics, AdapterDiagnosticStatus.Registered,
+                "registered", "Implementation registered");
         }
 
         public static bool IsReady => s_impl?.IsReady ?? false;
@@ -38,7 +40,11 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize(captureUncaughtExceptions);
             else
+            {
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCrashlytics, AdapterDiagnosticStatus.Unavailable,
+                    "not_installed", "Crashlytics implementation not installed");
                 PaletteLog.Warning($"{Tag} Not installed");
+            }
         }
 
         public static void LogException(Exception exception) => s_impl?.LogException(exception);

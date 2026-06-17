@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.17.5] - 2026-06-17
+
+Diagnostics parity patch: Sorolla Vitals and `/qa/snapshot` now read the same adapter outcome state instead of independently inferring readiness from log text.
+
+### Added
+- **Internal adapter diagnostics channel** (`Runtime/Adapters/AdapterDiagnostics.cs`): MAX, Adjust, Firebase Core/Analytics/Crashlytics/Remote Config, GameAnalytics, and Facebook report registered/initializing/ready/dispatch/warning/failure/unavailable outcomes into one runtime state surface.
+
+### Changed
+- **Vitals and `/qa/snapshot` adapter statuses now share one source of truth**: real adapter outcomes can override stale log-scraped state, so failures become visible in both QA surfaces consistently.
+- **Adjust init is treated as verification-gated**: Adjust v5 has no init callback, so Vitals stays in a verifying state after init dispatch until an ADID or attribution callback proves native reachability.
+- **MAX ad rows are current-readiness based**: one historical ad completion no longer greens the row forever; load/show warnings can recover after later load/ready callbacks.
+- **Remote Config diagnostics recover after success**: fetch/defaults/activation warnings surface when they happen and clear when a later Remote Config operation succeeds.
+
+### Fixed
+- **GameAnalytics no longer passes from init request alone**: Vitals and `/qa/snapshot` require real GameAnalytics readiness or a dispatch outcome instead of treating the old initializing log as success.
+- **Firebase unavailable/failure states no longer wait forever**: dependency, native-library, and init failures surface as failed/unavailable adapter statuses.
+- **Runtime SDK version truth**: `Palette.SdkVersion`, `package.json`, and the public API reference now report `3.17.5`.
+
+### Notes
+- No analytics payload fields were added, renamed, dropped, or made conditional in this patch; adapter dispatch instrumentation is diagnostics-only.
+
 ## [3.17.4] - 2026-06-17
 
 ### Changed

@@ -99,6 +99,8 @@ namespace Sorolla.Palette.Adapters
         {
             s_impl = impl;
             PaletteLog.Vital($"{Tag} Implementation registered");
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Registered,
+                "registered", "Implementation registered");
 
             // Forward events from implementation
             impl.OnAdLoadingStateChanged += (type, loading) => OnAdLoadingStateChanged?.Invoke(type, loading);
@@ -164,7 +166,11 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize(rewardedId, interstitialId, bannerId, consent, verboseLogging);
             else
+            {
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Unavailable,
+                    "not_installed", "MAX implementation not installed");
                 PaletteLog.Warning($"{Tag} Not installed");
+            }
         }
 
         public static void ShowRewardedAd(Action onComplete, Action onFailed)

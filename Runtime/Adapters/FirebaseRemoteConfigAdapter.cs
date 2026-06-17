@@ -30,6 +30,8 @@ namespace Sorolla.Palette.Adapters
         {
             s_impl = impl;
             PaletteLog.Vital($"{Tag} Implementation registered");
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig, AdapterDiagnosticStatus.Registered,
+                "registered", "Implementation registered");
         }
 
         public static bool HasImpl => s_impl != null;
@@ -49,7 +51,11 @@ namespace Sorolla.Palette.Adapters
             if (s_impl != null)
                 s_impl.Initialize(defaults, autoFetch);
             else
+            {
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig, AdapterDiagnosticStatus.Unavailable,
+                    "not_installed", "Remote Config implementation not installed");
                 PaletteLog.Warning($"{Tag} Not installed");
+            }
         }
 
         /// <summary>

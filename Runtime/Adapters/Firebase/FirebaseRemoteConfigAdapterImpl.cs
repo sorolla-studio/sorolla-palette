@@ -65,6 +65,8 @@ namespace Sorolla.Palette.Adapters
                 else
                 {
                     PaletteLog.Error($"{Tag} Firebase not available");
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig, AdapterDiagnosticStatus.Failed,
+                        "firebase_unavailable", "Firebase not available");
                     RemoteConfigState.NotifyFirebaseUnavailable();
                 }
             });
@@ -87,12 +89,17 @@ namespace Sorolla.Palette.Adapters
                 {
                     if (task.IsFaulted)
                     {
+                        AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig, AdapterDiagnosticStatus.Warning,
+                            "defaults_failed", "Failed to set Remote Config defaults");
                         PaletteLog.Error($"{Tag} Failed to set Remote Config defaults.");
                         PaletteLog.Verbose($"{Tag} Failed to set defaults: {task.Exception}");
                     }
                     else
                     {
                         PaletteLog.Verbose($"{Tag} Defaults set ({pending.Count} values)");
+                        AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig,
+                            AdapterDiagnosticStatus.DispatchAccepted, "defaults_set",
+                            "Remote Config defaults set");
                     }
 
                     _pendingDefaults = null;
@@ -108,6 +115,8 @@ namespace Sorolla.Palette.Adapters
         void OnReady()
         {
             _init = true;
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig, AdapterDiagnosticStatus.Ready,
+                "initialized", "Initialized");
 
             FirebaseRemoteConfig.DefaultInstance.OnConfigUpdateListener += OnConfigUpdateReceived;
             Application.quitting += OnApplicationQuitting;
@@ -139,12 +148,16 @@ namespace Sorolla.Palette.Adapters
                 {
                     PaletteLog.Error($"{Tag} Fetch failed. Rebuild with verbose logging to inspect Firebase details.");
                     PaletteLog.Verbose($"{Tag} Fetch failed: {task.Exception?.Message}");
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig, AdapterDiagnosticStatus.Warning,
+                        "fetch_failed", "Fetch failed");
                     ScheduleRetry();
                     return;
                 }
 
                 ConfigInfo info = FirebaseRemoteConfig.DefaultInstance.Info;
                 PaletteLog.Vital($"{Tag} Fetch complete (newValuesActivated: {task.Result}, lastFetchStatus: {info.LastFetchStatus})");
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig, AdapterDiagnosticStatus.DispatchAccepted,
+                    "fetch_complete", $"Fetch complete: {info.LastFetchStatus}");
                 _fetchedOnce = true;
                 UnhookFocus();
                 RemoteConfigState.NotifyFirebaseLive(null);
@@ -185,6 +198,8 @@ namespace Sorolla.Palette.Adapters
         {
             if (args.Error != RemoteConfigError.None)
             {
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig, AdapterDiagnosticStatus.Warning,
+                    "realtime_update_error", $"Real-time update error: {args.Error}");
                 PaletteLog.Warning($"{Tag} Real-time update error: {args.Error}");
                 return;
             }
@@ -198,11 +213,16 @@ namespace Sorolla.Palette.Adapters
                 {
                     if (task.IsFaulted)
                     {
+                        AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig, AdapterDiagnosticStatus.Warning,
+                            "auto_activate_failed", "Auto-activate failed");
                         PaletteLog.Error($"{Tag} Auto-activate failed.");
                         PaletteLog.Verbose($"{Tag} Auto-activate failed: {task.Exception?.Message}");
                     }
                     else
                     {
+                        AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig,
+                            AdapterDiagnosticStatus.DispatchAccepted, "auto_activate_complete",
+                            "Real-time update activated");
                         RemoteConfigState.NotifyFirebaseLive(updatedKeys.AsReadOnly());
                     }
                 });
@@ -210,6 +230,8 @@ namespace Sorolla.Palette.Adapters
             else
             {
                 // Notify with keys but don't activate - game decides when via ActivateAsync.
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig, AdapterDiagnosticStatus.Ready,
+                    "realtime_update_received", "Real-time update received");
                 RemoteConfigState.NotifyUpdateAvailable(updatedKeys.AsReadOnly());
             }
         }
@@ -240,25 +262,38 @@ namespace Sorolla.Palette.Adapters
             {
                 if (task.IsFaulted)
                 {
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig, AdapterDiagnosticStatus.Warning,
+                        "defaults_failed", "Failed to set Remote Config defaults");
                     PaletteLog.Error($"{Tag} Failed to set Remote Config defaults.");
                     PaletteLog.Verbose($"{Tag} Failed to set defaults: {task.Exception}");
                 }
                 else
                 {
                     PaletteLog.Verbose($"{Tag} Defaults set ({defaults.Count} values)");
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig,
+                        AdapterDiagnosticStatus.DispatchAccepted, "defaults_set",
+                        "Remote Config defaults set");
                 }
             });
         }
 
         public Task<bool> ActivateAsync()
         {
-            if (!_init) return Task.FromResult(false);
+            if (!_init)
+            {
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig,
+                    AdapterDiagnosticStatus.DispatchDropped, "activate_before_init",
+                    "ActivateAsync called before init");
+                return Task.FromResult(false);
+            }
 
             var tcs = new TaskCompletionSource<bool>();
             FirebaseRemoteConfig.DefaultInstance.ActivateAsync().ContinueWithOnMainThread(task =>
             {
                 if (task.IsFaulted)
                 {
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig, AdapterDiagnosticStatus.Warning,
+                        "activate_failed", "Activate failed");
                     PaletteLog.Error($"{Tag} Activate failed. Rebuild with verbose logging to inspect Firebase details.");
                     PaletteLog.Verbose($"{Tag} Activate failed: {task.Exception?.Message}");
                     tcs.SetResult(false);
@@ -270,6 +305,9 @@ namespace Sorolla.Palette.Adapters
                     if (task.Result)
                     {
                         PaletteLog.Vital($"{Tag} Config activated");
+                        AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseRemoteConfig,
+                            AdapterDiagnosticStatus.DispatchAccepted, "activate_complete",
+                            "Config activated");
                         RemoteConfigState.NotifyFirebaseLive(null);
                     }
                     tcs.SetResult(task.Result);

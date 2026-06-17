@@ -97,6 +97,8 @@ namespace Sorolla.Palette.Adapters
             _consent = consent;
 
             PaletteLog.Vital("[Palette:MAX] Initializing...");
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Initializing,
+                "init_requested", "Initializing");
 
             MaxSdk.SetVerboseLogging(verboseLogging);
             MaxSdk.SetCreativeDebuggerEnabled(verboseLogging);
@@ -110,6 +112,8 @@ namespace Sorolla.Palette.Adapters
         {
             if (!_init)
             {
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
+                    "privacy_options_before_init", "Privacy options requested before MAX initialized");
                 PaletteLog.Warning("[Palette:MAX] Cannot show privacy options - SDK not initialized");
                 onComplete?.Invoke();
                 return;
@@ -119,6 +123,8 @@ namespace Sorolla.Palette.Adapters
             {
                 if (!MaxSdk.CmpService.HasSupportedCmp)
                 {
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
+                        "privacy_options_unavailable", "No CMP configured - privacy options not available");
                     PaletteLog.Warning("[Palette:MAX] No CMP configured - privacy options not available");
                     onComplete?.Invoke();
                     return;
@@ -129,6 +135,8 @@ namespace Sorolla.Palette.Adapters
                 {
                     if (error != null)
                     {
+                        AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
+                            "privacy_options_error", "Privacy options error");
                         PaletteLog.Warning("[Palette:MAX] Privacy options error. Rebuild with verbose logging to inspect SDK details.");
                         PaletteLog.Verbose($"[Palette:MAX] Privacy options error detail: {error.Message}");
                     }
@@ -142,6 +150,8 @@ namespace Sorolla.Palette.Adapters
             }
             catch (Exception e)
             {
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
+                    "cmp_unavailable", "CMP service not available");
                 PaletteLog.Warning("[Palette:MAX] CMP service not available. Rebuild with verbose logging to inspect SDK details.");
                 PaletteLog.Verbose($"[Palette:MAX] CmpService not available: {e.Message}");
                 onComplete?.Invoke();
@@ -250,6 +260,8 @@ namespace Sorolla.Palette.Adapters
         void OnSdkInit(MaxSdkBase.SdkConfiguration config)
         {
             PaletteLog.Vital("[Palette:MAX] Initialized");
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Ready,
+                "initialized", "Initialized");
 
             _init = true;
             _sdkConfig = config;
@@ -341,10 +353,13 @@ namespace Sorolla.Palette.Adapters
 
         void OnRewardedAdLoaded(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
+            // adUnitId/adInfo identify the MAX callback source; Palette tracks one configured rewarded unit here.
             _rewardedReady = true;
             _rewardedLoadFailed = false;
             _lastRewardedLoadIssue = "Loaded";
             _rewardedRetryAttempt = 0;
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Ready,
+                "rewarded_loaded", "Rewarded ad loaded");
             if (!_rewardedLoadLogged)
             {
                 _rewardedLoadLogged = true;
@@ -363,9 +378,12 @@ namespace Sorolla.Palette.Adapters
 
         void OnRewardedAdLoadFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo)
         {
+            // adUnitId identifies the MAX callback source; Palette tracks one configured rewarded unit here.
             _rewardedReady = false;
             _rewardedLoadFailed = true;
             _lastRewardedLoadIssue = $"Load failed: code={(int)errorInfo.Code}, mediatedCode={errorInfo.MediatedNetworkErrorCode}";
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
+                "rewarded_load_failed", _lastRewardedLoadIssue);
             PaletteLog.WarningOnce($"max.rewarded.load_failed.{(int)errorInfo.Code}.{errorInfo.MediatedNetworkErrorCode}",
                 $"[Palette:MAX] Rewarded ad load failed; retrying with backoff. code={(int)errorInfo.Code}, mediatedCode={errorInfo.MediatedNetworkErrorCode}. Rebuild with verbose logging to inspect SDK details.");
             PaletteLog.Verbose($"[Palette:MAX] Rewarded ad load failed detail: {errorInfo.Message}");
@@ -379,6 +397,7 @@ namespace Sorolla.Palette.Adapters
 
         void OnRewardedAdHidden(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
+            // adUnitId/adInfo identify the MAX callback source; hiding always triggers the same reload path.
             ReleaseScreenWake();
             _rewardedReady = false;
             LoadRewarded();
@@ -386,6 +405,7 @@ namespace Sorolla.Palette.Adapters
 
         void OnRewardedAdDisplayFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo, MaxSdkBase.AdInfo adInfo)
         {
+            // adUnitId identifies the MAX callback source; adInfo carries the network detail we need.
             ReleaseScreenWake();
             _rewardedReady = false;
 
@@ -397,6 +417,8 @@ namespace Sorolla.Palette.Adapters
             }
 
             TrackAdShowFailed("rewarded", "display_error", adInfo?.NetworkName, errorInfo);
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
+                "rewarded_display_failed", "Rewarded ad display failed");
             PaletteLog.Warning($"[Palette:MAX] Rewarded ad display failed. code={(int)errorInfo.Code}, mediatedCode={errorInfo.MediatedNetworkErrorCode}. Rebuild with verbose logging to inspect SDK details.");
             PaletteLog.Verbose($"[Palette:MAX] Rewarded ad display failed detail: {errorInfo.Message}");
 
@@ -408,6 +430,7 @@ namespace Sorolla.Palette.Adapters
 
         void OnRewardedAdReceivedReward(string adUnitId, MaxSdkBase.Reward reward, MaxSdkBase.AdInfo adInfo)
         {
+            // adUnitId/reward/adInfo are not needed; Palette treats any reward callback as completion.
             if (_userWaitingForRewarded)
             {
                 _userWaitingForRewarded = false;
@@ -420,7 +443,11 @@ namespace Sorolla.Palette.Adapters
             PaletteLog.Vital("[Palette:MAX] Rewarded ad completed");
         }
 
-        void OnRewardedAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo) => TrackAdRevenue(adInfo, "rewarded");
+        void OnRewardedAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo)
+        {
+            // adUnitId is redundant with adInfo.AdUnitIdentifier for Palette revenue telemetry.
+            TrackAdRevenue(adInfo, "rewarded");
+        }
 
         void LoadRewarded()
         {
@@ -462,6 +489,8 @@ namespace Sorolla.Palette.Adapters
             if (!_init)
             {
                 TrackAdShowFailed("rewarded", "not_initialized", network: null, errorInfo: null);
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.DispatchDropped,
+                    "rewarded_not_initialized", "Rewarded show requested before MAX initialized");
                 onFailed?.Invoke();
                 return;
             }
@@ -472,6 +501,8 @@ namespace Sorolla.Palette.Adapters
                 LoadRewarded();
                 PaletteLog.Warning("[Palette:MAX] Rewarded ad not ready");
                 TrackAdShowFailed("rewarded", "not_ready", network: null, errorInfo: null);
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
+                    "rewarded_not_ready", "Rewarded ad not ready");
                 onFailed?.Invoke();
                 return;
             }
@@ -479,6 +510,8 @@ namespace Sorolla.Palette.Adapters
             _onRewardComplete = onComplete;
             _onRewardFailed = onFailed;
             AcquireScreenWake();
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.DispatchAccepted,
+                "rewarded_show", "Rewarded show accepted");
             MaxSdk.ShowRewardedAd(_rewardedId);
         }
 
@@ -501,10 +534,13 @@ namespace Sorolla.Palette.Adapters
 
         void OnInterstitialAdLoaded(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
+            // adUnitId/adInfo identify the MAX callback source; Palette tracks one configured interstitial unit here.
             _interstitialReady = true;
             _interstitialLoadFailed = false;
             _lastInterstitialLoadIssue = "Loaded";
             _interstitialRetryAttempt = 0;
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Ready,
+                "interstitial_loaded", "Interstitial ad loaded");
             if (!_interstitialLoadLogged)
             {
                 _interstitialLoadLogged = true;
@@ -523,9 +559,12 @@ namespace Sorolla.Palette.Adapters
 
         void OnInterstitialAdLoadFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo)
         {
+            // adUnitId identifies the MAX callback source; Palette tracks one configured interstitial unit here.
             _interstitialReady = false;
             _interstitialLoadFailed = true;
             _lastInterstitialLoadIssue = $"Load failed: code={(int)errorInfo.Code}, mediatedCode={errorInfo.MediatedNetworkErrorCode}";
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
+                "interstitial_load_failed", _lastInterstitialLoadIssue);
             PaletteLog.WarningOnce($"max.interstitial.load_failed.{(int)errorInfo.Code}.{errorInfo.MediatedNetworkErrorCode}",
                 $"[Palette:MAX] Interstitial ad load failed; retrying with backoff. code={(int)errorInfo.Code}, mediatedCode={errorInfo.MediatedNetworkErrorCode}. Rebuild with verbose logging to inspect SDK details.");
             PaletteLog.Verbose($"[Palette:MAX] Interstitial ad load failed detail: {errorInfo.Message}");
@@ -539,6 +578,7 @@ namespace Sorolla.Palette.Adapters
 
         void OnInterstitialAdHidden(string adUnitId, MaxSdkBase.AdInfo adInfo)
         {
+            // adUnitId/adInfo identify the MAX callback source; hidden means the interstitial flow completed.
             ReleaseScreenWake();
             _interstitialReady = false;
 
@@ -558,6 +598,7 @@ namespace Sorolla.Palette.Adapters
 
         void OnInterstitialAdDisplayFailed(string adUnitId, MaxSdkBase.ErrorInfo errorInfo, MaxSdkBase.AdInfo adInfo)
         {
+            // adUnitId identifies the MAX callback source; adInfo carries the network detail we need.
             ReleaseScreenWake();
             _interstitialReady = false;
 
@@ -568,6 +609,8 @@ namespace Sorolla.Palette.Adapters
             }
 
             TrackAdShowFailed("interstitial", "display_error", adInfo?.NetworkName, errorInfo);
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
+                "interstitial_display_failed", "Interstitial ad display failed");
             PaletteLog.Warning($"[Palette:MAX] Interstitial ad display failed. code={(int)errorInfo.Code}, mediatedCode={errorInfo.MediatedNetworkErrorCode}. Rebuild with verbose logging to inspect SDK details.");
             PaletteLog.Verbose($"[Palette:MAX] Interstitial ad display failed detail: {errorInfo.Message}");
 
@@ -578,7 +621,11 @@ namespace Sorolla.Palette.Adapters
             LoadInterstitial();
         }
 
-        void OnInterstitialAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo) => TrackAdRevenue(adInfo, "interstitial");
+        void OnInterstitialAdRevenuePaid(string adUnitId, MaxSdkBase.AdInfo adInfo)
+        {
+            // adUnitId is redundant with adInfo.AdUnitIdentifier for Palette revenue telemetry.
+            TrackAdRevenue(adInfo, "interstitial");
+        }
 
         void LoadInterstitial()
         {
@@ -620,6 +667,10 @@ namespace Sorolla.Palette.Adapters
                 LoadInterstitial();
                 PaletteLog.Warning(_init ? "[Palette:MAX] Interstitial ad not ready" : "[Palette:MAX] Interstitial ad requested before MAX initialized");
                 TrackAdShowFailed("interstitial", !_init ? "not_initialized" : "not_ready", network: null, errorInfo: null);
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max,
+                    !_init ? AdapterDiagnosticStatus.DispatchDropped : AdapterDiagnosticStatus.Warning,
+                    !_init ? "interstitial_not_initialized" : "interstitial_not_ready",
+                    !_init ? "Interstitial show requested before MAX initialized" : "Interstitial ad not ready");
                 onFailed?.Invoke();
                 return;
             }
@@ -627,6 +678,8 @@ namespace Sorolla.Palette.Adapters
             _onInterstitialComplete = onComplete;
             _onInterstitialFailed = onFailed;
             AcquireScreenWake();
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.DispatchAccepted,
+                "interstitial_show", "Interstitial show accepted");
             MaxSdk.ShowInterstitial(_interstitialId);
         }
 
@@ -679,6 +732,8 @@ namespace Sorolla.Palette.Adapters
             // TikTok and corrupt ROAS, so drop the fan-out and warn with the raw value (DR-06).
             if (revenue < 0)
             {
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
+                    "revenue_unavailable", "Ad revenue unavailable - skipping revenue fan-out");
                 PaletteLog.Warning($"[Palette:MAX] Ad revenue unavailable (revenue={revenue}, network={adInfo.NetworkName}, format={adFormat}) - skipping revenue fan-out.");
                 return;
             }

@@ -53,12 +53,16 @@ namespace Sorolla.Palette.Adapters
                     // persists across launches per Firebase docs).
                     FirebaseAnalytics.SetAnalyticsCollectionEnabled(true);
                     PaletteLog.Vital($"{Tag} Initialized (collection: on, analytics_consent: {_analyticsConsent}, ad_storage_consent: {_adStorageConsent}, ad_personalization_consent: {_adPersonalizationConsent}, verbose: {verboseLogging})");
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics, AdapterDiagnosticStatus.Ready,
+                        "initialized", "Initialized");
                     IsReady = true;
                     FlushPendingEvents();
                 }
                 else
                 {
                     PaletteLog.Error($"{Tag} Firebase not available");
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics, AdapterDiagnosticStatus.Failed,
+                        "firebase_unavailable", "Firebase not available");
                     _initFailed = true;
                     // Drop anything that queued between Initialize() and the failure callback.
                     _pendingEvents.Clear();
@@ -83,18 +87,30 @@ namespace Sorolla.Palette.Adapters
             QueueOrExecute(() =>
             {
                 string sanitized = SanitizeEventName(eventName);
-                if (sanitized == null) return;
+                if (sanitized == null)
+                {
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics, AdapterDiagnosticStatus.DispatchDropped,
+                        "event_name_invalid", "Firebase event dropped: invalid event name");
+                    return;
+                }
 
                 if (paramsCopy == null || paramsCopy.Count == 0)
                 {
                     FirebaseAnalytics.LogEvent(sanitized);
+                    RecordDispatchAccepted(sanitized);
                     return;
                 }
 
                 var firebaseParams = BuildFirebaseParams(paramsCopy);
-                if (firebaseParams == null) return;
+                if (firebaseParams == null)
+                {
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics, AdapterDiagnosticStatus.DispatchDropped,
+                        "params_invalid", "Firebase event dropped: invalid params");
+                    return;
+                }
 
                 FirebaseAnalytics.LogEvent(sanitized, firebaseParams);
+                RecordDispatchAccepted(sanitized);
             });
         }
 
@@ -135,6 +151,7 @@ namespace Sorolla.Palette.Adapters
                 }
 
                 FirebaseAnalytics.LogEvent(eventName, parameters.ToArray());
+                RecordDispatchAccepted(eventName);
 
                 // Canonical GA4 score routing: post_score is its own event with just the score.
                 // Studios join to neighboring level_end via session_id in BigQuery if they need it.
@@ -142,6 +159,7 @@ namespace Sorolla.Palette.Adapters
                 {
                     FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventPostScore,
                         new Parameter(FirebaseAnalytics.ParameterScore, score));
+                    RecordDispatchAccepted(FirebaseAnalytics.EventPostScore);
                 }
             });
         }
@@ -212,10 +230,15 @@ namespace Sorolla.Palette.Adapters
                     MergeExtraParams(parameters, extraCopy, reservedKeys);
 
                 FirebaseAnalytics.LogEvent(eventName, parameters.ToArray());
+                RecordDispatchAccepted(eventName);
             });
         }
 
-        public void SetUserId(string userId) => QueueOrExecute(() => FirebaseAnalytics.SetUserId(userId));
+        public void SetUserId(string userId) => QueueOrExecute(() =>
+        {
+            FirebaseAnalytics.SetUserId(userId);
+            RecordDispatchAccepted("set_user_id");
+        });
 
         public void SetUserProperty(string name, string value)
         {
@@ -224,16 +247,22 @@ namespace Sorolla.Palette.Adapters
             if (string.IsNullOrEmpty(name))
             {
                 PaletteLog.Warning($"{Tag} SetUserProperty: empty name - dropped");
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics, AdapterDiagnosticStatus.DispatchDropped,
+                    "user_property_empty_name", "SetUserProperty dropped: empty name");
                 return;
             }
             if (name.Length > 24)
             {
                 PaletteLog.Warning($"{Tag} SetUserProperty: name '{name}' exceeds 24 chars - dropped");
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics, AdapterDiagnosticStatus.DispatchDropped,
+                    "user_property_name_too_long", "SetUserProperty dropped: name too long");
                 return;
             }
             if (HasReservedUserPropertyPrefix(name))
             {
                 PaletteLog.Warning($"{Tag} SetUserProperty: name '{name}' uses reserved prefix (ga_/google_/firebase_/_) - dropped");
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics, AdapterDiagnosticStatus.DispatchDropped,
+                    "user_property_reserved_prefix", "SetUserProperty dropped: reserved prefix");
                 return;
             }
 
@@ -244,7 +273,11 @@ namespace Sorolla.Palette.Adapters
                 sanitizedValue = sanitizedValue[..36];
             }
 
-            QueueOrExecute(() => FirebaseAnalytics.SetUserProperty(name, sanitizedValue));
+            QueueOrExecute(() =>
+            {
+                FirebaseAnalytics.SetUserProperty(name, sanitizedValue);
+                RecordDispatchAccepted("set_user_property");
+            });
         }
 
         public void TrackAdImpression(string adPlatform, string adSource, string adFormat, string adUnitName, double revenue, string currency, string revenuePrecision) => QueueOrExecute(() =>
@@ -265,6 +298,7 @@ namespace Sorolla.Palette.Adapters
                 parameters.Add(new Parameter("revenue_precision", revenuePrecision));
 
             FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventAdImpression, parameters.ToArray());
+            RecordDispatchAccepted(FirebaseAnalytics.EventAdImpression);
         });
 
         public void TrackPurchase(string productId, double price, string currency, string transactionId, string storeEnvironment) => QueueOrExecute(() =>
@@ -291,6 +325,7 @@ namespace Sorolla.Palette.Adapters
                 new Parameter(FirebaseAnalytics.ParameterValue, price), new Parameter(FirebaseAnalytics.ParameterTransactionID, transactionId ?? ""),
                 new Parameter("store_environment", storeEnvironment ?? "unknown"),
                 new Parameter(FirebaseAnalytics.ParameterItems, items));
+            RecordDispatchAccepted(FirebaseAnalytics.EventPurchase);
         });
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -348,7 +383,13 @@ namespace Sorolla.Palette.Adapters
             {
                 Action action = _pendingEvents.Dequeue();
                 try { action?.Invoke(); }
-                catch (Exception e) { PaletteLog.Warning($"{Tag} Queued event threw during flush: {e.Message}"); }
+                catch (Exception e)
+                {
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics,
+                        AdapterDiagnosticStatus.Warning, "queued_event_threw",
+                        "Queued Firebase event threw during flush");
+                    PaletteLog.Warning($"{Tag} Queued event threw during flush: {e.Message}");
+                }
             }
         }
 
@@ -357,6 +398,8 @@ namespace Sorolla.Palette.Adapters
             if (IsReady) { action(); return; }
             if (_initFailed)
             {
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics, AdapterDiagnosticStatus.DispatchDropped,
+                    "init_failed_drop", "Firebase init failed - dropping analytics event");
                 // Firebase permanently unavailable — drop (queueing would leak). Warn once so the
                 // loss is visible: such events still show in Sorolla Vitals (recorded before the
                 // Firebase hand-off) but never reach Firebase, which reads as "in the game, not in
@@ -366,6 +409,12 @@ namespace Sorolla.Palette.Adapters
                 return;
             }
             _pendingEvents.Enqueue(action);
+        }
+
+        static void RecordDispatchAccepted(string eventName)
+        {
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics, AdapterDiagnosticStatus.DispatchAccepted,
+                "event_logged", $"Logged {eventName}");
         }
 
         #region Helpers

@@ -46,6 +46,8 @@ namespace Sorolla.Palette.Adapters
 
                     _ready = true;
                     PaletteLog.Vital($"{Tag} Initialized (ReportUncaughtExceptionsAsFatal=true)");
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCrashlytics, AdapterDiagnosticStatus.Ready,
+                        "initialized", "Initialized");
 
                     if (_captureExceptions)
                         Application.logMessageReceived += OnLogMessageReceived;
@@ -55,6 +57,8 @@ namespace Sorolla.Palette.Adapters
                 else
                 {
                     PaletteLog.Error($"{Tag} Firebase not available");
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCrashlytics, AdapterDiagnosticStatus.Failed,
+                        "firebase_unavailable", "Firebase not available");
                     _initFailed = true;
                     // Drop anything that queued between Initialize() and the failure callback.
                     _pendingActions.Clear();
@@ -69,17 +73,34 @@ namespace Sorolla.Palette.Adapters
             {
                 var action = _pendingActions.Dequeue();
                 try { action?.Invoke(); }
-                catch (Exception e) { PaletteLog.Warning($"{Tag} Queued action threw during flush: {e.Message}"); }
+                catch (Exception e)
+                {
+                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCrashlytics,
+                        AdapterDiagnosticStatus.Warning, "queued_action_threw",
+                        "Queued Crashlytics action threw during flush");
+                    PaletteLog.Warning($"{Tag} Queued action threw during flush: {e.Message}");
+                }
             }
         }
 
         private void QueueOrExecute(Action action)
         {
             if (_ready)
+            {
                 action();
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCrashlytics,
+                    AdapterDiagnosticStatus.DispatchAccepted, "action_sent", "Crashlytics action sent");
+            }
             else if (_initRequested && !_initFailed)
                 _pendingActions.Enqueue(action);
-            // _initFailed: drop silently - Firebase permanently unavailable, queueing would leak.
+            else if (_initFailed)
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCrashlytics,
+                    AdapterDiagnosticStatus.DispatchDropped, "init_failed_drop",
+                    "Crashlytics init failed - dropping action");
+            else
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCrashlytics,
+                    AdapterDiagnosticStatus.DispatchDropped, "before_init_drop",
+                    "Crashlytics action dropped before init");
         }
 
         private void OnLogMessageReceived(string condition, string stackTrace, LogType type)

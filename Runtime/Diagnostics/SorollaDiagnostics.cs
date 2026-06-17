@@ -112,7 +112,7 @@ namespace Sorolla.Palette
         }
     }
 
-    internal static class SorollaDiagnostics
+    internal static partial class SorollaDiagnostics
     {
         const float IdentifierRefreshIntervalSeconds = 20f;
         const int MaxEventLogEntries = 40;
@@ -165,6 +165,7 @@ namespace Sorolla.Palette
 
         static SorollaDiagnostics()
         {
+            InstallAdapterDiagnostics();
             MaxAdapter.OnAdRevenueTracked += RecordAdRevenue;
         }
 
@@ -505,15 +506,26 @@ namespace Sorolla.Palette
             Add(rows, "Config", "Purchase event token", ConfigPresence(config?.adjustPurchaseEventToken, fullMode, false));
 
 #if GAMEANALYTICS_INSTALLED
-            Add(rows, "SDKs", "GameAnalytics", snapshot.GaInitialized ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
-                snapshot.GaInitialized ? "Initialized" : "Waiting for init log");
+            bool gameAnalyticsReady = GameAnalyticsAdapter.IsInitialized || snapshot.GaInitialized;
+            Add(rows, "SDKs", "GameAnalytics",
+                gameAnalyticsReady
+                    ? SorollaDiagnosticSeverity.Pass
+                    : AdapterRowSeverity(snapshot.GameAnalyticsOutcome, SorollaDiagnosticSeverity.Waiting),
+                gameAnalyticsReady
+                    ? "Ready"
+                    : AdapterRowDetail(snapshot.GameAnalyticsOutcome, "Waiting for GameAnalytics initialization"));
 #else
             Add(rows, "SDKs", "GameAnalytics", SorollaDiagnosticSeverity.Fail, "Package not installed");
 #endif
 
 #if SOROLLA_FACEBOOK_ENABLED
-            Add(rows, "SDKs", "Facebook", snapshot.FacebookFailed ? SorollaDiagnosticSeverity.Fail : snapshot.FacebookInitialized ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
-                snapshot.FacebookFailed ? "Initialization failed" : snapshot.FacebookInitialized ? "Initialized" : "Waiting for init log");
+            SorollaDiagnosticSeverity facebookSeverity = snapshot.FacebookFailed ? SorollaDiagnosticSeverity.Fail :
+                snapshot.FacebookInitialized ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting;
+            string facebookDetail = snapshot.FacebookFailed ? "Initialization failed" :
+                snapshot.FacebookInitialized ? "Initialized" : "Waiting for init callback";
+            Add(rows, "SDKs", "Facebook",
+                AdapterRowSeverity(snapshot.FacebookOutcome, facebookSeverity),
+                AdapterRowDetail(snapshot.FacebookOutcome, facebookDetail));
 #else
             Add(rows, "SDKs", "Facebook", SorollaDiagnosticSeverity.Info, "Package not installed");
 #endif
@@ -521,8 +533,9 @@ namespace Sorolla.Palette
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
             Add(rows, "SDKs", "MAX implementation", snapshot.MaxRegistered ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
                 snapshot.MaxRegistered ? "Registered" : "Waiting for adapter registration");
-            Add(rows, "SDKs", "MAX initialized", snapshot.MaxInitialized ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
-                snapshot.MaxInitialized ? "Initialized" : "Waiting for MAX callback");
+            Add(rows, "SDKs", "MAX initialized",
+                AdapterRowSeverity(snapshot.MaxOutcome, snapshot.MaxInitialized ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting),
+                AdapterRowDetail(snapshot.MaxOutcome, snapshot.MaxInitialized ? "Initialized" : "Waiting for MAX callback"));
 #else
             Add(rows, "SDKs", "MAX", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
                 fullMode ? "Package missing for Full mode" : "Not installed");
@@ -539,18 +552,24 @@ namespace Sorolla.Palette
 #endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
-            Add(rows, "Firebase", "Core", snapshot.FirebaseCoreReady || FirebaseCoreManager.IsInitialized ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
-                snapshot.FirebaseCoreReady || FirebaseCoreManager.IsInitialized ? "Ready" : "Waiting for Firebase Core");
-            Add(rows, "Firebase", "Analytics", snapshot.FirebaseAnalyticsReady || FirebaseAdapter.IsReady ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
-                snapshot.FirebaseAnalyticsReady || FirebaseAdapter.IsReady ? "Ready" : "Waiting for Firebase Analytics");
+            bool firebaseCoreReady = snapshot.FirebaseCoreReady || FirebaseCoreManager.IsInitialized;
+            bool firebaseAnalyticsReady = snapshot.FirebaseAnalyticsReady || FirebaseAdapter.IsReady;
+            Add(rows, "Firebase", "Core",
+                AdapterRowSeverity(snapshot.FirebaseCoreOutcome, firebaseCoreReady ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting),
+                AdapterRowDetail(snapshot.FirebaseCoreOutcome, firebaseCoreReady ? "Ready" : "Waiting for Firebase Core"));
+            Add(rows, "Firebase", "Analytics",
+                AdapterRowSeverity(snapshot.FirebaseAnalyticsOutcome, firebaseAnalyticsReady ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting),
+                AdapterRowDetail(snapshot.FirebaseAnalyticsOutcome, firebaseAnalyticsReady ? "Ready" : "Waiting for Firebase Analytics"));
 #else
             Add(rows, "Firebase", "Analytics", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
                 fullMode ? "Package missing for Full mode" : "Not installed");
 #endif
 
 #if FIREBASE_CRASHLYTICS_INSTALLED
-            Add(rows, "Firebase", "Crashlytics", snapshot.CrashlyticsReady || FirebaseCrashlyticsAdapter.IsReady ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
-                snapshot.CrashlyticsReady || FirebaseCrashlyticsAdapter.IsReady ? "Initialized" : "Waiting for init");
+            bool crashlyticsReady = snapshot.CrashlyticsReady || FirebaseCrashlyticsAdapter.IsReady;
+            Add(rows, "Firebase", "Crashlytics",
+                AdapterRowSeverity(snapshot.CrashlyticsOutcome, crashlyticsReady ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting),
+                AdapterRowDetail(snapshot.CrashlyticsOutcome, crashlyticsReady ? "Initialized" : "Waiting for init"));
 #else
             Add(rows, "Firebase", "Crashlytics", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
                 fullMode ? "Package missing for Full mode" : "Not installed");
@@ -558,9 +577,13 @@ namespace Sorolla.Palette
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
             RemoteConfigStatus remoteConfigStatus = Palette.RemoteConfigStatus;
+            SorollaDiagnosticSeverity remoteConfigSeverity = remoteConfigStatus == RemoteConfigStatus.Defaults
+                ? SorollaDiagnosticSeverity.Info
+                : SorollaDiagnosticSeverity.Pass;
+            string remoteConfigDetail = RemoteConfigRowDetail(remoteConfigStatus, snapshot);
             Add(rows, "Firebase", "Remote Config",
-                remoteConfigStatus == RemoteConfigStatus.Defaults ? SorollaDiagnosticSeverity.Info : SorollaDiagnosticSeverity.Pass,
-                RemoteConfigRowDetail(remoteConfigStatus, snapshot));
+                AdapterRowSeverity(snapshot.RemoteConfigOutcome, remoteConfigSeverity),
+                AdapterRowDetail(snapshot.RemoteConfigOutcome, remoteConfigDetail));
 #else
             Add(rows, "Firebase", "Remote Config", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
                 fullMode ? "Package missing for Full mode" : "Not installed");
@@ -629,10 +652,13 @@ namespace Sorolla.Palette
                     FullMode = s_fullMode,
                     InitDetail = s_initDetail,
                     GaInitialized = s_gaInitialized,
+                    GameAnalyticsOutcome = s_gameAnalyticsOutcome,
                     FacebookInitialized = s_facebookInitialized,
                     FacebookFailed = s_facebookFailed,
+                    FacebookOutcome = s_facebookOutcome,
                     MaxRegistered = s_maxRegistered || MaxAdapter.IsRegistered,
                     MaxInitialized = s_maxInitialized || MaxAdapter.IsInitialized,
+                    MaxOutcome = s_maxAdapterOutcome,
                     MaxConsentSeen = s_maxConsentSeen,
                     MaxConsentDetail = s_maxConsentDetail,
                     AdjustRegistered = s_adjustRegistered || AdjustAdapter.IsRegistered,
@@ -640,9 +666,14 @@ namespace Sorolla.Palette
                     AdjustInitialized = s_adjustInitialized || AdjustAdapter.IsInitialized,
                     AdjustMissingToken = s_adjustMissingToken,
                     AdjustEnvironment = s_adjustEnvironment,
+                    AdjustOutcome = s_adjustAdapterOutcome,
                     FirebaseCoreReady = s_firebaseCoreReady,
                     FirebaseAnalyticsReady = s_firebaseAnalyticsReady,
                     CrashlyticsReady = s_crashlyticsReady,
+                    FirebaseCoreOutcome = s_firebaseCoreOutcome,
+                    FirebaseAnalyticsOutcome = s_firebaseAnalyticsOutcome,
+                    CrashlyticsOutcome = s_crashlyticsOutcome,
+                    RemoteConfigOutcome = s_remoteConfigOutcome,
                     RemoteConfigFetchSeen = s_remoteConfigFetchSeen,
                     RemoteConfigFetchSuccess = s_remoteConfigFetchSuccess,
                     RemoteConfigDetail = s_remoteConfigDetail,
@@ -798,6 +829,8 @@ namespace Sorolla.Palette
         static string MaxAdapterStatus(Snapshot snapshot, bool fullMode)
         {
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            string outcome = AdapterStatusForSnapshot(snapshot.MaxOutcome);
+            if (outcome != null && outcome != "ready") return outcome;
             if (snapshot.MaxInitialized) return "ready";
             if (snapshot.MaxRegistered) return "registered";
             return "waiting";
@@ -811,7 +844,10 @@ namespace Sorolla.Palette
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
             if (!fullMode) return "not_required";
             if (snapshot.AdjustMissingToken) return "missing_token";
-            if (snapshot.AdjustInitialized) return $"enabled({snapshot.AdjustEnvironment.ToLowerInvariant()})";
+            string outcome = AdapterStatusForSnapshot(snapshot.AdjustOutcome);
+            if (outcome != null && outcome != "ready") return outcome;
+            if (AdapterOutcomeIsReady(snapshot.AdjustOutcome)) return $"enabled({snapshot.AdjustEnvironment.ToLowerInvariant()})";
+            if (snapshot.AdjustInitialized) return "verifying";
             if (snapshot.AdjustInitializing) return "initializing";
             if (snapshot.AdjustRegistered) return "registered";
             return "waiting";
@@ -823,6 +859,10 @@ namespace Sorolla.Palette
         static string FirebaseAdapterStatus(Snapshot snapshot, bool fullMode)
         {
 #if FIREBASE_ANALYTICS_INSTALLED
+            string coreOutcome = AdapterStatusForSnapshot(snapshot.FirebaseCoreOutcome);
+            if (coreOutcome != null && coreOutcome != "ready") return coreOutcome;
+            string analyticsOutcome = AdapterStatusForSnapshot(snapshot.FirebaseAnalyticsOutcome);
+            if (analyticsOutcome != null && analyticsOutcome != "ready") return analyticsOutcome;
             return snapshot.FirebaseAnalyticsReady || FirebaseAdapter.IsReady ? "ready" : "waiting";
 #else
             return fullMode ? "missing" : "not_installed";
@@ -832,7 +872,10 @@ namespace Sorolla.Palette
         static string GameAnalyticsAdapterStatus(Snapshot snapshot)
         {
 #if GAMEANALYTICS_INSTALLED
-            return snapshot.GaInitialized ? "ready" : "waiting";
+            if (GameAnalyticsAdapter.IsInitialized || snapshot.GaInitialized) return "ready";
+            string outcome = AdapterStatusForSnapshot(snapshot.GameAnalyticsOutcome);
+            if (outcome != null && outcome != "ready") return outcome;
+            return "waiting";
 #else
             return "not_installed";
 #endif
@@ -841,6 +884,8 @@ namespace Sorolla.Palette
         static string FacebookAdapterStatus(Snapshot snapshot)
         {
 #if SOROLLA_FACEBOOK_ENABLED
+            string outcome = AdapterStatusForSnapshot(snapshot.FacebookOutcome);
+            if (outcome != null && outcome != "ready") return outcome;
             if (snapshot.FacebookFailed) return "failed";
             return snapshot.FacebookInitialized ? "ready" : "waiting";
 #else
@@ -1316,7 +1361,7 @@ namespace Sorolla.Palette
 
             if (message.Contains("[Palette] Ready!")) s_readySeen = true;
 
-            if (message.Contains("[Palette:GA] Initializing") || message.Contains("[Palette:GA] Already initialized"))
+            if (message.Contains("[Palette:GA] Ready") || message.Contains("[Palette:GA] Already initialized"))
                 s_gaInitialized = true;
 
             if (message.Contains("[Palette:FB] Initialized")) s_facebookInitialized = true;
@@ -1374,10 +1419,26 @@ namespace Sorolla.Palette
             if (message.Contains("purchase verification:"))
                 s_purchaseVerification = SafeDetail(message);
 
-            if (message.Contains("[Palette:MAX] Rewarded ad loaded")) s_rewardedLoaded = true;
-            if (message.Contains("[Palette:MAX] Rewarded ad completed")) s_rewardedCompleted = true;
-            if (message.Contains("[Palette:MAX] Interstitial ad loaded")) s_interstitialLoaded = true;
-            if (message.Contains("[Palette:MAX] Interstitial ad completed")) s_interstitialCompleted = true;
+            if (message.Contains("[Palette:MAX] Rewarded ad loaded"))
+            {
+                s_rewardedLoaded = true;
+                s_lastAdIssue = "No issue observed";
+            }
+            if (message.Contains("[Palette:MAX] Rewarded ad completed"))
+            {
+                s_rewardedCompleted = true;
+                s_lastAdIssue = "No issue observed";
+            }
+            if (message.Contains("[Palette:MAX] Interstitial ad loaded"))
+            {
+                s_interstitialLoaded = true;
+                s_lastAdIssue = "No issue observed";
+            }
+            if (message.Contains("[Palette:MAX] Interstitial ad completed"))
+            {
+                s_interstitialCompleted = true;
+                s_lastAdIssue = "No issue observed";
+            }
             // Ad-revenue is now recorded directly via RecordAdRevenue (DR-09); the old verbose-only
             // "TrackAdRevenue:" log-sniff is removed so the Vitals row no longer depends on log level.
             if (message.Contains("[Palette:MAX]") &&
@@ -1624,9 +1685,11 @@ namespace Sorolla.Palette
         {
             if (!fullMode) return SorollaDiagnosticSeverity.Info;
             if (snapshot.AdjustMissingToken) return SorollaDiagnosticSeverity.Fail;
-            if (snapshot.AdjustInitialized) return SorollaDiagnosticSeverity.Pass;
-            // Not yet initialized (waiting for MAX consent, or mid-init) — both surface as Waiting;
-            // AdjustRuntimeDetail differentiates the two states for the human-readable string.
+            if (AdapterOutcomeNeedsAttention(snapshot.AdjustOutcome)) return AdapterOutcomeSeverity(snapshot.AdjustOutcome);
+            if (AdapterOutcomeIsReady(snapshot.AdjustOutcome)) return SorollaDiagnosticSeverity.Pass;
+            // Adjust v5 has no init callback; treat the post-init state as "verifying" until a
+            // real Adjust getter callback proves the native SDK is reachable (DR-49).
+            if (snapshot.AdjustInitialized) return SorollaDiagnosticSeverity.Waiting;
             return SorollaDiagnosticSeverity.Waiting;
         }
 
@@ -1634,7 +1697,9 @@ namespace Sorolla.Palette
         {
             if (!fullMode) return "Not required in Prototype";
             if (snapshot.AdjustMissingToken) return "App token missing";
-            if (snapshot.AdjustInitialized) return $"Initialized ({snapshot.AdjustEnvironment})";
+            if (AdapterOutcomeNeedsAttention(snapshot.AdjustOutcome)) return AdapterOutcomeDetail(snapshot.AdjustOutcome);
+            if (AdapterOutcomeIsReady(snapshot.AdjustOutcome)) return $"Verified ({snapshot.AdjustEnvironment})";
+            if (snapshot.AdjustInitialized) return $"Initialized ({snapshot.AdjustEnvironment}); waiting for ADID callback";
             if (snapshot.AdjustInitializing) return $"Initializing ({snapshot.AdjustEnvironment})";
             return "Waiting for MAX consent before Adjust init";
         }
@@ -1708,6 +1773,8 @@ namespace Sorolla.Palette
         static SorollaDiagnosticSeverity AdjustIdSeverity(Snapshot snapshot, bool fullMode)
         {
             if (!fullMode) return SorollaDiagnosticSeverity.Info;
+            if (AdapterOutcomeNeedsAttention(snapshot.AdjustOutcome)) return AdapterOutcomeSeverity(snapshot.AdjustOutcome);
+            if (snapshot.AdjustInitialized && !AdapterOutcomeIsReady(snapshot.AdjustOutcome)) return SorollaDiagnosticSeverity.Waiting;
             if (!snapshot.AdjustIdRequested) return SorollaDiagnosticSeverity.Waiting;
             if (!snapshot.AdjustIdReceived && Time.realtimeSinceStartup - snapshot.AdjustIdRequestTime < 4f)
                 return SorollaDiagnosticSeverity.Waiting;
@@ -1717,6 +1784,8 @@ namespace Sorolla.Palette
         static string AdjustIdDetail(Snapshot snapshot, bool fullMode)
         {
             if (!fullMode) return "Not required in Prototype";
+            if (AdapterOutcomeNeedsAttention(snapshot.AdjustOutcome)) return AdapterOutcomeDetail(snapshot.AdjustOutcome);
+            if (snapshot.AdjustInitialized && !AdapterOutcomeIsReady(snapshot.AdjustOutcome)) return "Waiting for Adjust ADID callback";
             if (!snapshot.AdjustIdRequested) return "Not requested yet";
             if (!snapshot.AdjustIdReceived && Time.realtimeSinceStartup - snapshot.AdjustIdRequestTime < 4f) return "Fetching";
             return snapshot.AdjustIdPresent ? "Present" : "Missing or unavailable";
@@ -1725,6 +1794,8 @@ namespace Sorolla.Palette
         static SorollaDiagnosticSeverity AttributionSeverity(Snapshot snapshot, bool fullMode)
         {
             if (!fullMode) return SorollaDiagnosticSeverity.Info;
+            if (AdapterOutcomeNeedsAttention(snapshot.AdjustOutcome)) return AdapterOutcomeSeverity(snapshot.AdjustOutcome);
+            if (snapshot.AdjustInitialized && !AdapterOutcomeIsReady(snapshot.AdjustOutcome)) return SorollaDiagnosticSeverity.Waiting;
             if (snapshot.AttributionSummary == "Not requested") return SorollaDiagnosticSeverity.Waiting;
             return snapshot.AttributionSummary == "Unavailable" || snapshot.AttributionSummary == "Network missing"
                 ? SorollaDiagnosticSeverity.Warning
@@ -1737,6 +1808,9 @@ namespace Sorolla.Palette
 
         static string AttributionDetail(Snapshot snapshot)
         {
+            if (AdapterOutcomeNeedsAttention(snapshot.AdjustOutcome)) return AdapterOutcomeDetail(snapshot.AdjustOutcome);
+            if (snapshot.AdjustInitialized && !AdapterOutcomeIsReady(snapshot.AdjustOutcome))
+                return "Waiting for Adjust verification";
             if (snapshot.AttributionSummary != "Fetching") return snapshot.AttributionSummary;
             return Time.realtimeSinceStartup - snapshot.AttributionRequestTime < 4f ? "Fetching" : "Unavailable or callback timed out";
         }
@@ -1760,11 +1834,11 @@ namespace Sorolla.Palette
             bool maxInitialized)
         {
             if (!maxInitialized) return SorollaDiagnosticSeverity.Waiting;
-            if (completed) return SorollaDiagnosticSeverity.Pass;
             if (ready) return SorollaDiagnosticSeverity.Pass;
             if (loadFailed) return SorollaDiagnosticSeverity.Warning;
-            if (loaded) return SorollaDiagnosticSeverity.Warning;
             if (loadStarted) return SorollaDiagnosticSeverity.Waiting;
+            if (loaded) return SorollaDiagnosticSeverity.Warning;
+            if (completed) return SorollaDiagnosticSeverity.Info;
             return SorollaDiagnosticSeverity.Info;
         }
 
@@ -1772,11 +1846,11 @@ namespace Sorolla.Palette
             bool maxInitialized)
         {
             if (!maxInitialized) return "Waiting for MAX initialization";
-            if (completed) return "Shown and completed";
             if (ready) return "Ready to show";
             if (loadFailed) return string.IsNullOrEmpty(loadIssue) ? "Load failed; retrying with backoff" : $"{loadIssue}; retrying";
-            if (loaded) return "Loaded, not completed yet";
             if (loadStarted) return "Requested; waiting for network/fill";
+            if (loaded) return "Loaded once, but current readiness check is false";
+            if (completed) return "Completed once; current readiness unknown";
             return "No load requested";
         }
 
@@ -1821,10 +1895,13 @@ namespace Sorolla.Palette
             public bool FullMode;
             public string InitDetail;
             public bool GaInitialized;
+            public AdapterDiagnosticState GameAnalyticsOutcome;
             public bool FacebookInitialized;
             public bool FacebookFailed;
+            public AdapterDiagnosticState FacebookOutcome;
             public bool MaxRegistered;
             public bool MaxInitialized;
+            public AdapterDiagnosticState MaxOutcome;
             public bool MaxConsentSeen;
             public string MaxConsentDetail;
             public bool AdjustRegistered;
@@ -1832,9 +1909,14 @@ namespace Sorolla.Palette
             public bool AdjustInitialized;
             public bool AdjustMissingToken;
             public string AdjustEnvironment;
+            public AdapterDiagnosticState AdjustOutcome;
             public bool FirebaseCoreReady;
             public bool FirebaseAnalyticsReady;
             public bool CrashlyticsReady;
+            public AdapterDiagnosticState FirebaseCoreOutcome;
+            public AdapterDiagnosticState FirebaseAnalyticsOutcome;
+            public AdapterDiagnosticState CrashlyticsOutcome;
+            public AdapterDiagnosticState RemoteConfigOutcome;
             public bool RemoteConfigFetchSeen;
             public bool RemoteConfigFetchSuccess;
             public string RemoteConfigDetail;
