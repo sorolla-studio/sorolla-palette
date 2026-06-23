@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.18.0] - 2026-06-23
+
+Consent model unification + SDK remediation. The boot path and the CMP-resolution path now run through one resolver and one idempotent fan-out, so Prototype inherits the same consent-mode model (analytics / ad_storage / ad_personalization) the Full/MAX path already used, plus a batch of correctness fixes from the 2026-06 architecture audit.
+
+### Fixed
+- **iOS ATT denial no longer blacks out GameAnalytics** in Prototype / no-MAX builds: analytics consent is governed by GDPR decline, not ATT, so denying ATT (which has no bearing on first-party analytics) no longer disables GameAnalytics submission. GameAnalytics also survives across relaunch.
+- **Ad signals no longer granted without a dialog** on the non-iOS no-MAX path: `ad_storage` / `ad_personalization` / `ad_user_data` are denied in Prototype (no ad-consent basis, no ads) instead of being granted from a boot `consent:true`.
+- **Facebook attribution preserved in Prototype**: Facebook advertiser tracking follows ad-consent + iOS ATT but is independent of whether the build serves in-app ads, so Prototype builds that use Facebook solely for attribution keep attributing installs (matches pre-3.18.0 Facebook behavior on every init path).
+- **Missing `SorollaConfig` no longer wedges a Full/MAX build** (B-1): init could hang forever (`IsInitialized` never set, queued events never flushed) when the config asset was missing on a MAX build. It now degrades to a ready no-ads state with a loud error; analytics, consent, and IAP still work.
+- **Purchases can no longer be permanently deduped away on a dropped fan-out** (B-5): the dedup slot is committed only after the analytics fan-out actually dispatches, so a purchase whose fan-out is dropped or never runs re-fires on next launch instead of being lost. Strengthens the crash-replay guarantee.
+- **Purchase dedup ledger no longer goes stale in-editor** (B-10) under Enter-Play-Mode-Options with domain reload disabled.
+- **Custom-event params are snapshotted** (B-13) when an event is queued during the pre-consent window, so a caller reusing the dictionary cannot change the dispatched event.
+- **Level start-time map no longer leaks** (B-18) when a level is started but never completed/failed.
+- **High-denomination purchase amounts no longer overflow** the GameAnalytics business-event integer (B-19): clamped with a one-time warning; Firebase/Adjust receive the exact value.
+
+### Changed
+- **GameAnalytics now counts the pre-CMP window on the Full path**: during the ~1-3s before UMP resolves, analytics is ON by default (Google Consent Mode default-then-update, matching Firebase), then downgrades to OFF only on a confirmed GDPR decline. Ad signals, Adjust, ATT handling, consent events, and init ordering are unchanged.
+- **MAX callbacks pinned to the Unity main thread** (B-2): `InvokeEventsOnUnityMainThread` is set true at MAX init so vendor callbacks cannot race the non-thread-safe pending queues.
+- **`extraParams` on `Palette.Level.*` / `Palette.Economy.*` documented Firebase-only** (B-3): GameAnalytics receives the curated taxonomy fields, not the extras. No silent divergence.
+
+### Removed
+- **`Palette.HasConsent`** (public property): a legacy getter documented "use `ConsentStatus` instead". It only mirrored the internal ad-storage flag, which has no studio-facing meaning. Read `ConsentStatus` (GDPR/UMP decision) or `CanRequestAds` (ad gating) instead.
+- **`Palette.Purchasing.AutoTracker`** and the `Palette.TrackPurchase(Product)` overload: Unity IAP v5 obsoleted `IDetailedStoreListener`, so `AutoTracker` did not function on `UnityIAPServices.StoreController`, and the `Product` overload existed only to back it. `Palette.AttachPurchaseTracking(store)` is the sole supported purchase-tracking path.
+
+### Notes
+- Invariants preserved: analytics broader than ad consent (off only on GDPR decline); `ad_personalization` / `ad_user_data` require ad-consent AND iOS ATT; Adjust gated on ad-consent NOT ATT; consent analytics events stay change-gated with DR-41 ordering (markers lead `FlushPending`); stub/impl `#if` guards intact so Prototype compiles without MAX/Adjust.
+
 ## [3.17.5] - 2026-06-17
 
 Diagnostics parity patch: Sorolla Vitals and `/qa/snapshot` now read the same adapter outcome state instead of independently inferring readiness from log text.
