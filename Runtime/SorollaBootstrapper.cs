@@ -132,9 +132,10 @@ namespace Sorolla.Palette
             }
 
             var finalStatus = ATTBridge.GetStatus();
-            bool consent = finalStatus == ATTBridge.AuthorizationStatus.Authorized;
-            PaletteLog.Vital($"[Palette] Standalone ATT: {finalStatus} (consent={consent})");
-            Palette.Initialize(consent);
+            PaletteLog.Vital($"[Palette] Standalone ATT resolved: {finalStatus}");
+            // Resolve ATT BEFORE Initialize so Palette.ResolveBootSignals reads the final status.
+            // No-MAX boot keeps analytics ON regardless of ATT (no ads to gate) - FIX 1.
+            Palette.Initialize();
             // Ship ATT decision to analytics. Palette.Initialize set IsInitialized=true
             // on the non-MAX path so this fires immediately (not queued).
             Palette.TrackEvent("att_decision", new Dictionary<string, object>
@@ -145,15 +146,10 @@ namespace Sorolla.Palette
             yield break;
     #endif
 #endif
-            // MAX installed: CMP → ATT handled by MAX during its async init.
-            // Pass consent: false so downstream SDKs don't send pre-consent data.
-            // Consent is elevated to true after MAX resolves CMP (OnMaxConsentChanged).
-            // Non-iOS / Editor without MAX: no ATT needed, default to true.
-#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-            Palette.Initialize(consent: false);
-#else
-            Palette.Initialize(consent: true);
-#endif
+            // MAX installed: CMP → ATT handled by MAX during its async init. Palette resolves boot
+            // signals to analytics-ON / ads-denied; ad consent is elevated after MAX resolves CMP
+            // (OnMaxConsentChanged). Non-iOS / Editor without MAX: no ATT, ads absent, analytics ON.
+            Palette.Initialize();
             yield break;
         }
     }

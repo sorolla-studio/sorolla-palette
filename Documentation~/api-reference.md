@@ -27,12 +27,6 @@ Whether the SDK is initialized
 ```csharp title="Declaration"
 public static bool IsInitialized { get; }
 ```
-#### HasConsent
-Current user consent status (legacy - use ConsentStatus for GDPR compliance)
-
-```csharp title="Declaration"
-public static bool HasConsent { get; }
-```
 #### Config
 Current configuration (may be null)
 

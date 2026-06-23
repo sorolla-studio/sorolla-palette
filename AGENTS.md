@@ -28,7 +28,7 @@ GameAnalytics ≠ GA4. Never write "the GA spec said so" — write "the GA4 spec
 - Main public API: `Runtime/Palette.cs`
 - Auto-init entry point: `Runtime/SorollaBootstrapper.cs`
 - Public docs: `Documentation~/`
-- Internal docs: `/Users/arthur/workspace/sorolla-docs/platform/sdk/`
+- Internal docs: a separate private internal-docs repo (kept outside this public repo)
 
 ## Authoritative Docs
 
@@ -37,13 +37,11 @@ Read these before substantial changes:
 - `Documentation~/architecture.md` - SDK architecture, adapter pattern, DX-first API rules
 - `Documentation~/api-reference.md` - generated public API reference
 - `Documentation~/troubleshooting.md` - known integration failures
-- `/Users/arthur/workspace/sorolla-docs/platform/sdk/index.md` - internal SDK index
-- `/Users/arthur/workspace/sorolla-docs/platform/sdk/research/dx-first-audit-2026-04.md` - current public API risk queue
-- `/Users/arthur/workspace/sorolla-docs/platform/sdk/qa/agent/SKILL.md` - authoritative QA greenlight workflow
+- The internal SDK index, the current public-API risk queue, and the authoritative QA greenlight workflow live in a separate private internal-docs repo (not part of this public repo).
 
 ## Internal Docs Routing
 
-This repo is **public**. Never commit internal working docs here: audits, remediation plans, QA checklists/prep notes, devlogs, refactor backlogs, risk analyses. They live in the private `sorolla-docs` repo under `platform/sdk/` (audits in `platform/sdk/design-risk/`, QA material in `platform/sdk/qa/`). Public-facing docs for SDK consumers go in `Documentation~/` and `CHANGELOG.md` only. `.gitignore` blocks the known internal-doc patterns as a backstop, but the rule is by intent, not pattern: if a doc is not for SDK consumers, it does not get committed here.
+This repo is **public**. Never commit internal working docs here: audits, remediation plans, QA checklists/prep notes, devlogs, refactor backlogs, risk analyses. They live in a separate private internal-docs repo. Public-facing docs for SDK consumers go in `Documentation~/` and `CHANGELOG.md` only. `.gitignore` blocks the known internal-doc patterns as a backstop, but the rule is by intent, not pattern: if a doc is not for SDK consumers, it does not get committed here.
 
 ## Architecture Rules
 
@@ -54,6 +52,17 @@ This repo is **public**. Never commit internal working docs here: audits, remedi
 - `SdkRegistry.cs` is the single source of truth for third-party SDK package IDs and versions.
 - `manifest.json` is the source of truth for mode/package state; do not rely on assembly detection during Unity domain reloads.
 - For IL2CPP runtime registration, implementation assemblies need linker preservation via `AlwaysLinkAssembly` and `Preserve`.
+
+## Runtime Invariants (init, config, threading)
+
+Hard invariants for the init/adapter/analytics paths, surfaced by the 2026-06 internal architecture review. Static-source / traced, not yet device-repro'd.
+
+- **Init must never wedge on missing config.** On a MAX/Full build, `InitializeMax()` early-returns when `SorollaConfig` is null, BEFORE it subscribes the MAX init callback, so `IsInitialized` never flips, the pending-event queue never flushes, and `OnInitialized` never fires. "Ready" must be a guaranteed transition: never add an early return upstream of it, and a missing/misnamed config must fail loud or safe-degrade, not silently hang.
+- **Vendor callbacks feed non-thread-safe state.** The pending-event queue and `Palette.Level` start-times assume a main-thread-only contract that is not enforced. MAX callbacks are NOT guaranteed main-thread (they follow `InvokeEventsOnUnityMainThread`); pin `MaxSdk.SetInvokeEventsOnUnityMainThread(true)` if you touch MAX init. Adjust already marshals to the main thread, and `SorollaDiagnostics` is lock-guarded. The QA-bridge worker-enqueue / main-thread-drain split is correct concurrency engineering; do not "simplify" it away.
+- **`extraParams` on `Palette.Level.*` / `Palette.Economy.*` reach Firebase only, never GameAnalytics.** Per-vendor parameter parity is something to verify, not assume (see the Adapter Endpoint Review section).
+- **The QA bridge and 5-tap console are production-reachable control surfaces.** Do not widen their access or what `/qa/exec` can do; access hardening is tracked in the internal audit.
+
+Verdict of that review: re-architect the runtime core in place behind the frozen public API (extract a pure consent resolver + an explicit init state machine, split the diagnostics core); do NOT rewrite. The static facade, the stub+impl asmdef split, and the explicit per-event vendor fan-out are deliberate and stay.
 
 ## DX-First API Rules
 
@@ -103,7 +112,7 @@ When touching any method under `Runtime/Adapters/*/`*AdapterImpl.cs* (Firebase, 
 - Existing tests live under `Tests/Editor/`.
 - Public docs API reference is generated from XML comments; regenerate with `Tools~/build-docs.sh` when public XML docs change.
 - For build/integration confidence, use Unity and on-device QA rather than assuming compilation alone is enough.
-- For release validation of a game using this SDK, use the `qa-greenlight` skill/workflow and the internal docs under `/Users/arthur/workspace/sorolla-docs/platform/sdk/qa/`.
+- For release validation of a game using this SDK, use the `qa-greenlight` skill/workflow (internal QA docs live in the separate private internal-docs repo).
 
 ## Diagnostics Console Iteration Loop
 

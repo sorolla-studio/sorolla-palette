@@ -133,58 +133,6 @@ namespace Sorolla.Palette
 #endif
         }
 
-        /// <summary>
-        ///     <b>[Obsolete]</b> Track a purchase from a legacy Unity IAP <see cref="Product"/>.
-        ///     Unity IAP v5 marks <c>Product.transactionID</c> and <c>Product.receipt</c> as
-        ///     <see cref="System.ObsoleteAttribute">Obsolete</see>. On consumable products those fields
-        ///     are empty after <c>StoreController.ConfirmPurchase</c>, causing missing transaction_id in
-        ///     Firebase and breaking MMP deduplication. Use <see cref="TrackPurchase(PendingOrder)"/> instead.
-        /// </summary>
-        [Obsolete("Unity IAP v5 obsoleted Product.transactionID and Product.receipt. Use Palette.AttachPurchaseTracking(store) — it subscribes to StoreController.OnPurchasePending internally. Internal since 3.14.1; retained only for the legacy AutoTracker shim.")]
-        internal static void TrackPurchase(Product product)
-        {
-            if (product == null)
-            {
-                PaletteLog.Warning($"{Tag} TrackPurchase(Product): null product - skipping.");
-                return;
-            }
-
-            var md = product.metadata;
-            string rawCurrency = md?.isoCurrencyCode;
-            decimal rawPrice = md?.localizedPrice ?? 0m;
-            string productId = product.definition.id;
-
-            if (rawPrice <= 0m || !IsIso4217(rawCurrency))
-            {
-                PaletteLog.Error($"{Tag} TrackPurchase(Product): invalid metadata - " +
-                    $"product_id='{productId}', localizedPrice={rawPrice}, isoCurrencyCode='{rawCurrency}'. " +
-                    $"Dropping event. Migrate to TrackPurchase(PendingOrder) for Unity IAP v5.");
-#if FIREBASE_ANALYTICS_INSTALLED
-                FirebaseAdapter.TrackEvent("sorolla_purchase_data_quality_failure", new Dictionary<string, object>
-                {
-                    { "reason", rawPrice <= 0m ? "non_positive_price" : "non_iso_currency" },
-                    { "raw_currency", rawCurrency ?? "null" },
-                    { "raw_price", (double)rawPrice },
-                    { "product_id", productId ?? "null" },
-                    { "platform", Application.platform.ToString() },
-                    { "source", "product_legacy" },
-                });
-#endif
-                return;
-            }
-
-            #pragma warning disable CS0618 // Legacy v4 fields — intentional in this obsolete overload
-            ParsedReceipt parsed = ReceiptParser.Parse(product.receipt);
-            string txId = !string.IsNullOrEmpty(product.transactionID) ? product.transactionID : parsed.TransactionId;
-            #pragma warning restore CS0618
-
-            TrackPurchase(
-                amount:        (double)rawPrice,
-                currency:      rawCurrency,
-                productId:     productId,
-                transactionId: txId,
-                purchaseToken: parsed.PurchaseToken);
-        }
 #endif
 
         // Cross-restart purchase dedup for the entire TrackPurchase fan-out (DR-01).

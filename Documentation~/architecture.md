@@ -115,7 +115,7 @@ Creates "[Sorolla SDK]" GameObject (DontDestroyOnLoad)
     ↓
 iOS: Check ATT status → Show ContextScreen if needed
     ↓
-Palette.Initialize(consent)
+Palette.Initialize()
     ├── GameAnalyticsAdapter.Initialize()      ← Always
     ├── FacebookAdapter.Initialize()           ← Always
     ├── MaxAdapter.Initialize()                ← If configured

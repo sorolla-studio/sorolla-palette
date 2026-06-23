@@ -29,8 +29,9 @@ namespace Sorolla.Palette
         // window double-subscribing adapter callbacks (DR-02).
         static bool s_initStarted;
 
-        /// <summary>Current user consent status (legacy - use ConsentStatus for GDPR compliance)</summary>
-        public static bool HasConsent { get; private set; }
+        // Resolved ad-storage consent. Drives MAX init and the change-gated consent event below.
+        // Internal-only: studios read ConsentStatus / CanRequestAds, never this raw flag.
+        static bool s_adConsent;
 
         /// <summary>Current configuration (may be null)</summary>
         public static SorollaConfig Config { get; private set; }
@@ -194,16 +195,24 @@ namespace Sorolla.Palette
         {
             if (!ValidateEvent(ref eventName, parameters)) return;
 
+            // Only the queued path needs a defensive copy. When initialized, QueueOrExecute runs the
+            // action synchronously so the caller has no window to mutate it. During the pre-consent
+            // window the closure can run 1-3s later; snapshot so it dispatches the call-time values
+            // and not whatever the caller reused the dictionary for meanwhile (B-13).
+            Dictionary<string, object> payload = parameters;
+            if (parameters != null && !IsInitialized)
+                payload = new Dictionary<string, object>(parameters);
+
             QueueOrExecute(() =>
             {
-                SorollaDiagnostics.RecordCustomEvent(eventName, parameters);
+                SorollaDiagnostics.RecordCustomEvent(eventName, payload);
 
 #if FIREBASE_ANALYTICS_INSTALLED
-                FirebaseAdapter.TrackEvent(eventName, parameters);
+                FirebaseAdapter.TrackEvent(eventName, payload);
 #endif
 
                 // GA best-effort: design event with the documented `value` param (0 if absent).
-                GameAnalyticsAdapter.TrackDesignEvent(eventName, ExtractDesignEventValue(parameters));
+                GameAnalyticsAdapter.TrackDesignEvent(eventName, ExtractDesignEventValue(payload));
             });
         }
 
@@ -344,10 +353,128 @@ namespace Sorolla.Palette
         #region Initialization
 
         /// <summary>
-        ///     Initialize Palette SDK. Invoked exclusively by <see cref="SorollaBootstrapper"/>
-        ///     once consent / ATT resolve. Internal — studios do not call this.
+        ///     Resolved consent decision fanned out to every vendor. Four real signals exist in the
+        ///     code: analytics (broad), ad_storage (GDPR/UMP ad consent), ad_personalization
+        ///     (== ad_user_data; ad consent AND iOS ATT, gated on ads being present), and
+        ///     advertiserTracking (Facebook attribution; ad consent AND iOS ATT but NOT gated on ads
+        ///     being present, so Prototype still attributes installs). One <see cref="Resolve"/>
+        ///     produces this, one <see cref="ApplyConsent"/> consumes it, so the boot path and the
+        ///     CMP-resolution path share a single source of truth.
         /// </summary>
-        internal static void Initialize(bool consent)
+        readonly struct ConsentSignals
+        {
+            public readonly bool Analytics;
+            public readonly bool AdStorage;
+            public readonly bool AdPersonalization;
+            public readonly bool AdvertiserTracking;
+
+            public ConsentSignals(bool analytics, bool adStorage, bool adPersonalization, bool advertiserTracking)
+            {
+                Analytics = analytics;
+                AdStorage = adStorage;
+                AdPersonalization = adPersonalization;
+                AdvertiserTracking = advertiserTracking;
+            }
+        }
+
+        /// <summary>
+        ///     The one place consent rules live. <paramref name="adsPresent"/> is whether the
+        ///     MAX/Full ad module is compiled in; in Prototype it is false so ad signals can never
+        ///     be granted (no ad-consent basis, no ads: the compliant default).
+        /// </summary>
+        static ConsentSignals Resolve(Adapters.ConsentStatus gdpr, ATTBridge.AuthorizationStatus att, bool adsPresent)
+        {
+            // Analytics is broader than ad consent: granted for everyone EXCEPT a confirmed GDPR
+            // decline, so installs/first_open stay countable for non-GDPR (NotApplicable),
+            // undetermined geography (Required/Unknown), and consenting (Obtained) users.
+            bool analytics = gdpr != Adapters.ConsentStatus.Denied;
+            // ad_storage follows the GDPR/UMP decision (and requires ads to exist).
+            bool adStorage = adsPresent && (gdpr == Adapters.ConsentStatus.Obtained || gdpr == Adapters.ConsentStatus.NotApplicable);
+            // ad_personalization / ad_user_data additionally require ATT authorization on iOS
+            // (personalized ads need BOTH consent AND ATT). AttStatus returns Authorized off-iOS,
+            // so this collapses to ad_storage on Android.
+            bool adPersonalization = adStorage && att == ATTBridge.AuthorizationStatus.Authorized;
+            // Facebook advertiser tracking is ATTRIBUTION, not in-app ad serving: it follows the
+            // GDPR ad-consent decision and iOS ATT, but is NOT gated on ads being present, so a
+            // Prototype build (FB used solely for attribution, no in-app ads) still attributes
+            // installs when ATT-authorized. Reproduces pre-unification FB behavior on both paths:
+            // Full -> (GDPR ad consent AND ATT); Prototype -> ATT only (GDPR NotApplicable, no CMP).
+            bool advertiserTracking =
+                (gdpr == Adapters.ConsentStatus.Obtained || gdpr == Adapters.ConsentStatus.NotApplicable)
+                && att == ATTBridge.AuthorizationStatus.Authorized;
+            return new ConsentSignals(analytics, adStorage, adPersonalization, advertiserTracking);
+        }
+
+        /// <summary>
+        ///     Idempotent fan-out of a resolved decision to every vendor. <paramref name="initial"/>
+        ///     true on the boot path (adapters get Initialize), false on a CMP / mid-session
+        ///     resolution (UpdateConsent). Consent analytics EVENTS are deliberately NOT here: they
+        ///     stay change-gated at the call site (DR-41: markers must lead FlushPending).
+        /// </summary>
+        static void ApplyConsent(ConsentSignals s, bool initial)
+        {
+            if (initial)
+                GameAnalyticsAdapter.Initialize(s.Analytics, VerboseLogging);
+            else
+                GameAnalyticsAdapter.UpdateConsent(s.Analytics);
+
+#if SOROLLA_FACEBOOK_ENABLED
+            // Facebook = attribution: use advertiserTracking (ATT + ad consent, NOT ads-present),
+            // so Prototype keeps attributing installs while Firebase ad signals stay ads-gated.
+            if (initial)
+                FacebookAdapter.Initialize(s.AdvertiserTracking);
+            else
+                FacebookAdapter.UpdateConsent(s.AdvertiserTracking);
+#endif
+
+#if FIREBASE_ANALYTICS_INSTALLED
+            // Boot analytics consent is GRANTED by default (collection on) so first_open is countable
+            // even before the CMP resolves; ad consent follows the resolved signals. See
+            // SorollaIOSPostProcessor / GradlePropertiesFixer for the matching platform Consent Mode
+            // defaults that govern the very first native ping.
+            if (initial)
+                FirebaseAdapter.Initialize(adStorageConsent: s.AdStorage, adPersonalizationConsent: s.AdPersonalization, analyticsConsent: s.Analytics, verboseLogging: VerboseLogging);
+            else
+                FirebaseAdapter.UpdateConsent(adStorageConsent: s.AdStorage, adPersonalizationConsent: s.AdPersonalization, analyticsConsent: s.Analytics);
+#endif
+
+            // Adjust is initialized later, inside OnMaxSdkInitialized (MAX docs: init other SDKs in
+            // the MAX callback). On the boot pass its impl is null so this no-ops; on a CMP
+            // resolution it takes the resolved ad-storage decision. Gated on ad-consent, NOT ATT
+            // (disabling on ATT-deny would break SKAdNetwork / organic install attribution). Full-only.
+#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+            if (!initial)
+                AdjustAdapter.UpdateConsent(s.AdStorage);
+#endif
+
+            // QA snapshot: ad_user_data tracks ad_personalization (both gated on ATT on iOS).
+            SorollaDiagnostics.RecordConsentSignals(adStorage: s.AdStorage, adPersonalization: s.AdPersonalization, adUserData: s.AdPersonalization, analyticsStorage: s.Analytics);
+        }
+
+        /// <summary>
+        ///     Boot-time consent before any CMP/ATT resolution. Always {Analytics:true,
+        ///     AdStorage:false, AdPersonalization:false}: analytics ON so first_open counts, ads
+        ///     gated until <see cref="OnMaxConsentChanged"/> resolves them (Full) or absent entirely
+        ///     (Prototype). This is FIX 1 (GA no longer blacked out by ATT denial) + FIX 4 (ad
+        ///     signals no longer granted with no dialog).
+        /// </summary>
+        static ConsentSignals ResolveBootSignals()
+        {
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            // MAX/UMP owns the ad-consent decision and hasn't resolved yet; treat GDPR as Unknown so
+            // ad signals stay denied until OnMaxConsentChanged refines them.
+            return Resolve(Adapters.ConsentStatus.Unknown, AttStatus, adsPresent: true);
+#else
+            // No MAX module: not a UMP/GDPR context and no ads to gate.
+            return Resolve(Adapters.ConsentStatus.NotApplicable, AttStatus, adsPresent: false);
+#endif
+        }
+
+        /// <summary>
+        ///     Initialize Palette SDK. Invoked exclusively by <see cref="SorollaBootstrapper"/>
+        ///     once consent / ATT resolve. Internal: studios do not call this.
+        /// </summary>
+        internal static void Initialize()
         {
             // DR-02: IsInitialized stays false for the whole CMP window on the MAX path
             // (set in OnMaxSdkInitialized ~1-3s later), so guarding on it alone lets a second
@@ -361,7 +488,6 @@ namespace Sorolla.Palette
             }
             s_initStarted = true;
 
-            HasConsent = consent;
             Config = Resources.Load<SorollaConfig>("SorollaConfig");
 
             bool isPrototype = Config == null || Config.isPrototypeMode;
@@ -370,37 +496,20 @@ namespace Sorolla.Palette
             // Safety net: release builds never get verbose vendor output.
             VerboseLogging = Config != null && Config.verboseLogging && Debug.isDebugBuild;
             PaletteLog.Configure(VerboseLogging);
-            PaletteLog.Vital($"{Tag} Initializing ({(isPrototype ? "Prototype" : "Full")} mode, consent: {consent}, verbose: {VerboseLogging})...");
 
-            // Record the boot consent-mode signals for the QA snapshot (analytics granted by default so
-            // first_open is countable; ad signals follow the boot consent value). OnMaxConsentChanged
-            // refines these once UMP resolves. Diagnostics-only; does not drive adapter behavior.
-            SorollaDiagnostics.RecordConsentSignals(adStorage: consent, adPersonalization: consent, adUserData: consent, analyticsStorage: true);
+            // Resolve the boot decision once and set the ad-consent flag MAX init reads.
+            ConsentSignals boot = ResolveBootSignals();
+            s_adConsent = boot.AdStorage;
+            PaletteLog.Vital($"{Tag} Initializing ({(isPrototype ? "Prototype" : "Full")} mode, analytics: {boot.Analytics}, adStorage: {boot.AdStorage}, verbose: {VerboseLogging})...");
 
-            // GameAnalytics (always)
-            GameAnalyticsAdapter.Initialize(consent, VerboseLogging);
-
-            // Facebook (always)
-#if SOROLLA_FACEBOOK_ENABLED
-            FacebookAdapter.Initialize(consent);
-#endif
+            // Fan out boot consent to GA + Facebook + Firebase + diagnostics (idempotent). Adjust is
+            // initialized later, inside OnMaxSdkInitialized, so it is skipped on this initial pass.
+            ApplyConsent(boot, initial: true);
 
             // MAX + Adjust ship together in Full mode. Adjust is initialized
             // inside OnMaxSdkInitialized so consent is resolved first.
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-            InitializeMax();
-#endif
-
-            // Firebase modules (always enabled when installed)
-#if FIREBASE_ANALYTICS_INSTALLED
-            PaletteLog.Verbose($"{Tag} Initializing Firebase Analytics...");
-            // Boot analytics consent GRANTED by default (collection on) so first_open is countable
-            // even before the CMP resolves; ad consent (storage + personalization) follows the boot
-            // value (denied on MAX path until UMP resolves). analytics_storage is downgraded only for
-            // a confirmed GDPR decline, and ad_personalization is refined with ATT, in
-            // OnMaxConsentChanged. See SorollaIOSPostProcessor / GradlePropertiesFixer for the
-            // matching platform Consent Mode defaults that govern the very first native ping.
-            FirebaseAdapter.Initialize(adStorageConsent: consent, adPersonalizationConsent: consent, analyticsConsent: true, verboseLogging: VerboseLogging);
+            bool maxInitStarted = InitializeMax();
 #endif
 
 #if FIREBASE_CRASHLYTICS_INSTALLED
@@ -423,15 +532,23 @@ namespace Sorolla.Palette
             // When MAX is installed, defer IsInitialized until MAX consent resolves
             // (set in OnMaxSdkInitialized). Without MAX, we're ready now.
 #if !(SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED)
-            IsInitialized = true;
-            FlushPending();
-            OnInitialized?.Invoke();
-            PaletteLog.Vital($"{Tag} Ready!");
+            CompleteInitialization();
 #else
-            PaletteLog.Vital($"{Tag} Waiting for MAX consent resolution...");
+            // MAX path: readiness is normally reached in OnMaxSdkInitialized once the CMP resolves.
+            // But if MAX could not start (e.g. missing SorollaConfig) that callback never fires, so
+            // complete here instead - the SDK degrades to no-ads rather than wedging forever (B-1).
+            if (maxInitStarted)
+                PaletteLog.Vital($"{Tag} Waiting for MAX consent resolution...");
+            else
+                CompleteInitialization();
 #endif
         }
 
+        // Threading contract (B-14): all Palette analytics/IAP entry points and these pending queues
+        // are main-thread only. Unity game code calls them on the main thread, and MAX callbacks are
+        // pinned to the main thread at init (B-2), so the Queue<Action> here and Level.s_startTimes
+        // are deliberately unsynchronized. Do not call Palette.* from a background thread.
+        //
         // Events fired from game Awake/Start can land before MAX CMP resolves on iOS
         // (pre-consent window is ~1-3s). Queue them here and flush on IsInitialized
         // so adapter dispatch always runs with resolved consent.
@@ -460,6 +577,17 @@ namespace Sorolla.Palette
                 try { s_pendingEvents.Dequeue().Invoke(); }
                 catch (Exception e) { PaletteLog.Warning($"{Tag} Queued event threw during flush: {e.Message}"); }
             }
+        }
+
+        // The simple ready transition used by the non-MAX path and the degraded MAX path: flip the
+        // flag, drain the pre-consent queue, fire OnInitialized. The normal MAX path has its own
+        // richer ready tail in OnMaxSdkInitialized (consent markers must lead the flush, DR-41).
+        static void CompleteInitialization()
+        {
+            IsInitialized = true;
+            FlushPending();
+            OnInitialized?.Invoke();
+            PaletteLog.Vital($"{Tag} Ready!");
         }
 
         #endregion
@@ -519,12 +647,15 @@ namespace Sorolla.Palette
         #region Ads
 
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-        static void InitializeMax()
+        // Returns true when MAX init actually started (callbacks subscribed, readiness will be
+        // reached in OnMaxSdkInitialized). Returns false when it could not start - the caller must
+        // then complete initialization itself so the SDK never wedges (B-1).
+        static bool InitializeMax()
         {
             if (Config == null)
             {
-                PaletteLog.Warning($"{Tag} SorollaConfig not found.");
-                return;
+                PaletteLog.Error($"{Tag} SorollaConfig not found - cannot initialize AppLovin MAX. Running in a degraded no-ads state; analytics/consent/IAP still work. Add Assets/Resources/SorollaConfig.asset to enable ads.");
+                return false;
             }
 
             PaletteLog.Vital($"{Tag} Initializing AppLovin MAX...");
@@ -543,8 +674,10 @@ namespace Sorolla.Palette
                 Config.rewardedAdUnit.Current,
                 Config.interstitialAdUnit.Current,
                 Config.bannerAdUnit.Current,
-                HasConsent,
+                s_adConsent,
                 VerboseLogging);
+
+            return true;
         }
 
         static void OnMaxSdkInitialized()
@@ -553,7 +686,7 @@ namespace Sorolla.Palette
             // OnMaxConsentChanged (fired from MaxAdapterImpl.UpdateConsentStatusFromConfig
             // during OnSdkInit, BEFORE this callback runs). Only Adjust still needs init
             // here per MAX SDK docs: "initialize other SDKs INSIDE the MAX callback".
-            bool consent = HasConsent;
+            bool consent = s_adConsent;
             PaletteLog.Vital($"{Tag} MAX consent resolved: {MaxAdapter.ConsentStatus} (consent={consent})");
             LogConsentDiagnostics();
 
@@ -606,54 +739,26 @@ namespace Sorolla.Palette
 
         static void OnMaxConsentChanged(Adapters.ConsentStatus status)
         {
-            bool adConsent = status == Adapters.ConsentStatus.Obtained || status == Adapters.ConsentStatus.NotApplicable;
-            // Analytics consent is broader than ad consent: granted for everyone EXCEPT a confirmed
-            // GDPR decline. This keeps installs/first_open countable for non-GDPR (NotApplicable),
-            // undetermined geography (Required/Unknown), and consenting (Obtained) users, while only
-            // a real opt-out (Denied) goes cookieless. Ad signals stay gated on adConsent.
-            bool analyticsConsent = status != Adapters.ConsentStatus.Denied;
-            // ad_storage follows the GDPR/UMP decision; ad_personalization + ad_user_data additionally
-            // require ATT authorization on iOS (personalized ads need BOTH consent AND ATT). So an
-            // ATT-denied user is reported non-personalized (non_personalized_ads=1) even when GDPR
-            // consent was granted, and a non-GDPR (NotApplicable) iOS user who denies ATT no longer
-            // leaks ad_personalization=Granted. AdPersonalizationAllowed is a no-op off-iOS.
-            bool adPersonalizationConsent = AdPersonalizationAllowed(adConsent);
+            // Same resolver the boot path uses; ads are present on the MAX path.
+            ConsentSignals s = Resolve(status, AttStatus, adsPresent: true);
 
-            // Always propagate analytics consent — even when adConsent is unchanged (e.g. Required/
-            // Unknown keep adConsent=false from boot). The early-return below only guards ad-side work.
-            GameAnalyticsAdapter.UpdateConsent(analyticsConsent);
-#if FIREBASE_ANALYTICS_INSTALLED
-            FirebaseAdapter.UpdateConsent(adStorageConsent: adConsent, adPersonalizationConsent: adPersonalizationConsent, analyticsConsent: analyticsConsent);
-#endif
+            // Idempotent vendor fan-out (analytics + ad signals + Adjust + diagnostics). Runs on
+            // EVERY resolution so an ATT-only change (GDPR bucket unchanged) is never missed.
+            ApplyConsent(s, initial: false);
 
-            // Facebook advertiser tracking mirrors ATT + consent. Re-assert on every resolution
-            // (idempotent; no-ops before FB init) instead of gating it behind the ad-bucket
-            // early-return below, so an ATT change is never missed when the GDPR bucket is unchanged.
-#if SOROLLA_FACEBOOK_ENABLED
-            FacebookAdapter.UpdateConsent(adPersonalizationConsent);
-#endif
+            // Change-gated: only the analytics EVENT and the ad-consent flag flip are guarded on the
+            // ad-consent bucket actually changing (DR-41: the consent marker must precede
+            // FlushPending; s_adConsent gates MAX init and this event). Vendor pushes already ran.
+            if (s_adConsent == s.AdStorage) return;
 
-            // Record the resolved consent-mode signals for the QA snapshot on every resolution (before
-            // the ad-side early return below, which only guards ad-bucket work). ad_user_data tracks
-            // ad_personalization: both additionally require ATT authorization on iOS.
-            SorollaDiagnostics.RecordConsentSignals(adStorage: adConsent, adPersonalization: adPersonalizationConsent, adUserData: adPersonalizationConsent, analyticsStorage: analyticsConsent);
-
-            if (HasConsent == adConsent) return;
-
-            HasConsent = adConsent;
-            PaletteLog.Vital($"{Tag} Consent updated by MAX CMP: {status} -> propagating to adapters (ad={adConsent}, adPersonalization={adPersonalizationConsent}, analytics={analyticsConsent})");
-            // Adjust stays enabled with the IDFA withheld natively when ATT is denied (Adjust's own
-            // ATT handling + AttConsentWaitingInterval), so it is gated on adConsent only — NOT on ATT.
-            // Disabling it on ATT-deny would break SKAdNetwork / organic install attribution.
-#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
-            AdjustAdapter.UpdateConsent(adConsent);
-#endif
+            s_adConsent = s.AdStorage;
+            PaletteLog.Vital($"{Tag} Consent updated by MAX CMP: {status} -> propagating to adapters (adStorage={s.AdStorage}, adPersonalization={s.AdPersonalization}, analytics={s.Analytics})");
 
             var changed = new Dictionary<string, object>
             {
                 { "gdpr", GdprString(status) },
-                { "personalized_ads", adPersonalizationConsent },
-                { "analytics", analyticsConsent },
+                { "personalized_ads", s.AdPersonalization },
+                { "analytics", s.Analytics },
             };
 #if UNITY_IOS && !UNITY_EDITOR
             changed["att_status"] = AttString(ATTBridge.GetStatus());
