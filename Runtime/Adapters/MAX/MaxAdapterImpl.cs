@@ -102,6 +102,13 @@ namespace Sorolla.Palette.Adapters
 
             MaxSdk.SetVerboseLogging(verboseLogging);
             MaxSdk.SetCreativeDebuggerEnabled(verboseLogging);
+
+            // Pin all MAX publisher callbacks to the Unity main thread. The default marshals most
+            // events to the main thread, but per-event keepInBackground flags (or any code setting
+            // this property false) can deliver a callback on a background thread - and Palette's
+            // pending-event queues are not thread-safe (B-2). Forcing true guarantees main-thread delivery.
+            MaxSdkBase.InvokeEventsOnUnityMainThread = true;
+
             MaxSdkCallbacks.OnSdkInitializedEvent += OnSdkInit;
 
             // SDK key is read from AppLovinSettings; Palette editor auto-syncs the shared publisher key.

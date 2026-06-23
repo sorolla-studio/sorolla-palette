@@ -20,10 +20,21 @@ namespace Sorolla.Palette
             static readonly Dictionary<(int? world, int level), float> s_startTimes
                 = new Dictionary<(int? world, int level), float>();
 
+            // Cap on concurrently-tracked level start times. A real game has ~1 level in flight;
+            // this only bounds the leak from levels Started but never Completed/Failed (B-18).
+            const int MaxTrackedStartTimes = 64;
+
             /// <summary>Mark the start of a level. Fires level_start (Firebase) and records start time for auto-duration.</summary>
+            /// <param name="extraParams">Optional structured params. Sent to Firebase only - GameAnalytics receives the curated progression fields, not these.</param>
             public static void Start(int level, int? world = null, Dictionary<string, object> extraParams = null)
             {
                 WarnIfNegative("Start", level, world);
+
+                // Bound the in-flight start-time map: a level Started but never Completed/Failed
+                // (player quit to menu, app backgrounded) would otherwise leak its entry forever.
+                // Past a generous cap, drop the oldest tracked start (smallest timestamp) (B-18).
+                if (s_startTimes.Count >= MaxTrackedStartTimes && !s_startTimes.ContainsKey((world, level)))
+                    EvictOldestStartTime();
 
                 // Capture timestamp synchronously so duration reflects player wall-time,
                 // not whenever the event flushes after MAX consent resolves.
@@ -32,10 +43,12 @@ namespace Sorolla.Palette
             }
 
             /// <summary>Mark a level completed. Fires level_end{success=1}, auto-fills duration_sec if Start was called.</summary>
+            /// <param name="extraParams">Optional structured params. Sent to Firebase only - GameAnalytics receives the curated progression fields, not these.</param>
             public static void Complete(int level, int? world = null, int score = 0, Dictionary<string, object> extraParams = null)
                 => End(level, world, success: true, score, extraParams);
 
             /// <summary>Mark a level failed. Fires level_end{success=0}, auto-fills duration_sec if Start was called.</summary>
+            /// <param name="extraParams">Optional structured params. Sent to Firebase only - GameAnalytics receives the curated progression fields, not these.</param>
             public static void Fail(int level, int? world = null, int score = 0, Dictionary<string, object> extraParams = null)
                 => End(level, world, success: false, score, extraParams);
 
@@ -64,6 +77,23 @@ namespace Sorolla.Palette
                     PaletteLog.Warning($"{Tag} Level.{verb}: level={level} is negative; event passed through. Check for uninitialized int or off-by-one.");
                 if (world.HasValue && world.Value < 0)
                     PaletteLog.Warning($"{Tag} Level.{verb}: world={world.Value} is negative; event passed through. Check for uninitialized int or off-by-one.");
+            }
+
+            // Remove the oldest in-flight start time (smallest realtime timestamp). Only called when
+            // the tracked-start cap is exceeded, so the per-call enumeration cost is not a hot path.
+            static void EvictOldestStartTime()
+            {
+                (int? world, int level) oldestKey = default;
+                float oldest = float.MaxValue;
+                bool found = false;
+                foreach (var kvp in s_startTimes)
+                {
+                    if (kvp.Value >= oldest) continue;
+                    oldest = kvp.Value;
+                    oldestKey = kvp.Key;
+                    found = true;
+                }
+                if (found) s_startTimes.Remove(oldestKey);
             }
 
             static void Emit(string status, int level, int? world, int score, float? duration,

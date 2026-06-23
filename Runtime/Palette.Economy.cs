@@ -76,12 +76,14 @@ namespace Sorolla.Palette
             };
 
             /// <summary>Track currency earned. Fires earn_virtual_currency (Firebase) / GameAnalytics Source event.</summary>
+            /// <param name="extraParams">Optional structured params. Sent to Firebase only - GameAnalytics receives the curated resource fields (currency, amount, source, itemId), not these.</param>
             public static void Earn(CurrencyId currency, int amount, EconomySource source, string itemId = null,
                 Dictionary<string, object> extraParams = null)
                 => Track(flowSource: true, currency, amount, EnumToSnake(source), source == EconomySource.Other,
                     itemId, extraParams);
 
             /// <summary>Track currency spent. Fires spend_virtual_currency (Firebase) / GameAnalytics Sink event.</summary>
+            /// <param name="extraParams">Optional structured params. Sent to Firebase only - GameAnalytics receives the curated resource fields (currency, amount, sink, itemId), not these.</param>
             public static void Spend(CurrencyId currency, int amount, EconomySink sink, string itemId = null,
                 Dictionary<string, object> extraParams = null)
                 => Track(flowSource: false, currency, amount, EnumToSnake(sink), sink == EconomySink.Other,

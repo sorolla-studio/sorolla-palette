@@ -156,15 +156,47 @@ namespace Sorolla.Palette
         const int ProcessedTxMax = 512;
         static HashSet<string> s_processedTxIds;
         static readonly List<string> s_processedTxOrder = new List<string>();
+        // Keys that passed the dedup check and were queued but have NOT yet been committed to the
+        // persisted ledger (commit happens only after the fan-out actually runs - B-5). In-memory
+        // only: if a queued fan-out is dropped (queue cap) or never runs, the key never persists, so
+        // a next-launch re-delivery re-fires instead of being deduped into permanent revenue loss.
+        // Caveat: a same-session re-delivery of such a dropped key stays deduped until next launch;
+        // the queue-overflow window that causes this is rare and the next-launch recovery is the
+        // safe direction (re-fire over silent loss).
+        static readonly HashSet<string> s_inFlightTxIds = new HashSet<string>();
 
-        // Records dedupKey as processed and returns true if this is the FIRST time it is seen.
-        // Empty key (no transaction id available) cannot be deduped, so it is always allowed
-        // through - matching the previous behavior, which skipped dedup on empty TxIDs.
-        static bool MarkPurchaseProcessed(string dedupKey)
+        // Enter-Play-Mode-Options (domain reload disabled) keeps statics between play sessions, so a
+        // cached ledger would diverge from PlayerPrefs. Reset so the next run re-reads disk (B-10).
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetPurchaseDedupStatics()
+        {
+            s_processedTxIds = null;
+            s_processedTxOrder.Clear();
+            s_inFlightTxIds.Clear();
+        }
+
+        // Dedup phase 1 (BEFORE dispatch): returns true if this key may proceed to the fan-out.
+        // Empty key (no transaction id available) cannot be deduped, so it is always allowed through
+        // - matching the previous behavior. A key already committed to the persisted ledger OR
+        // already queued this session (in-flight) is a duplicate -> false. The slot is NOT persisted
+        // here; CommitPurchaseDedup does that only after the fan-out runs (B-5).
+        static bool TryBeginPurchaseDedup(string dedupKey)
         {
             if (string.IsNullOrEmpty(dedupKey)) return true;
             LoadProcessedTxIds();
-            if (!s_processedTxIds.Add(dedupKey)) return false;
+            if (s_processedTxIds.Contains(dedupKey)) return false;
+            return s_inFlightTxIds.Add(dedupKey);
+        }
+
+        // Dedup phase 2 (AFTER dispatch): commit the key to the persisted, restart-surviving ledger.
+        // Called from inside the queued fan-out, so a purchase whose fan-out was dropped or never ran
+        // does not burn its dedup slot (B-5). FIFO-evicts the oldest id to bound PlayerPrefs.
+        static void CommitPurchaseDedup(string dedupKey)
+        {
+            if (string.IsNullOrEmpty(dedupKey)) return;
+            LoadProcessedTxIds();
+            s_inFlightTxIds.Remove(dedupKey);
+            if (!s_processedTxIds.Add(dedupKey)) return;
             s_processedTxOrder.Add(dedupKey);
             while (s_processedTxOrder.Count > ProcessedTxMax)
             {
@@ -174,7 +206,6 @@ namespace Sorolla.Palette
             }
             PlayerPrefs.SetString(ProcessedTxPrefsKey, string.Join("\n", s_processedTxOrder));
             PlayerPrefs.Save();
-            return true;
         }
 
         static void LoadProcessedTxIds()
@@ -190,8 +221,8 @@ namespace Sorolla.Palette
 
         /// <summary>
         ///     Low-level purchase fan-out. Internal since 3.14.1 — no supported studio-facing entry point.
-        ///     Reached only via the SDK-owned subscription installed by <see cref="AttachPurchaseTracking"/>
-        ///     and the legacy Obsolete shims. Enforces ISO-4217 / positive-price validation and TxID dedup
+        ///     Reached only via the SDK-owned subscription installed by <see cref="AttachPurchaseTracking"/>.
+        ///     Enforces ISO-4217 / positive-price validation and TxID dedup
         ///     before fanning out to Adjust / TikTok / Firebase / GameAnalytics.
         /// </summary>
         /// <param name="amount">Purchase amount in local currency (must be &gt; 0).</param>
@@ -239,8 +270,10 @@ namespace Sorolla.Palette
             // Validation passed: now enforce dedup so analytics fan-out fires at most once per purchase.
             // Placed AFTER validation so a bad-payload first call doesn't burn the dedup slot for a corrected retry.
             // Key prefers the caller-supplied original-transaction id, else the transaction id (DR-01/DR-07).
+            // Two-phase: check here, COMMIT only after the fan-out runs (CommitPurchaseDedup) so a
+            // dropped/never-run queued fan-out doesn't permanently dedup-away a real purchase (B-5).
             string effectiveDedupKey = !string.IsNullOrEmpty(dedupKey) ? dedupKey : transactionId;
-            if (!MarkPurchaseProcessed(effectiveDedupKey))
+            if (!TryBeginPurchaseDedup(effectiveDedupKey))
             {
                 PaletteLog.Warning($"{Tag} TrackPurchase: duplicate purchase detected (dedupKey={PaletteLog.Present(effectiveDedupKey)}) - dropping duplicate event. " +
                     $"Unity IAP v5 can re-deliver purchases (Google Play in-session double on OnPurchaseConfirmed, " +
@@ -283,10 +316,18 @@ namespace Sorolla.Palette
 #if GAMEANALYTICS_INSTALLED
                 // GA expects amount in cents (100x display price across all currencies, incl. JPY).
                 // Math.Round avoids floating-point truncation (0.99 * 100 = 98.99999 -> 98 without rounding).
-                int amountInCents = (int)Math.Round(amount * 100);
+                // GA's business amount is an int; clamp so a very-high-denomination amount (e.g. large
+                // VND/IDR purchases) can't silently overflow to a wrong/negative value (B-19).
+                double cents = Math.Round(amount * 100);
+                int amountInCents = cents >= int.MaxValue ? int.MaxValue : (int)cents;
+                if (cents >= int.MaxValue)
+                    PaletteLog.WarningOnce("purchase.ga.amount_overflow", $"{Tag} TrackPurchase: amount {amount} {currency} exceeds GameAnalytics' integer cent limit; clamped for GA only. Firebase/Adjust receive the exact value.");
                 string gaItemId = string.IsNullOrEmpty(productId) ? "unknown" : productId;
                 GameAnalyticsAdapter.TrackBusinessEvent(currency, amountInCents, "iap", gaItemId, null);
 #endif
+
+                // Dedup committed only now that the fan-out has actually run (B-5).
+                CommitPurchaseDedup(effectiveDedupKey);
             });
         }
 
