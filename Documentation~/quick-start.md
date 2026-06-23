@@ -1,18 +1,14 @@
 # Prototype Mode Quick Start
 
-Follow this page from top to bottom to prepare a Prototype build for Sorolla review, CPI tests, and early gameplay iteration.
+Fresh installs start in **Prototype** mode automatically. Do not switch to Full mode until Sorolla tells you to do so.
 
-Fresh installs start in **Prototype** mode automatically. Do not switch to Full mode until Prototype analytics are working.
+Follow these instructions to prepare the build in prototype mode:
 
-Prototype mode uses:
-
-| Area | SDK | Studio task |
-|------|-----|-------------|
-| Level analytics | GameAnalytics | Create the game, paste Game Key + Secret Key, add level calls |
-| Acquisition signal | Facebook SDK | Create the app, paste App ID + Client Token |
-| Firebase | Analytics, Crashlytics, Remote Config | Create the project, add config files |
-
-Prototype mode does **not** need MAX ads, Adjust, GDPR/ATT consent setup, `app-ads.txt`, store privacy answers, or purchase attribution. Add those later in [Full Mode Soft Launch Migration](switching-to-full.md).
+| SDK | Studio task |
+|-----|----|
+| GameAnalytics | Create the game, paste Game Key + Secret Key, add level calls |
+| Facebook SDK | Create the app, paste App ID + Client Token |
+| Firebase | Create the project, add config files, link to GameAnalytics project |
 
 ---
 
@@ -29,7 +25,7 @@ https://github.com/sorolla-studio/sorolla-palette.git
 4. Wait for Unity to import the package and resolve dependencies.
 5. Open **Palette > Configuration** if the Palette window does not open automatically.
 
-You do not need a bootstrap prefab or a manual init call. Palette auto-initializes at runtime through `SorollaBootstrapper`.
+**You do not need a bootstrap prefab or a manual init call.** Palette auto-initializes at runtime through `SorollaBootstrapper`.
 
 ---
 
@@ -156,22 +152,6 @@ Rules:
 
 ---
 
-## 8. Build Once
-
-Build to a real Android or iOS device and play one complete level.
-
-Dashboard timing:
-
-| Dashboard | What should appear |
-|-----------|--------------------|
-| GameAnalytics | Level start, complete, and fail progression events |
-| Facebook Events Manager | App install and app activity |
-| Firebase Console | Analytics events; Crashlytics configured |
-
-GameAnalytics usually updates within minutes. Firebase Analytics can take longer.
-
----
-
 ## Prototype Checklist
 
 - [ ] Unity package name and bundle ID match the dashboard apps.
@@ -183,5 +163,3 @@ GameAnalytics usually updates within minutes. Firebase Analytics can take longer
 - [ ] `Palette.Level.Start`, `Palette.Level.Complete`, and `Palette.Level.Fail` are wired in game code.
 - [ ] A real-device build launches and one complete level can be played.
 - [ ] Sorolla has the build and dashboard access needed for review.
-
-When this checklist passes, move to [Full Mode Soft Launch Migration](switching-to-full.md) only if the build is ready for ads, attribution, consent, and soft-launch revenue validation.
