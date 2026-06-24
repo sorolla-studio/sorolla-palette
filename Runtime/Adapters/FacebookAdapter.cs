@@ -1,5 +1,6 @@
 #if SOROLLA_FACEBOOK_ENABLED
 using System;
+using System.Collections.Generic;
 using Facebook.Unity;
 using UnityEngine;
 
@@ -13,6 +14,7 @@ namespace Sorolla.Palette.Adapters
         const string Tag = "[Palette:FB]";
         private static bool s_init;
         private static bool s_consent;
+        private static bool s_validationRequested;
 
         public static event Action<bool> OnGameVisibilityChanged;
 
@@ -31,8 +33,7 @@ namespace Sorolla.Palette.Adapters
             {
                 ApplyConsent();
                 s_init = true;
-                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Ready,
-                    "already_initialized", "Already initialized");
+                RequestValidation("already_initialized");
             }
         }
 
@@ -43,8 +44,7 @@ namespace Sorolla.Palette.Adapters
                 ApplyConsent();
                 s_init = true;
                 PaletteLog.Vital($"{Tag} Initialized (tracking: {s_consent})");
-                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Ready,
-                    "initialized", $"Initialized (tracking: {s_consent})");
+                RequestValidation("initialized");
             }
             else
             {
@@ -66,6 +66,101 @@ namespace Sorolla.Palette.Adapters
         {
             FB.Mobile.SetAdvertiserTrackingEnabled(s_consent);
             FB.ActivateApp();
+        }
+
+        private static void RequestValidation(string source)
+        {
+            if (s_validationRequested) return;
+            s_validationRequested = true;
+
+            string appId = NormalizeAppId(FB.AppId);
+            string clientToken = FB.ClientToken;
+            if (string.IsNullOrEmpty(appId) || string.IsNullOrEmpty(clientToken))
+            {
+                PaletteLog.Error($"{Tag} AuthError: App ID or Client Token missing");
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Failed,
+                    "auth_missing", "App ID or Client Token missing");
+                return;
+            }
+
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Initializing,
+                "validation_requested", $"Initialized ({source}); validating app credentials");
+
+            try
+            {
+                var formData = new Dictionary<string, string>
+                {
+                    { "access_token", appId + "|" + clientToken },
+                };
+                FB.API("/" + appId + "?fields=id", HttpMethod.GET, OnValidationProbe, formData);
+            }
+            catch (Exception e)
+            {
+                PaletteLog.Error($"{Tag} AuthError: validation request failed ({e.Message})");
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Failed,
+                    "auth_probe_failed", "Validation request failed: " + e.Message);
+            }
+        }
+
+        private static void OnValidationProbe(IGraphResult result)
+        {
+            if (result == null)
+            {
+                PaletteLog.Error($"{Tag} AuthError: validation returned no result");
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Failed,
+                    "auth_no_result", "Validation returned no result");
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(result.Error))
+            {
+                string detail = SafeDetail(result.Error);
+                PaletteLog.Error($"{Tag} AuthError: {detail}");
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Failed,
+                    "auth_error", detail);
+                return;
+            }
+
+            if (!ContainsAppId(result))
+            {
+                string detail = string.IsNullOrEmpty(result.RawResult)
+                    ? "Validation response did not include app id"
+                    : "Validation response did not include app id: " + SafeDetail(result.RawResult);
+                PaletteLog.Warning($"{Tag} Validation warning: {detail}");
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Warning,
+                    "auth_unverified", detail);
+                return;
+            }
+
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Ready,
+                "validated", "Initialized and app credentials validated");
+        }
+
+        private static bool ContainsAppId(IGraphResult result)
+        {
+            string appId = NormalizeAppId(FB.AppId);
+            if (result.ResultDictionary != null
+                && result.ResultDictionary.TryGetValue("id", out object id)
+                && string.Equals(id?.ToString(), appId, StringComparison.Ordinal))
+                return true;
+
+            return !string.IsNullOrEmpty(result.RawResult)
+                && result.RawResult.Contains("\"id\":\"" + appId + "\"");
+        }
+
+        private static string NormalizeAppId(string appId)
+        {
+            if (string.IsNullOrEmpty(appId)) return appId;
+            return appId.StartsWith("fb", StringComparison.OrdinalIgnoreCase)
+                ? appId.Substring(2)
+                : appId;
+        }
+
+        private static string SafeDetail(string detail)
+        {
+            if (string.IsNullOrEmpty(detail)) return "Unknown";
+            detail = detail.Replace('\n', ' ').Replace('\r', ' ');
+            return detail.Length > 180 ? detail.Substring(0, 179) + "..." : detail;
         }
 
         private static void OnHideUnity(bool isGameShown)

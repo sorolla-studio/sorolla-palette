@@ -30,6 +30,7 @@ namespace Sorolla.Palette
     {
         bool IsKeyboardTogglePressed();
         bool TryGetPointerTap(out Vector2 screenPosition);
+        bool TryGetPointerHold(out Vector2 screenPosition);
         int TouchCount { get; }
         bool TryGetTouch(int index, out SorollaDiagnosticsInputTouch touch);
     }
@@ -66,6 +67,25 @@ namespace Sorolla.Palette
 
 #if ENABLE_LEGACY_INPUT_MANAGER
             if (Input.GetMouseButtonDown(0))
+            {
+                screenPosition = Input.mousePosition;
+                return true;
+            }
+#endif
+
+            screenPosition = default;
+            return false;
+        }
+
+        internal static bool TryGetPointerHold(out Vector2 screenPosition)
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (s_inputSystemBackend != null)
+                return s_inputSystemBackend.TryGetPointerHold(out screenPosition);
+#endif
+
+#if ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetMouseButton(0))
             {
                 screenPosition = Input.mousePosition;
                 return true;

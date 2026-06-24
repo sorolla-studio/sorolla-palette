@@ -7,6 +7,7 @@ namespace Sorolla.Palette
     {
         const int RequiredTapCount = 5;
         const float TapWindowSeconds = 2f;
+        const float FinalTapHoldSeconds = 0.8f;
         const float ScrollDragThresholdPixels = 10f;
         const float DiagnosticsRefreshIntervalSeconds = 0.2f;
 
@@ -148,6 +149,9 @@ namespace Sorolla.Palette
         int _scrollTouchId = -1;
         bool _scrollTouchDragging;
         bool _ignoreSectionToggleAfterDrag;
+        bool _unlockHoldPointer;
+        int _unlockHoldTouchId = -1;
+        float _unlockHoldStartTime;
         Vector2 _scrollTouchStartPosition;
         Vector2 _lastScrollTouchPosition;
         RowFilter _filter = RowFilter.All;
@@ -334,7 +338,7 @@ namespace Sorolla.Palette
             }
 
             _visible = visible;
-            _tapCount = 0;
+            ResetUnlockGesture();
 
             if (visible)
             {
@@ -372,6 +376,15 @@ namespace Sorolla.Palette
             _diagnosticsCacheDirty = true;
             if (_visible)
                 RefreshDiagnosticsCache();
+        }
+
+        void ResetUnlockGesture()
+        {
+            _tapCount = 0;
+            _firstTapTime = 0f;
+            _unlockHoldPointer = false;
+            _unlockHoldTouchId = -1;
+            _unlockHoldStartTime = 0f;
         }
 
     }

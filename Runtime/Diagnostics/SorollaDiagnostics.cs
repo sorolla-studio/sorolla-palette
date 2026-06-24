@@ -519,10 +519,17 @@ namespace Sorolla.Palette
 #endif
 
 #if SOROLLA_FACEBOOK_ENABLED
+            // Readiness is gated on the managed Graph validation probe, not init alone. Init completing
+            // only flips FacebookInitialized; the probe is what confirms the app credentials actually work.
+            // Until the probe records Ready, Facebook stays Waiting, so a pending or never-returning probe
+            // (offline, or a VPN/ad-blocker/private-DNS blocking the Graph domain) cannot false-green the row.
+            bool facebookValidated = snapshot.FacebookOutcome.Seen
+                && snapshot.FacebookOutcome.Status == AdapterDiagnosticStatus.Ready;
             SorollaDiagnosticSeverity facebookSeverity = snapshot.FacebookFailed ? SorollaDiagnosticSeverity.Fail :
-                snapshot.FacebookInitialized ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting;
+                facebookValidated ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting;
             string facebookDetail = snapshot.FacebookFailed ? "Initialization failed" :
-                snapshot.FacebookInitialized ? "Initialized" : "Waiting for init callback";
+                facebookValidated ? "Initialized and validated" :
+                snapshot.FacebookInitialized ? "Validating app credentials" : "Waiting for init callback";
             Add(rows, "SDKs", "Facebook",
                 AdapterRowSeverity(snapshot.FacebookOutcome, facebookSeverity),
                 AdapterRowDetail(snapshot.FacebookOutcome, facebookDetail));
@@ -884,10 +891,13 @@ namespace Sorolla.Palette
         static string FacebookAdapterStatus(Snapshot snapshot)
         {
 #if SOROLLA_FACEBOOK_ENABLED
+            // "ready" only when the Graph validation probe recorded Ready (AdapterStatusForSnapshot
+            // returns it). Init completing alone (FacebookInitialized) is NOT enough: a pending or
+            // never-returning probe reads "waiting", and a failing one reads "failed"/"warning".
             string outcome = AdapterStatusForSnapshot(snapshot.FacebookOutcome);
-            if (outcome != null && outcome != "ready") return outcome;
+            if (outcome != null) return outcome;
             if (snapshot.FacebookFailed) return "failed";
-            return snapshot.FacebookInitialized ? "ready" : "waiting";
+            return "waiting";
 #else
             return "not_installed";
 #endif

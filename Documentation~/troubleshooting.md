@@ -397,7 +397,7 @@ Crashlytics requires:
 ### Vitals console not appearing
 
 1. Build and run the app on device
-2. Tap five times inside the top-left safe area
+2. Tap five times inside the top-right safe area, then hold the fifth tap for 0.8 seconds
 3. On desktop, press BackQuote
 4. Or call `Palette.ShowDebugger()` from game/debug code
 

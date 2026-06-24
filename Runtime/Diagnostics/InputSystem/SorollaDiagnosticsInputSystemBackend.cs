@@ -40,6 +40,19 @@ namespace Sorolla.Palette
             return false;
         }
 
+        public bool TryGetPointerHold(out Vector2 screenPosition)
+        {
+            Mouse mouse = Mouse.current;
+            if (mouse != null && mouse.leftButton.isPressed)
+            {
+                screenPosition = mouse.position.ReadValue();
+                return true;
+            }
+
+            screenPosition = default;
+            return false;
+        }
+
         public int TouchCount => EnhancedTouchSupport.enabled ? InputSystemTouch.activeTouches.Count : 0;
 
         public bool TryGetTouch(int index, out SorollaDiagnosticsInputTouch touch)

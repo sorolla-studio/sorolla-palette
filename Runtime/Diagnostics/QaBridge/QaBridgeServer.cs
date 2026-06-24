@@ -30,6 +30,8 @@ namespace Sorolla.Palette
         // so this stays loopback-only - it never binds 0.0.0.0 and never trips the iOS Local Network prompt.
         const string LoopbackPrefix = "http://127.0.0.1:8765/";
         const string LocalhostPrefix = "http://localhost:8765/";
+        const int MaxRequestsPerFrame = 4;
+        const int MaxRequestBodyBytes = 4096;
 
         static QaBridgeServer s_instance;
 
@@ -178,7 +180,7 @@ namespace Sorolla.Palette
             // snapshot stays current even when the on-screen console is closed.
             SorollaDiagnostics.UpdatePolling();
 
-            while (_pending.TryDequeue(out HttpListenerContext ctx))
+            for (int i = 0; i < MaxRequestsPerFrame && _pending.TryDequeue(out HttpListenerContext ctx); i++)
                 HandleRequest(ctx);
         }
 
@@ -230,6 +232,9 @@ namespace Sorolla.Palette
         // is the single source of truth for the outcome (no blocking, no completion sources, no timeout).
         void HandleExec(HttpListenerContext ctx)
         {
+            if (TryRejectBody(ctx))
+                return;
+
             string action;
             try
             {
@@ -254,8 +259,35 @@ namespace Sorolla.Palette
 
         static string ReadBody(HttpListenerRequest request)
         {
+            if (!request.HasEntityBody || request.ContentLength64 == 0)
+                return string.Empty;
+
             using var reader = new System.IO.StreamReader(request.InputStream, request.ContentEncoding ?? Encoding.UTF8);
             return reader.ReadToEnd();
+        }
+
+        // Loopback + password already gate the bridge; this only bounds what the exec parser will read.
+        // An undeclared length (chunked transfer-encoding) is refused with 411 so it is not conflated with
+        // an oversized body; a declared length over the cap is refused with 413. Returns true (and has
+        // already written the response) when the request was rejected.
+        static bool TryRejectBody(HttpListenerContext ctx)
+        {
+            HttpListenerRequest request = ctx.Request;
+            if (request == null || !request.HasEntityBody) return false;
+
+            if (request.ContentLength64 < 0)
+            {
+                WriteJson(ctx, 411, "{\"ok\":false,\"detail\":\"length_required\"}");
+                return true;
+            }
+
+            if (request.ContentLength64 > MaxRequestBodyBytes)
+            {
+                WriteJson(ctx, 413, "{\"ok\":false,\"detail\":\"request_body_too_large\"}");
+                return true;
+            }
+
+            return false;
         }
 
         static string BuildError(string detail)

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.18.1] - 2026-06-24
+
+### Changed
+- **Facebook diagnostics no longer pass on init alone**: after Facebook SDK init the adapter validates the app credentials through a managed Graph probe. Facebook reads "ready" in Sorolla Vitals and `/qa/snapshot` only once that probe succeeds; while it is pending it reads "validating", and a failing or never-returning probe (offline, or a VPN/ad-blocker/DNS blocking the Graph domain) reads "failed"/"waiting" instead of false-greening a build whose Facebook credentials are broken.
+- **QA bridge request handling is capped**: `/qa/exec` rejects oversized request bodies (413) and bodies with an undeclared length (411), and the bridge drains a small fixed number of queued requests per frame.
+- **Sorolla Vitals gesture hardened**: the on-device unlock remains five top-right taps, but the fifth tap must now be held for 0.8 seconds.
+
 ## [3.18.0] - 2026-06-23
 
 Consent model unification + SDK remediation. The boot path and the CMP-resolution path now run through one resolver and one idempotent fan-out, so Prototype inherits the same consent-mode model (analytics / ad_storage / ad_personalization) the Full/MAX path already used, plus a batch of correctness fixes from the 2026-06 architecture audit.
