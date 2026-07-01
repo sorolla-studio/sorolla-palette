@@ -461,12 +461,15 @@ namespace Sorolla.Palette
             }
         }
 
-        // The simple ready transition used by the non-MAX path and the degraded MAX path: flip the
-        // flag, drain the pre-consent queue, fire OnInitialized. The normal MAX path has its own
-        // richer ready tail in OnMaxSdkInitialized (consent markers must lead the flush, DR-41).
-        static void CompleteInitialization()
+        // The ready transition shared by every init path: flip the flag, optionally run
+        // caller-supplied work while IsInitialized is already true but before the pre-consent queue
+        // drains (the MAX path uses this to emit consent markers - DR-41: they must lead the flush
+        // so a BQ query on consent_resolved doesn't miss the whole flushed batch), then drain the
+        // queue and fire OnInitialized.
+        static void CompleteInitialization(Action beforeFlush = null)
         {
             IsInitialized = true;
+            beforeFlush?.Invoke();
             FlushPending();
             OnInitialized?.Invoke();
             PaletteLog.Vital($"{Tag} Ready!");
@@ -583,40 +586,35 @@ namespace Sorolla.Palette
             }
 #endif
 
-            IsInitialized = true;
-
-            // Emit the consent markers BEFORE flushing the pre-consent queue (DR-41). FlushPending
-            // dispatches every event that landed during the CMP window; if consent_resolved went out
-            // after that, BQ queries that window on the consent_resolved marker would miss the whole
-            // flushed batch. IsInitialized is already true here, so these TrackEvent calls dispatch
-            // synchronously (not re-queued behind the pending events) and therefore lead the flush.
+            // IsInitialized is set inside CompleteInitialization, before beforeFlush runs, so these
+            // TrackEvent calls dispatch synchronously (not re-queued behind the pending events) and
+            // therefore lead the flush (DR-41).
             //
             // Ship the consent decision to analytics so we can query consent-drop cohorts from our own
             // data. `gdpr` + `att` are the two raw user decisions; `personalized_ads` + `analytics` are
             // what the SDK RESOLVED them into. On iOS personalized ads require BOTH gdpr ad-consent AND
             // att=authorized, so gdpr=obtained + att=denied -> personalized_ads=false is a valid,
             // non-personalized user. Read the resolved booleans, not the raw decisions, for behavior.
-            var resolved = new Dictionary<string, object>
+            CompleteInitialization(() =>
             {
-                { "gdpr", ConsentCoordinator.GdprString(MaxAdapter.ConsentStatus) },
-                { "personalized_ads", ConsentCoordinator.AdPersonalizationAllowed(consent) },
-                { "analytics", MaxAdapter.ConsentStatus != Adapters.ConsentStatus.Denied },
-            };
+                var resolved = new Dictionary<string, object>
+                {
+                    { "gdpr", ConsentCoordinator.GdprString(MaxAdapter.ConsentStatus) },
+                    { "personalized_ads", ConsentCoordinator.AdPersonalizationAllowed(consent) },
+                    { "analytics", MaxAdapter.ConsentStatus != Adapters.ConsentStatus.Denied },
+                };
 #if UNITY_IOS && !UNITY_EDITOR
-            resolved["att_status"] = AttString(ATTBridge.GetStatus());
+                resolved["att_status"] = AttString(ATTBridge.GetStatus());
 #endif
-            TrackEvent("consent_resolved", resolved);
+                TrackEvent("consent_resolved", resolved);
 #if UNITY_IOS && !UNITY_EDITOR
-            TrackEvent("att_decision", new Dictionary<string, object>
-            {
-                { "att_status", AttString(ATTBridge.GetStatus()) },
-                { "source", "max" },
+                TrackEvent("att_decision", new Dictionary<string, object>
+                {
+                    { "att_status", AttString(ATTBridge.GetStatus()) },
+                    { "source", "max" },
+                });
+#endif
             });
-#endif
-
-            FlushPending();
-            OnInitialized?.Invoke();
-            PaletteLog.Vital($"{Tag} Ready!");
         }
 
         static void OnMaxConsentChanged(Adapters.ConsentStatus status)
