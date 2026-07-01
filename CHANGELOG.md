@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Editor-tooling fixes + an internal diagnostics refactor on top of 3.18.1. No public API or telemetry change; not yet tagged.
+
+### Fixed
+- **Editor version sync no longer downgrades a manual AppLovin MAX upgrade** (B-4): `SdkVersionSync` forced every installed package to the registry version on each domain reload, reverting a MAX version the developer had bumped via `MaxVersionChecker`. It now only raises semver-pinned packages up to the registry floor and never downgrades (reuses `MaxVersionChecker.IsNewerVersion`); git-URL-pinned packages stay exact-match enforced.
+- **Build no longer commits a machine-local JDK path** (B-16, Unity 2022 only): the auto-fixer appended `org.gradle.java.home=<absolute local path>` into the version-controlled `gradleTemplate.properties`, breaking every other machine. The JDK home is now injected at build time into the generated `gradle.properties` (via `GradlePropertiesFixer`, mirroring the existing dexing fix), leaving the committed template portable. The build validator no longer errors when the committed template lacks the line.
+- **Auto-fixers no longer write `.backup` files into the tracked `Assets/` tree** (B-17): the manifest and gradle sanitizers copied `<file>.backup` next to version-controlled files on every reload, polluting each game repo's git tree. Dropped; the fixes stay logged and are revertable via git.
+
+### Changed
+- **Diagnostic value types extracted** to `SorollaDiagnostics.Types.cs` (a slice of the AR-9 diagnostics-monolith split): pure move of the diagnostic enums and the row/problem/event/payload DTO structs out of the core file (643 to 538 lines). No behavior change.
+
 ## [3.18.1] - 2026-06-24
 
 ### Changed
