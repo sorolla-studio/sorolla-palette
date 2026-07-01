@@ -529,10 +529,8 @@ namespace Sorolla.Palette.Editor
                     application.Add(activity);
                 }
 
-                var backupPath = LauncherManifestPath + ".backup";
-                File.Copy(LauncherManifestPath, backupPath, true);
                 doc.Save(LauncherManifestPath);
-                Debug.Log($"{Tag} LauncherManifest.xml fixed (backup at {backupPath})");
+                Debug.Log($"{Tag} LauncherManifest.xml fixed (revert via git if needed)");
                 return true;
             }
             catch (System.Exception e)
@@ -622,14 +620,12 @@ namespace Sorolla.Palette.Editor
 
                         if (libraryFixCount > 0)
                         {
-                            var backupPath = AndroidManifestPath + ".backup";
-                            File.Copy(AndroidManifestPath, backupPath, true);
                             doc.Save(AndroidManifestPath);
 
                             if (refreshAssetDatabase)
                                 AssetDatabase.Refresh();
 
-                            Debug.Log($"{Tag} AndroidManifest.xml sanitized successfully (backup at {backupPath})");
+                            Debug.Log($"{Tag} AndroidManifest.xml sanitized successfully (revert via git if needed)");
                         }
                     }
                     catch (System.Exception e)

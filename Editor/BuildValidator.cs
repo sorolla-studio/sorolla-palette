@@ -175,16 +175,13 @@ namespace Sorolla.Palette.Editor
                     string baseGradle = File.ReadAllText(BaseProjectTemplatePath);
                     if (baseGradle.Contains("com.android.tools:r8"))
                     {
-                        string backupPath = BaseProjectTemplatePath + ".backup";
-                        File.Copy(BaseProjectTemplatePath, backupPath, true);
-
                         // Remove the buildscript { ... } block using brace matching
                         string cleaned = RemoveBuildscriptBlock(baseGradle);
                         if (cleaned != baseGradle)
                         {
                             File.WriteAllText(BaseProjectTemplatePath, cleaned);
-                            fixes.Add("Removed R8 version pin from baseProjectTemplate.gradle - incompatible with AGP 8.x (backup created)");
-                            Debug.Log($"{Tag} Removed R8 pin from baseProjectTemplate.gradle (backup at {backupPath})");
+                            fixes.Add("Removed R8 version pin from baseProjectTemplate.gradle - incompatible with AGP 8.x");
+                            Debug.Log($"{Tag} Removed R8 pin from baseProjectTemplate.gradle (revert via git if needed)");
                         }
                     }
                 }
