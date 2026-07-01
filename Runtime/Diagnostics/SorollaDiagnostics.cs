@@ -955,7 +955,7 @@ namespace Sorolla.Palette
                     top = candidate;
             }
 
-            return RuntimeProblemSummary(top);
+            return SorollaRuntimeProblemClassifier.RuntimeProblemSummary(top);
         }
 
         static SorollaDiagnosticSeverity HighestRuntimeProblemSeverity()
@@ -1220,12 +1220,12 @@ namespace Sorolla.Palette
         static void RecordRuntimeProblem(string message, string stackTrace, LogType type, bool isNullReference, bool isFatal)
         {
             float now = Time.realtimeSinceStartup;
-            string safeMessage = SafeDetail(FirstLine(message));
-            string safeStack = FormatStackTrace(stackTrace);
-            string problemType = RuntimeProblemType(message, type, isNullReference, isFatal);
-            string source = RuntimeProblemSource(message, stackTrace);
-            string topFrame = RuntimeProblemTopFrame(stackTrace);
-            string fingerprint = RuntimeProblemFingerprint(problemType, safeMessage, topFrame);
+            string safeMessage = SafeDetail(SorollaRuntimeProblemClassifier.FirstLine(message));
+            string safeStack = SorollaRuntimeProblemClassifier.FormatStackTrace(stackTrace);
+            string problemType = SorollaRuntimeProblemClassifier.RuntimeProblemType(message, type, isNullReference, isFatal);
+            string source = SorollaRuntimeProblemClassifier.RuntimeProblemSource(message, stackTrace);
+            string topFrame = SorollaRuntimeProblemClassifier.RuntimeProblemTopFrame(stackTrace);
+            string fingerprint = SorollaRuntimeProblemClassifier.RuntimeProblemFingerprint(problemType, safeMessage, topFrame);
 
             for (int i = 0; i < s_runtimeProblems.Count; i++)
             {
@@ -1233,7 +1233,7 @@ namespace Sorolla.Palette
                 if (existing.Fingerprint != fingerprint) continue;
 
                 int nextCount = existing.Count + 1;
-                SorollaDiagnosticSeverity severity = RuntimeProblemSeverity(problemType, source, isNullReference, isFatal, nextCount);
+                SorollaDiagnosticSeverity severity = SorollaRuntimeProblemClassifier.RuntimeProblemSeverity(problemType, source, isNullReference, isFatal, nextCount);
                 s_runtimeProblems[i] = existing.WithRepeat(now, severity);
                 return;
             }
@@ -1241,7 +1241,7 @@ namespace Sorolla.Palette
             if (s_runtimeProblems.Count >= MaxRuntimeProblemEntries)
                 s_runtimeProblems.RemoveAt(0);
 
-            SorollaDiagnosticSeverity initialSeverity = RuntimeProblemSeverity(problemType, source, isNullReference, isFatal, 1);
+            SorollaDiagnosticSeverity initialSeverity = SorollaRuntimeProblemClassifier.RuntimeProblemSeverity(problemType, source, isNullReference, isFatal, 1);
             var problem = new SorollaRuntimeProblem(
                 unchecked(++s_nextRuntimeProblemId),
                 fingerprint,
@@ -1255,106 +1255,6 @@ namespace Sorolla.Palette
                 topFrame,
                 safeStack);
             s_runtimeProblems.Add(problem);
-        }
-
-        static string FirstLine(string text)
-        {
-            if (string.IsNullOrEmpty(text)) return "";
-            int newline = text.IndexOfAny(new[] { '\n', '\r' });
-            return newline < 0 ? text : text.Substring(0, newline);
-        }
-
-        static string RuntimeProblemType(string message, LogType type, bool isNullReference, bool isFatal)
-        {
-            if (isFatal) return "Fatal";
-            if (isNullReference) return "NullReferenceException";
-            string firstLine = FirstLine(message).Trim();
-            int colon = firstLine.IndexOf(':');
-            string candidate = colon > 0 ? firstLine.Substring(0, colon).Trim() : firstLine;
-            if (candidate.EndsWith("Exception", StringComparison.Ordinal) && candidate.Length <= 80)
-                return candidate;
-            return type.ToString();
-        }
-
-        static string RuntimeProblemSource(string message, string stackTrace)
-        {
-            string combined = (message ?? "") + "\n" + (stackTrace ?? "");
-            if (combined.IndexOf("SorollaDiagnostics", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "Vitals";
-            if (combined.IndexOf("Sorolla.Palette", StringComparison.OrdinalIgnoreCase) >= 0
-                || combined.IndexOf("[Palette", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "Sorolla SDK";
-            if (combined.IndexOf("MaxSdk", StringComparison.OrdinalIgnoreCase) >= 0
-                || combined.IndexOf("AppLovin", StringComparison.OrdinalIgnoreCase) >= 0
-                || combined.IndexOf("Adjust", StringComparison.OrdinalIgnoreCase) >= 0
-                || combined.IndexOf("Firebase", StringComparison.OrdinalIgnoreCase) >= 0
-                || combined.IndexOf("Facebook", StringComparison.OrdinalIgnoreCase) >= 0
-                || combined.IndexOf("GameAnalytics", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "Vendor SDK";
-            if (combined.IndexOf("Assembly-CSharp", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "Game";
-            return "Unity/System";
-        }
-
-        static string RuntimeProblemTopFrame(string stackTrace)
-        {
-            if (string.IsNullOrEmpty(stackTrace)) return "No stack trace";
-
-            string[] lines = stackTrace.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-            for (int i = 0; i < lines.Length; i++)
-            {
-                string line = lines[i].Trim();
-                if (IsUsefulRuntimeFrame(line))
-                    return SafeSingleLine(line, 140);
-            }
-
-            return SafeSingleLine(lines[0].Trim(), 140);
-        }
-
-        static bool IsUsefulRuntimeFrame(string frame)
-        {
-            if (string.IsNullOrEmpty(frame)) return false;
-            return frame.IndexOf("UnityEngine.", StringComparison.Ordinal) < 0
-                && frame.IndexOf("UnityEditor.", StringComparison.Ordinal) < 0
-                && frame.IndexOf("System.", StringComparison.Ordinal) < 0
-                && frame.IndexOf("Application.CallLogCallback", StringComparison.Ordinal) < 0;
-        }
-
-        static string RuntimeProblemFingerprint(string type, string message, string topFrame)
-        {
-            return $"{type}|{message}|{topFrame}";
-        }
-
-        static string FormatStackTrace(string stackTrace)
-        {
-            if (string.IsNullOrEmpty(stackTrace)) return "No stack trace";
-
-            string[] lines = stackTrace.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-            var sb = new StringBuilder(768);
-            int written = 0;
-            for (int i = 0; i < lines.Length && written < 12; i++)
-            {
-                string line = lines[i].Trim();
-                if (line.Length == 0) continue;
-                if (written > 0) sb.AppendLine();
-                sb.Append(SafeSingleLine(line, 160));
-                written++;
-            }
-
-            return written == 0 ? "No stack trace" : sb.ToString();
-        }
-
-        static SorollaDiagnosticSeverity RuntimeProblemSeverity(string type, string source, bool isNullReference, bool isFatal,
-            int count)
-        {
-            if (isFatal || isNullReference || source == "Sorolla SDK" || source == "Vitals" || count >= 3)
-                return SorollaDiagnosticSeverity.Fail;
-            return SorollaDiagnosticSeverity.Warning;
-        }
-
-        static string RuntimeProblemSummary(SorollaRuntimeProblem problem)
-        {
-            return $"{problem.Source}: {problem.Type} x{problem.Count} at {problem.TopFrame}";
         }
 
         static void ParsePaletteLog(string message)
