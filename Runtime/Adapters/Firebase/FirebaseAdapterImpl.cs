@@ -20,7 +20,7 @@ namespace Sorolla.Palette.Adapters
         // checked here as a defensive layer for the internal callers that reach FirebaseAdapter
         // directly, bypassing the Palette gate (e.g. MAX ad telemetry, purchase quality events).
         static readonly string[] ReservedNamePrefixes = { "ga_", "google_", "firebase_" };
-        readonly Queue<Action> _pendingEvents = new Queue<Action>();
+        readonly PendingActionQueue _pendingEvents = new PendingActionQueue();
         bool _adStorageConsent;
         bool _adPersonalizationConsent;
         bool _analyticsConsent;
@@ -379,18 +379,13 @@ namespace Sorolla.Palette.Adapters
         void FlushPendingEvents()
         {
             // Catch-continue per event so one vendor/SDK throw can't strand the rest of the queue (DR-38).
-            while (_pendingEvents.Count > 0)
+            _pendingEvents.Flush(e =>
             {
-                Action action = _pendingEvents.Dequeue();
-                try { action?.Invoke(); }
-                catch (Exception e)
-                {
-                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics,
-                        AdapterDiagnosticStatus.Warning, "queued_event_threw",
-                        "Queued Firebase event threw during flush");
-                    PaletteLog.Warning($"{Tag} Queued event threw during flush: {e.Message}");
-                }
-            }
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics,
+                    AdapterDiagnosticStatus.Warning, "queued_event_threw",
+                    "Queued Firebase event threw during flush");
+                PaletteLog.Warning($"{Tag} Queued event threw during flush: {e.Message}");
+            });
         }
 
         void QueueOrExecute(Action action)

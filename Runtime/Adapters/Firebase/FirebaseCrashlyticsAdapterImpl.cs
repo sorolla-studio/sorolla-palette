@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Firebase.Crashlytics;
 using UnityEngine;
 using UnityEngine.Scripting;
@@ -17,7 +16,7 @@ namespace Sorolla.Palette.Adapters
         private bool _ready;
         private bool _initFailed;
         private bool _captureExceptions;
-        private readonly Queue<Action> _pendingActions = new();
+        private readonly PendingActionQueue _pendingActions = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         [Preserve]
@@ -69,18 +68,13 @@ namespace Sorolla.Palette.Adapters
         private void FlushPendingActions()
         {
             // Catch-continue per action so one throw can't strand the rest of the queue (DR-38).
-            while (_pendingActions.Count > 0)
+            _pendingActions.Flush(e =>
             {
-                var action = _pendingActions.Dequeue();
-                try { action?.Invoke(); }
-                catch (Exception e)
-                {
-                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCrashlytics,
-                        AdapterDiagnosticStatus.Warning, "queued_action_threw",
-                        "Queued Crashlytics action threw during flush");
-                    PaletteLog.Warning($"{Tag} Queued action threw during flush: {e.Message}");
-                }
-            }
+                AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseCrashlytics,
+                    AdapterDiagnosticStatus.Warning, "queued_action_threw",
+                    "Queued Crashlytics action threw during flush");
+                PaletteLog.Warning($"{Tag} Queued action threw during flush: {e.Message}");
+            });
         }
 
         private void QueueOrExecute(Action action)

@@ -434,18 +434,14 @@ namespace Sorolla.Palette
         // Events fired from game Awake/Start can land before MAX CMP resolves on iOS
         // (pre-consent window is ~1-3s). Queue them here and flush on IsInitialized
         // so adapter dispatch always runs with resolved consent.
-        static readonly Queue<Action> s_pendingEvents = new Queue<Action>();
         const int PendingQueueCap = 256;
+        static readonly PendingActionQueue s_pendingEvents = new PendingActionQueue(PendingQueueCap);
 
         static void QueueOrExecute(Action action)
         {
             if (IsInitialized) { action(); return; }
-            if (s_pendingEvents.Count >= PendingQueueCap)
-            {
-                PaletteLog.Warning($"{Tag} Pending event queue full ({PendingQueueCap}); dropping oldest.");
-                s_pendingEvents.Dequeue();
-            }
-            s_pendingEvents.Enqueue(action);
+            s_pendingEvents.Enqueue(action, onEvicted: () =>
+                PaletteLog.Warning($"{Tag} Pending event queue full ({PendingQueueCap}); dropping oldest."));
         }
 
         static void FlushPending()
@@ -454,11 +450,7 @@ namespace Sorolla.Palette
             PaletteLog.Verbose($"{Tag} Flushing {s_pendingEvents.Count} queued event(s).");
             // Catch-continue per event: one vendor throw must not strand the rest of the queue or
             // (since this runs inside OnMaxSdkInitialized) skip OnInitialized / consent markers (DR-38).
-            while (s_pendingEvents.Count > 0)
-            {
-                try { s_pendingEvents.Dequeue().Invoke(); }
-                catch (Exception e) { PaletteLog.Warning($"{Tag} Queued event threw during flush: {e.Message}"); }
-            }
+            s_pendingEvents.Flush(e => PaletteLog.Warning($"{Tag} Queued event threw during flush: {e.Message}"));
         }
 
         // The ready transition shared by every init path: flip the flag, optionally run
