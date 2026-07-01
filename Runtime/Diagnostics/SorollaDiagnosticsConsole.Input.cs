@@ -12,12 +12,12 @@ namespace Sorolla.Palette
 
         void CheckTouchToggle()
         {
-            UpdateUiScale();
-            if (_tapUnlock.Poll(_uiScale))
+            _theme.UpdateUiScale();
+            if (_tapUnlock.Poll(_theme.UiScale))
                 SetVisible(true);
         }
 
-        void CheckTouchScroll() => _scrollDrag.Update(ref _scroll, _uiScale);
+        void CheckTouchScroll() => _scrollDrag.Update(ref _scroll, _theme.UiScale);
 
         void ResetTouchScroll() => _scrollDrag.Reset();
     }

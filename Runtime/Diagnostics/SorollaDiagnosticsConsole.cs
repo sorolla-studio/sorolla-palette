@@ -135,10 +135,10 @@ namespace Sorolla.Palette
         readonly int[] _healthCounts = new int[SeverityCount];
         readonly SorollaConsoleScrollDrag _scrollDrag = new SorollaConsoleScrollDrag();
         readonly SorollaConsoleTapUnlock _tapUnlock = new SorollaConsoleTapUnlock();
+        readonly SorollaConsoleTheme _theme = new SorollaConsoleTheme();
         int _problemCount;
         Vector2 _scroll;
         bool _visible;
-        float _uiScale = 1f;
         float _contentWidth = 320f;
         float _nextDiagnosticsRefreshTime;
         bool _diagnosticsCacheDirty = true;
@@ -149,41 +149,6 @@ namespace Sorolla.Palette
         bool _activeTabInitialized;
         bool _showNewestEventsFirst = true;
         string _headerContextLine = string.Empty;
-        GUIStyle _titleStyle;
-        GUIStyle _sectionStyle;
-        GUIStyle _sectionButtonStyle;
-        GUIStyle _rowNameStyle;
-        GUIStyle _rowNameInlineStyle;
-        GUIStyle _detailStyle;
-        GUIStyle _miniDetailStyle;
-        GUIStyle _badgeStyle;
-        GUIStyle _buttonStyle;
-        GUIStyle _selectedButtonStyle;
-        GUIStyle _tabStyle;
-        GUIStyle _activeTabStyle;
-        GUIStyle _panelStyle;
-        GUIStyle _summaryStyle;
-        GUIStyle _rowStyle;
-        GUIStyle _rowAltStyle;
-        GUIStyle _rowProblemStyle;
-        GUIStyle _rowWarningStyle;
-        Texture2D _panelBackground;
-        Texture2D _summaryBackground;
-        Texture2D _rowBackground;
-        Texture2D _rowAltBackground;
-        Texture2D _rowProblemBackground;
-        Texture2D _rowWarningBackground;
-        Texture2D _sectionBackground;
-        Texture2D _buttonBackground;
-        Texture2D _buttonActiveBackground;
-        Texture2D _buttonSelectedBackground;
-        Texture2D _tabBackground;
-        Texture2D _activeTabBackground;
-        Texture2D _passBackground;
-        Texture2D _warnBackground;
-        Texture2D _failBackground;
-        Texture2D _waitBackground;
-        Texture2D _infoBackground;
 
         internal static void Ensure(GameObject host)
         {
@@ -252,7 +217,7 @@ namespace Sorolla.Palette
                 SorollaDiagnostics.UninstallUnityLogSink();
             }
 
-            DestroyStyleResources();
+            _theme.DestroyStyleResources();
         }
 
         void Update()
@@ -262,7 +227,7 @@ namespace Sorolla.Palette
 
             if (_visible)
             {
-                UpdateUiScale();
+                _theme.UpdateUiScale();
                 CheckTouchScroll();
                 RefreshDiagnosticsCacheIfNeeded();
             }
@@ -276,15 +241,15 @@ namespace Sorolla.Palette
         {
             if (!_visible) return;
 
-            EnsureStyles();
+            _theme.EnsureStyles();
 
             GUI.depth = -1000;
             Rect screenArea = new Rect(0f, 0f, Screen.width, Screen.height);
             Rect area = SafeAreaForGui();
             UpdateLayoutMetrics(area);
 
-            GUI.DrawTexture(screenArea, GetPanelBackground(), ScaleMode.StretchToFill, true);
-            GUILayout.BeginArea(area, _panelStyle);
+            GUI.DrawTexture(screenArea, _theme.GetPanelBackground(), ScaleMode.StretchToFill, true);
+            GUILayout.BeginArea(area, _theme.PanelStyle);
             DrawHeader();
             _scroll = GUILayout.BeginScrollView(_scroll);
             DrawActiveTab();
@@ -294,7 +259,7 @@ namespace Sorolla.Palette
 
         void UpdateLayoutMetrics(Rect area)
         {
-            int horizontalPadding = _panelStyle?.padding.horizontal ?? 0;
+            int horizontalPadding = _theme.PanelStyle?.padding.horizontal ?? 0;
             _contentWidth = Mathf.Max(1f, area.width - horizontalPadding);
         }
 

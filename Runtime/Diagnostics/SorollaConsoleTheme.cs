@@ -2,7 +2,14 @@ using UnityEngine;
 
 namespace Sorolla.Palette
 {
-    internal sealed partial class SorollaDiagnosticsConsole
+    /// <summary>
+    ///     Owns the diagnostics console's IMGUI theme: the resolution-scaled GUIStyles, the flat
+    ///     background textures they draw, the ui-scale computation, and their build/rebuild/destroy
+    ///     lifecycle. Extracted from the console MonoBehaviour so the styling concern (the bulk of
+    ///     its fields) lives in one place. Styles are public because the console's draw code reads
+    ///     them; the backing textures stay private behind SeverityBackground/GetPanelBackground.
+    /// </summary>
+    internal sealed class SorollaConsoleTheme
     {
         const float DefaultTitleFontSize = 24f;
         const float DefaultTextFontSize = 14.7f;
@@ -30,8 +37,48 @@ namespace Sorolla.Palette
         float _minUiScale = DefaultMinUiScale;
         float _maxUiScale = DefaultMaxUiScale;
         float _stylesUiScale = -1f;
+        float _uiScale = 1f;
 
-        void EnsureStyles()
+        public GUIStyle TitleStyle;
+        public GUIStyle SectionStyle;
+        public GUIStyle SectionButtonStyle;
+        public GUIStyle RowNameStyle;
+        public GUIStyle RowNameInlineStyle;
+        public GUIStyle DetailStyle;
+        public GUIStyle MiniDetailStyle;
+        public GUIStyle BadgeStyle;
+        public GUIStyle ButtonStyle;
+        public GUIStyle SelectedButtonStyle;
+        public GUIStyle TabStyle;
+        public GUIStyle ActiveTabStyle;
+        public GUIStyle PanelStyle;
+        public GUIStyle SummaryStyle;
+        public GUIStyle RowStyle;
+        public GUIStyle RowAltStyle;
+        public GUIStyle RowProblemStyle;
+        public GUIStyle RowWarningStyle;
+
+        Texture2D _panelBackground;
+        Texture2D _summaryBackground;
+        Texture2D _rowBackground;
+        Texture2D _rowAltBackground;
+        Texture2D _rowProblemBackground;
+        Texture2D _rowWarningBackground;
+        Texture2D _sectionBackground;
+        Texture2D _buttonBackground;
+        Texture2D _buttonActiveBackground;
+        Texture2D _buttonSelectedBackground;
+        Texture2D _tabBackground;
+        Texture2D _activeTabBackground;
+        Texture2D _passBackground;
+        Texture2D _warnBackground;
+        Texture2D _failBackground;
+        Texture2D _waitBackground;
+        Texture2D _infoBackground;
+
+        public float UiScale => _uiScale;
+
+        public void EnsureStyles()
         {
             UpdateUiScale();
 
@@ -39,8 +86,8 @@ namespace Sorolla.Palette
             int textSize = Mathf.RoundToInt(_textFontSize * _uiScale);
             int smallSize = Mathf.RoundToInt(_smallFontSize * _uiScale);
 
-            if (_titleStyle != null && _rowNameInlineStyle != null &&
-                _titleStyle.fontSize == titleSize && Mathf.Approximately(_stylesUiScale, _uiScale)) return;
+            if (TitleStyle != null && RowNameInlineStyle != null &&
+                TitleStyle.fontSize == titleSize && Mathf.Approximately(_stylesUiScale, _uiScale)) return;
 
             _stylesUiScale = _uiScale;
             RebuildTextures();
@@ -52,14 +99,14 @@ namespace Sorolla.Palette
             int buttonPadX = Mathf.RoundToInt(_buttonPadX * _uiScale);
             int buttonPadY = Mathf.RoundToInt(_buttonPadY * _uiScale);
 
-            _panelStyle = new GUIStyle(GUI.skin.box)
+            PanelStyle = new GUIStyle(GUI.skin.box)
             {
                 padding = new RectOffset(padX, padX, padY, padY),
                 normal = { background = null },
             };
-            _panelStyle.onNormal.background = null;
+            PanelStyle.onNormal.background = null;
 
-            _titleStyle = new GUIStyle(GUI.skin.label)
+            TitleStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = titleSize,
                 fontStyle = FontStyle.Bold,
@@ -67,7 +114,7 @@ namespace Sorolla.Palette
                 normal = { textColor = new Color(0.95f, 0.96f, 0.97f, 1f) },
             };
 
-            _sectionStyle = new GUIStyle(GUI.skin.label)
+            SectionStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = textSize,
                 fontStyle = FontStyle.Bold,
@@ -75,7 +122,7 @@ namespace Sorolla.Palette
                 normal = { textColor = new Color(0.5f, 0.9f, 0.94f, 1f) },
             };
 
-            _sectionButtonStyle = new GUIStyle(GUI.skin.button)
+            SectionButtonStyle = new GUIStyle(GUI.skin.button)
             {
                 fontSize = textSize,
                 fontStyle = FontStyle.Bold,
@@ -87,7 +134,7 @@ namespace Sorolla.Palette
                 padding = new RectOffset(rowPadX + 3, rowPadX + 3, rowPadY + 2, rowPadY + 2),
             };
 
-            _rowNameStyle = new GUIStyle(GUI.skin.label)
+            RowNameStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = textSize,
                 fontStyle = FontStyle.Bold,
@@ -95,26 +142,26 @@ namespace Sorolla.Palette
                 normal = { textColor = new Color(0.95f, 0.97f, 0.98f, 1f) },
             };
 
-            _rowNameInlineStyle = new GUIStyle(_rowNameStyle)
+            RowNameInlineStyle = new GUIStyle(RowNameStyle)
             {
                 alignment = TextAnchor.MiddleLeft,
                 wordWrap = false,
             };
 
-            _detailStyle = new GUIStyle(GUI.skin.label)
+            DetailStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = smallSize,
                 wordWrap = true,
                 normal = { textColor = new Color(0.8f, 0.84f, 0.88f, 1f) },
             };
 
-            _miniDetailStyle = new GUIStyle(_detailStyle)
+            MiniDetailStyle = new GUIStyle(DetailStyle)
             {
                 fontSize = Mathf.Max(10, smallSize - 1),
                 normal = { textColor = new Color(0.72f, 0.77f, 0.82f, 1f) },
             };
 
-            _badgeStyle = new GUIStyle(GUI.skin.label)
+            BadgeStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = smallSize,
                 fontStyle = FontStyle.Bold,
@@ -123,7 +170,7 @@ namespace Sorolla.Palette
                 padding = new RectOffset(rowPadX, rowPadX, 0, 0),
             };
 
-            _buttonStyle = new GUIStyle(GUI.skin.button)
+            ButtonStyle = new GUIStyle(GUI.skin.button)
             {
                 fontSize = smallSize,
                 fontStyle = FontStyle.Bold,
@@ -133,14 +180,14 @@ namespace Sorolla.Palette
                 padding = new RectOffset(buttonPadX, buttonPadX, buttonPadY, buttonPadY),
             };
 
-            _selectedButtonStyle = new GUIStyle(_buttonStyle)
+            SelectedButtonStyle = new GUIStyle(ButtonStyle)
             {
                 normal = { textColor = Color.white, background = _buttonSelectedBackground },
                 hover = { textColor = Color.white, background = _buttonSelectedBackground },
                 active = { textColor = Color.white, background = _buttonSelectedBackground },
             };
 
-            _tabStyle = new GUIStyle(_buttonStyle)
+            TabStyle = new GUIStyle(ButtonStyle)
             {
                 fontSize = textSize,
                 normal = { textColor = new Color(0.68f, 0.73f, 0.78f, 1f), background = _tabBackground },
@@ -148,42 +195,42 @@ namespace Sorolla.Palette
                 active = { textColor = Color.white, background = _activeTabBackground },
             };
 
-            _activeTabStyle = new GUIStyle(_tabStyle)
+            ActiveTabStyle = new GUIStyle(TabStyle)
             {
                 normal = { textColor = Color.white, background = _activeTabBackground },
                 hover = { textColor = Color.white, background = _activeTabBackground },
                 active = { textColor = Color.white, background = _activeTabBackground },
             };
 
-            _summaryStyle = new GUIStyle(GUI.skin.box)
+            SummaryStyle = new GUIStyle(GUI.skin.box)
             {
                 padding = new RectOffset(rowPadX + 3, rowPadX + 3, rowPadY + 3, rowPadY + 3),
                 normal = { background = _summaryBackground },
             };
 
-            _rowStyle = new GUIStyle(GUI.skin.box)
+            RowStyle = new GUIStyle(GUI.skin.box)
             {
                 padding = new RectOffset(rowPadX, rowPadX, rowPadY + 1, rowPadY + 1),
                 normal = { background = _rowBackground },
             };
 
-            _rowAltStyle = new GUIStyle(_rowStyle)
+            RowAltStyle = new GUIStyle(RowStyle)
             {
                 normal = { background = _rowAltBackground },
             };
 
-            _rowProblemStyle = new GUIStyle(_rowStyle)
+            RowProblemStyle = new GUIStyle(RowStyle)
             {
                 normal = { background = _rowProblemBackground },
             };
 
-            _rowWarningStyle = new GUIStyle(_rowStyle)
+            RowWarningStyle = new GUIStyle(RowStyle)
             {
                 normal = { background = _rowWarningBackground },
             };
         }
 
-        void UpdateUiScale()
+        public void UpdateUiScale()
         {
             float shortSide = Mathf.Min(Screen.width, Screen.height);
             float reference = Mathf.Max(1f, _scaleReferenceShortSide);
@@ -215,7 +262,7 @@ namespace Sorolla.Palette
             _infoBackground = CreateTexture(new Color(0.42f, 0.46f, 0.5f, 1f));
         }
 
-        void DestroyStyleResources()
+        public void DestroyStyleResources()
         {
             DestroyTexture(ref _panelBackground);
             DestroyTexture(ref _summaryBackground);
@@ -236,7 +283,7 @@ namespace Sorolla.Palette
             DestroyTexture(ref _infoBackground);
         }
 
-        Texture2D SeverityBackground(SorollaDiagnosticSeverity severity)
+        public Texture2D SeverityBackground(SorollaDiagnosticSeverity severity)
         {
             switch (severity)
             {
@@ -253,7 +300,7 @@ namespace Sorolla.Palette
             }
         }
 
-        static Color BadgeTextColor(SorollaDiagnosticSeverity severity)
+        public static Color BadgeTextColor(SorollaDiagnosticSeverity severity)
         {
             return severity == SorollaDiagnosticSeverity.Warning ? new Color(0.12f, 0.09f, 0.02f) : Color.white;
         }
@@ -274,11 +321,11 @@ namespace Sorolla.Palette
         static void DestroyTexture(ref Texture2D texture)
         {
             if (texture == null) return;
-            Destroy(texture);
+            Object.Destroy(texture);
             texture = null;
         }
 
-        Texture2D GetPanelBackground()
+        public Texture2D GetPanelBackground()
         {
             if (_panelBackground == null)
                 _panelBackground = CreateTexture(new Color(0.01f, 0.012f, 0.016f, 1f));
