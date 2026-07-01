@@ -282,7 +282,7 @@ namespace Sorolla.Palette
             string label = string.IsNullOrEmpty(counts) ? $"{prefix} {group}" : $"{prefix} {group}  ·  {counts}";
             if (DrawButton(label, _sectionButtonStyle, SectionHeaderHeight()))
             {
-                if (!_ignoreSectionToggleAfterDrag)
+                if (!_scrollDrag.IgnoreSectionToggleAfterDrag)
                 {
                     state.Expanded = !state.Expanded;
                     state.UserToggled = true;

@@ -8,7 +8,6 @@ namespace Sorolla.Palette
         const int RequiredTapCount = 5;
         const float TapWindowSeconds = 2f;
         const float FinalTapHoldSeconds = 0.8f;
-        const float ScrollDragThresholdPixels = 10f;
         const float DiagnosticsRefreshIntervalSeconds = 0.2f;
 
         static SorollaDiagnosticsConsole s_instance;
@@ -137,6 +136,7 @@ namespace Sorolla.Palette
         readonly List<int> _staleExpandedConsoleRows = new List<int>(8);
         readonly int[] _severityCounts = new int[SeverityCount];
         readonly int[] _healthCounts = new int[SeverityCount];
+        readonly SorollaConsoleScrollDrag _scrollDrag = new SorollaConsoleScrollDrag();
         int _problemCount;
         Vector2 _scroll;
         bool _visible;
@@ -146,14 +146,9 @@ namespace Sorolla.Palette
         float _contentWidth = 320f;
         float _nextDiagnosticsRefreshTime;
         bool _diagnosticsCacheDirty = true;
-        int _scrollTouchId = -1;
-        bool _scrollTouchDragging;
-        bool _ignoreSectionToggleAfterDrag;
         bool _unlockHoldPointer;
         int _unlockHoldTouchId = -1;
         float _unlockHoldStartTime;
-        Vector2 _scrollTouchStartPosition;
-        Vector2 _lastScrollTouchPosition;
         RowFilter _filter = RowFilter.All;
         ConsoleTab _activeTab = ConsoleTab.Vitals;
         ConsoleFilter _consoleFilter = ConsoleFilter.All;

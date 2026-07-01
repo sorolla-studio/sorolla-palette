@@ -110,66 +110,8 @@ namespace Sorolla.Palette
                 && screenPosition.y >= safeArea.yMax - tapArea;
         }
 
-        void CheckTouchScroll()
-        {
-            int touchCount = SorollaDiagnosticsInput.TouchCount;
-            if (touchCount == 0)
-            {
-                ResetTouchScroll();
-                return;
-            }
+        void CheckTouchScroll() => _scrollDrag.Update(ref _scroll, _uiScale);
 
-            for (int i = 0; i < touchCount; i++)
-            {
-                if (!SorollaDiagnosticsInput.TryGetTouch(i, out SorollaDiagnosticsInputTouch touch))
-                    continue;
-
-                if (_scrollTouchId == -1 && touch.Phase == SorollaDiagnosticsInputTouchPhase.Began)
-                {
-                    _scrollTouchId = touch.fingerId;
-                    _scrollTouchDragging = false;
-                    _ignoreSectionToggleAfterDrag = false;
-                    _scrollTouchStartPosition = touch.position;
-                    _lastScrollTouchPosition = touch.position;
-                    return;
-                }
-
-                if (touch.fingerId != _scrollTouchId)
-                    continue;
-
-                if (touch.Phase == SorollaDiagnosticsInputTouchPhase.Moved)
-                {
-                    Vector2 delta = touch.position - _lastScrollTouchPosition;
-                    if (!_scrollTouchDragging)
-                    {
-                        Vector2 totalDelta = touch.position - _scrollTouchStartPosition;
-                        if (Mathf.Abs(totalDelta.y) < ScrollDragThresholdPixels * _uiScale)
-                            return;
-
-                        _scrollTouchDragging = true;
-                        _ignoreSectionToggleAfterDrag = true;
-                    }
-
-                    _scroll.y += delta.y;
-                    _scroll.y = Mathf.Max(0f, _scroll.y);
-                    _lastScrollTouchPosition = touch.position;
-                }
-
-                if (touch.Phase == SorollaDiagnosticsInputTouchPhase.Ended || touch.Phase == SorollaDiagnosticsInputTouchPhase.Canceled)
-                {
-                    _scrollTouchId = -1;
-                    _scrollTouchDragging = false;
-                }
-
-                return;
-            }
-        }
-
-        void ResetTouchScroll()
-        {
-            _scrollTouchId = -1;
-            _scrollTouchDragging = false;
-            _ignoreSectionToggleAfterDrag = false;
-        }
+        void ResetTouchScroll() => _scrollDrag.Reset();
     }
 }
