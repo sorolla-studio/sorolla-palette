@@ -62,17 +62,12 @@ namespace Sorolla.Palette
                 PaletteLog.Error($"{Tag} TrackPurchase(PendingOrder): invalid metadata - " +
                     $"product_id='{productId}', localizedPrice={rawPrice}, isoCurrencyCode='{rawCurrency}'. " +
                     $"Dropping event.");
-#if FIREBASE_ANALYTICS_INSTALLED
-                FirebaseAdapter.TrackEvent("sorolla_purchase_data_quality_failure", new Dictionary<string, object>
-                {
-                    { "reason", rawPrice <= 0m ? "non_positive_price" : "non_iso_currency" },
-                    { "raw_currency", rawCurrency ?? "null" },
-                    { "raw_price", (double)rawPrice },
-                    { "product_id", productId ?? "null" },
-                    { "platform", Application.platform.ToString() },
-                    { "source", "pending_order" },
-                });
-#endif
+                ReportPurchaseDataQualityFailure(
+                    reason: rawPrice <= 0m ? "non_positive_price" : "non_iso_currency",
+                    productId: productId,
+                    rawCurrency: rawCurrency,
+                    rawPrice: (double)rawPrice,
+                    source: "pending_order");
                 return;
             }
 
@@ -255,15 +250,12 @@ namespace Sorolla.Palette
                 // outright. Drop rather than forward corrupt revenue.
                 PaletteLog.Error($"{Tag} TrackPurchase: currency '{currency}' is not ISO 4217 - dropping event. " +
                     $"Pass Product.metadata.isoCurrencyCode or use Palette.AttachPurchaseTracking(store).");
-#if FIREBASE_ANALYTICS_INSTALLED
-                FirebaseAdapter.TrackEvent("sorolla_purchase_data_quality_failure", new Dictionary<string, object>
-                {
-                    { "reason", "non_iso_currency_lowlevel" },
-                    { "raw_currency", currency ?? "null" },
-                    { "amount", amount },
-                    { "product_id", productId ?? "null" },
-                });
-#endif
+                ReportPurchaseDataQualityFailure(
+                    reason: "non_iso_currency_lowlevel",
+                    productId: productId,
+                    rawCurrency: currency,
+                    rawPrice: amount,
+                    source: "lowlevel");
                 return;
             }
 
@@ -334,6 +326,23 @@ namespace Sorolla.Palette
         static bool IsIso4217(string c) =>
             !string.IsNullOrEmpty(c) && c.Length == 3
             && char.IsLetter(c[0]) && char.IsLetter(c[1]) && char.IsLetter(c[2]);
+
+        // Single builder for the purchase data-quality-failure diagnostic event so both TrackPurchase
+        // overloads report the same shape instead of two independently drifting payloads.
+        static void ReportPurchaseDataQualityFailure(string reason, string productId, string rawCurrency, double rawPrice, string source)
+        {
+#if FIREBASE_ANALYTICS_INSTALLED
+            FirebaseAdapter.TrackEvent("sorolla_purchase_data_quality_failure", new Dictionary<string, object>
+            {
+                { "reason", reason },
+                { "raw_currency", rawCurrency ?? "null" },
+                { "raw_price", rawPrice },
+                { "product_id", productId ?? "null" },
+                { "platform", Application.platform.ToString() },
+                { "source", source },
+            });
+#endif
+        }
 
         [Serializable] class JwsEnvironmentClaim { public string environment; }
 
