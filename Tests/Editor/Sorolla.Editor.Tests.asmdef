@@ -3,6 +3,7 @@
     "rootNamespace": "Sorolla.Palette.Editor.Tests",
     "references": [
         "Sorolla.Editor",
+        "Sorolla.Runtime",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
