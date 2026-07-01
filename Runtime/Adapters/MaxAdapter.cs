@@ -69,14 +69,19 @@ namespace Sorolla.Palette.Adapters
         public readonly string Currency;
         public readonly string AdFormat;
         public readonly string RevenuePrecision;
+        public readonly string AdUnitIdentifier;
+        public readonly string Placement;
 
-        public MaxAdRevenueInfo(string network, double revenue, string currency, string adFormat, string revenuePrecision)
+        public MaxAdRevenueInfo(string network, double revenue, string currency, string adFormat, string revenuePrecision,
+            string adUnitIdentifier = null, string placement = null)
         {
             Network = network;
             Revenue = revenue;
             Currency = currency;
             AdFormat = adFormat;
             RevenuePrecision = revenuePrecision;
+            AdUnitIdentifier = adUnitIdentifier;
+            Placement = placement;
         }
     }
 

@@ -745,39 +745,12 @@ namespace Sorolla.Palette.Adapters
                 return;
             }
 
-            // revenuePrecision is one of: publisher_defined | exact | estimated | undefined | "".
-            string revenuePrecision = adInfo.RevenuePrecision;
-
-            // Record the dispatch directly so the Sorolla Vitals "Ad revenue" row reflects a real
-            // forwarded impression, independent of log verbosity / installed vendors (DR-09).
-            MaxAdapter.RecordAdRevenue(new MaxAdRevenueInfo(adInfo.NetworkName, revenue, "USD", adFormat, revenuePrecision));
-
-#if SOROLLA_ADJUST_ENABLED
-            AdjustAdapter.TrackAdRevenue(new AdRevenueInfo
-            {
-                Source = AdRevenueInfo.DefaultSource,
-                Revenue = revenue,
-                Currency = "USD",
-                Network = adInfo.NetworkName,
-                AdUnit = adInfo.AdUnitIdentifier,
-                Placement = adInfo.Placement,
-            });
-#endif
-
-            // TikTok ad revenue (always call - stub no-ops if not initialized)
-            TikTokAdapter.TrackAdRevenue(revenue, "USD", adInfo.NetworkName,
-                adFormat, adInfo.AdUnitIdentifier, adInfo.Placement);
-
-            // Firebase ad_impression event
-            FirebaseAdapter.TrackAdImpression(
-                adPlatform: "applovin_max",
-                adSource: adInfo.NetworkName,
-                adFormat: adFormat,
-                adUnitName: adInfo.AdUnitIdentifier,
-                revenue: revenue,
-                currency: "USD",
-                revenuePrecision: revenuePrecision
-            );
+            // Record the dispatch so the Sorolla Vitals "Ad revenue" row reflects a real forwarded
+            // impression, independent of log verbosity / installed vendors (DR-09). This also fans
+            // the event out to Adjust/TikTok/Firebase via MaxAdRevenueRelay, which subscribes to
+            // MaxAdapter.OnAdRevenueTracked - the MAX bridge itself stays MAX-only.
+            MaxAdapter.RecordAdRevenue(new MaxAdRevenueInfo(adInfo.NetworkName, revenue, "USD", adFormat,
+                adInfo.RevenuePrecision, adInfo.AdUnitIdentifier, adInfo.Placement));
         }
 
         #endregion
