@@ -41,6 +41,16 @@ namespace Sorolla.Palette.Editor
                     if (current == expected)
                         continue; // Already up to date
 
+                    // This sync raises installed packages UP to the registry floor when an SDK
+                    // upgrade bumps versions; it must NEVER downgrade a user's manual upgrade (e.g.
+                    // MAX bumped via MaxVersionChecker - B-4). Semver-pinned packages are overwritten
+                    // only when the registry version is newer than what is installed. URL-pinned
+                    // packages (git refs) are not semver-comparable, so the registry ref stays
+                    // authoritative and exact-match is enforced.
+                    bool semverPinned = string.IsNullOrEmpty(sdk.InstallUrl);
+                    if (semverPinned && !MaxVersionChecker.IsNewerVersion(expected, current))
+                        continue; // installed is same-or-newer; keep the user's pick
+
                     updates[sdk.PackageId] = expected;
                     Debug.Log($"[Palette] Updating {sdk.Name}: {current} → {expected}");
                 }

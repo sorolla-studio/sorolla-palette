@@ -135,9 +135,10 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Compare semver versions. Returns true if latest > installed.
+        ///     Compare semver versions. Returns true if latest > installed. Shared with
+        ///     <see cref="SdkVersionSync"/> so the version sync never downgrades a manual upgrade (B-4).
         /// </summary>
-        private static bool IsNewerVersion(string latest, string installed)
+        internal static bool IsNewerVersion(string latest, string installed)
         {
             try
             {
