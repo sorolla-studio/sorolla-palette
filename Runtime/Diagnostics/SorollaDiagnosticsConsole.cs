@@ -5,9 +5,6 @@ namespace Sorolla.Palette
 {
     internal sealed partial class SorollaDiagnosticsConsole : MonoBehaviour
     {
-        const int RequiredTapCount = 5;
-        const float TapWindowSeconds = 2f;
-        const float FinalTapHoldSeconds = 0.8f;
         const float DiagnosticsRefreshIntervalSeconds = 0.2f;
 
         static SorollaDiagnosticsConsole s_instance;
@@ -137,18 +134,14 @@ namespace Sorolla.Palette
         readonly int[] _severityCounts = new int[SeverityCount];
         readonly int[] _healthCounts = new int[SeverityCount];
         readonly SorollaConsoleScrollDrag _scrollDrag = new SorollaConsoleScrollDrag();
+        readonly SorollaConsoleTapUnlock _tapUnlock = new SorollaConsoleTapUnlock();
         int _problemCount;
         Vector2 _scroll;
         bool _visible;
-        int _tapCount;
-        float _firstTapTime;
         float _uiScale = 1f;
         float _contentWidth = 320f;
         float _nextDiagnosticsRefreshTime;
         bool _diagnosticsCacheDirty = true;
-        bool _unlockHoldPointer;
-        int _unlockHoldTouchId = -1;
-        float _unlockHoldStartTime;
         RowFilter _filter = RowFilter.All;
         ConsoleTab _activeTab = ConsoleTab.Vitals;
         ConsoleFilter _consoleFilter = ConsoleFilter.All;
@@ -333,7 +326,7 @@ namespace Sorolla.Palette
             }
 
             _visible = visible;
-            ResetUnlockGesture();
+            _tapUnlock.Reset();
 
             if (visible)
             {
@@ -371,15 +364,6 @@ namespace Sorolla.Palette
             _diagnosticsCacheDirty = true;
             if (_visible)
                 RefreshDiagnosticsCache();
-        }
-
-        void ResetUnlockGesture()
-        {
-            _tapCount = 0;
-            _firstTapTime = 0f;
-            _unlockHoldPointer = false;
-            _unlockHoldTouchId = -1;
-            _unlockHoldStartTime = 0f;
         }
 
     }
