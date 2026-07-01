@@ -13,7 +13,13 @@ namespace Sorolla.Palette.Adapters
     {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         [Preserve]
-        static void Register() => MaxAdapter.OnAdRevenueTracked += OnAdRevenueTracked;
+        static void Register()
+        {
+            // RuntimeInitializeOnLoadMethod runs on every Editor play session even when domain reload
+            // is disabled; static events can survive that boundary, so de-dupe before subscribing.
+            MaxAdapter.OnAdRevenueTracked -= OnAdRevenueTracked;
+            MaxAdapter.OnAdRevenueTracked += OnAdRevenueTracked;
+        }
 
         static void OnAdRevenueTracked(MaxAdRevenueInfo info)
         {
