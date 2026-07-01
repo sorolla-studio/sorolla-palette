@@ -187,22 +187,10 @@ namespace Sorolla.Palette.Editor
                 }
 #endif
 
-                // Auto-detect JDK 17+ and write org.gradle.java.home (Unity 2022 only - Unity 6+ bundles JDK 17)
-#if !UNITY_6000_0_OR_NEWER
-                if (File.Exists(GradlePropertiesPath))
-                {
-                    var props = File.ReadAllText(GradlePropertiesPath);
-                    if (!props.Contains("org.gradle.java.home"))
-                    {
-                        var jdkPath = GradleJdkDetector.FindJdk17OrNewer();
-                        if (jdkPath != null)
-                        {
-                            File.AppendAllText(GradlePropertiesPath, $"\norg.gradle.java.home={jdkPath}\n");
-                            fixes.Add($"Set org.gradle.java.home={jdkPath} (Unity {Application.unityVersion} bundles JDK 11, need 17+)");
-                        }
-                    }
-                }
-#endif
+                // org.gradle.java.home (Unity 2022 only - Unity 6+ bundles JDK 17) is injected at BUILD
+                // TIME into the generated gradle.properties by GradlePropertiesFixer, never into the
+                // committed gradleTemplate.properties: writing an absolute machine-local JDK path into a
+                // version-controlled file breaks every other machine (B-16).
             }
 
             return fixes;

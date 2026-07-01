@@ -28,6 +28,7 @@ namespace Sorolla.Palette.Editor
 
 #if !UNITY_6000_0_OR_NEWER
             FixDexingArtifactTransform(path);
+            EnsureGradleJavaHome(path);
 #endif
         }
 
@@ -51,6 +52,31 @@ namespace Sorolla.Palette.Editor
 
             File.WriteAllText(gradlePropertiesPath, string.Join("\n", updated) + "\n");
             Debug.Log($"{Tag} Enabled DexingArtifactTransform (overriding AppLovin legacy dexing)");
+        }
+
+        // Unity 2022 bundles JDK 11, which cannot dex Java 17 bytecode (Firebase/MAX/Kotlin). Point
+        // Gradle at a local JDK 17+ by writing org.gradle.java.home into the GENERATED gradle.properties
+        // at build time - never into the committed gradleTemplate.properties, which would bake a
+        // machine-local absolute path into version control and break every other machine (B-16).
+        private static void EnsureGradleJavaHome(string path)
+        {
+            var gradlePropertiesPath = Path.GetFullPath(Path.Combine(path, "..", "gradle.properties"));
+
+            if (!File.Exists(gradlePropertiesPath))
+            {
+                Debug.LogWarning($"{Tag} gradle.properties not found, skipping JDK home fix");
+                return;
+            }
+
+            if (File.ReadAllText(gradlePropertiesPath).Contains("org.gradle.java.home"))
+                return; // already pointed at a JDK (user override or a prior step)
+
+            var jdkPath = GradleJdkDetector.FindJdk17OrNewer();
+            if (jdkPath == null)
+                return; // detector already warned; Gradle fails loudly on the bundled JDK 11
+
+            File.AppendAllText(gradlePropertiesPath, $"\norg.gradle.java.home={jdkPath}\n");
+            Debug.Log($"{Tag} Set org.gradle.java.home={jdkPath} in generated gradle.properties (Unity 2022 needs JDK 17+)");
         }
     }
 }

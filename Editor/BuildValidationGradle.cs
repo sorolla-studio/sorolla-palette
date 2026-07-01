@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
-using UnityEngine;
 
 namespace Sorolla.Palette.Editor
 {
@@ -43,26 +42,11 @@ namespace Sorolla.Palette.Editor
                 }
             }
 
-            // Check org.gradle.java.home in gradleTemplate.properties
-            if (File.Exists(GradlePropertiesPath))
-            {
-                string props = File.ReadAllText(GradlePropertiesPath);
-                if (MissingGradleJavaHome(props))
-                {
-                    // Unity 2022 bundles JDK 11 — need explicit JDK 17+ override
-#if !UNITY_6000_0_OR_NEWER
-                    hasIssues = true;
-                    results.Add(Error(
-                        CheckCategory.GradleConfig,
-                        "gradleTemplate.properties missing org.gradle.java.home!\n" +
-                        $"  Unity {Application.unityVersion} bundles JDK 11 which cannot dex Java {RequiredJavaVersion} bytecode.\n" +
-                        $"  Add org.gradle.java.home pointing to a JDK {RequiredJavaVersion}+ installation.\n" +
-                        "  Without this, ALL Firebase/MAX/Kotlin deps will fail to dex.",
-                        "Install JDK 17 and add org.gradle.java.home to gradleTemplate.properties"));
-#endif
-                }
-            }
-            else
+            // The Custom Gradle Properties Template must be enabled - the androidx/jetifier block lives
+            // there. org.gradle.java.home is intentionally NOT expected inside the committed template
+            // anymore: on Unity 2022 it is injected at build time into the generated gradle.properties
+            // by GradlePropertiesFixer (B-16). So only flag the template's absence.
+            if (!File.Exists(GradlePropertiesPath))
             {
                 hasIssues = true;
                 results.Add(Warning(
