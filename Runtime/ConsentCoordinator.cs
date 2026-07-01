@@ -1,3 +1,4 @@
+using Sorolla.Palette.Adapters;
 using Sorolla.Palette.ATT;
 
 namespace Sorolla.Palette
