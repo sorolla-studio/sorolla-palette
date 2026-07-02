@@ -48,8 +48,8 @@ The Configuration window includes a **Build Health** section that validates your
 **Cause**: Config asset missing from Resources folder.
 
 **Fix**:
-1. Open `Sorolla > Configuration`
-2. Click "Create Config" if prompted
+1. Open `Palette > Configuration`
+2. Click "Create Configuration Asset" if prompted
 3. Verify `Assets/Resources/SorollaConfig.asset` exists
 
 ### SDK not auto-initializing
@@ -373,7 +373,7 @@ Crashlytics requires:
 
 ### Configuration window not opening
 
-1. Menu: `Sorolla > Configuration`
+1. Menu: `Palette > Configuration`
 2. If missing, check for compile errors
 3. Try `Window > Package Manager > Sorolla SDK > Reimport`
 

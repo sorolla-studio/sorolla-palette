@@ -3,3 +3,4 @@ obj/
 api/
 _site/
 *.log
+verbose
