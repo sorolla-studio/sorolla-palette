@@ -4,6 +4,7 @@
     "references": [
         "Sorolla.Editor",
         "Sorolla.Runtime",
+        "Sorolla.Adapters",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
