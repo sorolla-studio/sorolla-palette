@@ -39,7 +39,16 @@ namespace Sorolla.Palette
                 // Capture timestamp synchronously so duration reflects player wall-time,
                 // not whenever the event flushes after MAX consent resolves.
                 s_startTimes[(world, level)] = Time.realtimeSinceStartup;
-                QueueOrExecute(() => Emit("start", level, world, score: 0, duration: null, extraParams));
+
+                // Snapshot the caller's dict on the pre-consent queued path (DR-145 residual): the
+                // closure runs 1-3s later after consent resolves, so a caller that mutates or reuses
+                // the same dict before the flush would otherwise rewrite the dispatched values.
+                // Matches TrackEvent/Economy, which already snapshot at enqueue (B-13). Only the queued
+                // path needs it - when initialized, QueueOrExecute runs synchronously (no mutate window).
+                Dictionary<string, object> snapshot = extraParams;
+                if (extraParams != null && !IsInitialized)
+                    snapshot = new Dictionary<string, object>(extraParams);
+                QueueOrExecute(() => Emit("start", level, world, score: 0, duration: null, snapshot));
             }
 
             /// <summary>Mark a level completed. Fires level_end{success=1}, auto-fills duration_sec if Start was called.</summary>
@@ -65,7 +74,11 @@ namespace Sorolla.Palette
                     s_startTimes.Remove(key);
                 }
 
-                QueueOrExecute(() => Emit(success ? "complete" : "fail", level, world, score, duration, extraParams));
+                // Snapshot on the queued path (DR-145 residual) - see Start for rationale.
+                Dictionary<string, object> snapshot = extraParams;
+                if (extraParams != null && !IsInitialized)
+                    snapshot = new Dictionary<string, object>(extraParams);
+                QueueOrExecute(() => Emit(success ? "complete" : "fail", level, world, score, duration, snapshot));
             }
 
             // level/world == 0 are valid (0-indexed schemes). Negatives are almost always
