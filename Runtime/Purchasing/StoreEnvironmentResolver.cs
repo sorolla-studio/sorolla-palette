@@ -9,7 +9,7 @@ namespace Sorolla.Palette.Purchasing
     ///     Decodes and normalizes the client-observed store environment (production/sandbox/xcode)
     ///     for a purchase. Pure functions, no dependency on Unity IAP types.
     /// </summary>
-    public static class StoreEnvironmentResolver
+    internal static class StoreEnvironmentResolver
     {
         const string Tag = "[Palette:StoreEnvironmentResolver]";
 

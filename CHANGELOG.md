@@ -2,17 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [3.18.2] - unreleased (in dev/QA)
 
-Editor-tooling fixes + an internal diagnostics refactor on top of 3.18.1. No public API or telemetry change; not yet tagged.
+Editor-tooling fixes + a runtime refactor batch (behavior-preserving intended, compile-verified only) on top of 3.18.1. Assigned version `3.18.2`; **not yet tagged** - we dev and QA it on hungrysnake until it is stable and worth a tag (`3.18.1` is the last tagged/proven state). One telemetry payload changed and one public type was removed (see below).
 
 ### Fixed
 - **Editor version sync no longer downgrades a manual AppLovin MAX upgrade** (B-4): `SdkVersionSync` forced every installed package to the registry version on each domain reload, reverting a MAX version the developer had bumped via `MaxVersionChecker`. It now only raises semver-pinned packages up to the registry floor and never downgrades (reuses `MaxVersionChecker.IsNewerVersion`); git-URL-pinned packages stay exact-match enforced.
 - **Build no longer commits a machine-local JDK path** (B-16, Unity 2022 only): the auto-fixer appended `org.gradle.java.home=<absolute local path>` into the version-controlled `gradleTemplate.properties`, breaking every other machine. The JDK home is now injected at build time into the generated `gradle.properties` (via `GradlePropertiesFixer`, mirroring the existing dexing fix), leaving the committed template portable. The build validator no longer errors when the committed template lacks the line.
 - **Auto-fixers no longer write `.backup` files into the tracked `Assets/` tree** (B-17): the manifest and gradle sanitizers copied `<file>.backup` next to version-controlled files on every reload, polluting each game repo's git tree. Dropped; the fixes stay logged and are revertable via git.
+- **MAX ad-revenue relay guarded against double subscription**: prevents duplicated ad-revenue fan-out in Editor sessions with domain reload disabled.
 
 ### Changed
-- **Diagnostic value types extracted** to `SorollaDiagnostics.Types.cs` (a slice of the AR-9 diagnostics-monolith split): pure move of the diagnostic enums and the row/problem/event/payload DTO structs out of the core file (643 to 538 lines). No behavior change.
+- **Runtime refactor (behavior-preserving intended)**: `ConsentCoordinator` extracted from the `Palette` facade; purchase tracking split into `PurchaseDedupLedger` / `PurchaseOrderAdapter` / `StoreEnvironmentResolver`; shared `PendingActionQueue` and `MaxAdRevenueRelay` extracted; init ready-path unified into one `CompleteInitialization` with a pre-flush hook; diagnostics monolith split (`SorollaDiagnostics` 1,985 -> 538 lines across 11 extractions: 7 partials + `SorollaRuntimeProblemClassifier` + console `Theme`/`TapUnlock`/`ScrollDrag`). `StoreEnvironmentResolver` is `internal` (editor tests reach it via `InternalsVisibleTo`); it was briefly public in intermediate commits, never part of the intended public surface.
+- **Telemetry**: the `sorolla_purchase_data_quality_failure` low-level payload is unified with the pending-order builder: param `amount` renamed to `raw_price`, `platform` and `source` added. The low-level path has been internal-only since 3.14.1 and is nearly unreachable in production; the pending-order payload is byte-identical.
+- **iOS Apple-payload log line re-tagged** from `[Palette]` to `[Palette:PurchaseOrderAdapter]` (log-grep scripts keying on the old tag need updating).
+
+### Removed
+- **`FakeCMPDialog`** (public MonoBehaviour, dead editor-only consent stub): deleted. A scene or prefab still carrying it gets a missing-script warning on upgrade.
 
 ## [3.18.1] - 2026-06-24
 
