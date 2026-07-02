@@ -33,6 +33,11 @@ namespace Sorolla.Palette
         // Internal-only: studios read ConsentStatus / CanRequestAds, never this raw flag.
         static bool s_adConsent;
 
+        // R1 (DR-129): last ATT status we fanned consent out for. Compared on app-focus so a
+        // mid-session ATT flip (user toggled tracking in iOS Settings while backgrounded)
+        // re-propagates to every vendor exactly once.
+        static ATTBridge.AuthorizationStatus s_lastAttStatus;
+
         /// <summary>Current configuration (may be null)</summary>
         public static SorollaConfig Config { get; private set; }
 
@@ -352,6 +357,12 @@ namespace Sorolla.Palette
 
         #region Initialization
 
+        // R2 (DR-133 residual): if MAX never fires OnSdkInitialized (silently-failing SDK, no CMP
+        // callback), complete init anyway after this many foreground seconds so the SDK degrades to
+        // no-ads instead of wedging forever. Uses SorollaBootstrapper's realtime coroutine host, so
+        // backgrounding (e.g. during the CMP/ATT dialog) pauses the countdown.
+        const float MaxInitWatchdogSeconds = 30f;
+
         /// <summary>
         ///     Initialize Palette SDK. Invoked exclusively by <see cref="SorollaBootstrapper"/>
         ///     once consent / ATT resolve. Internal: studios do not call this.
@@ -382,6 +393,7 @@ namespace Sorolla.Palette
             // Resolve the boot decision once and set the ad-consent flag MAX init reads.
             ConsentCoordinator.ConsentSignals boot = ConsentCoordinator.ResolveBootSignals();
             s_adConsent = boot.AdStorage;
+            s_lastAttStatus = ATTBridge.GetStatus(); // R1: baseline for the app-focus ATT re-propagation
             PaletteLog.Vital($"{Tag} Initializing ({(isPrototype ? "Prototype" : "Full")} mode, analytics: {boot.Analytics}, adStorage: {boot.AdStorage}, verbose: {VerboseLogging})...");
 
             // Fan out boot consent to GA + Facebook + Firebase + diagnostics (idempotent). Adjust is
@@ -391,24 +403,29 @@ namespace Sorolla.Palette
             // MAX + Adjust ship together in Full mode. Adjust is initialized
             // inside OnMaxSdkInitialized so consent is resolved first.
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-            bool maxInitStarted = InitializeMax();
+            // Catch-continue: a MAX init throw must not strand the transition to IsInitialized. On a
+            // throw maxInitStarted stays false, so the completion block below finishes init in a
+            // degraded no-ads state rather than wedging (R2 / DR-133 residual).
+            bool maxInitStarted = false;
+            try { maxInitStarted = InitializeMax(); }
+            catch (Exception e) { PaletteLog.Error($"{Tag} AppLovin MAX init failed: {e.Message}. Continuing in a degraded no-ads state."); }
 #endif
 
 #if FIREBASE_CRASHLYTICS_INSTALLED
             PaletteLog.Verbose($"{Tag} Initializing Firebase Crashlytics...");
-            FirebaseCrashlyticsAdapter.Initialize(captureUncaughtExceptions: true);
+            SafeInit("Firebase Crashlytics", () => FirebaseCrashlyticsAdapter.Initialize(captureUncaughtExceptions: true));
 #endif
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
             PaletteLog.Verbose($"{Tag} Initializing Firebase Remote Config...");
-            FirebaseRemoteConfigAdapter.Initialize(autoFetch: true);
+            SafeInit("Firebase Remote Config", () => FirebaseRemoteConfigAdapter.Initialize(autoFetch: true));
 #endif
 
-            // TikTok (optional — requires enableTikTok + both App IDs)
+            // TikTok (optional - requires enableTikTok + both App IDs)
             if (Config != null && Config.enableTikTok && !string.IsNullOrEmpty(Config.tiktokAppId?.Current) && !string.IsNullOrEmpty(Config.tiktokEmAppId?.Current))
             {
                 PaletteLog.Vital($"{Tag} Initializing TikTok...");
-                TikTokAdapter.Initialize(Config.tiktokEmAppId.Current, Config.tiktokAppId.Current, Config.tiktokAccessToken?.Current ?? "", VerboseLogging);
+                SafeInit("TikTok", () => TikTokAdapter.Initialize(Config.tiktokEmAppId.Current, Config.tiktokAppId.Current, Config.tiktokAccessToken?.Current ?? "", VerboseLogging));
             }
 
             // When MAX is installed, defer IsInitialized until MAX consent resolves
@@ -420,10 +437,87 @@ namespace Sorolla.Palette
             // But if MAX could not start (e.g. missing SorollaConfig) that callback never fires, so
             // complete here instead - the SDK degrades to no-ads rather than wedging forever (B-1).
             if (maxInitStarted)
+            {
                 PaletteLog.Vital($"{Tag} Waiting for MAX consent resolution...");
+                // Watchdog: if OnSdkInitialized never arrives (silently-failing MAX SDK), complete
+                // anyway so init can't wedge forever (R2 / DR-133 residual). Idempotent with the
+                // normal OnMaxSdkInitialized completion via the guard in CompleteInitialization.
+                SorollaBootstrapper.Schedule(MaxInitWatchdogSeconds, () =>
+                {
+                    if (IsInitialized) return;
+                    PaletteLog.Error($"{Tag} MAX did not resolve within {MaxInitWatchdogSeconds:0}s; completing init in a degraded no-ads state.");
+                    CompleteInitialization();
+                });
+            }
             else
                 CompleteInitialization();
 #endif
+        }
+
+        // R2: run a vendor's init behind a catch so one vendor throwing can't strand the rest of the
+        // fan-out or block the transition to IsInitialized (DR-38 catch-continue posture). Internal so
+        // ConsentCoordinator's boot fan-out can guard the analytics vendors the same way.
+        internal static void SafeInit(string vendor, Action init)
+        {
+            try { init(); }
+            catch (Exception e) { PaletteLog.Error($"{Tag} {vendor} init failed: {e.Message}. Continuing without it."); }
+        }
+
+        // R1 (DR-129): re-resolve and re-fan consent when the app regains focus, so an ATT status
+        // that changed while backgrounded (user toggled tracking in iOS Settings) reaches every vendor
+        // mid-session. Change-gated on ATT: off-iOS AttStatus is constant so this is inert, and it
+        // does no work unless ATT actually moved. Called by SorollaBootstrapper.OnApplicationFocus.
+        internal static void OnAppFocusRegained()
+        {
+            ATTBridge.AuthorizationStatus att = AttStatus;
+            if (att == s_lastAttStatus) return;
+            s_lastAttStatus = att;
+
+            try
+            {
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+                ConsentCoordinator.ConsentSignals s = ConsentCoordinator.Resolve(MaxAdapter.ConsentStatus, att, adsPresent: true);
+#else
+                ConsentCoordinator.ConsentSignals s = ConsentCoordinator.Resolve(Adapters.ConsentStatus.NotApplicable, att, adsPresent: false);
+#endif
+                // Same idempotent fan-out the CMP path uses. On Prototype this re-pushes Facebook
+                // advertiser tracking (ATT-gated, not ads-gated), the only path that grants a
+                // Prototype build attribution when ATT is authorized after launch.
+                ConsentCoordinator.ApplyConsent(s, initial: false);
+                PaletteLog.Vital($"{Tag} ATT changed on focus -> re-propagated consent (att={att}, adStorage={s.AdStorage}, adPersonalization={s.AdPersonalization}, advertiserTracking={s.AdvertiserTracking}).");
+
+#if UNITY_IOS && !UNITY_EDITOR
+                TrackEvent("att_decision", new Dictionary<string, object>
+                {
+                    { "att_status", AttString(att) },
+                    { "source", "focus" },
+                });
+#endif
+
+                // ad_storage is ATT-independent, so an ATT-only flip normally leaves it unchanged;
+                // guard the flag flip + consent_changed event exactly like OnMaxConsentChanged for the
+                // rare case the GDPR bucket also moved while backgrounded.
+                if (s_adConsent != s.AdStorage)
+                {
+                    s_adConsent = s.AdStorage;
+                    var changed = new Dictionary<string, object>
+                    {
+                        { "personalized_ads", s.AdPersonalization },
+                        { "analytics", s.Analytics },
+                    };
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+                    changed["gdpr"] = ConsentCoordinator.GdprString(MaxAdapter.ConsentStatus);
+#endif
+#if UNITY_IOS && !UNITY_EDITOR
+                    changed["att_status"] = AttString(att);
+#endif
+                    TrackEvent("consent_changed", changed);
+                }
+            }
+            catch (Exception e)
+            {
+                PaletteLog.Warning($"{Tag} ATT re-propagation on focus failed: {e.Message}");
+            }
         }
 
         // Threading contract (B-14): all Palette analytics/IAP entry points and these pending queues
@@ -460,6 +554,10 @@ namespace Sorolla.Palette
         // queue and fire OnInitialized.
         static void CompleteInitialization(Action beforeFlush = null)
         {
+            // Idempotent (R2): the MAX-readiness watchdog and OnMaxSdkInitialized can both reach here
+            // in either order. Whichever completes first wins; the second no-ops, so the pending queue
+            // is never double-flushed and OnInitialized never fires twice.
+            if (IsInitialized) return;
             IsInitialized = true;
             beforeFlush?.Invoke();
             FlushPending();
@@ -617,6 +715,10 @@ namespace Sorolla.Palette
             // Idempotent vendor fan-out (analytics + ad signals + Adjust + diagnostics). Runs on
             // EVERY resolution so an ATT-only change (GDPR bucket unchanged) is never missed.
             ConsentCoordinator.ApplyConsent(s, initial: false);
+
+            // Keep the app-focus baseline in step with the CMP-resolved ATT so the first focus after
+            // CMP doesn't re-fan redundantly (R1 / DR-129).
+            s_lastAttStatus = AttStatus;
 
             // Change-gated: only the analytics EVENT and the ad-consent flag flip are guarded on the
             // ad-consent bucket actually changing (DR-41: the consent marker must precede

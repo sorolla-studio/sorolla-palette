@@ -23,6 +23,16 @@ namespace Sorolla.Palette
                 s_instance = null;
         }
 
+        // R1 (DR-129): returning to the foreground can mean the user changed ATT in iOS Settings while
+        // we were backgrounded. Re-resolve consent so the new status reaches every vendor. Guarded on
+        // IsInitialized so the pre-consent window is skipped (nothing to re-fan yet), and on the
+        // singleton so a duplicate bootstrapper about to be destroyed never triggers it.
+        void OnApplicationFocus(bool hasFocus)
+        {
+            if (hasFocus && s_instance == this && Palette.IsInitialized)
+                Palette.OnAppFocusRegained();
+        }
+
         void Start()
         {
             // Only the AutoInit-created instance drives initialization. A second bootstrapper
@@ -58,7 +68,7 @@ namespace Sorolla.Palette
             MaxAdapter.ScheduleDelegate = Schedule;
         }
 
-        static void Schedule(float delaySeconds, Action callback)
+        internal static void Schedule(float delaySeconds, Action callback)
         {
             if (s_instance == null) { callback?.Invoke(); return; }
             s_instance.StartCoroutine(DelayedInvoke(delaySeconds, callback));

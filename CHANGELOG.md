@@ -4,13 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [3.18.2] - unreleased (in dev/QA)
 
-Editor-tooling fixes + a runtime refactor batch (behavior-preserving intended, compile-verified only) on top of 3.18.1. Assigned version `3.18.2`; **not yet tagged** - we dev and QA it on hungrysnake until it is stable and worth a tag (`3.18.1` is the last tagged/proven state). One telemetry payload changed and one public type was removed (see below).
+Editor-tooling fixes + a runtime refactor batch (behavior-preserving intended, compile-verified only) on top of 3.18.1, plus two init/consent-path robustness fixes (DR-129, DR-133-residual) and public purchasing-API docs. Assigned version `3.18.2`; **not yet tagged** - we dev and QA it on hungrysnake until it is stable and worth a tag (`3.18.1` is the last tagged/proven state). One telemetry payload changed and one public type was removed (see below).
 
 ### Fixed
 - **Editor version sync no longer downgrades a manual AppLovin MAX upgrade** (B-4): `SdkVersionSync` forced every installed package to the registry version on each domain reload, reverting a MAX version the developer had bumped via `MaxVersionChecker`. It now only raises semver-pinned packages up to the registry floor and never downgrades (reuses `MaxVersionChecker.IsNewerVersion`); git-URL-pinned packages stay exact-match enforced.
 - **Build no longer commits a machine-local JDK path** (B-16, Unity 2022 only): the auto-fixer appended `org.gradle.java.home=<absolute local path>` into the version-controlled `gradleTemplate.properties`, breaking every other machine. The JDK home is now injected at build time into the generated `gradle.properties` (via `GradlePropertiesFixer`, mirroring the existing dexing fix), leaving the committed template portable. The build validator no longer errors when the committed template lacks the line.
 - **Auto-fixers no longer write `.backup` files into the tracked `Assets/` tree** (B-17): the manifest and gradle sanitizers copied `<file>.backup` next to version-controlled files on every reload, polluting each game repo's git tree. Dropped; the fixes stay logged and are revertable via git.
 - **MAX ad-revenue relay guarded against double subscription**: prevents duplicated ad-revenue fan-out in Editor sessions with domain reload disabled.
+- **A mid-session ATT change now reaches every vendor** (DR-129): when the app returns to the foreground, Palette re-resolves consent and re-fans it, so a user who toggles tracking in iOS Settings while the app is backgrounded has the new status propagate to all vendors exactly once (change-gated on ATT, inert off-iOS and when ATT did not move). This is the only path that grants a Prototype build attribution when ATT is authorized after launch.
+- **A throwing or silently-failing vendor init can no longer strand SDK initialization** (DR-133-residual): each vendor boot init runs behind a catch-continue guard (`SafeInit`), so one vendor throwing no longer skips the others or the transition to `IsInitialized`; and if MAX never fires `OnSdkInitialized`, a 30s foreground watchdog completes init in a degraded no-ads state instead of wedging forever. `CompleteInitialization` is now idempotent, so the watchdog and the MAX callback racing can never double-flush the pending queue or fire `OnInitialized` twice.
 
 ### Changed
 - **Runtime refactor (behavior-preserving intended)**: `ConsentCoordinator` extracted from the `Palette` facade; purchase tracking split into `PurchaseDedupLedger` / `PurchaseOrderAdapter` / `StoreEnvironmentResolver`; shared `PendingActionQueue` and `MaxAdRevenueRelay` extracted; init ready-path unified into one `CompleteInitialization` with a pre-flush hook; diagnostics monolith split (`SorollaDiagnostics` 1,985 -> 538 lines across 11 extractions: 7 partials + `SorollaRuntimeProblemClassifier` + console `Theme`/`TapUnlock`/`ScrollDrag`). `StoreEnvironmentResolver` is `internal` (editor tests reach it via `InternalsVisibleTo`); it was briefly public in intermediate commits, never part of the intended public surface.
@@ -19,6 +21,9 @@ Editor-tooling fixes + a runtime refactor batch (behavior-preserving intended, c
 
 ### Removed
 - **`FakeCMPDialog`** (public MonoBehaviour, dead editor-only consent stub): deleted. A scene or prefab still carrying it gets a missing-script warning on upgrade.
+
+### Documentation
+- **Public purchasing API is now in the API reference**: `Palette.AttachPurchaseTracking(StoreController)` documented with a register-once usage example; the `TrackPurchase` doc cross-references were repaired (stale `TrackPurchase(double, string, ...)` signatures updated to the current `TrackPurchase(PendingOrder)` overload). DocFX references Unity's own compiled `Unity.Purchasing.dll` at generation time so the purchasing files compile without vendoring or stubbing Unity IAP, and the build stays green when the DLL is absent (standalone checkout / docs CI). `Level.*` / `Economy.*` `extraParams` are now documented as Firebase-only (GameAnalytics receives the curated fields, per DR-135).
 
 ## [3.18.1] - 2026-06-24
 

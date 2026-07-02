@@ -88,8 +88,11 @@ namespace Sorolla.Palette
         /// </summary>
         internal static void ApplyConsent(ConsentSignals s, bool initial)
         {
+            // R2: guard each vendor's boot Initialize behind catch-continue so one vendor throwing
+            // can't skip the others or the trailing diagnostics snapshot. UpdateConsent (the CMP /
+            // app-focus path) is left unguarded; its callers guard at their own call site.
             if (initial)
-                GameAnalyticsAdapter.Initialize(s.Analytics, Palette.VerboseLogging);
+                Palette.SafeInit("GameAnalytics", () => GameAnalyticsAdapter.Initialize(s.Analytics, Palette.VerboseLogging));
             else
                 GameAnalyticsAdapter.UpdateConsent(s.Analytics);
 
@@ -97,7 +100,7 @@ namespace Sorolla.Palette
             // Facebook = attribution: use advertiserTracking (ATT + ad consent, NOT ads-present),
             // so Prototype keeps attributing installs while Firebase ad signals stay ads-gated.
             if (initial)
-                FacebookAdapter.Initialize(s.AdvertiserTracking);
+                Palette.SafeInit("Facebook", () => FacebookAdapter.Initialize(s.AdvertiserTracking));
             else
                 FacebookAdapter.UpdateConsent(s.AdvertiserTracking);
 #endif
@@ -108,7 +111,7 @@ namespace Sorolla.Palette
             // SorollaIOSPostProcessor / GradlePropertiesFixer for the matching platform Consent Mode
             // defaults that govern the very first native ping.
             if (initial)
-                FirebaseAdapter.Initialize(adStorageConsent: s.AdStorage, adPersonalizationConsent: s.AdPersonalization, analyticsConsent: s.Analytics, verboseLogging: Palette.VerboseLogging);
+                Palette.SafeInit("Firebase Analytics", () => FirebaseAdapter.Initialize(adStorageConsent: s.AdStorage, adPersonalizationConsent: s.AdPersonalization, analyticsConsent: s.Analytics, verboseLogging: Palette.VerboseLogging));
             else
                 FirebaseAdapter.UpdateConsent(adStorageConsent: s.AdStorage, adPersonalizationConsent: s.AdPersonalization, analyticsConsent: s.Analytics);
 #endif
