@@ -119,7 +119,7 @@ public static bool AutoActivateRemoteConfigUpdates { get; set; }
 Package version of the Sorolla Palette SDK.
 
 ```csharp title="Declaration"
-public const string SdkVersion = "3.18.1"
+public const string SdkVersion = "3.18.2"
 ```
 ### Methods
 #### ShowPrivacyOptions(Action)
@@ -524,6 +524,34 @@ public static Task<bool> ActivateRemoteConfigAsync()
 ###### Returns
 
 `System.Threading.Tasks.Task<System.Boolean>`
+#### AttachPurchaseTracking(StoreController)
+Wire Palette purchase tracking to a Unity IAP v5 `UnityEngine.Purchasing.StoreController` in a single call.
+Call once immediately after `UnityIAPServices.StoreController()`, before `Connect()`.
+Idempotent: subsequent calls with the same controller are no-ops.
+
+```csharp title="Declaration"
+public static void AttachPurchaseTracking(StoreController store)
+```
+
+###### Example
+
+```csharp
+_store = UnityIAPServices.StoreController();
+Palette.AttachPurchaseTracking(_store);     // analytics wired — unmissable
+_store.OnPurchasePending += order =>        // studio-owned fulfillment
+{
+    GrantRewards(order.CartOrdered);
+    _store.ConfirmPurchase(order);
+};
+await _store.Connect();
+```
+
+###### Parameters
+
+| Type | Name | Description |
+|:--- |:--- |:--- |
+| `UnityEngine.Purchasing.StoreController` | *store* | StoreController returned by `UnityIAPServices.StoreController()`. |
+
 ### Events
 #### OnConsentStatusChanged
 Event fired when consent status changes.
@@ -589,11 +617,11 @@ public static void Start(int level, int? world = null, Dictionary<string, object
 
 ###### Parameters
 
-| Type | Name |
-|:--- |:--- |
-| `System.Int32` | *level* |
-| `System.Nullable<System.Int32>` | *world* |
-| `System.Collections.Generic.Dictionary<System.String,System.Object>` | *extraParams* |
+| Type | Name | Description |
+|:--- |:--- |:--- |
+| `System.Int32` | *level* |  |
+| `System.Nullable<System.Int32>` | *world* |  |
+| `System.Collections.Generic.Dictionary<System.String,System.Object>` | *extraParams* | Optional structured params. Sent to Firebase only - GameAnalytics receives the curated progression fields, not these. |
 
 #### Complete(int, int?, int, Dictionary&lt;string, object&gt;)
 Mark a level completed. Fires level_end{success=1}, auto-fills duration_sec if Start was called.
@@ -604,12 +632,12 @@ public static void Complete(int level, int? world = null, int score = 0, Diction
 
 ###### Parameters
 
-| Type | Name |
-|:--- |:--- |
-| `System.Int32` | *level* |
-| `System.Nullable<System.Int32>` | *world* |
-| `System.Int32` | *score* |
-| `System.Collections.Generic.Dictionary<System.String,System.Object>` | *extraParams* |
+| Type | Name | Description |
+|:--- |:--- |:--- |
+| `System.Int32` | *level* |  |
+| `System.Nullable<System.Int32>` | *world* |  |
+| `System.Int32` | *score* |  |
+| `System.Collections.Generic.Dictionary<System.String,System.Object>` | *extraParams* | Optional structured params. Sent to Firebase only - GameAnalytics receives the curated progression fields, not these. |
 
 #### Fail(int, int?, int, Dictionary&lt;string, object&gt;)
 Mark a level failed. Fires level_end{success=0}, auto-fills duration_sec if Start was called.
@@ -620,12 +648,12 @@ public static void Fail(int level, int? world = null, int score = 0, Dictionary<
 
 ###### Parameters
 
-| Type | Name |
-|:--- |:--- |
-| `System.Int32` | *level* |
-| `System.Nullable<System.Int32>` | *world* |
-| `System.Int32` | *score* |
-| `System.Collections.Generic.Dictionary<System.String,System.Object>` | *extraParams* |
+| Type | Name | Description |
+|:--- |:--- |:--- |
+| `System.Int32` | *level* |  |
+| `System.Nullable<System.Int32>` | *world* |  |
+| `System.Int32` | *score* |  |
+| `System.Collections.Generic.Dictionary<System.String,System.Object>` | *extraParams* | Optional structured params. Sent to Firebase only - GameAnalytics receives the curated progression fields, not these. |
 
 
 ---
@@ -649,13 +677,13 @@ public static void Earn(CurrencyId currency, int amount, EconomySource source, s
 
 ###### Parameters
 
-| Type | Name |
-|:--- |:--- |
-| `CurrencyId` | *currency* |
-| `System.Int32` | *amount* |
-| `EconomySource` | *source* |
-| `System.String` | *itemId* |
-| `System.Collections.Generic.Dictionary<System.String,System.Object>` | *extraParams* |
+| Type | Name | Description |
+|:--- |:--- |:--- |
+| `CurrencyId` | *currency* |  |
+| `System.Int32` | *amount* |  |
+| `EconomySource` | *source* |  |
+| `System.String` | *itemId* |  |
+| `System.Collections.Generic.Dictionary<System.String,System.Object>` | *extraParams* | Optional structured params. Sent to Firebase only - GameAnalytics receives the curated resource fields (currency, amount, source, itemId), not these. |
 
 #### Spend(CurrencyId, int, EconomySink, string, Dictionary&lt;string, object&gt;)
 Track currency spent. Fires spend_virtual_currency (Firebase) / GameAnalytics Sink event.
@@ -666,13 +694,13 @@ public static void Spend(CurrencyId currency, int amount, EconomySink sink, stri
 
 ###### Parameters
 
-| Type | Name |
-|:--- |:--- |
-| `CurrencyId` | *currency* |
-| `System.Int32` | *amount* |
-| `EconomySink` | *sink* |
-| `System.String` | *itemId* |
-| `System.Collections.Generic.Dictionary<System.String,System.Object>` | *extraParams* |
+| Type | Name | Description |
+|:--- |:--- |:--- |
+| `CurrencyId` | *currency* |  |
+| `System.Int32` | *amount* |  |
+| `EconomySink` | *sink* |  |
+| `System.String` | *itemId* |  |
+| `System.Collections.Generic.Dictionary<System.String,System.Object>` | *extraParams* | Optional structured params. Sent to Firebase only - GameAnalytics receives the curated resource fields (currency, amount, sink, itemId), not these. |
 
 
 ---
@@ -739,7 +767,7 @@ Must be false for production store builds.
 public bool adjustSandboxMode
 ```
 #### adjustPurchaseEventToken
-Adjust event token used by `TrackPurchase(System.Double%2cSystem.String%2cSystem.String%2cSystem.String%2cSystem.String%2cSystem.String%2cSystem.String)` for revenue tracking.
+Adjust event token used by `TrackPurchase(UnityEngine.Purchasing.PendingOrder)` for revenue tracking.
 Create in Adjust Dashboard -&gt; Events.
 
 ```csharp title="Declaration"
@@ -995,3 +1023,4 @@ Other = 6
 ```
 
 ---
+

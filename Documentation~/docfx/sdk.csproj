@@ -67,4 +67,25 @@
     </Reference>
   </ItemGroup>
 
+  <!-- R3: document the public purchasing API (Palette.AttachPurchaseTracking / TrackPurchase overloads)
+       WITHOUT vendoring or stubbing Unity IAP. When docs are regenerated from inside a Unity project
+       that has com.unity.purchasing compiled (the normal embedded-package layout), reference Unity's
+       own compiled IAP assembly so the purchasing files compile and DocFX can extract OUR members.
+       The Unity IAP types are NOT emitted as doc pages: filterConfig restricts output to the
+       Sorolla.Palette namespace, so referencing the real DLL adds no duplicated IAP documentation.
+       When the DLL is absent (standalone SDK checkout / docs-check CI), the symbol stays undefined and
+       the purchasing files compile out exactly as before, so the docs build stays green. -->
+  <PropertyGroup>
+    <UnityPurchasingDll>$(MSBuildProjectDirectory)/../../../../Library/ScriptAssemblies/Unity.Purchasing.dll</UnityPurchasingDll>
+  </PropertyGroup>
+  <PropertyGroup Condition="Exists('$(UnityPurchasingDll)')">
+    <DefineConstants>$(DefineConstants);UNITY_PURCHASING_INSTALLED</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(UnityPurchasingDll)')">
+    <Reference Include="Unity.Purchasing">
+      <HintPath>$(UnityPurchasingDll)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
 </Project>
