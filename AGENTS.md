@@ -55,12 +55,12 @@ This repo is **public**. Never commit internal working docs here: audits, remedi
 
 ## Runtime Invariants (init, config, threading)
 
-Hard invariants for the init/adapter/analytics paths, surfaced by the 2026-06 internal architecture review. Static-source / traced, not yet device-repro'd.
+Hard invariants for the init/adapter/analytics paths, surfaced by a 2026-06 architecture review. Static-source / traced, not yet device-repro'd.
 
 - **Init must never wedge on missing config.** On a MAX/Full build, `InitializeMax()` early-returns when `SorollaConfig` is null, BEFORE it subscribes the MAX init callback, so `IsInitialized` never flips, the pending-event queue never flushes, and `OnInitialized` never fires. "Ready" must be a guaranteed transition: never add an early return upstream of it, and a missing/misnamed config must fail loud or safe-degrade, not silently hang.
 - **Vendor callbacks feed non-thread-safe state.** The pending-event queue and `Palette.Level` start-times assume a main-thread-only contract that is not enforced. MAX callbacks are NOT guaranteed main-thread (they follow `InvokeEventsOnUnityMainThread`); pin `MaxSdk.SetInvokeEventsOnUnityMainThread(true)` if you touch MAX init. Adjust already marshals to the main thread, and `SorollaDiagnostics` is lock-guarded. The QA-bridge worker-enqueue / main-thread-drain split is correct concurrency engineering; do not "simplify" it away.
 - **`extraParams` on `Palette.Level.*` / `Palette.Economy.*` reach Firebase only, never GameAnalytics.** Per-vendor parameter parity is something to verify, not assume (see the Adapter Endpoint Review section).
-- **The QA bridge and 5-tap console are production-reachable control surfaces.** Do not widen their access or what `/qa/exec` can do; access hardening is tracked in the internal audit.
+- **The QA bridge and 5-tap diagnostics console are intentional control surfaces.** Keep their access, and what `/qa/exec` can do, narrow; do not widen either.
 
 Verdict of that review: re-architect the runtime core in place behind the frozen public API (extract a pure consent resolver + an explicit init state machine, split the diagnostics core); do NOT rewrite. The static facade, the stub+impl asmdef split, and the explicit per-event vendor fan-out are deliberate and stay.
 
@@ -77,7 +77,7 @@ Apply these to any public API change:
   - Can the SDK derive the rest?
   - If the value is wrong, does it fail loud or silently corrupt data?
 
-Known current queue from the internal audit:
+Known current DX-API queue:
 
 - `TrackEvent(string, Dictionary<string, object>)` still needs a curated `Palette.Events.*` catalog.
 - `ShowRewardedAd` / `ShowInterstitialAd` still need curated `AdPlacement` context.
@@ -98,7 +98,7 @@ Known current queue from the internal audit:
 
 ## Adapter Endpoint Review (mandatory)
 
-When touching any method under `Runtime/Adapters/*/`*AdapterImpl.cs* (Firebase, MAX, Adjust, TikTok, Facebook, GameAnalytics), apply this checklist **before staging the diff**. It exists because **v3.6.0** silently shipped a payload regression in `FirebaseAdapterImpl.TrackResourceEvent`: the prior implementation emitted both `itemType` (as `placement`) and `itemId` (as `item_id`) on **both** earn and spend; the "use GA4 canonical constants" rewrite (commit `4ad6891`) collapsed three populated slots to two on spend and one on earn — `placement` was deleted, `item_id` was deleted, and the remaining `item_name` slot was gated to spend only. The commit was framed as constants-conversion, so review optimized for "are the canonical names correct" and never noticed the silent payload reduction. Six weeks of `earn_virtual_currency` rows in BigQuery carried only `virtual_currency_name` + `value`; placement-attribution queries on earn were impossible until boat-runner caught it on 2026-05-11.
+When touching any method under `Runtime/Adapters/*/`*AdapterImpl.cs* (Firebase, MAX, Adjust, TikTok, Facebook, GameAnalytics), apply this checklist **before staging the diff**. It exists because **v3.6.0** silently shipped a payload regression in `FirebaseAdapterImpl.TrackResourceEvent`: the prior implementation emitted both `itemType` (as `placement`) and `itemId` (as `item_id`) on **both** earn and spend; the "use GA4 canonical constants" rewrite (commit `4ad6891`) collapsed three populated slots to two on spend and one on earn — `placement` was deleted, `item_id` was deleted, and the remaining `item_name` slot was gated to spend only. The commit was framed as constants-conversion, so review optimized for "are the canonical names correct" and never noticed the silent payload reduction. Six weeks of `earn_virtual_currency` rows in BigQuery carried only `virtual_currency_name` + `value`; placement-attribution queries on earn were impossible until a downstream game integration caught it in 2026-05.
 
 1. **Every input parameter must be referenced in the body, or there must be a one-line comment explaining why it's intentionally ignored.** Unused params on a public adapter surface are bugs.
 2. **Symmetric event pairs (earn/spend, level_start/level_end, ad_loaded/ad_shown) must emit the same parameter keys** unless the GA4 spec explicitly differs. If a param is added on one half, audit the other half in the same commit.
