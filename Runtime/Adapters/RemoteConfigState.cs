@@ -54,6 +54,9 @@ namespace Sorolla.Palette.Adapters
 
         public static bool TryGetDefault(string key, out string value) => s_defaults.TryGetValue(key, out value);
 
+        /// <summary>Keys registered as in-app defaults (the game's declared RC key set).</summary>
+        public static IReadOnlyCollection<string> RegisteredKeys => s_defaults.Keys;
+
         /// <summary>
         ///     Subscribe to value changes. If values are already readable (level above Defaults),
         ///     the callback fires immediately so late subscribers never miss the initial load.

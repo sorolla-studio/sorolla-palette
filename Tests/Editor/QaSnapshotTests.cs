@@ -78,6 +78,42 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
+        public void WriteJson_RemoteConfigValues_SerializesPerKeyValueAndSource()
+        {
+            Type rcType = RequiredType("Sorolla.Palette.SorollaQaRcValue");
+            var values = Array.CreateInstance(rcType, 2);
+            values.SetValue(NewRcValue(rcType, "economy_currency_seed", "1000", "firebase_remote"), 0);
+            values.SetValue(NewRcValue(rcType, "ads_fs_cooldown_seconds", "30", "in_app_default"), 1);
+
+            object state = NewState();
+            Set(state, "RemoteConfigValues", values);
+
+            string json = Serialize(state);
+
+            Assert.That(json, Does.Contain("\"values\":{"));
+            Assert.That(json, Does.Contain("\"economy_currency_seed\":{\"value\":\"1000\",\"source\":\"firebase_remote\"}"));
+            Assert.That(json, Does.Contain("\"ads_fs_cooldown_seconds\":{\"value\":\"30\",\"source\":\"in_app_default\"}"));
+            AssertBalanced(json);
+        }
+
+        [Test]
+        public void WriteJson_NullRemoteConfigValues_EmitsEmptyObject()
+        {
+            string json = Serialize(NewState());
+            Assert.That(json, Does.Contain("\"values\":{}"));
+            AssertBalanced(json);
+        }
+
+        static object NewRcValue(Type rcType, string key, string value, string source)
+        {
+            object rc = Activator.CreateInstance(rcType);
+            rcType.GetField("Key").SetValue(rc, key);
+            rcType.GetField("Value").SetValue(rc, value);
+            rcType.GetField("Source").SetValue(rc, source);
+            return rc;
+        }
+
+        [Test]
         public void WriteJson_UnknownConsentSignals_ReportsUnknown()
         {
             object state = NewState();

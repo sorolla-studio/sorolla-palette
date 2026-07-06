@@ -144,6 +144,7 @@ namespace Sorolla.Palette
                 RemoteConfigStatus = Palette.RemoteConfigStatus.ToString().ToLowerInvariant(),
                 RemoteConfigFetchSeen = snap.RemoteConfigFetchSeen,
                 RemoteConfigFetchSuccess = snap.RemoteConfigFetchSuccess,
+                RemoteConfigValues = CaptureRemoteConfigValues(),
 
                 MaxAdapter = MaxAdapterStatus(snap, fullMode),
                 AdjustAdapter = AdjustAdapterStatus(snap, fullMode),
@@ -170,6 +171,37 @@ namespace Sorolla.Palette
                 RuntimeProblemTotalCount = snap.RuntimeProblemTotalCount,
                 RuntimeProblemSummary = snap.RuntimeProblemSummary,
             };
+        }
+
+        // Union of keys Firebase knows (remote + in-app defaults) and keys registered via
+        // SetRemoteConfigDefaults, each resolved through the same tier order as the Palette getters.
+        // Verbose-independent: reads live adapter state, so it works in release (non-development) builds.
+        static SorollaQaRcValue[] CaptureRemoteConfigValues()
+        {
+            var keys = new SortedSet<string>(FirebaseRemoteConfigAdapter.GetKnownKeys(), StringComparer.Ordinal);
+            foreach (string key in RemoteConfigState.RegisteredKeys) keys.Add(key);
+
+            var values = new SorollaQaRcValue[keys.Count];
+            int i = 0;
+            foreach (string key in keys)
+            {
+                string value, source;
+                if (FirebaseRemoteConfigAdapter.TryGetRaw(key, out value))
+                    source = FirebaseRemoteConfigAdapter.TryGetSource(key, out string fbSource)
+                        ? $"firebase_{fbSource}"
+                        : "firebase";
+                else if (GameAnalyticsAdapter.TryGetRemoteConfigValue(key, out value))
+                    source = "gameanalytics";
+                else if (RemoteConfigState.TryGetDefault(key, out value))
+                    source = "in_app_default";
+                else
+                {
+                    value = "";
+                    source = "missing";
+                }
+                values[i++] = new SorollaQaRcValue { Key = key, Value = value, Source = source };
+            }
+            return values;
         }
 
         static string ModeForSnapshot(SorollaConfig config, Snapshot snapshot)

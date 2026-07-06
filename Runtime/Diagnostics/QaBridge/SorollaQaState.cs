@@ -34,6 +34,9 @@ namespace Sorolla.Palette
         public string RemoteConfigStatus;       // "defaults" | "cached" | "live"
         public bool RemoteConfigFetchSeen;       // secondary: a Firebase fetch-complete was observed this session
         public bool RemoteConfigFetchSuccess;    // secondary: that observed fetch succeeded
+        // Per-key served values: union of keys Firebase knows and registered in-app defaults.
+        // Lets a release-build QA pass verify a console change reached the device without Debug.Log.
+        public SorollaQaRcValue[] RemoteConfigValues;
 
         // Adapters (status strings; enums can grow a "failed" state later without re-keying gates)
         public string MaxAdapter;
@@ -75,6 +78,18 @@ namespace Sorolla.Palette
         public int RuntimeProblemUniqueCount;
         public int RuntimeProblemTotalCount;
         public string RuntimeProblemSummary;
+    }
+
+    /// <summary>
+    ///     One Remote Config key in the QA snapshot: the value the getters would serve and where it
+    ///     came from ("firebase_remote" fetched/cached, "firebase_default" in-app default via Firebase,
+    ///     "gameanalytics", "in_app_default", or "missing").
+    /// </summary>
+    internal struct SorollaQaRcValue
+    {
+        public string Key;
+        public string Value;
+        public string Source;
     }
 
     /// <summary>One aggregated event in the QA snapshot: a dispatched name, how many times it fired, and the last params seen.</summary>

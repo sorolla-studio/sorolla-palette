@@ -15,6 +15,8 @@ namespace Sorolla.Palette.Adapters
         void SetDefaults(Dictionary<string, object> defaults);
         Task<bool> ActivateAsync();
         bool TryGetRaw(string key, out string value);
+        bool TryGetSource(string key, out string source);
+        IReadOnlyCollection<string> GetKnownKeys();
     }
 
     /// <summary>
@@ -77,5 +79,23 @@ namespace Sorolla.Palette.Adapters
             value = null;
             return s_impl?.TryGetRaw(key, out value) ?? false;
         }
+
+        /// <summary>
+        ///     Where Firebase resolved a key from: "remote" (fetched or cached) or "default"
+        ///     (registered in-app default). False when the impl is missing, not initialized,
+        ///     or the key is unknown to Firebase.
+        /// </summary>
+        public static bool TryGetSource(string key, out string source)
+        {
+            source = null;
+            return s_impl?.TryGetSource(key, out source) ?? false;
+        }
+
+        /// <summary>
+        ///     Every key Firebase currently knows (remote, cached, and in-app defaults).
+        ///     Empty when the impl is missing or not initialized.
+        /// </summary>
+        public static IReadOnlyCollection<string> GetKnownKeys()
+            => s_impl?.GetKnownKeys() ?? System.Array.Empty<string>();
     }
 }

@@ -316,6 +316,43 @@ namespace Sorolla.Palette.Adapters
             return tcs.Task;
         }
 
+        public bool TryGetSource(string key, out string source)
+        {
+            source = null;
+            if (!_init) return false;
+            try
+            {
+                switch (FirebaseRemoteConfig.DefaultInstance.GetValue(key).Source)
+                {
+                    case ValueSource.RemoteValue:
+                        source = "remote";
+                        return true;
+                    case ValueSource.DefaultValue:
+                        source = "default";
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        public IReadOnlyCollection<string> GetKnownKeys()
+        {
+            if (!_init) return Array.Empty<string>();
+            try
+            {
+                return FirebaseRemoteConfig.DefaultInstance.Keys.ToList();
+            }
+            catch (Exception)
+            {
+                return Array.Empty<string>();
+            }
+        }
+
         public bool TryGetRaw(string key, out string value)
         {
             value = null;

@@ -123,6 +123,31 @@ namespace Sorolla.Palette
             QaJson.StringMember(sb, ref first, "status", state.RemoteConfigStatus);
             QaJson.BoolMember(sb, ref first, "fetch_seen", state.RemoteConfigFetchSeen);
             QaJson.BoolMember(sb, ref first, "fetch_success", state.RemoteConfigFetchSuccess);
+
+            QaJson.Comma(sb, ref first);
+            QaJson.Key(sb, "values");
+            WriteRemoteConfigValues(state.RemoteConfigValues, sb);
+
+            sb.Append('}');
+        }
+
+        static void WriteRemoteConfigValues(SorollaQaRcValue[] values, StringBuilder sb)
+        {
+            bool first = true;
+            sb.Append('{');
+            if (values != null)
+            {
+                foreach (SorollaQaRcValue v in values)
+                {
+                    QaJson.Comma(sb, ref first);
+                    QaJson.Key(sb, v.Key);
+                    bool innerFirst = true;
+                    sb.Append('{');
+                    QaJson.StringMember(sb, ref innerFirst, "value", v.Value);
+                    QaJson.StringMember(sb, ref innerFirst, "source", v.Source);
+                    sb.Append('}');
+                }
+            }
             sb.Append('}');
         }
 
