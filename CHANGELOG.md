@@ -2,9 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.18.2] - unreleased (in dev/QA)
+## [3.18.2] - 2026-07-06
 
-Editor-tooling fixes + a runtime refactor batch (behavior-preserving intended, compile-verified only) on top of 3.18.1, plus two init/consent-path robustness fixes (DR-129, DR-133-residual) and public purchasing-API docs. Assigned version `3.18.2`; **not yet tagged** - we dev and QA it on hungrysnake until it is stable and worth a tag (`3.18.1` is the last tagged/proven state). One telemetry payload changed and one public type was removed (see below).
+Editor-tooling fixes + a runtime refactor batch (behavior-preserving intended, compile-verified only) on top of 3.18.1, plus two init/consent-path robustness fixes (DR-129, DR-133-residual), per-key Remote Config visibility in the QA bridge, and public purchasing-API docs. One telemetry payload changed and one public type was removed (see below). Verified on-device (romba iOS, Full mode, release build) before tagging.
+
+### Added
+- **QA bridge: per-key Remote Config values + sources** (`remote_config.values` in `/qa/snapshot`): every key Firebase knows plus every registered in-app default, each with the value the Palette getters would serve and its true source (`firebase_remote` fetched/cached, `firebase_default`, `gameanalytics`, `in_app_default`, `missing`). Reads live adapter state rather than logs, so a release (non-development) build can be QA'd for Remote Config delivery - "did the console change reach the device" is now answerable from one snapshot.
 
 ### Fixed
 - **Editor version sync no longer downgrades a manual AppLovin MAX upgrade** (B-4): `SdkVersionSync` forced every installed package to the registry version on each domain reload, reverting a MAX version the developer had bumped via `MaxVersionChecker`. It now only raises semver-pinned packages up to the registry floor and never downgrades (reuses `MaxVersionChecker.IsNewerVersion`); git-URL-pinned packages stay exact-match enforced.
