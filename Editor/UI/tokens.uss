@@ -421,6 +421,28 @@
     font-size: 11px;
 }
 
+/* Footer links (p3-footer): three text-link buttons + separators, centered. */
+.sorolla-footer-links {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    padding: var(--sorolla-space-3) 0;
+}
+
+.sorolla-footer-link {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    color: var(--sorolla-text-accent);
+    font-size: 11px;
+    -unity-font-style: bold;
+    padding: 0 var(--sorolla-space-2);
+}
+
+.sorolla-footer-separator {
+    color: var(--sorolla-text-tertiary);
+    font-size: 11px;
+}
+
 /* HeroHeader (p2-heroheader): icon + title + version + mode toggle pill. */
 .sorolla-hero {
     flex-direction: row;

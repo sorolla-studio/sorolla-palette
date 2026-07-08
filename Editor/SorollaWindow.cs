@@ -21,7 +21,6 @@ namespace Sorolla.Palette.Editor
         // Cached GUIStyles - initialized once
         static GUIStyle s_modePrototypeStyle;
         static GUIStyle s_modeFullStyle;
-        static GUIStyle s_linkStyle;
         static bool s_stylesInitialized;
 
         // Icon colors (avoid style mutation)
@@ -132,12 +131,19 @@ namespace Sorolla.Palette.Editor
             quickstartContainer.Add(BuildQuickstartSection());
             scrollView.Add(quickstartContainer);
 
-            scrollView.Add(new IMGUIContainer(DrawLowerSectionsWithStyles));
+            // p3-footer: DrawLinksSection() was the LAST remaining call in DrawLowerSections, so
+            // this is the final peel - IMGUIContainerB (and DrawLowerSections/
+            // DrawLowerSectionsWithStyles entirely) is deleted below, the hybrid migration is
+            // complete, and CreateGUI() is now pure VisualElement composition apart from
+            // IMGUIContainerA (PlayModeWarning + Mode, unchanged - not in this cycle's scope).
+            var footerContainer = CreatePortedSectionContainer();
+            footerContainer.Add(BuildFooterLinksSection());
+            scrollView.Add(footerContainer);
         }
 
         /// <summary>Shared boilerplate for every ported section container: fixed-dark theme scope
         /// + the tokens stylesheet. Factored once three call sites needed the same 6 lines
-        /// (p3-config).</summary>
+        /// (p3-config); now used by all six ported sections.</summary>
         static VisualElement CreatePortedSectionContainer()
         {
             var container = new VisualElement();
@@ -178,24 +184,12 @@ namespace Sorolla.Palette.Editor
             DrawUpperSections();
         }
 
-        void DrawLowerSectionsWithStyles()
-        {
-            EnsureStyles();
-            DrawLowerSections();
-        }
-
         static void EnsureStyles()
         {
             if (s_stylesInitialized) return;
 
             s_modePrototypeStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = new Color(0.3f, 0.7f, 1f) } };
             s_modeFullStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = new Color(0.3f, 1f, 0.3f) } };
-
-            s_linkStyle = new GUIStyle(EditorStyles.linkLabel)
-            {
-                normal = { textColor = new Color(0.4f, 0.7f, 1f) },
-                hover = { textColor = new Color(0.6f, 0.85f, 1f) },
-            };
             s_stylesInitialized = true;
         }
 
@@ -232,11 +226,6 @@ namespace Sorolla.Palette.Editor
         {
             DrawPlayModeWarning();
             DrawModeSection();
-        }
-
-        void DrawLowerSections()
-        {
-            DrawLinksSection();
         }
 
         void DrawPlayModeWarning()
@@ -398,26 +387,35 @@ namespace Sorolla.Palette.Editor
             return container;
         }
 
-        void DrawLinksSection()
+        /// <summary>Ported to UI Toolkit (p3-footer) - the last IMGUI section. Three real UI
+        /// Toolkit Buttons styled as text links (accent color, no chrome) instead of
+        /// EditorStyles.linkLabel + GUILayout.Button, same URLs unchanged.</summary>
+        static VisualElement BuildFooterLinksSection()
         {
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
+            var row = new VisualElement();
+            row.AddToClassList("sorolla-footer-links");
 
-            if (GUILayout.Button("Documentation", s_linkStyle))
-                Application.OpenURL("https://github.com/sorolla-studio/sorolla-palette#readme");
+            row.Add(CreateFooterLink("Documentation", "https://github.com/sorolla-studio/sorolla-palette#readme"));
+            row.Add(CreateFooterSeparator());
+            row.Add(CreateFooterLink("GitHub", "https://github.com/sorolla-studio/sorolla-palette"));
+            row.Add(CreateFooterSeparator());
+            row.Add(CreateFooterLink("Report Issue", "https://github.com/sorolla-studio/sorolla-palette/issues"));
 
-            GUILayout.Label("|", EditorStyles.linkLabel);
+            return row;
+        }
 
-            if (GUILayout.Button("GitHub", s_linkStyle))
-                Application.OpenURL("https://github.com/sorolla-studio/sorolla-palette");
+        static Button CreateFooterLink(string label, string url)
+        {
+            var button = new Button(() => Application.OpenURL(url)) { text = label };
+            button.AddToClassList("sorolla-footer-link");
+            return button;
+        }
 
-            GUILayout.Label("|", EditorStyles.linkLabel);
-
-            if (GUILayout.Button("Report Issue", s_linkStyle))
-                Application.OpenURL("https://github.com/sorolla-studio/sorolla-palette/issues");
-
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
+        static Label CreateFooterSeparator()
+        {
+            var label = new Label("|");
+            label.AddToClassList("sorolla-footer-separator");
+            return label;
         }
 
         void LoadOrCreateConfig()
