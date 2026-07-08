@@ -49,6 +49,7 @@ namespace Sorolla.Palette.Editor
             Events.registeringPackages += OnPackagesRegistering;
             Events.registeredPackages += OnPackagesRegistered;
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+            FacebookPlatformValidator.OnProbeSettled += RunBuildValidation;
         }
 
         void OnDisable()
@@ -56,6 +57,7 @@ namespace Sorolla.Palette.Editor
             Events.registeringPackages -= OnPackagesRegistering;
             Events.registeredPackages -= OnPackagesRegistered;
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            FacebookPlatformValidator.OnProbeSettled -= RunBuildValidation;
         }
 
         void OnPackagesRegistering(PackageRegistrationEventArgs args)

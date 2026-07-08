@@ -103,6 +103,51 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
+        ///     Reads the app id + client token pair from FacebookSettings.asset (first entry, same
+        ///     index convention as <see cref="GetFacebookStatus"/>). Used by the Graph platform check.
+        /// </summary>
+        public static bool TryGetFacebookCredentials(out string appId, out string clientToken)
+        {
+            appId = null;
+            clientToken = null;
+
+            if (!SdkDetector.IsInstalled(SdkId.Facebook))
+                return false;
+
+            try
+            {
+                var settings = Resources.Load("FacebookSettings");
+                if (settings == null)
+                    return false;
+
+                var serialized = new SerializedObject(settings);
+                var appIdsProperty = serialized.FindProperty("appIds");
+                var clientTokensProperty = serialized.FindProperty("clientTokens");
+
+                if (appIdsProperty == null || !appIdsProperty.isArray || appIdsProperty.arraySize == 0)
+                    return false;
+                if (clientTokensProperty == null || !clientTokensProperty.isArray || clientTokensProperty.arraySize == 0)
+                    return false;
+
+                string candidateAppId = appIdsProperty.GetArrayElementAtIndex(0).stringValue;
+                string candidateClientToken = clientTokensProperty.GetArrayElementAtIndex(0).stringValue;
+
+                if (string.IsNullOrEmpty(candidateAppId) || candidateAppId == "0" || candidateAppId.Length <= 5)
+                    return false;
+                if (string.IsNullOrEmpty(candidateClientToken))
+                    return false;
+
+                appId = candidateAppId;
+                clientToken = candidateClientToken;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         ///     Checks if Facebook SDK has a valid App ID configured.
         /// </summary>
         public static ConfigStatus GetFacebookStatus()

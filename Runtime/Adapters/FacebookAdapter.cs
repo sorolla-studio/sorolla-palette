@@ -114,10 +114,7 @@ namespace Sorolla.Palette.Adapters
 
             if (!string.IsNullOrEmpty(result.Error))
             {
-                string detail = SafeDetail(result.Error);
-                PaletteLog.Error($"{Tag} AuthError: {detail}");
-                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Failed,
-                    "auth_error", detail);
+                DiagnoseProbeFailure(SafeDetail(result.Error));
                 return;
             }
 
@@ -134,6 +131,76 @@ namespace Sorolla.Palette.Adapters
 
             AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Ready,
                 "validated", "Initialized and app credentials validated");
+        }
+
+        /// <summary>
+        ///     A failed validation probe surfaces the vendor's raw transport error by default (often a
+        ///     misleading SSL/connection message). Before logging it, ask the Graph API whether the
+        ///     current platform is even registered on the FB app - that is the actual root cause of the
+        ///     Boulder Evolution incident (FB app provisioned Android-only, iOS rejected every call).
+        /// </summary>
+        private static void DiagnoseProbeFailure(string vendorDetail)
+        {
+            string appId = NormalizeAppId(FB.AppId);
+            string clientToken = FB.ClientToken;
+
+            if (string.IsNullOrEmpty(appId) || string.IsNullOrEmpty(clientToken))
+            {
+                ReportProbeFailure(vendorDetail);
+                return;
+            }
+
+            try
+            {
+                var formData = new Dictionary<string, string>
+                {
+                    { "access_token", appId + "|" + clientToken },
+                };
+                FB.API("/" + appId + "?fields=supported_platforms", HttpMethod.GET,
+                    platformResult => OnPlatformDiagnosisProbe(platformResult, vendorDetail), formData);
+            }
+            catch (Exception)
+            {
+                ReportProbeFailure(vendorDetail);
+            }
+        }
+
+        private static void OnPlatformDiagnosisProbe(IGraphResult platformResult, string vendorDetail)
+        {
+            if (platformResult != null && string.IsNullOrEmpty(platformResult.Error)
+                && !string.IsNullOrEmpty(platformResult.RawResult))
+            {
+                var parsed = JsonUtility.FromJson<SupportedPlatformsResponse>(platformResult.RawResult);
+                if (parsed?.supported_platforms != null
+                    && Array.IndexOf(parsed.supported_platforms, CurrentPlatformName) < 0)
+                {
+                    string appId = NormalizeAppId(FB.AppId);
+                    ReportProbeFailure($"{CurrentPlatformName} not registered on FB app {appId}");
+                    return;
+                }
+            }
+
+            ReportProbeFailure(vendorDetail);
+        }
+
+        private static void ReportProbeFailure(string detail)
+        {
+            PaletteLog.Error($"{Tag} AuthError: {detail}");
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Failed,
+                "auth_error", detail);
+        }
+
+        private static string CurrentPlatformName =>
+#if UNITY_IOS
+            "IOS";
+#else
+            "ANDROID";
+#endif
+
+        [Serializable]
+        private class SupportedPlatformsResponse
+        {
+            public string[] supported_platforms;
         }
 
         private static bool ContainsAppId(IGraphResult result)

@@ -130,6 +130,7 @@ namespace Sorolla.Palette.Editor
                 results.AddRange(CheckGradleConfig());
                 results.AddRange(CheckR8AgpConfig());
                 results.AddRange(CheckGameAnalyticsSettings());
+                results.AddRange(CheckFacebookPlatformConfig());
             }
             catch (Exception e)
             {
