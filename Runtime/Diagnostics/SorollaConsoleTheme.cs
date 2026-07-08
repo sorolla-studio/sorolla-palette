@@ -25,10 +25,13 @@ namespace Sorolla.Palette
         const float DefaultMaxUiScale = 2.7f;
 
         // p2-rt-card: card corner radius (TOKENS.md radius-card, 8pt) and badge/pill radius
-        // (TOKENS.md radius-pill, rounded enough to look like a full stadium at typical badge
-        // heights), both scaled by _uiScale so they stay proportional at the console's max scale.
+        // (TOKENS.md radius-pill), both scaled by _uiScale so they stay proportional at the
+        // console's max scale. DefaultBadgeRadius was 10 (a near-full stadium at typical badge
+        // heights) until Arthur's design review (2026-07-08) called that out as reading like an
+        // ugly ellipse on short labels - now a small rounded rect, matching the editor's
+        // radius-pill change from 999px to 4px.
         const float DefaultCardRadius = 8f;
-        const float DefaultBadgeRadius = 10f;
+        const float DefaultBadgeRadius = 4f;
 
         // Design tokens - canonical values + hex in docs/ui-overhaul/TOKENS.md; mirror any change
         // there and into Editor/UI/tokens.uss in the same cycle.

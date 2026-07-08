@@ -10,7 +10,7 @@ namespace Sorolla.Palette.Editor.UI
             var row = new VisualElement();
             row.AddToClassList("sorolla-hero");
 
-            var icon = new VisualElement();
+            var icon = new Label("🎨");
             icon.AddToClassList("sorolla-hero-icon");
             row.Add(icon);
 
