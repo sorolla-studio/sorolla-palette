@@ -1,17 +1,24 @@
 /* Palette UI Overhaul design tokens - canonical values in docs/ui-overhaul/TOKENS.md.
-   Fixed dark theme applied via .sorolla-root regardless of the surrounding editor skin - see
-   TOKENS.md "Provenance" for why. Mirror any change here into TOKENS.md and
-   SorollaConsoleTheme.cs in the same cycle. */
+   Backgrounds now track Unity's default editor dark-skin window color (Arthur's design review,
+   2026-07-08 - overturns the earlier fixed-near-black-page decision recorded in TOKENS.md
+   Provenance). bg-page is Unity's real default window background (rgb(56,56,56), read live via
+   EditorGUIUtility.GetDefaultBackgroundColor() with isProSkin=true, not guessed); every other
+   background step is the SAME delta-from-page as the previous near-black ramp, just re-anchored
+   to this lighter baseline, so the relative depth/contrast design is unchanged - only the anchor
+   moved. Status colors are untouched per Arthur's explicit call. Mirror any change here into
+   TOKENS.md and SorollaConsoleTheme.cs in the same cycle (SorollaConsoleTheme.cs is the RUNTIME
+   console's separate theme system - an in-game overlay, not editor chrome - and is intentionally
+   NOT touched by this change; Arthur's review was of the editor window/gallery only). */
 
 .sorolla-root {
-    --sorolla-bg-page: rgb(3, 3, 4);
-    --sorolla-bg-card: rgb(14, 17, 20);
-    --sorolla-bg-card-alt: rgb(18, 22, 26);
-    --sorolla-bg-section: rgb(27, 33, 40);
-    --sorolla-bg-elevated: rgb(41, 46, 54);
-    --sorolla-bg-elevated-hover: rgb(56, 64, 74);
-    --sorolla-bg-accent-muted: rgb(31, 66, 79);
-    --sorolla-bg-accent: rgb(20, 82, 97);
+    --sorolla-bg-page: rgb(56, 56, 56);
+    --sorolla-bg-card: rgb(67, 70, 72);
+    --sorolla-bg-card-alt: rgb(71, 75, 78);
+    --sorolla-bg-section: rgb(80, 86, 92);
+    --sorolla-bg-elevated: rgb(94, 99, 106);
+    --sorolla-bg-elevated-hover: rgb(109, 117, 126);
+    --sorolla-bg-accent-muted: rgb(84, 119, 131);
+    --sorolla-bg-accent: rgb(73, 135, 149);
 
     --sorolla-status-pass: rgb(31, 148, 82);
     --sorolla-status-warn: rgb(255, 199, 71);
@@ -19,9 +26,9 @@
     --sorolla-status-wait: rgb(79, 125, 219);
     --sorolla-status-info: rgb(107, 117, 128);
 
-    --sorolla-status-fail-tint: rgb(31, 14, 15);
-    --sorolla-status-warn-tint: rgb(43, 37, 20);
-    --sorolla-status-pass-tint: rgb(15, 36, 23);
+    --sorolla-status-fail-tint: rgb(84, 67, 67);
+    --sorolla-status-warn-tint: rgb(96, 90, 72);
+    --sorolla-status-pass-tint: rgb(68, 89, 75);
 
     --sorolla-text-primary: rgb(242, 245, 248);
     --sorolla-text-secondary: rgb(204, 214, 224);
