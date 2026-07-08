@@ -17,6 +17,7 @@ Common issues and solutions for Sorolla SDK integration.
 | Build failing | Check **Build Health** in Configuration window | [→](#build-health) |
 | Runtime crash on Android | Open `Palette > Configuration`, check Build Health | [→](#android-specific-issues) |
 | iOS provisioning errors | Open Xcode, enable "Automatically manage signing" | [→](#ios-specific-issues) |
+| TestFlight rejects `libFirebaseCpp*.a` (ITMS-90171) | Set the `.a` libs to "Do Not Embed" in Xcode | [→](known-issues.md) |
 
 ---
 

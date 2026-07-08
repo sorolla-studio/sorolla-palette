@@ -11,6 +11,8 @@
   topicUid: Sorolla.Palette.Palette
 - name: Troubleshooting
   href: troubleshooting.md
+- name: Known Issues
+  href: known-issues.md
 - name: Architecture
   href: architecture.md
 - name: Contributing
