@@ -266,3 +266,40 @@
     -unity-font-style: bold;
     padding: 0;
 }
+
+/* CheckRow + CollapsibleCheckGroup (p2-checkrow) */
+.sorolla-check-row {
+    flex-direction: row;
+    align-items: center;
+    padding: var(--sorolla-space-1) 0;
+}
+
+.sorolla-check-row-icon {
+    width: 18px;
+    font-size: 12px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.sorolla-check-row-label {
+    flex-grow: 1;
+    font-size: 12px;
+    color: var(--sorolla-text-primary);
+}
+
+.sorolla-check-row-status {
+    font-size: 11px;
+    -unity-font-style: bold;
+}
+
+.sorolla-check-pass { color: var(--sorolla-status-pass); }
+.sorolla-check-warn { color: var(--sorolla-status-warn); }
+.sorolla-check-fail { color: var(--sorolla-status-fail); }
+.sorolla-check-wait { color: var(--sorolla-status-wait); }
+
+.sorolla-check-group {
+    color: var(--sorolla-text-primary);
+    -unity-font-style: bold;
+    font-size: 12px;
+    margin-bottom: var(--sorolla-space-2);
+}

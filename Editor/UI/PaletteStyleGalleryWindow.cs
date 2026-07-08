@@ -19,7 +19,6 @@ namespace Sorolla.Palette.Editor.UI
         // adds a dedicated Build*Section method instead (see BuildStatusBadgeSection below).
         static readonly string[] Sections =
         {
-            "CheckRow / CollapsibleCheckGroup",
             "ValidatedField",
             "CodeSnippetBlock",
             "HeroHeader",
@@ -86,8 +85,34 @@ namespace Sorolla.Palette.Editor.UI
             scrollView.Add(BuildStatusBadgeSection());
             scrollView.Add(BuildCalloutCardSection());
             scrollView.Add(BuildSectionHeaderSection());
+            scrollView.Add(BuildCheckRowSection());
             foreach (string section in Sections)
                 scrollView.Add(BuildSectionPlaceholder(section));
+        }
+
+        static VisualElement BuildCheckRowSection()
+        {
+            var container = new VisualElement();
+            container.AddToClassList("gallery-section");
+
+            var title = new Label("CheckRow / CollapsibleCheckGroup");
+            title.AddToClassList("gallery-section-title");
+            container.Add(title);
+
+            container.Add(CheckRow.Create("Required SDKs", CheckRow.Status.Pass));
+            container.Add(CheckRow.Create("MAX Settings", CheckRow.Status.Warn, "SYNCING"));
+            container.Add(CheckRow.Create("Adjust app token", CheckRow.Status.Fail));
+            container.Add(CheckRow.Create("Firebase Config Files", CheckRow.Status.Wait));
+
+            var groupRows = new[]
+            {
+                CheckRow.Create("Scoped Registries", CheckRow.Status.Pass),
+                CheckRow.Create("Android Manifest", CheckRow.Status.Pass),
+                CheckRow.Create("Gradle Configuration", CheckRow.Status.Pass),
+            };
+            container.Add(CollapsibleCheckGroup.Create("3 checks passing", groupRows, startExpanded: true));
+
+            return container;
         }
 
         static VisualElement BuildSectionHeaderSection()
