@@ -283,7 +283,12 @@ namespace Sorolla.Palette.Editor
             _configContainer.Add(SectionHeader.Create("SDK Keys"));
 
             // MAX Ad Units (Header comes from [Header] attribute on first property - PropertyField
-            // renders it automatically, same as the old EditorGUILayout.PropertyField did)
+            // renders it automatically, same as the old EditorGUILayout.PropertyField did). These
+            // stay plain PropertyField, NOT ValidatedField: rewardedAdUnit/interstitialAdUnit/
+            // bannerAdUnit are PlatformAdUnitId (nested Android/iOS struct), not a leaf string, so
+            // they render as Unity's own foldout - ValidatedField's label+input+icon shell is built
+            // for a single value and visibly double-labels/breaks on a nested type (caught via
+            // screenshot, not assumed).
             if (showMax)
             {
                 _configContainer.Add(new PropertyField(_serializedConfig.FindProperty("rewardedAdUnit"), "Rewarded"));
@@ -291,32 +296,30 @@ namespace Sorolla.Palette.Editor
                 _configContainer.Add(new PropertyField(_serializedConfig.FindProperty("bannerAdUnit"), "Banner (Optional)"));
             }
 
-            // Adjust (full mode only) - "Adjust (Full Mode Only)" header comes from the
-            // [Header] attribute on adjustAppToken itself, same auto-render as MAX Ad Units above;
-            // a manual label here would duplicate it (caught via screenshot, not assumed).
+            // Adjust (full mode only). adjustAppToken is the ONE documented hard build gate
+            // (BuildValidationVendorSettings.cs / SdkConfigDetector.cs: empty or length<=5 fails a
+            // Full-mode build) - Invalid state + subtext only while unresolved, no subtext once valid.
             if (showAdjust)
             {
-                var appToken = new PropertyField(_serializedConfig.FindProperty("adjustAppToken"), "App Token");
+                string adjustToken = _serializedConfig.FindProperty("adjustAppToken").stringValue;
+                bool adjustValid = !string.IsNullOrEmpty(adjustToken) && adjustToken.Length > 5;
+                var appToken = ValidatedField.CreateBound(_serializedConfig.FindProperty("adjustAppToken"), "App Token",
+                    adjustValid ? ValidatedField.State.Valid : ValidatedField.State.Invalid,
+                    adjustValid ? null : "Required for Full-mode builds");
                 appToken.style.marginLeft = 15;
                 _configContainer.Add(appToken);
-                var purchaseToken = new PropertyField(_serializedConfig.FindProperty("adjustPurchaseEventToken"), "Purchase Event Token");
-                purchaseToken.style.marginLeft = 15;
-                _configContainer.Add(purchaseToken);
+
+                _configContainer.Add(Indented(BoundField("adjustPurchaseEventToken", "Purchase Event Token")));
             }
 
-            // TikTok (optional - shown only when enabled in SDK Overview) - "TikTok (Optional)"
-            // header comes from tiktokAppId's own [Header] attribute, same as Adjust above.
+            // TikTok (optional - shown only when enabled in SDK Overview). Also PlatformAdUnitId
+            // (nested Android/iOS struct, same as the MAX ad units above), not a leaf string -
+            // stays plain PropertyField for the same reason.
             if (_config.enableTikTok)
             {
-                var appId = new PropertyField(_serializedConfig.FindProperty("tiktokAppId"), "TikTok App ID");
-                appId.style.marginLeft = 15;
-                _configContainer.Add(appId);
-                var emAppId = new PropertyField(_serializedConfig.FindProperty("tiktokEmAppId"), "App ID (EM)");
-                emAppId.style.marginLeft = 15;
-                _configContainer.Add(emAppId);
-                var accessToken = new PropertyField(_serializedConfig.FindProperty("tiktokAccessToken"), "Access Token");
-                accessToken.style.marginLeft = 15;
-                _configContainer.Add(accessToken);
+                _configContainer.Add(Indented(new PropertyField(_serializedConfig.FindProperty("tiktokAppId"), "TikTok App ID")));
+                _configContainer.Add(Indented(new PropertyField(_serializedConfig.FindProperty("tiktokEmAppId"), "App ID (EM)")));
+                _configContainer.Add(Indented(new PropertyField(_serializedConfig.FindProperty("tiktokAccessToken"), "Access Token")));
             }
 
             // Verbose Logging (master toggle) - "Logging" header comes from verboseLogging's own
@@ -332,6 +335,22 @@ namespace Sorolla.Palette.Editor
             // sync }" behavior - TrackSerializedObjectValue fires once per change, same semantics.
             if (showMax)
                 _configContainer.TrackSerializedObjectValue(_serializedConfig, _ => MaxSettingsSanitizer.SyncEmbeddedSdkKey());
+        }
+
+        /// <summary>ValidatedField-styled row for a plain optional string property (p4-config,
+        /// item 7): no documented required/invalid rule for these fields, so state is just
+        /// filled-vs-empty and there's no subtext to show.</summary>
+        VisualElement BoundField(string propertyName, string label)
+        {
+            var property = _serializedConfig.FindProperty(propertyName);
+            var state = string.IsNullOrEmpty(property.stringValue) ? ValidatedField.State.None : ValidatedField.State.Valid;
+            return ValidatedField.CreateBound(property, label, state);
+        }
+
+        static VisualElement Indented(VisualElement element)
+        {
+            element.style.marginLeft = 15;
+            return element;
         }
 
         /// <summary>Ported to UI Toolkit (p3-quickstart). The old box mixed real integration facts
