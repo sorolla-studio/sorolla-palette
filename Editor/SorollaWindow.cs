@@ -21,7 +21,6 @@ namespace Sorolla.Palette.Editor
         // Cached GUIStyles - initialized once
         static GUIStyle s_modePrototypeStyle;
         static GUIStyle s_modeFullStyle;
-        static GUIStyle s_wordWrapStyle;
         static GUIStyle s_linkStyle;
         static bool s_stylesInitialized;
 
@@ -125,6 +124,14 @@ namespace Sorolla.Palette.Editor
             scrollView.Add(_configContainer);
             RefreshConfigUI();
 
+            // p3-quickstart: DrawInfoSection() was the FIRST (now only non-Links) call in
+            // DrawLowerSections, so porting it is another clean front-peel. Static content (no
+            // live SDK/config state), so no stored field or refresh method - built once here.
+            var quickstartContainer = CreatePortedSectionContainer();
+            quickstartContainer.style.marginBottom = 10;
+            quickstartContainer.Add(BuildQuickstartSection());
+            scrollView.Add(quickstartContainer);
+
             scrollView.Add(new IMGUIContainer(DrawLowerSectionsWithStyles));
         }
 
@@ -184,7 +191,6 @@ namespace Sorolla.Palette.Editor
             s_modePrototypeStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = new Color(0.3f, 0.7f, 1f) } };
             s_modeFullStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = new Color(0.3f, 1f, 0.3f) } };
 
-            s_wordWrapStyle = new GUIStyle(EditorStyles.label) { wordWrap = true };
             s_linkStyle = new GUIStyle(EditorStyles.linkLabel)
             {
                 normal = { textColor = new Color(0.4f, 0.7f, 1f) },
@@ -230,8 +236,6 @@ namespace Sorolla.Palette.Editor
 
         void DrawLowerSections()
         {
-            DrawInfoSection();
-            EditorGUILayout.Space(8);
             DrawLinksSection();
         }
 
@@ -362,18 +366,36 @@ namespace Sorolla.Palette.Editor
                 _configContainer.TrackSerializedObjectValue(_serializedConfig, _ => MaxSettingsSanitizer.SyncEmbeddedSdkKey());
         }
 
-        void DrawInfoSection()
+        /// <summary>Ported to UI Toolkit (p3-quickstart). The old box mixed real integration facts
+        /// (auto-init, ATT) with pseudo-code bullets ("Start/Complete/Fail" as one slash-joined
+        /// non-compilable line) - CodeSnippetBlock ships a Copy button that implies real, pasteable
+        /// syntax, so pseudo-code behind it would be a correctness regression, not a neutral
+        /// re-style. Split instead: the auto-init/ATT facts stay prose (CalloutCard Info, its
+        /// actual payload - the SDK self-bootstraps with no init call/GameObject - is the single
+        /// most important integration fact in this window and must not be lost); the three API
+        /// patterns become real, minimal, source-verified one-liners (checked against
+        /// Runtime/Palette.Level.cs, Runtime/Palette.Economy.cs, Runtime/Palette.cs directly, not
+        /// against docs or memory - simplest correct call per pattern, no kitchen-sink optional
+        /// params). The Level snippet matches the gallery's existing CodeSnippetBlock demo verbatim
+        /// (one source of truth for what "the" canonical snippet looks like).</summary>
+        static VisualElement BuildQuickstartSection()
         {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            GUILayout.Label("ℹ️ Auto-Initialization", EditorStyles.boldLabel);
-            GUILayout.Label(
-                "The SDK auto-initializes when your game starts.\n" +
-                "• iOS: Shows ATT consent dialog automatically\n" +
-                "• Use Palette.TrackEvent(name, params) for custom events\n" +
-                "• Use Palette.Level.Start/Complete/Fail for level progression\n" +
-                "• Use Palette.Economy.Earn/Spend for in-game currency",
-                s_wordWrapStyle);
-            EditorGUILayout.EndVertical();
+            var container = new VisualElement();
+
+            container.Add(CalloutCard.Create(CalloutCard.Severity.Info, "Auto-Initialization",
+                "The SDK auto-initializes when your game starts - no init call, no GameObject required. " +
+                "iOS shows the ATT consent dialog automatically."));
+
+            container.Add(SectionHeader.Create("Quick Start"));
+
+            container.Add(CodeSnippetBlock.Create("Level Progression",
+                "Palette.Level.Start(1);\nPalette.Level.Complete(1, score: 100);"));
+            container.Add(CodeSnippetBlock.Create("Economy",
+                "Palette.Economy.Earn(CurrencyId.Coins, 100, EconomySource.LevelReward);"));
+            container.Add(CodeSnippetBlock.Create("Custom Event",
+                "Palette.TrackEvent(\"tutorial_done\");"));
+
+            return container;
         }
 
         void DrawLinksSection()
