@@ -62,6 +62,45 @@ namespace Sorolla.Palette.Editor
             return results;
         }
 
+        /// <summary>
+        ///     A hardcoded org.gradle.java.home line in the committed gradleTemplate.properties is a
+        ///     machine-local path that breaks every other teammate's Gradle build ("Java home supplied
+        ///     is invalid"). Android target only.
+        /// </summary>
+        static List<ValidationResult> CheckGradleJavaHome()
+        {
+            var results = new List<ValidationResult>();
+            const CheckCategory category = CheckCategory.GradleJavaHome;
+
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
+            {
+                results.Add(Valid(category, "Skipped (not Android)"));
+                return results;
+            }
+
+            if (!File.Exists(GradlePropertiesPath))
+            {
+                results.Add(Valid(category, "gradleTemplate.properties not found (covered by Gradle Configuration check)"));
+                return results;
+            }
+
+            string props = File.ReadAllText(GradlePropertiesPath);
+            if (props.Contains("org.gradle.java.home"))
+            {
+                results.Add(Warning(
+                    category,
+                    "gradleTemplate.properties has a hardcoded org.gradle.java.home line.\n" +
+                    "  That path is machine-local; committing it breaks every other teammate's Gradle build (\"Java home supplied is invalid\").",
+                    "Delete the org.gradle.java.home line from gradleTemplate.properties and commit the removal"));
+            }
+            else
+            {
+                results.Add(Valid(category, "No hardcoded org.gradle.java.home"));
+            }
+
+            return results;
+        }
+
         internal static bool HasJava11CompileOptions(string gradle) =>
             !string.IsNullOrEmpty(gradle) &&
             gradle.Contains("VERSION_11") &&
