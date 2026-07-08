@@ -1,0 +1,13 @@
+/* Design tokens placeholder - full token set lands with p1-tokens (see docs/ui-overhaul/PLAN.md
+   and TOKENS.md). Minimal rules here so the gallery renders as VisualElements from the start. */
+
+.gallery-section-title {
+    -unity-font-style: bold;
+    margin-bottom: 2px;
+}
+
+.gallery-section-placeholder {
+    white-space: normal;
+    opacity: 0.7;
+    padding: 4px;
+}

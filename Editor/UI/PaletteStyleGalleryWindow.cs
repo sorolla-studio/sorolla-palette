@@ -1,7 +1,8 @@
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
-namespace Sorolla.Editor.UI
+namespace Sorolla.Palette.Editor.UI
 {
     /// <summary>
     /// Dev-only isolation surface for the UI-overhaul loop: renders every planned editor
@@ -12,6 +13,8 @@ namespace Sorolla.Editor.UI
     /// </summary>
     sealed class PaletteStyleGalleryWindow : EditorWindow
     {
+        const string TokensUssPath = "Packages/com.sorolla.sdk/Editor/UI/tokens.uss";
+
         static readonly string[] Sections =
         {
             "StatusBadge",
@@ -22,8 +25,6 @@ namespace Sorolla.Editor.UI
             "CodeSnippetBlock",
             "HeroHeader",
         };
-
-        Vector2 _scroll;
 
         /// <summary>Screen-space position of this window's own (0,0) GUI point, refreshed every
         /// repaint. UiLabCapture reads this via reflection for exact-origin framing instead of
@@ -37,24 +38,43 @@ namespace Sorolla.Editor.UI
         [MenuItem("Palette/UI Lab/Style Gallery")]
         static void Open() => GetWindow<PaletteStyleGalleryWindow>("Palette Style Gallery");
 
-        void OnGUI()
+        void CreateGUI()
         {
-            if (Event.current.type == EventType.Repaint)
-            {
-                ScreenOrigin = GUIUtility.GUIToScreenPoint(Vector2.zero);
-                ScreenOriginValid = true;
-            }
-            _scroll = EditorGUILayout.BeginScrollView(_scroll);
+            var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(TokensUssPath);
+            if (styleSheet != null)
+                rootVisualElement.styleSheets.Add(styleSheet);
+
+            var scrollView = new ScrollView(ScrollViewMode.Vertical);
+            scrollView.style.flexGrow = 1;
+            rootVisualElement.Add(scrollView);
+
             foreach (string section in Sections)
-                DrawSectionPlaceholder(section);
-            EditorGUILayout.EndScrollView();
+                scrollView.Add(BuildSectionPlaceholder(section));
+
+            rootVisualElement.RegisterCallback<GeometryChangedEvent>(_ => RecordScreenOrigin());
         }
 
-        static void DrawSectionPlaceholder(string title)
+        void RecordScreenOrigin()
         {
-            EditorGUILayout.Space(8);
-            EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox("Not yet implemented — placeholder for the phase-2 component cycle.", MessageType.None);
+            ScreenOrigin = GUIUtility.GUIToScreenPoint(Vector2.zero);
+            ScreenOriginValid = true;
+        }
+
+        static VisualElement BuildSectionPlaceholder(string title)
+        {
+            var container = new VisualElement();
+            container.AddToClassList("gallery-section");
+            container.style.marginTop = 8;
+
+            var label = new Label(title);
+            label.AddToClassList("gallery-section-title");
+            container.Add(label);
+
+            var placeholder = new Label("Not yet implemented — placeholder for the phase-2 component cycle.");
+            placeholder.AddToClassList("gallery-section-placeholder");
+            container.Add(placeholder);
+
+            return container;
         }
     }
 }
