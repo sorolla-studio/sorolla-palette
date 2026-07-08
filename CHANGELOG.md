@@ -39,6 +39,13 @@ signal it produces, and the fix.
   first (via `--game-root` or `$SOROLLA_SDK_QA_DIR`), falling back to the skill copy for older
   SDK pins.
 
+- **"Copy SDK state" button** (debug console, Actions tab, QA Bridge section): copies the same data
+  `/qa/snapshot` serves (header, mode, consent, remote config, adapters, identity, ads, IAP, events,
+  problems) as a formatted plain-text report to the system clipboard, so a studio dev can paste it to
+  Sorolla when a red row on-device can't be self-fixed. Phase 5' cut (a) of the QA self-serve plan;
+  the console's Vitals tab already covers the rest of cut (a)'s "QA status section" (per-area rows,
+  header health summary, honest unverified states) off the same underlying snapshot data.
+
 ### Fixed
 - **`google-services.json` detection no longer false-positives on the desktop file**: the Firebase
   Android config check required exactly `Assets/google-services.json` (or the StreamingAssets copy);
