@@ -380,10 +380,12 @@ namespace Sorolla.Palette.Editor
             return foldout;
         }
 
-        /// <summary>Empty is NOT an error (ads are optional at prototype stage, Banner is
-        /// explicitly optional) - no icon, no subtext. A non-empty value is validated against the
-        /// MAX ad-unit ID format (16 lowercase hex chars): Valid if it matches, Invalid with a
-        /// short subtext if it doesn't.</summary>
+        /// <summary>Empty is fully neutral (Arthur, confirmed twice) - no icon, no color, reads as
+        /// calm as a stock untouched field (ads are optional at prototype stage, Banner is
+        /// explicitly optional). A non-empty value is validated against the MAX ad-unit ID format
+        /// (16 lowercase hex chars): Valid (green check) if it matches, amber (State.Required -
+        /// the warn-color state, not State.Invalid's red/fail color) with a short subtext if it
+        /// doesn't - a malformed ID is a soft warning here, not a hard failure.</summary>
         VisualElement AdUnitField(string label, string propertyPath)
         {
             var property = _serializedConfig.FindProperty(propertyPath);
@@ -394,7 +396,7 @@ namespace Sorolla.Palette.Editor
 
             bool formatValid = MaxAdUnitFormat.IsMatch(value);
             return ValidatedField.CreateBound(property, label,
-                formatValid ? ValidatedField.State.Valid : ValidatedField.State.Invalid,
+                formatValid ? ValidatedField.State.Valid : ValidatedField.State.Required,
                 formatValid ? null : "Doesn't look like a MAX ad unit ID");
         }
 
