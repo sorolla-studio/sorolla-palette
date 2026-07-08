@@ -25,11 +25,25 @@ namespace Sorolla.Editor.UI
 
         Vector2 _scroll;
 
+        /// <summary>Screen-space position of this window's own (0,0) GUI point, refreshed every
+        /// repaint. UiLabCapture reads this via reflection for exact-origin framing instead of
+        /// deriving it from EditorWindow.position + the main-window offset heuristic.</summary>
+        internal Vector2 ScreenOrigin { get; private set; }
+
+        /// <summary>True once ScreenOrigin has been recorded from an actual Repaint event - guards
+        /// against a stale default (0,0) being read before the window has painted a single frame.</summary>
+        internal bool ScreenOriginValid { get; private set; }
+
         [MenuItem("Palette/UI Lab/Style Gallery")]
         static void Open() => GetWindow<PaletteStyleGalleryWindow>("Palette Style Gallery");
 
         void OnGUI()
         {
+            if (Event.current.type == EventType.Repaint)
+            {
+                ScreenOrigin = GUIUtility.GUIToScreenPoint(Vector2.zero);
+                ScreenOriginValid = true;
+            }
             _scroll = EditorGUILayout.BeginScrollView(_scroll);
             foreach (string section in Sections)
                 DrawSectionPlaceholder(section);
