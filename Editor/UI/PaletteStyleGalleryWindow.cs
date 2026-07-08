@@ -133,8 +133,8 @@ namespace Sorolla.Palette.Editor.UI
             title.AddToClassList("gallery-section-title");
             container.Add(title);
 
-            container.Add(HeroHeader.Create("Palette SDK", "v3.18.2 - Plug & Play Publisher Stack", "FULL", modeIsFull: true));
-            container.Add(HeroHeader.Create("Palette SDK", "v3.18.2 - Plug & Play Publisher Stack", "PROTOTYPE", modeIsFull: false));
+            container.Add(HeroHeader.Create("Palette SDK", "v3.18.2 - Plug & Play Publisher Stack", modeIsFull: true, onSwitchRequested: () => { }));
+            container.Add(HeroHeader.Create("Palette SDK", "v3.18.2 - Plug & Play Publisher Stack", modeIsFull: false, onSwitchRequested: () => { }));
 
             return container;
         }

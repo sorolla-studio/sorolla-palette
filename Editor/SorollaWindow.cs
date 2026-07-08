@@ -18,11 +18,6 @@ namespace Sorolla.Palette.Editor
     {
         const string TokensUssPath = "Packages/com.sorolla.sdk/Editor/UI/tokens.uss";
 
-        // Cached GUIStyles - initialized once
-        static GUIStyle s_modePrototypeStyle;
-        static GUIStyle s_modeFullStyle;
-        static bool s_stylesInitialized;
-
         // Icon colors (avoid style mutation)
         static readonly Color ColorGreen = new Color(0.2f, 0.8f, 0.2f);
         static readonly Color ColorYellow = new Color(1f, 0.7f, 0.2f);
@@ -42,6 +37,7 @@ namespace Sorolla.Palette.Editor
         VisualElement _buildHealthContainer;
         VisualElement _sdkOverviewContainer;
         VisualElement _configContainer;
+        VisualElement _heroContainer;
         bool _buildHealthChecksExpanded;
         List<BuildValidator.ValidationResult> _validationResults = new List<BuildValidator.ValidationResult>();
 
@@ -103,10 +99,11 @@ namespace Sorolla.Palette.Editor
             // window edge (matching the gallery's look) while the content gets inset.
             const float ContentPadding = 12f;
 
-            VisualElement heroSection = BuildHeroHeaderSection();
-            heroSection.style.paddingLeft = ContentPadding;
-            heroSection.style.paddingRight = ContentPadding;
-            rootVisualElement.Add(heroSection);
+            _heroContainer = new VisualElement();
+            _heroContainer.style.paddingLeft = ContentPadding;
+            _heroContainer.style.paddingRight = ContentPadding;
+            rootVisualElement.Add(_heroContainer);
+            RefreshHeroHeaderUI();
 
             var scrollView = new ScrollView(ScrollViewMode.Vertical);
             scrollView.style.flexGrow = 1;
@@ -114,7 +111,7 @@ namespace Sorolla.Palette.Editor
             scrollView.contentContainer.style.paddingRight = ContentPadding;
             rootVisualElement.Add(scrollView);
 
-            scrollView.Add(new IMGUIContainer(DrawUpperSectionsWithStyles));
+            scrollView.Add(new IMGUIContainer(DrawUpperSections));
 
             // p3-sdkoverview: DrawSdkOverviewSection() was the LAST call in DrawUpperSections, so
             // porting it is a clean peel from the end of the already-shrunk IMGUIContainerA region,
@@ -173,39 +170,37 @@ namespace Sorolla.Palette.Editor
         /// own .sorolla-root container so the fixed-dark token theme applies only to the ported
         /// section, not the still-IMGUI content below it (mid-migration, per PLAN.md's per-section
         /// approach - the visual seam is expected and temporary, not a bug).</summary>
-        static VisualElement BuildHeroHeaderSection()
+        /// <summary>Rebuilds the hero header fresh so its segmented mode switch reflects the
+        /// current mode after a switch - the switch fires SorollaSettings.SetMode synchronously,
+        /// then this repaints it in place (same rebuild-on-change pattern as the other ported
+        /// sections, not a live in-place mutation of the segments).</summary>
+        void RefreshHeroHeaderUI()
         {
-            var container = CreatePortedSectionContainer();
+            if (_heroContainer == null) return;
+            _heroContainer.Clear();
 
+            var container = CreatePortedSectionContainer();
             bool isPrototype = SorollaSettings.Mode == SorollaMode.Prototype;
             container.Add(HeroHeader.Create("Palette SDK", $"v{Version} - Plug & Play Publisher Stack",
-                isPrototype ? "PROTOTYPE" : "FULL", modeIsFull: !isPrototype));
-            return container;
+                modeIsFull: !isPrototype, onSwitchRequested: RequestModeSwitch));
+            _heroContainer.Add(container);
         }
 
-        /// <summary>DrawUpperSections()/DrawLowerSections() are byte-for-byte unchanged draw calls
-        /// (only their grouping into two methods changed, see the split above). Neither IMGUI
-        /// piece keeps its own scroll anymore - the outer UI Toolkit ScrollView in CreateGUI() owns
-        /// all scrolling now, spanning both IMGUI pieces and the ported Build Health section
-        /// between them. EnsureStyles() MUST run in EACH handler, not once in CreateGUI() - every
-        /// IMGUIContainer is its own separate GUI context, and GUIStyle construction needs a live
-        /// one to resolve correctly (same bug class as the GUIToScreenPoint-inside-
-        /// GeometryChangedEvent regression from p0-capture-exact-origin - caught by design this
-        /// time). EnsureStyles() is itself idempotent (s_stylesInitialized guard), so calling it
-        /// from both handlers every frame is cheap and correct.</summary>
-        void DrawUpperSectionsWithStyles()
+        /// <summary>The exact same switch flow the old IMGUI Mode box used (confirmation dialog +
+        /// SorollaSettings.SetMode + re-validate) - item 10 moves the presentation into the hero
+        /// header's segmented switch, it does not touch this behavior.</summary>
+        void RequestModeSwitch()
         {
-            EnsureStyles();
-            DrawUpperSections();
-        }
+            if (EditorApplication.isPlaying) return;
 
-        static void EnsureStyles()
-        {
-            if (s_stylesInitialized) return;
-
-            s_modePrototypeStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = new Color(0.3f, 0.7f, 1f) } };
-            s_modeFullStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = new Color(0.3f, 1f, 0.3f) } };
-            s_stylesInitialized = true;
+            SorollaMode otherMode = SorollaSettings.Mode == SorollaMode.Prototype ? SorollaMode.Full : SorollaMode.Prototype;
+            if (EditorUtility.DisplayDialog($"Switch to {otherMode} Mode?",
+                "This will install/uninstall SDKs as needed.", "Switch", "Cancel"))
+            {
+                SorollaSettings.SetMode(otherMode);
+                RefreshHeroHeaderUI();
+                EditorApplication.delayCall += () => RunBuildValidation();
+            }
         }
 
         [MenuItem("Palette/Configuration")]
@@ -240,7 +235,6 @@ namespace Sorolla.Palette.Editor
         void DrawUpperSections()
         {
             DrawPlayModeWarning();
-            DrawModeSection();
         }
 
         void DrawPlayModeWarning()
@@ -252,36 +246,6 @@ namespace Sorolla.Palette.Editor
                 "⚠️ Exit Play Mode to install or switch SDK modes. Package Manager does not resolve packages during Play Mode.",
                 MessageType.Warning);
             EditorGUILayout.Space(5);
-        }
-
-        void DrawModeSection()
-        {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            GUILayout.Label("Mode", EditorStyles.boldLabel);
-
-            SorollaMode mode = SorollaSettings.Mode;
-            bool isPrototype = mode == SorollaMode.Prototype;
-
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Current:", GUILayout.Width(60));
-
-            GUILayout.Label(isPrototype ? "🧪 Prototype" : "🚀 Full", isPrototype ? s_modePrototypeStyle : s_modeFullStyle);
-
-            GUILayout.FlexibleSpace();
-
-            SorollaMode otherMode = isPrototype ? SorollaMode.Full : SorollaMode.Prototype;
-            GUI.enabled = !EditorApplication.isPlaying;
-            if (GUILayout.Button($"Switch to {otherMode}", GUILayout.Width(130)))
-                if (EditorUtility.DisplayDialog($"Switch to {otherMode} Mode?",
-                    "This will install/uninstall SDKs as needed.", "Switch", "Cancel"))
-                {
-                    SorollaSettings.SetMode(otherMode);
-                    // Re-run validation after mode switch
-                    EditorApplication.delayCall += () => RunBuildValidation();
-                }
-            GUI.enabled = true;
-            EditorGUILayout.EndHorizontal();
-            EditorGUILayout.EndVertical();
         }
 
         /// <summary>Ported to UI Toolkit (p3-sdkconfig): real UnityEditor.UIElements.PropertyField

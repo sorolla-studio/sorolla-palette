@@ -497,7 +497,7 @@
     font-size: 11px;
 }
 
-/* HeroHeader (p2-heroheader): icon + title + version + mode toggle pill. */
+/* HeroHeader (p2-heroheader): icon + title + version + Prototype|Full segmented mode switch. */
 .sorolla-hero {
     flex-direction: row;
     align-items: center;
@@ -530,19 +530,37 @@
     color: var(--sorolla-text-tertiary);
 }
 
-.sorolla-hero-mode {
+/* Prototype|Full segmented mode switch (Arthur's design review, item 10 - straight from the
+   mockup): replaces both the old gray Mode box and the separate FULL/PROTOTYPE status pill. The
+   switch itself shows current mode, so a redundant badge next to it was dropped. Two adjoining
+   segments sharing one pill-shaped track; the active segment renders filled/accent, the inactive
+   segment is a plain click target rendered muted. */
+.sorolla-mode-switch {
+    flex-direction: row;
     height: 22px;
     border-radius: var(--sorolla-radius-pill);
-    padding: 0 var(--sorolla-space-2);
-    justify-content: center;
-    align-items: center;
+    background-color: var(--sorolla-bg-elevated);
+    overflow: hidden;
 }
 
-.sorolla-hero-mode-full { background-color: var(--sorolla-status-pass); }
-.sorolla-hero-mode-prototype { background-color: var(--sorolla-status-info); }
-
-.sorolla-hero-mode-label {
+.sorolla-mode-segment {
+    padding: 0 var(--sorolla-space-3);
+    justify-content: center;
+    align-items: center;
+    -unity-text-align: middle-center;
     font-size: 11px;
     -unity-font-style: bold;
+}
+
+.sorolla-mode-segment-active {
+    background-color: var(--sorolla-bg-accent);
     color: var(--sorolla-text-on-status);
+}
+
+.sorolla-mode-segment-inactive {
+    color: var(--sorolla-text-tertiary);
+}
+
+.sorolla-mode-segment-inactive:hover {
+    background-color: var(--sorolla-bg-elevated-hover);
 }
