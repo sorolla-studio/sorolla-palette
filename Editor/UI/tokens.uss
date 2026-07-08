@@ -43,6 +43,16 @@
     background-color: var(--sorolla-bg-page);
 }
 
+/* Every gallery section is a card sitting on the page background - bg-card must read as visibly
+   lighter than bg-page so components have a deliberate surface to sit on (supervisor note,
+   2026-07-08 p1-tokens review). */
+.gallery-section {
+    background-color: var(--sorolla-bg-card);
+    border-radius: var(--sorolla-radius-card);
+    padding: var(--sorolla-space-4);
+    margin-bottom: var(--sorolla-space-4);
+}
+
 .gallery-section-title {
     -unity-font-style: bold;
     color: var(--sorolla-text-primary);
@@ -130,3 +140,38 @@
 .sorolla-pill-wait { background-color: var(--sorolla-status-wait); }
 .sorolla-pill-info { background-color: var(--sorolla-status-info); }
 .sorolla-pill-warn .sorolla-swatch-pill-label { color: var(--sorolla-text-on-warn); }
+
+/* StatusBadge (p2-badge): BLOCKER/ADVISORY/FULL/PASS/FAIL/WAIT/GATED/UNVERIFIABLE. GATED is a
+   muted solid fill (blocked on something else); UNVERIFIABLE is outline-only with no fill - it
+   must read as less confident than a real pass/fail, since the loop cannot confirm it (PLAN.md
+   "verified-column honesty"). */
+.sorolla-badge {
+    height: 22px;
+    border-radius: var(--sorolla-radius-pill);
+    padding: 0 var(--sorolla-space-3);
+    justify-content: center;
+    align-items: center;
+    margin-right: var(--sorolla-space-2);
+    margin-bottom: var(--sorolla-space-2);
+    border-width: 1px;
+    border-color: transparent;
+}
+
+.sorolla-badge-label {
+    font-size: 11px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: var(--sorolla-text-on-status);
+}
+
+.sorolla-badge-pass { background-color: var(--sorolla-status-pass); }
+.sorolla-badge-warn { background-color: var(--sorolla-status-warn); }
+.sorolla-badge-warn .sorolla-badge-label { color: var(--sorolla-text-on-warn); }
+.sorolla-badge-fail { background-color: var(--sorolla-status-fail); }
+.sorolla-badge-wait { background-color: var(--sorolla-status-wait); }
+.sorolla-badge-gated { background-color: var(--sorolla-status-info); }
+.sorolla-badge-unverifiable {
+    background-color: rgba(0, 0, 0, 0);
+    border-color: var(--sorolla-text-tertiary);
+}
+.sorolla-badge-unverifiable .sorolla-badge-label { color: var(--sorolla-text-tertiary); }

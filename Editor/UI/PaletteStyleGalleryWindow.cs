@@ -15,15 +15,28 @@ namespace Sorolla.Palette.Editor.UI
     {
         const string TokensUssPath = "Packages/com.sorolla.sdk/Editor/UI/tokens.uss";
 
+        // Placeholder sections not yet built - each phase-2 cycle removes one from this list and
+        // adds a dedicated Build*Section method instead (see BuildStatusBadgeSection below).
         static readonly string[] Sections =
         {
-            "StatusBadge",
             "CalloutCard",
             "SectionHeader",
             "CheckRow / CollapsibleCheckGroup",
             "ValidatedField",
             "CodeSnippetBlock",
             "HeroHeader",
+        };
+
+        static readonly (string Label, StatusBadge.Severity Severity)[] BadgeVariants =
+        {
+            ("BLOCKER", StatusBadge.Severity.Blocker),
+            ("ADVISORY", StatusBadge.Severity.Advisory),
+            ("FULL", StatusBadge.Severity.Full),
+            ("PASS", StatusBadge.Severity.Pass),
+            ("FAIL", StatusBadge.Severity.Fail),
+            ("WAIT", StatusBadge.Severity.Wait),
+            ("GATED", StatusBadge.Severity.Gated),
+            ("UNVERIFIABLE", StatusBadge.Severity.Unverifiable),
         };
 
         [MenuItem("Palette/UI Lab/Style Gallery")]
@@ -72,8 +85,27 @@ namespace Sorolla.Palette.Editor.UI
             rootVisualElement.Add(scrollView);
 
             scrollView.Add(BuildTokenSwatchSection());
+            scrollView.Add(BuildStatusBadgeSection());
             foreach (string section in Sections)
                 scrollView.Add(BuildSectionPlaceholder(section));
+        }
+
+        static VisualElement BuildStatusBadgeSection()
+        {
+            var container = new VisualElement();
+            container.AddToClassList("gallery-section");
+
+            var title = new Label("StatusBadge");
+            title.AddToClassList("gallery-section-title");
+            container.Add(title);
+
+            var row = new VisualElement();
+            row.AddToClassList("sorolla-swatch-row");
+            foreach ((string label, StatusBadge.Severity severity) in BadgeVariants)
+                row.Add(StatusBadge.Create(label, severity));
+            container.Add(row);
+
+            return container;
         }
 
         static VisualElement BuildTokenSwatchSection()
