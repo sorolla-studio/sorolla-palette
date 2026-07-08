@@ -51,6 +51,13 @@
 
 .sorolla-root.sorolla-skin-dark {
     --sorolla-bg-page: rgb(56, 56, 56);
+    /* Arthur's design review: ValidatedField inputs were rendering lighter than Unity's own
+       stock fields - anchor them to the REAL editor field color instead of the bg-elevated
+       chip tone. Live-sampled from a stock UI Toolkit TextField's rendered pixels in this
+       window (rgb(42,42,42) - resolvedStyle.backgroundColor reads transparent for stock
+       controls since Unity paints them via native chrome, not a plain USS background, so this
+       was measured from an actual screenshot pixel, not resolvedStyle). */
+    --sorolla-bg-field: rgb(42, 42, 42);
     --sorolla-bg-card: rgb(67, 70, 72);
     --sorolla-bg-card-alt: rgb(71, 75, 78);
     --sorolla-bg-section: rgb(80, 86, 92);
@@ -71,6 +78,9 @@
 
 .sorolla-root.sorolla-skin-light {
     --sorolla-bg-page: rgb(194, 194, 194);
+    /* Not live-verified (no light-skin editor available) - extrapolated the same page-relative
+       delta as the dark ramp's bg-field (-14 from bg-page) rather than guessing a fresh value. */
+    --sorolla-bg-field: rgb(180, 180, 180);
     --sorolla-bg-card: rgb(178, 178, 178);
     --sorolla-bg-card-alt: rgb(172, 172, 172);
     --sorolla-bg-section: rgb(160, 160, 160);
@@ -263,7 +273,11 @@
     margin-top: var(--sorolla-space-2);
 }
 
-.sorolla-callout-button {
+/* Unified small-button chrome (Arthur's design review): Edit, Console, and Refresh must share
+   ONE style, not each carrying its own slightly different chip look - applied alongside each
+   component's own class (which now only carries layout, e.g. section-header-action's
+   margin-left), never redefined per-component again. */
+.sorolla-button-small {
     background-color: var(--sorolla-bg-elevated);
     color: var(--sorolla-text-primary);
     border-radius: var(--sorolla-radius-input);
@@ -271,6 +285,10 @@
     padding: var(--sorolla-space-1) var(--sorolla-space-3);
     font-size: 11px;
     -unity-font-style: bold;
+}
+
+.sorolla-button-small:hover {
+    background-color: var(--sorolla-bg-elevated-hover);
 }
 
 /* SectionHeader (p2-sectionheader): caps label + rule (fills remaining space) + optional
@@ -296,22 +314,12 @@
 }
 
 /* Was borderless/backgroundless text (read as a plain label, not a button); Arthur's design
-   review asked for a real button affordance matching the Edit/Console row buttons
-   (.sorolla-callout-button) - same elevated-chip treatment, kept the accent text color for
-   this action's identity. */
+   review first asked for a real button affordance (matching Edit/Console), then asked for it to
+   be the SAME chip as Edit/Console rather than its own accent-colored variant - this class now
+   only carries the layout delta (spacing from the header rule), all chrome comes from the shared
+   .sorolla-button-small class added alongside it. */
 .sorolla-section-header-action {
     margin-left: var(--sorolla-space-3);
-    background-color: var(--sorolla-bg-elevated);
-    border-width: 0;
-    border-radius: var(--sorolla-radius-input);
-    color: var(--sorolla-text-accent);
-    font-size: 11px;
-    -unity-font-style: bold;
-    padding: var(--sorolla-space-1) var(--sorolla-space-3);
-}
-
-.sorolla-section-header-action:hover {
-    background-color: var(--sorolla-bg-elevated-hover);
 }
 
 /* CheckRow + CollapsibleCheckGroup (p2-checkrow) */
@@ -373,7 +381,7 @@
 }
 
 .sorolla-field-input .unity-text-field__input {
-    background-color: var(--sorolla-bg-elevated);
+    background-color: var(--sorolla-bg-field);
     border-radius: var(--sorolla-radius-input);
     border-width: 1px;
     border-color: rgba(0, 0, 0, 0);

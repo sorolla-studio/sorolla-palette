@@ -488,7 +488,7 @@ namespace Sorolla.Palette.Editor
             if (!string.IsNullOrEmpty(data.ActionLabel))
             {
                 var button = new Button(() => data.OnAction?.Invoke()) { text = data.ActionLabel };
-                button.AddToClassList("sorolla-callout-button");
+                button.AddToClassList("sorolla-button-small");
                 button.SetEnabled(data.ActionEnabled);
                 row.Add(button);
             }

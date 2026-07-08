@@ -27,6 +27,7 @@ namespace Sorolla.Palette.Editor.UI
             {
                 var action = new Button(onAction) { text = actionLabel };
                 action.AddToClassList("sorolla-section-header-action");
+                action.AddToClassList("sorolla-button-small");
                 row.Add(action);
             }
 

@@ -44,7 +44,7 @@ namespace Sorolla.Palette.Editor.UI
                 var actionRow = new VisualElement();
                 actionRow.AddToClassList("sorolla-callout-actions");
                 var button = new Button(onAction) { text = actionLabel };
-                button.AddToClassList("sorolla-callout-button");
+                button.AddToClassList("sorolla-button-small");
                 actionRow.Add(button);
                 content.Add(actionRow);
             }
