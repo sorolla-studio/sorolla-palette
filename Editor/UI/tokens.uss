@@ -393,6 +393,34 @@
     white-space: normal;
 }
 
+/* SDK Overview vendor row (p3-sdkoverview): status icon + name/toggle + config status + optional
+   trailing action button (Install/Configure/Edit/Console/Refresh/Dashboard). One shared row shape
+   for all six vendors - see BuildVendorRow in SorollaWindow.cs. */
+.sorolla-sdk-row {
+    flex-direction: row;
+    align-items: center;
+    padding: var(--sorolla-space-1) 0;
+}
+
+.sorolla-sdk-row-icon {
+    width: 20px;
+    font-size: 12px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.sorolla-sdk-row-name {
+    width: 140px;
+    font-size: 12px;
+    color: var(--sorolla-text-primary);
+    margin: 0;
+}
+
+.sorolla-sdk-row-config {
+    width: 150px;
+    font-size: 11px;
+}
+
 /* HeroHeader (p2-heroheader): icon + title + version + mode toggle pill. */
 .sorolla-hero {
     flex-direction: row;

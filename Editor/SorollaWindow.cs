@@ -18,12 +18,6 @@ namespace Sorolla.Palette.Editor
         const string TokensUssPath = "Packages/com.sorolla.sdk/Editor/UI/tokens.uss";
 
         // Cached GUIStyles - initialized once
-        static GUIStyle s_statusGreenStyle;
-        static GUIStyle s_statusYellowStyle;
-        static GUIStyle s_configStyleGreen;
-        static GUIStyle s_configStyleYellow;
-        static GUIStyle s_configStyleRed;
-        static GUIStyle s_configStyleGray;
         static GUIStyle s_modePrototypeStyle;
         static GUIStyle s_modeFullStyle;
         static GUIStyle s_wordWrapStyle;
@@ -47,6 +41,7 @@ namespace Sorolla.Palette.Editor
         SorollaConfig _config;
         SerializedObject _serializedConfig;
         VisualElement _buildHealthContainer;
+        VisualElement _sdkOverviewContainer;
         List<BuildValidator.ValidationResult> _validationResults = new List<BuildValidator.ValidationResult>();
 
         void OnEnable()
@@ -55,12 +50,14 @@ namespace Sorolla.Palette.Editor
             RunBuildValidation();
             Events.registeringPackages += OnPackagesRegistering;
             Events.registeredPackages += OnPackagesRegistered;
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
         }
 
         void OnDisable()
         {
             Events.registeringPackages -= OnPackagesRegistering;
             Events.registeredPackages -= OnPackagesRegistered;
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
         }
 
         void OnPackagesRegistering(PackageRegistrationEventArgs args)
@@ -68,6 +65,7 @@ namespace Sorolla.Palette.Editor
             foreach (var package in args.added)
                 _installingPackages.Add(package.name);
             Repaint();
+            RefreshSdkOverviewUI();
         }
 
         void OnPackagesRegistered(PackageRegistrationEventArgs args)
@@ -78,7 +76,14 @@ namespace Sorolla.Palette.Editor
             // Re-run validation after packages are installed (no auto-install, just detect)
             EditorApplication.delayCall += () => RunBuildValidation();
             Repaint();
+            RefreshSdkOverviewUI();
         }
+
+        /// <summary>The ported rows' Install-button enabled state mirrors the old GUI.enabled =
+        /// !EditorApplication.isPlaying gate, which used to re-evaluate every IMGUI frame for free.
+        /// A cleared/rebuilt VisualElement doesn't repaint itself, so play-mode entry/exit is an
+        /// explicit rebuild trigger here (same call-site-addition pattern as the package events).</summary>
+        void OnPlayModeStateChanged(PlayModeStateChange change) => RefreshSdkOverviewUI();
 
         void CreateGUI()
         {
@@ -96,6 +101,18 @@ namespace Sorolla.Palette.Editor
             rootVisualElement.Add(scrollView);
 
             scrollView.Add(new IMGUIContainer(DrawUpperSectionsWithStyles));
+
+            // p3-sdkoverview: DrawSdkOverviewSection() was the LAST call in DrawUpperSections, so
+            // porting it is a clean peel from the end of the already-shrunk IMGUIContainerA region,
+            // not a new middle-split - it just slots in right before Build Health.
+            _sdkOverviewContainer = new VisualElement();
+            _sdkOverviewContainer.AddToClassList("sorolla-root");
+            _sdkOverviewContainer.style.marginTop = 10;
+            var sdkOverviewStyleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(TokensUssPath);
+            if (sdkOverviewStyleSheet != null)
+                _sdkOverviewContainer.styleSheets.Add(sdkOverviewStyleSheet);
+            scrollView.Add(_sdkOverviewContainer);
+            RefreshSdkOverviewUI();
 
             _buildHealthContainer = new VisualElement();
             _buildHealthContainer.AddToClassList("sorolla-root");
@@ -154,14 +171,6 @@ namespace Sorolla.Palette.Editor
         {
             if (s_stylesInitialized) return;
 
-            s_statusGreenStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = ColorGreen } };
-            s_statusYellowStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = ColorYellow } };
-
-            s_configStyleGreen = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = new Color(0.5f, 0.8f, 0.5f) } };
-            s_configStyleYellow = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = ColorYellow } };
-            s_configStyleRed = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = new Color(1f, 0.5f, 0.5f) } };
-            s_configStyleGray = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = ColorGray } };
-
             s_modePrototypeStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = new Color(0.3f, 0.7f, 1f) } };
             s_modeFullStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = new Color(0.3f, 1f, 0.3f) } };
 
@@ -172,15 +181,6 @@ namespace Sorolla.Palette.Editor
                 hover = { textColor = new Color(0.6f, 0.85f, 1f) },
             };
             s_stylesInitialized = true;
-        }
-
-        /// <summary>Draw a colored icon without mutating shared styles.</summary>
-        static void DrawIcon(string icon, Color color)
-        {
-            var prev = GUI.contentColor;
-            GUI.contentColor = color;
-            GUILayout.Label(icon, GUILayout.Width(20));
-            GUI.contentColor = prev;
         }
 
         [MenuItem("Palette/Configuration")]
@@ -216,8 +216,6 @@ namespace Sorolla.Palette.Editor
         {
             DrawPlayModeWarning();
             DrawModeSection();
-            EditorGUILayout.Space(10);
-            DrawSdkOverviewSection();
         }
 
         void DrawLowerSections()
@@ -402,29 +400,343 @@ namespace Sorolla.Palette.Editor
             Debug.Log($"[Palette] Config created at: {path}");
         }
 
-        /// <summary>
-        ///     Data for rendering a single SDK row in the overview section.
-        /// </summary>
-        struct SdkRowData
-        {
-            public string Name;
-            public string PackageId;
-            public bool IsInstalled;
-            public bool IsRequired;
-            public bool IsAutoInstalled;
-            public SdkConfigDetector.ConfigStatus ConfigStatus;
-            public string ConfigHint;
-            public Action OnConfigure;
-            public Action OnInstall;
-        }
-
         #region SDK Overview
 
-        void DrawSdkOverviewSection()
+        /// <summary>Row data for the generic vendor-row builder below. NameElement is a full
+        /// VisualElement (not just a string) because TikTok's row replaces the plain name Label
+        /// with a live Toggle - every other vendor passes a plain Label built from its name.</summary>
+        sealed class SdkOverviewRowData
+        {
+            public VisualElement NameElement;
+            public string IconGlyph;
+            public Color IconColor;
+            public string ConfigText;
+            public Color ConfigColor;
+            public string ActionLabel;
+            public Action OnAction;
+            public bool ActionEnabled = true;
+        }
+
+        /// <summary>Ported to UI Toolkit (p3-sdkoverview). One shared row builder for all six
+        /// vendors (GameAnalytics/Facebook/Adjust share this directly; MAX/Firebase/TikTok wrap it
+        /// with their own status logic below) rather than six copy-pasted row blocks - this row
+        /// shape has no second consumer outside this section, so it stays inline instead of
+        /// becoming a new Components/ entry (supervisor-approved, p3-sdkoverview scoping).</summary>
+        static VisualElement BuildVendorRow(SdkOverviewRowData data)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("sorolla-sdk-row");
+
+            var icon = new Label(data.IconGlyph);
+            icon.AddToClassList("sorolla-sdk-row-icon");
+            icon.style.color = data.IconColor;
+            row.Add(icon);
+
+            row.Add(data.NameElement);
+
+            var configLabel = new Label(data.ConfigText);
+            configLabel.AddToClassList("sorolla-sdk-row-config");
+            configLabel.style.color = data.ConfigColor;
+            row.Add(configLabel);
+
+            var spacer = new VisualElement();
+            spacer.style.flexGrow = 1;
+            row.Add(spacer);
+
+            if (!string.IsNullOrEmpty(data.ActionLabel))
+            {
+                var button = new Button(() => data.OnAction?.Invoke()) { text = data.ActionLabel };
+                button.AddToClassList("sorolla-callout-button");
+                button.SetEnabled(data.ActionEnabled);
+                row.Add(button);
+            }
+
+            return row;
+        }
+
+        VisualElement BuildSdkOverviewRow(SdkInfo sdk, SdkConfigDetector.ConfigStatus configStatus,
+            string configHint, Action openSettings, bool isRequired)
         {
             bool isPrototype = SorollaSettings.IsPrototype;
+            bool isAutoInstalled = sdk.IsRequiredFor(isPrototype);
+            bool isInstalled = SdkDetector.IsInstalled(sdk);
+            bool isInstalling = _installingPackages.Contains(sdk.PackageId);
 
-            // Calculate overall readiness
+            Color iconColor = isInstalled ? ColorGreen : isInstalling ? ColorYellow : isRequired ? ColorRed : ColorGray;
+            string iconGlyph = isInstalled ? "✓" : isInstalling ? "⏳" : isRequired ? "✗" : "○";
+
+            Color configColor;
+            string configText;
+            if (isInstalling)
+            {
+                configColor = ColorYellow;
+                configText = "Installing...";
+            }
+            else if (!isInstalled)
+            {
+                configColor = ColorGray;
+                configText = isAutoInstalled ? "Auto-installs on mode switch" : "—";
+            }
+            else if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
+            {
+                configColor = ColorGreen;
+                configText = "✓ Configured";
+            }
+            else
+            {
+                configColor = ColorYellow;
+                configText = configHint;
+            }
+
+            string actionLabel = null;
+            Action onAction = null;
+            bool actionEnabled = true;
+            if (!isInstalled && !isInstalling && !isAutoInstalled)
+            {
+                actionLabel = "Install";
+                onAction = () => SdkInstaller.Install(sdk.Id);
+                actionEnabled = !EditorApplication.isPlaying;
+            }
+            else if (isInstalled && configStatus == SdkConfigDetector.ConfigStatus.NotConfigured && openSettings != null)
+            {
+                actionLabel = "Configure";
+                onAction = openSettings;
+            }
+            else if (isInstalled && configStatus == SdkConfigDetector.ConfigStatus.Configured && openSettings != null)
+            {
+                actionLabel = "Edit";
+                onAction = openSettings;
+            }
+
+            var nameLabel = new Label(isRequired ? sdk.Name : $"{sdk.Name} (optional)");
+            nameLabel.AddToClassList("sorolla-sdk-row-name");
+
+            return BuildVendorRow(new SdkOverviewRowData
+            {
+                NameElement = nameLabel,
+                IconGlyph = iconGlyph,
+                IconColor = iconColor,
+                ConfigText = configText,
+                ConfigColor = configColor,
+                ActionLabel = actionLabel,
+                OnAction = onAction,
+                ActionEnabled = actionEnabled,
+            });
+        }
+
+        VisualElement BuildMaxOverviewRow(bool settingsSynced, bool isRequired)
+        {
+            SdkInfo sdk = SdkRegistry.All[SdkId.AppLovinMAX];
+            bool isInstalled = SdkDetector.IsInstalled(sdk);
+            bool isPrototype = SorollaSettings.IsPrototype;
+            bool isAutoInstalled = sdk.IsRequiredFor(isPrototype);
+            bool isInstalling = _installingPackages.Contains(sdk.PackageId);
+
+            Color iconColor = isInstalled ? ColorGreen : isInstalling ? ColorYellow : isRequired ? ColorRed : ColorGray;
+            string iconGlyph = isInstalled ? "✓" : isInstalling ? "⏳" : isRequired ? "✗" : "○";
+
+            Color configColor;
+            string configText;
+            if (isInstalling)
+            {
+                configColor = ColorYellow;
+                configText = "Installing...";
+            }
+            else if (!isInstalled)
+            {
+                configColor = ColorGray;
+                configText = isAutoInstalled ? "Auto-installs on mode switch" : "—";
+            }
+            else if (settingsSynced)
+            {
+                configColor = ColorGreen;
+                configText = "✓ Auto-synced";
+            }
+            else
+            {
+                configColor = ColorRed;
+                configText = "Auto-sync failed";
+            }
+
+            string actionLabel = null;
+            Action onAction = null;
+            bool actionEnabled = true;
+            if (!isInstalled && !isInstalling && !isAutoInstalled)
+            {
+                actionLabel = "Install";
+                onAction = () => SdkInstaller.Install(sdk.Id);
+                actionEnabled = !EditorApplication.isPlaying;
+            }
+            else if (isInstalled && !settingsSynced)
+            {
+                actionLabel = "Refresh";
+                onAction = RunBuildValidation;
+            }
+
+            var nameLabel = new Label(isRequired ? sdk.Name : $"{sdk.Name} (optional)");
+            nameLabel.AddToClassList("sorolla-sdk-row-name");
+
+            return BuildVendorRow(new SdkOverviewRowData
+            {
+                NameElement = nameLabel,
+                IconGlyph = iconGlyph,
+                IconColor = iconColor,
+                ConfigText = configText,
+                ConfigColor = configColor,
+                ActionLabel = actionLabel,
+                OnAction = onAction,
+                ActionEnabled = actionEnabled,
+            });
+        }
+
+        VisualElement BuildFirebaseOverviewRow()
+        {
+            bool isInstalled = SdkDetector.IsInstalled(SdkId.FirebaseAnalytics);
+            bool isPrototype = SorollaSettings.IsPrototype;
+            bool isRequired = !isPrototype; // Required in Full, optional in Prototype
+            var configStatus = SdkConfigDetector.GetFirebaseStatus(_config);
+
+            bool isInstalling = _installingPackages.Contains("com.google.firebase.app") ||
+                                _installingPackages.Contains("com.google.firebase.analytics") ||
+                                _installingPackages.Contains("com.google.firebase.crashlytics") ||
+                                _installingPackages.Contains("com.google.firebase.remote-config");
+
+            Color iconColor = isInstalled ? ColorGreen : isInstalling ? ColorYellow : isRequired ? ColorRed : ColorGray;
+            string iconGlyph = isInstalled ? "✓" : isInstalling ? "⏳" : isRequired ? "✗" : "○";
+
+            Color configColor;
+            string configText;
+            if (isInstalling)
+            {
+                configColor = ColorYellow;
+                configText = "Installing...";
+            }
+            else if (!isInstalled)
+            {
+                configColor = ColorGray;
+                configText = isRequired ? "Auto-installs on mode switch" : "—";
+            }
+            else if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
+            {
+                configColor = ColorGreen;
+                configText = "✓ Configured";
+            }
+            else
+            {
+                configColor = ColorYellow;
+                configText = "Add config files";
+            }
+
+            string actionLabel = null;
+            Action onAction = null;
+            bool actionEnabled = true;
+            if (!isInstalled && !isInstalling && isPrototype)
+            {
+                actionLabel = "Install";
+                actionEnabled = !EditorApplication.isPlaying;
+                onAction = () =>
+                {
+                    SdkInstaller.Install(SdkId.FirebaseApp);
+                    SdkInstaller.Install(SdkId.FirebaseAnalytics);
+                    SdkInstaller.Install(SdkId.FirebaseCrashlytics);
+                    SdkInstaller.Install(SdkId.FirebaseRemoteConfig);
+                };
+            }
+            else if (isInstalled)
+            {
+                actionLabel = "Console";
+                onAction = () => Application.OpenURL("https://console.firebase.google.com/");
+            }
+
+            var nameLabel = new Label(isRequired ? "Firebase" : "Firebase (optional)");
+            nameLabel.AddToClassList("sorolla-sdk-row-name");
+
+            return BuildVendorRow(new SdkOverviewRowData
+            {
+                NameElement = nameLabel,
+                IconGlyph = iconGlyph,
+                IconColor = iconColor,
+                ConfigText = configText,
+                ConfigColor = configColor,
+                ActionLabel = actionLabel,
+                OnAction = onAction,
+                ActionEnabled = actionEnabled,
+            });
+        }
+
+        /// <summary>The only row that mutates the config asset directly. The Toggle callback must
+        /// stay byte-identical to the old ToggleLeft handler - same field, same SetDirty target, no
+        /// debounce (supervisor's explicit condition for exercising this control live, unlike the
+        /// Install buttons above).</summary>
+        VisualElement BuildTikTokOverviewRow()
+        {
+            bool enabled = _config.enableTikTok;
+            bool hasAppId = enabled && _config?.tiktokAppId?.IsConfigured == true
+                            && _config?.tiktokEmAppId?.IsConfigured == true;
+
+            Color iconColor = hasAppId ? ColorGreen : ColorGray;
+            string iconGlyph = hasAppId ? "✓" : "○";
+
+            var toggle = new Toggle("TikTok (optional)") { value = enabled };
+            toggle.AddToClassList("sorolla-sdk-row-name");
+            toggle.RegisterValueChangedCallback(evt =>
+            {
+                _config.enableTikTok = evt.newValue;
+                EditorUtility.SetDirty(_config);
+                RefreshSdkOverviewUI();
+            });
+
+            Color configColor;
+            string configText;
+            if (!enabled)
+            {
+                configColor = ColorGray;
+                configText = "Disabled";
+            }
+            else if (hasAppId)
+            {
+                configColor = ColorGreen;
+                configText = "✓ Configured";
+            }
+            else
+            {
+                configColor = ColorGray;
+                configText = "Set App ID below";
+            }
+
+            string actionLabel = null;
+            Action onAction = null;
+            if (hasAppId)
+            {
+                actionLabel = "Dashboard";
+                onAction = () => Application.OpenURL("https://business.tiktok.com/");
+            }
+
+            return BuildVendorRow(new SdkOverviewRowData
+            {
+                NameElement = toggle,
+                IconGlyph = iconGlyph,
+                IconColor = iconColor,
+                ConfigText = configText,
+                ConfigColor = configColor,
+                ActionLabel = actionLabel,
+                OnAction = onAction,
+            });
+        }
+
+        /// <summary>Ported to UI Toolkit (p3-sdkoverview): same readiness computation and row order
+        /// as the old DrawSdkOverviewSection(), rendered as real VisualElements. Clear-and-rebuild
+        /// on data change only, same guarded pattern as RefreshBuildHealthUI - triggers are
+        /// RunBuildValidation()'s completion (config/mode changes), the package registration events,
+        /// play-mode transitions (Install-button enabled state), and the TikTok toggle itself.</summary>
+        void RefreshSdkOverviewUI()
+        {
+            if (_sdkOverviewContainer == null) return;
+
+            _sdkOverviewContainer.Clear();
+
+            bool isPrototype = SorollaSettings.IsPrototype;
+
             SdkConfigDetector.ConfigStatus gaStatus = SdkConfigDetector.GetGameAnalyticsStatus();
             SdkConfigDetector.ConfigStatus fbStatus = SdkConfigDetector.GetFacebookStatus();
             SdkConfigDetector.ConfigStatus adjustStatus = SdkConfigDetector.GetAdjustStatus(_config);
@@ -440,330 +752,53 @@ namespace Sorolla.Palette.Editor
                                  maxSettingsSynced &&
                                  adjustStatus == SdkConfigDetector.ConfigStatus.Configured);
 
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            var headerRow = new VisualElement();
+            headerRow.style.flexDirection = FlexDirection.Row;
+            headerRow.style.alignItems = Align.Center;
+            headerRow.style.marginBottom = 8;
 
-            // Header
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("SDK Overview", EditorStyles.boldLabel);
-            GUILayout.FlexibleSpace();
+            var headerLabel = new Label("SDK Overview");
+            headerLabel.AddToClassList("sorolla-type-section");
+            headerRow.Add(headerLabel);
 
-            GUILayout.Label(isReady ? "✓ Ready" : "⚠ Setup Required", isReady ? s_statusGreenStyle : s_statusYellowStyle);
-            EditorGUILayout.EndHorizontal();
+            var headerSpacer = new VisualElement();
+            headerSpacer.style.flexGrow = 1;
+            headerRow.Add(headerSpacer);
 
-            EditorGUILayout.Space(5);
+            headerRow.Add(isReady
+                ? StatusBadge.Create("READY", StatusBadge.Severity.Pass)
+                : StatusBadge.Create("SETUP REQUIRED", StatusBadge.Severity.Advisory));
+
+            _sdkOverviewContainer.Add(headerRow);
 
             // GameAnalytics (always required)
-            DrawSdkOverviewItem(
-                SdkRegistry.All[SdkId.GameAnalytics],
-                gaStatus,
-                "Configure game keys",
-                SdkConfigDetector.OpenGameAnalyticsSettings,
-                true
-            );
+            _sdkOverviewContainer.Add(BuildSdkOverviewRow(
+                SdkRegistry.All[SdkId.GameAnalytics], gaStatus, "Configure game keys",
+                SdkConfigDetector.OpenGameAnalyticsSettings, true));
 
             // Facebook (always required)
-            DrawSdkOverviewItem(
-                SdkRegistry.All[SdkId.Facebook],
-                fbStatus,
-                "Set App ID",
-                SdkConfigDetector.OpenFacebookSettings,
-                true
-            );
+            _sdkOverviewContainer.Add(BuildSdkOverviewRow(
+                SdkRegistry.All[SdkId.Facebook], fbStatus, "Set App ID",
+                SdkConfigDetector.OpenFacebookSettings, true));
 
             if (isPrototype)
             {
                 // MAX (optional in Prototype) - expandable for ad unit IDs
-                DrawMaxOverviewItem(maxSettingsSynced, false);
+                _sdkOverviewContainer.Add(BuildMaxOverviewRow(maxSettingsSynced, false));
             }
             else
             {
                 // Full mode: MAX + Adjust required
-                DrawMaxOverviewItem(maxSettingsSynced, true);
-
-                DrawSdkOverviewItem(
-                    SdkRegistry.All[SdkId.Adjust],
-                    adjustStatus,
-                    "Enter app token below",
-                    null,
-                    true
-                );
+                _sdkOverviewContainer.Add(BuildMaxOverviewRow(maxSettingsSynced, true));
+                _sdkOverviewContainer.Add(BuildSdkOverviewRow(
+                    SdkRegistry.All[SdkId.Adjust], adjustStatus, "Enter app token below", null, true));
             }
 
             // Firebase (required in Full, optional in Prototype)
-            DrawFirebaseOverviewItem();
+            _sdkOverviewContainer.Add(BuildFirebaseOverviewRow());
 
             // TikTok (optional in all modes)
-            DrawTikTokOverviewItem();
-
-            EditorGUILayout.EndVertical();
-        }
-
-        void DrawSdkOverviewItem(SdkInfo sdk, SdkConfigDetector.ConfigStatus configStatus,
-            string configHint, Action openSettings, bool isRequired)
-        {
-            bool isPrototype = SorollaSettings.IsPrototype;
-            bool isAutoInstalled = sdk.IsRequiredFor(isPrototype);
-
-            DrawSdkRow(new SdkRowData
-            {
-                Name = sdk.Name,
-                PackageId = sdk.PackageId,
-                IsInstalled = SdkDetector.IsInstalled(sdk),
-                IsRequired = isRequired,
-                IsAutoInstalled = isAutoInstalled,
-                ConfigStatus = configStatus,
-                ConfigHint = configHint,
-                OnConfigure = openSettings,
-                OnInstall = () => SdkInstaller.Install(sdk.Id),
-            });
-        }
-
-        void DrawSdkRow(SdkRowData data)
-        {
-            EditorGUILayout.BeginHorizontal();
-
-            bool isInstalling = _installingPackages.Contains(data.PackageId);
-
-            // Status icon
-            Color iconColor = data.IsInstalled ? ColorGreen : isInstalling ? ColorYellow : data.IsRequired ? ColorRed : ColorGray;
-            string iconText = data.IsInstalled ? "✓" : isInstalling ? "⏳" : data.IsRequired ? "✗" : "○";
-            DrawIcon(iconText, iconColor);
-
-            // Name
-            string nameLabel = data.IsRequired ? data.Name : $"{data.Name} (optional)";
-            GUILayout.Label(nameLabel, GUILayout.Width(140));
-
-            // Settings sync status
-            GUIStyle configStyle;
-            string configText;
-            if (isInstalling)
-            {
-                configStyle = s_configStyleYellow;
-                configText = "Installing...";
-            }
-            else if (!data.IsInstalled)
-            {
-                configStyle = s_configStyleGray;
-                configText = data.IsAutoInstalled ? "Auto-installs on mode switch" : "—";
-            }
-            else if (data.ConfigStatus == SdkConfigDetector.ConfigStatus.Configured)
-            {
-                configStyle = s_configStyleGreen;
-                configText = "✓ Configured";
-            }
-            else
-            {
-                configStyle = s_configStyleYellow;
-                configText = data.ConfigHint;
-            }
-            GUILayout.Label(configText, configStyle, GUILayout.Width(150));
-
-            GUILayout.FlexibleSpace();
-
-            // Action button
-            if (!data.IsInstalled && !isInstalling && data.OnInstall != null && !data.IsAutoInstalled)
-            {
-                GUI.enabled = !EditorApplication.isPlaying;
-                if (GUILayout.Button("Install", GUILayout.Width(70)))
-                    data.OnInstall();
-                GUI.enabled = true;
-            }
-            else if (data.IsInstalled && data.ConfigStatus == SdkConfigDetector.ConfigStatus.NotConfigured && data.OnConfigure != null)
-            {
-                if (GUILayout.Button("Configure", GUILayout.Width(70)))
-                    data.OnConfigure();
-            }
-            else if (data.IsInstalled && data.ConfigStatus == SdkConfigDetector.ConfigStatus.Configured && data.OnConfigure != null)
-            {
-                if (GUILayout.Button("Edit", GUILayout.Width(50)))
-                    data.OnConfigure();
-            }
-
-            EditorGUILayout.EndHorizontal();
-        }
-
-        void DrawMaxOverviewItem(bool settingsSynced, bool isRequired)
-        {
-            SdkInfo sdk = SdkRegistry.All[SdkId.AppLovinMAX];
-            bool isInstalled = SdkDetector.IsInstalled(sdk);
-            bool isPrototype = SorollaSettings.IsPrototype;
-            bool isAutoInstalled = sdk.IsRequiredFor(isPrototype);
-            bool isInstalling = _installingPackages.Contains(sdk.PackageId);
-
-            EditorGUILayout.BeginHorizontal();
-
-            // Status icon
-            Color iconColor = isInstalled ? ColorGreen : isInstalling ? ColorYellow : isRequired ? ColorRed : ColorGray;
-            string iconText = isInstalled ? "✓" : isInstalling ? "⏳" : isRequired ? "✗" : "○";
-            DrawIcon(iconText, iconColor);
-
-            // SDK name
-            string nameLabel = isRequired ? sdk.Name : $"{sdk.Name} (optional)";
-            GUILayout.Label(nameLabel, GUILayout.Width(140));
-
-            // Config status
-            GUIStyle configStyle;
-            string configText;
-            if (isInstalling)
-            {
-                configStyle = s_configStyleYellow;
-                configText = "Installing...";
-            }
-            else if (!isInstalled)
-            {
-                configStyle = s_configStyleGray;
-                configText = isAutoInstalled ? "Auto-installs on mode switch" : "—";
-            }
-            else if (settingsSynced)
-            {
-                configStyle = s_configStyleGreen;
-                configText = "✓ Auto-synced";
-            }
-            else
-            {
-                configStyle = s_configStyleRed;
-                configText = "Auto-sync failed";
-            }
-            GUILayout.Label(configText, configStyle, GUILayout.Width(150));
-
-            GUILayout.FlexibleSpace();
-
-            // Action buttons
-            if (!isInstalled && !isInstalling && !isAutoInstalled)
-            {
-                GUI.enabled = !EditorApplication.isPlaying;
-                if (GUILayout.Button("Install", GUILayout.Width(70)))
-                    SdkInstaller.Install(sdk.Id);
-                GUI.enabled = true;
-            }
-            else if (isInstalled && !settingsSynced && GUILayout.Button("Refresh", GUILayout.Width(70)))
-            {
-                RunBuildValidation();
-            }
-
-            EditorGUILayout.EndHorizontal();
-        }
-
-        void DrawFirebaseOverviewItem()
-        {
-            bool isInstalled = SdkDetector.IsInstalled(SdkId.FirebaseAnalytics);
-            bool isPrototype = SorollaSettings.IsPrototype;
-            bool isRequired = !isPrototype; // Required in Full, optional in Prototype
-            var configStatus = SdkConfigDetector.GetFirebaseStatus(_config);
-
-            // Check if any Firebase package is installing
-            bool isInstalling = _installingPackages.Contains("com.google.firebase.app") ||
-                                _installingPackages.Contains("com.google.firebase.analytics") ||
-                                _installingPackages.Contains("com.google.firebase.crashlytics") ||
-                                _installingPackages.Contains("com.google.firebase.remote-config");
-
-            EditorGUILayout.BeginHorizontal();
-
-            // Status icon (mode-aware)
-            Color iconColor = isInstalled ? ColorGreen : isInstalling ? ColorYellow : isRequired ? ColorRed : ColorGray;
-            string iconText = isInstalled ? "✓" : isInstalling ? "⏳" : isRequired ? "✗" : "○";
-            DrawIcon(iconText, iconColor);
-
-            string nameLabel = isRequired ? "Firebase" : "Firebase (optional)";
-            GUILayout.Label(nameLabel, GUILayout.Width(140));
-
-            // Config status
-            GUIStyle configStyle;
-            string configText;
-            if (isInstalling)
-            {
-                configStyle = s_configStyleYellow;
-                configText = "Installing...";
-            }
-            else if (!isInstalled)
-            {
-                configStyle = s_configStyleGray;
-                configText = isRequired ? "Auto-installs on mode switch" : "—";
-            }
-            else if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
-            {
-                configStyle = s_configStyleGreen;
-                configText = "✓ Configured";
-            }
-            else
-            {
-                configStyle = s_configStyleYellow;
-                configText = "Add config files";
-            }
-            GUILayout.Label(configText, configStyle, GUILayout.Width(150));
-
-            GUILayout.FlexibleSpace();
-
-            // Install button in Prototype mode (optional, manual install)
-            if (!isInstalled && !isInstalling && isPrototype)
-            {
-                GUI.enabled = !EditorApplication.isPlaying;
-                if (GUILayout.Button("Install", GUILayout.Width(70)))
-                {
-                    SdkInstaller.Install(SdkId.FirebaseApp);
-                    SdkInstaller.Install(SdkId.FirebaseAnalytics);
-                    SdkInstaller.Install(SdkId.FirebaseCrashlytics);
-                    SdkInstaller.Install(SdkId.FirebaseRemoteConfig);
-                }
-                GUI.enabled = true;
-            }
-            else if (isInstalled && GUILayout.Button("Console", GUILayout.Width(70)))
-            {
-                Application.OpenURL("https://console.firebase.google.com/");
-            }
-
-            EditorGUILayout.EndHorizontal();
-        }
-
-        void DrawTikTokOverviewItem()
-        {
-            bool enabled = _config.enableTikTok;
-            bool hasAppId = enabled && _config?.tiktokAppId?.IsConfigured == true
-                            && _config?.tiktokEmAppId?.IsConfigured == true;
-
-            EditorGUILayout.BeginHorizontal();
-
-            // Status icon
-            Color iconColor = hasAppId ? ColorGreen : ColorGray;
-            string iconText = hasAppId ? "✓" : "○";
-            DrawIcon(iconText, iconColor);
-
-            // Enable toggle
-            bool newEnabled = EditorGUILayout.ToggleLeft("TikTok (optional)", enabled, GUILayout.Width(140));
-            if (newEnabled != enabled)
-            {
-                _config.enableTikTok = newEnabled;
-                EditorUtility.SetDirty(_config);
-            }
-
-            // Config status
-            GUIStyle configStyle;
-            string configText;
-            if (!enabled)
-            {
-                configStyle = s_configStyleGray;
-                configText = "Disabled";
-            }
-            else if (hasAppId)
-            {
-                configStyle = s_configStyleGreen;
-                configText = "✓ Configured";
-            }
-            else
-            {
-                configStyle = s_configStyleGray;
-                configText = "Set App ID below";
-            }
-            GUILayout.Label(configText, configStyle, GUILayout.Width(150));
-
-            GUILayout.FlexibleSpace();
-
-            if (hasAppId && GUILayout.Button("Dashboard", GUILayout.Width(70)))
-            {
-                Application.OpenURL("https://business.tiktok.com/");
-            }
-
-            EditorGUILayout.EndHorizontal();
+            _sdkOverviewContainer.Add(BuildTikTokOverviewRow());
         }
 
         #endregion
@@ -788,6 +823,7 @@ namespace Sorolla.Palette.Editor
             _validationResults = BuildValidator.RunAllChecks();
             Repaint();
             RefreshBuildHealthUI();
+            RefreshSdkOverviewUI();
         }
 
         /// <summary>Ported to UI Toolkit (p3-buildhealth): CalloutCard summary + SectionHeader +
