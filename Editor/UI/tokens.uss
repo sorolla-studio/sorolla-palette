@@ -21,6 +21,7 @@
 
     --sorolla-status-fail-tint: rgb(31, 14, 15);
     --sorolla-status-warn-tint: rgb(43, 37, 20);
+    --sorolla-status-pass-tint: rgb(15, 36, 23);
 
     --sorolla-text-primary: rgb(242, 245, 248);
     --sorolla-text-secondary: rgb(204, 214, 224);
@@ -175,3 +176,61 @@
     border-color: var(--sorolla-text-tertiary);
 }
 .sorolla-badge-unverifiable .sorolla-badge-label { color: var(--sorolla-text-tertiary); }
+
+/* CalloutCard (p2-callout): tinted banner, colored left accent bar, title + body + optional
+   inline action button. Info reuses bg-card-alt (neutral, no new token needed); the other three
+   severities get a dedicated tint matching their StatusBadge color. */
+.sorolla-callout {
+    flex-direction: row;
+    border-radius: var(--sorolla-radius-card);
+    margin-bottom: var(--sorolla-space-3);
+    overflow: hidden;
+}
+
+.sorolla-callout-blocker { background-color: var(--sorolla-status-fail-tint); }
+.sorolla-callout-advisory { background-color: var(--sorolla-status-warn-tint); }
+.sorolla-callout-success { background-color: var(--sorolla-status-pass-tint); }
+.sorolla-callout-info { background-color: var(--sorolla-bg-card-alt); }
+
+.sorolla-callout-accent {
+    width: 4px;
+}
+
+.sorolla-callout-accent-fail { background-color: var(--sorolla-status-fail); }
+.sorolla-callout-accent-warn { background-color: var(--sorolla-status-warn); }
+.sorolla-callout-accent-pass { background-color: var(--sorolla-status-pass); }
+.sorolla-callout-accent-info { background-color: var(--sorolla-status-info); }
+
+.sorolla-callout-content {
+    flex-grow: 1;
+    padding: var(--sorolla-space-3) var(--sorolla-space-4);
+}
+
+.sorolla-callout-title {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: var(--sorolla-text-primary);
+    margin-bottom: var(--sorolla-space-1);
+}
+
+.sorolla-callout-body {
+    font-size: 11px;
+    color: var(--sorolla-text-secondary);
+    white-space: normal;
+}
+
+.sorolla-callout-actions {
+    flex-direction: row;
+    justify-content: flex-end;
+    margin-top: var(--sorolla-space-2);
+}
+
+.sorolla-callout-button {
+    background-color: var(--sorolla-bg-elevated);
+    color: var(--sorolla-text-primary);
+    border-radius: var(--sorolla-radius-input);
+    border-width: 0;
+    padding: var(--sorolla-space-1) var(--sorolla-space-3);
+    font-size: 11px;
+    -unity-font-style: bold;
+}

@@ -19,7 +19,6 @@ namespace Sorolla.Palette.Editor.UI
         // adds a dedicated Build*Section method instead (see BuildStatusBadgeSection below).
         static readonly string[] Sections =
         {
-            "CalloutCard",
             "SectionHeader",
             "CheckRow / CollapsibleCheckGroup",
             "ValidatedField",
@@ -86,8 +85,30 @@ namespace Sorolla.Palette.Editor.UI
 
             scrollView.Add(BuildTokenSwatchSection());
             scrollView.Add(BuildStatusBadgeSection());
+            scrollView.Add(BuildCalloutCardSection());
             foreach (string section in Sections)
                 scrollView.Add(BuildSectionPlaceholder(section));
+        }
+
+        static VisualElement BuildCalloutCardSection()
+        {
+            var container = new VisualElement();
+            container.AddToClassList("gallery-section");
+
+            var title = new Label("CalloutCard");
+            title.AddToClassList("gallery-section-title");
+            container.Add(title);
+
+            container.Add(CalloutCard.Create(CalloutCard.Severity.Blocker, "Adjust app token missing",
+                "Full-mode builds fail until an Adjust app token is set in SorollaConfig.", "Open Config"));
+            container.Add(CalloutCard.Create(CalloutCard.Severity.Advisory, "Duplicate EDM4U detected",
+                "Both the embedded and UPM External Dependency Manager are present at the same version.", "Fix"));
+            container.Add(CalloutCard.Create(CalloutCard.Severity.Success, "Build Health checks passing",
+                "All required SDKs, manifest, and gradle configuration checks are green."));
+            container.Add(CalloutCard.Create(CalloutCard.Severity.Info, "2 adapters can't be verified",
+                "The QA bridge can only confirm init did not throw, not that vendor network calls succeed."));
+
+            return container;
         }
 
         static VisualElement BuildStatusBadgeSection()
