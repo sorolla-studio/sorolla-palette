@@ -215,14 +215,14 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Checks if Firebase Android config file exists.
+        ///     Checks if Firebase Android config file exists. Exact-path only: FindAssets("google-services")
+        ///     fuzzy-matches the auto-generated google-services-desktop.json and false-positives when the
+        ///     real file is missing.
         /// </summary>
         public static bool IsFirebaseAndroidConfigured()
         {
-            // Check common locations for google-services.json
             return System.IO.File.Exists("Assets/google-services.json") ||
-                   System.IO.File.Exists("Assets/StreamingAssets/google-services.json") ||
-                   AssetDatabase.FindAssets("google-services").Length > 0;
+                   System.IO.File.Exists("Assets/StreamingAssets/google-services.json");
         }
 
         /// <summary>

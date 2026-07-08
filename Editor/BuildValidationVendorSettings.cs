@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using UnityEditor;
 using UnityEngine;
 
 namespace Sorolla.Palette.Editor
@@ -37,6 +38,26 @@ namespace Sorolla.Palette.Editor
                     "  The shared privacy policy URL could not be written to AppLovin internal settings.",
                     "Reopen Unity or click Refresh in Build Health; report this if it persists"));
                 return results;
+            }
+
+            // MAX installed = the game intends to show ads (no separate "ads enabled" flag exists on
+            // SorollaConfig). Full mode only - ad units are optional in Prototype.
+            if (!SorollaSettings.IsPrototype)
+            {
+                var config = Resources.Load<SorollaConfig>("SorollaConfig");
+                string activePlatform = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS ? "iOS" : "Android";
+                bool rewardedMissing = string.IsNullOrEmpty(config?.rewardedAdUnit?.Current);
+                bool interstitialMissing = string.IsNullOrEmpty(config?.interstitialAdUnit?.Current);
+
+                if (rewardedMissing && interstitialMissing)
+                {
+                    results.Add(Warning(
+                        CheckCategory.MaxSettings,
+                        $"MAX has no rewarded or interstitial ad unit ID set for {activePlatform} in SorollaConfig.\n" +
+                        "  Ad calls will fail to load on this platform until an ad unit ID is set.",
+                        "Open Palette > Configuration and enter the AppLovin MAX ad unit IDs for this platform"));
+                    return results;
+                }
             }
 
             results.Add(Valid(CheckCategory.MaxSettings, "MAX settings synced"));

@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Vendor platform truth (Phase 1 of the QA self-serve plan): closes the false-green class where a
+vendor is provisioned/configured for one platform only, every SDK indicator reads green, and the
+failure only surfaces on-device (GA issue #8; Boulder Evolution FB Android-only provisioning
+2026-07-08). Editor-only except the Facebook runtime probe diagnosis.
+
+### Added
+- **GameAnalytics per-platform key validation** (closes #8): Build Health now errors when the active
+  build target has no game key + secret key pair in `Assets/Resources/GameAnalytics/Settings.asset`,
+  instead of passing on any key existing for any platform. The SDK Overview row shows a per-platform
+  breakdown ("Android configured, iOS key missing") in both the configured and not-configured states.
+- **`unverifiable` validation state**: a third terminal `ValidationStatus` for network-dependent checks
+  (offline / endpoint unreachable). Never blocks a build, never renders as a pass; shown as a neutral
+  row in Build Health. Built generically so future network checks reuse it.
+- **Facebook platform + credential Graph check** (Build Health): when FacebookSettings has an app id +
+  client token, an async, non-blocking Graph API call (`GET /{app-id}?fields=supported_platforms`)
+  verifies the active build target's platform is registered on the FB app and that the credential pair
+  is accepted. A missing platform errors with the exact console action; a rejected credential pair
+  errors distinctly; offline/timeout reads `unverifiable` instead of failing the build. Result is cached
+  per app id/client token/platform combination and refreshes Build Health once the probe settles.
+- **Facebook runtime probe diagnosis**: when the 3.18.1 Graph readiness probe fails, the adapter now
+  asks the Graph API whether the current platform is registered on the FB app before reporting
+  `last_sdk_error`, so a platform-provisioning gap (the Boulder Evolution root cause) reads as
+  "IOS not registered on FB app <id>" instead of the vendor's raw SSL/transport noise.
+- **MAX per-platform ad-unit warning**: in Full mode with MAX installed, Build Health warns when the
+  active build target has no rewarded or interstitial ad unit ID set in SorollaConfig.
+
+### Fixed
+- **`google-services.json` detection no longer false-positives on the desktop file**: the Firebase
+  Android config check required exactly `Assets/google-services.json` (or the StreamingAssets copy);
+  the fuzzy `AssetDatabase.FindAssets("google-services")` fallback that matched the auto-generated
+  `google-services-desktop.json` is removed.
+
 ## [3.18.3] - 2026-07-08
 
 Editor UI overhaul on top of 3.18.2. Editor-side: the Palette window (SorollaWindow) is fully rebuilt on UI Toolkit with a shared design-token system; runtime-side changes are confined to the debug console overlay's draw code/theme (no init, consent, analytics, ads, or QA-bridge logic touched). Design pass reviewed and accepted screen-by-screen by Arthur on 2026-07-08.
