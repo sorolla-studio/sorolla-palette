@@ -208,12 +208,29 @@ namespace Sorolla.Palette.Editor
             }
         }
 
+        /// <summary>Opens full-window with no internal tab strip (Arthur's design review: match
+        /// the AppLovin Integration Manager's presentation) - a utility window, not a normal
+        /// dockable one. ShowUtility() is the mechanism that drops the tab chrome; the accepted
+        /// trade-off is the window is no longer dockable. Single open path for the whole SDK: focus
+        /// the existing instance if one is already open (Resources.FindObjectsOfTypeAll, the same
+        /// pattern this whole loop's capture harness already uses) instead of ever spawning a
+        /// second one - AutoOpenOnLoad below is the only other caller and goes through this same
+        /// method.</summary>
         [MenuItem("Palette/Configuration")]
         public static void ShowWindow()
         {
-            var window = GetWindow<SorollaWindow>("Palette");
+            var existing = Resources.FindObjectsOfTypeAll<SorollaWindow>().FirstOrDefault();
+            if (existing != null)
+            {
+                existing.Focus();
+                return;
+            }
+
+            var window = CreateInstance<SorollaWindow>();
+            window.titleContent = new GUIContent("Palette");
             window.minSize = new Vector2(420, 380);
-            window.Show();
+            window.position = new Rect(100, 100, 560, 800);
+            window.ShowUtility();
         }
 
         [InitializeOnLoadMethod]
