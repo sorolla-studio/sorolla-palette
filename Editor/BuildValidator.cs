@@ -28,6 +28,16 @@ namespace Sorolla.Palette.Editor
             FirebaseConfig,
             GameAnalyticsSettings,
             FacebookPlatformConfig,
+            PrototypeModeIntent,
+            VerboseLogging,
+            DevelopmentBuild,
+            AdjustSandboxMode,
+            AndroidKeystore,
+            GradleJavaHome,
+            GameAnalyticsResourceWhitelist,
+            AddressablesContent,
+            SdkPin,
+            AdjustResolvedVersion,
         }
 
         public enum ValidationStatus
@@ -61,6 +71,16 @@ namespace Sorolla.Palette.Editor
             [CheckCategory.FirebaseConfig] = "Firebase Config Files",
             [CheckCategory.GameAnalyticsSettings] = "GameAnalytics Platform Keys",
             [CheckCategory.FacebookPlatformConfig] = "Facebook Platform",
+            [CheckCategory.PrototypeModeIntent] = "Prototype Mode Intent",
+            [CheckCategory.VerboseLogging] = "Verbose Logging",
+            [CheckCategory.DevelopmentBuild] = "Development Build",
+            [CheckCategory.AdjustSandboxMode] = "Adjust Sandbox Mode",
+            [CheckCategory.AndroidKeystore] = "Android Keystore",
+            [CheckCategory.GradleJavaHome] = "Gradle Java Home",
+            [CheckCategory.GameAnalyticsResourceWhitelist] = "GameAnalytics Resource Whitelist",
+            [CheckCategory.AddressablesContent] = "Addressables Content",
+            [CheckCategory.SdkPin] = "SDK Pin",
+            [CheckCategory.AdjustResolvedVersion] = "Adjust Resolved Version",
         };
 
         static ValidationResult Valid(CheckCategory category, string message) =>
@@ -131,6 +151,19 @@ namespace Sorolla.Palette.Editor
                 results.AddRange(CheckR8AgpConfig());
                 results.AddRange(CheckGameAnalyticsSettings());
                 results.AddRange(CheckFacebookPlatformConfig());
+
+                // Phase 3 (Build Health parity with the pre-build gates) - profile-scoped and
+                // always-Warning-or-info checks, see BuildValidationReleaseReadiness.cs.
+                results.AddRange(CheckPrototypeModeIntent());
+                results.AddRange(CheckVerboseLogging());
+                results.AddRange(CheckDevelopmentBuildFlag());
+                results.AddRange(CheckAdjustSandboxMode());
+                results.AddRange(CheckAndroidKeystore());
+                results.AddRange(CheckGradleJavaHome());
+                results.AddRange(CheckGameAnalyticsResourceWhitelist());
+                results.AddRange(CheckAddressablesContent(dependencies));
+                results.AddRange(CheckSdkPin(dependencies));
+                results.AddRange(CheckAdjustResolvedVersion());
             }
             catch (Exception e)
             {
