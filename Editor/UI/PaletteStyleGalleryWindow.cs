@@ -19,7 +19,6 @@ namespace Sorolla.Palette.Editor.UI
         // adds a dedicated Build*Section method instead (see BuildStatusBadgeSection below).
         static readonly string[] Sections =
         {
-            "SectionHeader",
             "CheckRow / CollapsibleCheckGroup",
             "ValidatedField",
             "CodeSnippetBlock",
@@ -86,8 +85,24 @@ namespace Sorolla.Palette.Editor.UI
             scrollView.Add(BuildTokenSwatchSection());
             scrollView.Add(BuildStatusBadgeSection());
             scrollView.Add(BuildCalloutCardSection());
+            scrollView.Add(BuildSectionHeaderSection());
             foreach (string section in Sections)
                 scrollView.Add(BuildSectionPlaceholder(section));
+        }
+
+        static VisualElement BuildSectionHeaderSection()
+        {
+            var container = new VisualElement();
+            container.AddToClassList("gallery-section");
+
+            var title = new Label("SectionHeader");
+            title.AddToClassList("gallery-section-title");
+            container.Add(title);
+
+            container.Add(SectionHeader.Create("SDK Overview", "Refresh"));
+            container.Add(SectionHeader.Create("Build Health"));
+
+            return container;
         }
 
         static VisualElement BuildCalloutCardSection()

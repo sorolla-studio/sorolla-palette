@@ -234,3 +234,35 @@
     font-size: 11px;
     -unity-font-style: bold;
 }
+
+/* SectionHeader (p2-sectionheader): caps label + rule (fills remaining space) + optional
+   right-aligned action - sits above a group of checks/fields/rows. */
+.sorolla-section-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: var(--sorolla-space-3);
+}
+
+.sorolla-section-header-label {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: var(--sorolla-text-accent);
+    letter-spacing: 1px;
+    margin-right: var(--sorolla-space-3);
+}
+
+.sorolla-section-header-rule {
+    flex-grow: 1;
+    height: 1px;
+    background-color: var(--sorolla-bg-elevated);
+}
+
+.sorolla-section-header-action {
+    margin-left: var(--sorolla-space-3);
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    color: var(--sorolla-text-accent);
+    font-size: 11px;
+    -unity-font-style: bold;
+    padding: 0;
+}
