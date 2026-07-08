@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
@@ -20,42 +22,83 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Checks if GameAnalytics has valid game keys configured.
+        ///     Checks if GameAnalytics has a game key + secret key pair for the ACTIVE build target.
+        ///     A key configured for a different platform (e.g. Android-only) no longer false-greens
+        ///     an iOS build (issue #8).
         /// </summary>
         public static ConfigStatus GetGameAnalyticsStatus()
         {
             if (!SdkDetector.IsInstalled(SdkId.GameAnalytics))
                 return ConfigStatus.NotInstalled;
 
+            RuntimePlatform active = ActiveGameAnalyticsPlatform();
+            return HasGameAnalyticsKeys(active) ? ConfigStatus.Configured : ConfigStatus.NotConfigured;
+        }
+
+        /// <summary>
+        ///     Human-readable per-platform breakdown for the SDK Overview row, e.g.
+        ///     "Android configured, iOS key missing".
+        /// </summary>
+        public static string GetGameAnalyticsPlatformDetail()
+        {
+            if (!SdkDetector.IsInstalled(SdkId.GameAnalytics))
+                return "Not installed";
+
+            if (Resources.Load("GameAnalytics/Settings") == null)
+                return "Settings.asset not found";
+
+            string androidText = HasGameAnalyticsKeys(RuntimePlatform.Android) ? "Android configured" : "Android key missing";
+            string iosText = HasGameAnalyticsKeys(RuntimePlatform.IPhonePlayer) ? "iOS configured" : "iOS key missing";
+            return $"{androidText}, {iosText}";
+        }
+
+        /// <summary>
+        ///     Maps the active build target to the GameAnalytics <c>RuntimePlatform</c> entry it stores
+        ///     keys under.
+        /// </summary>
+        public static RuntimePlatform ActiveGameAnalyticsPlatform() =>
+            EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS
+                ? RuntimePlatform.IPhonePlayer
+                : RuntimePlatform.Android;
+
+        /// <summary>
+        ///     Checks whether GameAnalytics Settings.asset has a non-empty game key + secret key pair
+        ///     for the given platform. Reflection is required: Settings.gameKey/secretKey are private
+        ///     fields on the vendor's ScriptableObject, parallel-indexed with the public Platforms list.
+        /// </summary>
+        static bool HasGameAnalyticsKeys(RuntimePlatform platform)
+        {
             try
             {
-                // Load GameAnalytics Settings from Resources
-                var settings = Resources.Load("GameAnalytics/Settings");
+                UnityEngine.Object settings = Resources.Load("GameAnalytics/Settings");
                 if (settings == null)
-                    return ConfigStatus.NotConfigured;
+                    return false;
 
-                // Use reflection to check if game keys are configured
-                var settingsType = settings.GetType();
-                
-                // Alternative: check the gameKey list directly
-                var gameKeyField = settingsType.GetField("gameKey", 
-                    System.Reflection.BindingFlags.NonPublic | 
-                    System.Reflection.BindingFlags.Instance);
-                
-                if (gameKeyField?.GetValue(settings) is System.Collections.IList keys && keys.Count > 0)
+                Type settingsType = settings.GetType();
+                const BindingFlags publicInstance = BindingFlags.Public | BindingFlags.Instance;
+                const BindingFlags privateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
+
+                if (!(settingsType.GetField("Platforms", publicInstance)?.GetValue(settings) is IList platforms))
+                    return false;
+                if (!(settingsType.GetField("gameKey", privateInstance)?.GetValue(settings) is IList gameKeys))
+                    return false;
+                if (!(settingsType.GetField("secretKey", privateInstance)?.GetValue(settings) is IList secretKeys))
+                    return false;
+
+                for (int i = 0; i < platforms.Count; i++)
                 {
-                    foreach (var key in keys)
-                    {
-                        if (key is string keyStr && !string.IsNullOrEmpty(keyStr) && keyStr.Length > 10)
-                            return ConfigStatus.Configured;
-                    }
+                    if (!(platforms[i] is RuntimePlatform p) || p != platform) continue;
+
+                    string gameKey = i < gameKeys.Count ? gameKeys[i] as string : null;
+                    string secretKey = i < secretKeys.Count ? secretKeys[i] as string : null;
+                    return !string.IsNullOrEmpty(gameKey) && !string.IsNullOrEmpty(secretKey);
                 }
-                
-                return ConfigStatus.NotConfigured;
+
+                return false;
             }
             catch
             {
-                return ConfigStatus.NotConfigured;
+                return false;
             }
         }
 

@@ -129,6 +129,7 @@ namespace Sorolla.Palette.Editor
                 results.AddRange(CheckEdm4uSettings());
                 results.AddRange(CheckGradleConfig());
                 results.AddRange(CheckR8AgpConfig());
+                results.AddRange(CheckGameAnalyticsSettings());
             }
             catch (Exception e)
             {

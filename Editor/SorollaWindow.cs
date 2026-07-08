@@ -570,7 +570,7 @@ namespace Sorolla.Palette.Editor
         }
 
         VisualElement BuildSdkOverviewRow(SdkInfo sdk, SdkConfigDetector.ConfigStatus configStatus,
-            string configHint, Action openSettings, bool isRequired)
+            string configHint, Action openSettings, bool isRequired, string configuredDetail = null)
         {
             bool isPrototype = SorollaSettings.IsPrototype;
             bool isAutoInstalled = sdk.IsRequiredFor(isPrototype);
@@ -595,7 +595,7 @@ namespace Sorolla.Palette.Editor
             else if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
             {
                 configColor = ColorGreen;
-                configText = "✓ Configured";
+                configText = configuredDetail != null ? $"✓ {configuredDetail}" : "✓ Configured";
             }
             else
             {
@@ -887,10 +887,13 @@ namespace Sorolla.Palette.Editor
 
             _sdkOverviewContainer.Add(headerRow);
 
-            // GameAnalytics (always required)
+            // GameAnalytics (always required) - shows the per-platform breakdown in both the
+            // Configured and NotConfigured branches, e.g. "Android configured, iOS key missing", so a
+            // single-platform config no longer false-greens as a flat "Configured".
+            string gaDetail = SdkConfigDetector.GetGameAnalyticsPlatformDetail();
             _sdkOverviewContainer.Add(BuildSdkOverviewRow(
-                SdkRegistry.All[SdkId.GameAnalytics], gaStatus, "Configure game keys",
-                SdkConfigDetector.OpenGameAnalyticsSettings, true));
+                SdkRegistry.All[SdkId.GameAnalytics], gaStatus, gaDetail,
+                SdkConfigDetector.OpenGameAnalyticsSettings, true, gaDetail));
 
             // Facebook (always required)
             _sdkOverviewContainer.Add(BuildSdkOverviewRow(
