@@ -1,13 +1,132 @@
-/* Design tokens placeholder - full token set lands with p1-tokens (see docs/ui-overhaul/PLAN.md
-   and TOKENS.md). Minimal rules here so the gallery renders as VisualElements from the start. */
+/* Palette UI Overhaul design tokens - canonical values in docs/ui-overhaul/TOKENS.md.
+   Fixed dark theme applied via .sorolla-root regardless of the surrounding editor skin - see
+   TOKENS.md "Provenance" for why. Mirror any change here into TOKENS.md and
+   SorollaConsoleTheme.cs in the same cycle. */
+
+.sorolla-root {
+    --sorolla-bg-page: rgb(3, 3, 4);
+    --sorolla-bg-card: rgb(14, 17, 20);
+    --sorolla-bg-card-alt: rgb(18, 22, 26);
+    --sorolla-bg-section: rgb(27, 33, 40);
+    --sorolla-bg-elevated: rgb(41, 46, 54);
+    --sorolla-bg-elevated-hover: rgb(56, 64, 74);
+    --sorolla-bg-accent-muted: rgb(31, 66, 79);
+    --sorolla-bg-accent: rgb(20, 82, 97);
+
+    --sorolla-status-pass: rgb(31, 148, 82);
+    --sorolla-status-warn: rgb(255, 199, 71);
+    --sorolla-status-fail: rgb(230, 64, 71);
+    --sorolla-status-wait: rgb(79, 125, 219);
+    --sorolla-status-info: rgb(107, 117, 128);
+
+    --sorolla-status-fail-tint: rgb(31, 14, 15);
+    --sorolla-status-warn-tint: rgb(43, 37, 20);
+
+    --sorolla-text-primary: rgb(242, 245, 248);
+    --sorolla-text-secondary: rgb(204, 214, 224);
+    --sorolla-text-tertiary: rgb(184, 196, 209);
+    --sorolla-text-accent: rgb(128, 230, 240);
+    --sorolla-text-on-status: rgb(255, 255, 255);
+    --sorolla-text-on-warn: rgb(31, 23, 5);
+
+    --sorolla-radius-pill: 999px;
+    --sorolla-radius-card: 8px;
+    --sorolla-radius-input: 6px;
+
+    --sorolla-space-1: 2px;
+    --sorolla-space-2: 4px;
+    --sorolla-space-3: 8px;
+    --sorolla-space-4: 12px;
+    --sorolla-space-5: 16px;
+    --sorolla-space-6: 24px;
+
+    background-color: var(--sorolla-bg-page);
+}
 
 .gallery-section-title {
     -unity-font-style: bold;
-    margin-bottom: 2px;
+    color: var(--sorolla-text-primary);
+    font-size: 13px;
+    margin-bottom: var(--sorolla-space-1);
 }
 
 .gallery-section-placeholder {
     white-space: normal;
+    color: var(--sorolla-text-tertiary);
     opacity: 0.7;
-    padding: 4px;
+    padding: var(--sorolla-space-2);
 }
+
+/* Swatch sheet (docs/ui-overhaul p1-tokens acceptance): renders every token as a labeled tile so
+   a screenshot can be judged for legibility. Not consumed by any real component yet - phase 2/3
+   components apply these variables directly instead of duplicating hex values. */
+
+.sorolla-swatch-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-bottom: var(--sorolla-space-3);
+}
+
+.sorolla-swatch {
+    width: 96px;
+    height: 64px;
+    margin-right: var(--sorolla-space-2);
+    margin-bottom: var(--sorolla-space-2);
+    border-radius: var(--sorolla-radius-input);
+    justify-content: flex-end;
+    padding: var(--sorolla-space-1);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.sorolla-swatch-label {
+    font-size: 10px;
+    color: var(--sorolla-text-primary);
+    -unity-text-align: lower-left;
+    white-space: normal;
+}
+
+.sorolla-swatch-pill {
+    width: auto;
+    height: 28px;
+    min-width: 72px;
+    border-radius: var(--sorolla-radius-pill);
+    justify-content: center;
+    align-items: center;
+    padding: 0 var(--sorolla-space-3);
+    margin-right: var(--sorolla-space-2);
+    margin-bottom: var(--sorolla-space-2);
+    border-width: 0;
+}
+
+.sorolla-swatch-pill-label {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: var(--sorolla-text-on-status);
+    -unity-text-align: middle-center;
+}
+
+.sorolla-type-title { font-size: 18px; -unity-font-style: bold; color: var(--sorolla-text-primary); }
+.sorolla-type-section { font-size: 13px; -unity-font-style: bold; color: var(--sorolla-text-accent); }
+.sorolla-type-body { font-size: 12px; color: var(--sorolla-text-secondary); }
+.sorolla-type-small { font-size: 11px; color: var(--sorolla-text-tertiary); }
+
+/* Per-token background utility classes - C# cannot read a USS custom property's resolved value,
+   so swatch tiles pick one of these classes by name rather than setting inline background-color. */
+.sorolla-bg-page { background-color: var(--sorolla-bg-page); }
+.sorolla-bg-card { background-color: var(--sorolla-bg-card); }
+.sorolla-bg-card-alt { background-color: var(--sorolla-bg-card-alt); }
+.sorolla-bg-section { background-color: var(--sorolla-bg-section); }
+.sorolla-bg-elevated { background-color: var(--sorolla-bg-elevated); }
+.sorolla-bg-elevated-hover { background-color: var(--sorolla-bg-elevated-hover); }
+.sorolla-bg-accent-muted { background-color: var(--sorolla-bg-accent-muted); }
+.sorolla-bg-accent { background-color: var(--sorolla-bg-accent); }
+.sorolla-status-fail-tint-bg { background-color: var(--sorolla-status-fail-tint); }
+.sorolla-status-warn-tint-bg { background-color: var(--sorolla-status-warn-tint); }
+
+.sorolla-pill-pass { background-color: var(--sorolla-status-pass); }
+.sorolla-pill-warn { background-color: var(--sorolla-status-warn); }
+.sorolla-pill-fail { background-color: var(--sorolla-status-fail); }
+.sorolla-pill-wait { background-color: var(--sorolla-status-wait); }
+.sorolla-pill-info { background-color: var(--sorolla-status-info); }
+.sorolla-pill-warn .sorolla-swatch-pill-label { color: var(--sorolla-text-on-warn); }

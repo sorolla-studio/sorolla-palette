@@ -24,6 +24,36 @@ namespace Sorolla.Palette
         const float DefaultMinUiScale = 1f;
         const float DefaultMaxUiScale = 2.7f;
 
+        // Design tokens - canonical values + hex in docs/ui-overhaul/TOKENS.md; mirror any change
+        // there and into Editor/UI/tokens.uss in the same cycle.
+        static readonly Color TokenBgPage = new Color(0.01f, 0.012f, 0.016f, 1f);
+        static readonly Color TokenBgCard = new Color(0.055f, 0.067f, 0.08f, 1f);
+        static readonly Color TokenBgCardAlt = new Color(0.07f, 0.085f, 0.1f, 1f);
+        static readonly Color TokenBgSection = new Color(0.105f, 0.13f, 0.155f, 1f);
+        static readonly Color TokenBgElevated = new Color(0.16f, 0.18f, 0.21f, 1f);
+        static readonly Color TokenBgElevatedHover = new Color(0.22f, 0.25f, 0.29f, 1f);
+        static readonly Color TokenBgAccentMuted = new Color(0.12f, 0.26f, 0.31f, 1f);
+        static readonly Color TokenBgAccent = new Color(0.08f, 0.32f, 0.38f, 1f);
+        static readonly Color TokenBgSummary = new Color(0.045f, 0.055f, 0.065f, 1f);
+
+        static readonly Color TokenStatusPass = new Color(0.12f, 0.58f, 0.32f, 1f);
+        static readonly Color TokenStatusWarn = new Color(1f, 0.78f, 0.28f, 1f);
+        static readonly Color TokenStatusFail = new Color(0.9f, 0.25f, 0.28f, 1f);
+        static readonly Color TokenStatusWait = new Color(0.31f, 0.49f, 0.86f, 1f);
+        static readonly Color TokenStatusInfo = new Color(0.42f, 0.46f, 0.5f, 1f);
+
+        static readonly Color TokenStatusFailTint = new Color(0.12f, 0.055f, 0.06f, 1f);
+        static readonly Color TokenStatusWarnTint = new Color(0.17f, 0.145f, 0.08f, 1f);
+
+        static readonly Color TokenTextPrimary = new Color(0.95f, 0.96f, 0.97f, 1f);
+        static readonly Color TokenTextPrimaryAlt = new Color(0.95f, 0.97f, 0.98f, 1f);
+        static readonly Color TokenTextSecondary = new Color(0.8f, 0.84f, 0.88f, 1f);
+        static readonly Color TokenTextTertiary = new Color(0.72f, 0.77f, 0.82f, 1f);
+        static readonly Color TokenTextAccent = new Color(0.5f, 0.9f, 0.94f, 1f);
+        static readonly Color TokenTextAccentMuted = new Color(0.82f, 0.9f, 0.94f, 1f);
+        static readonly Color TokenTextTabInactive = new Color(0.68f, 0.73f, 0.78f, 1f);
+        static readonly Color TokenTextOnWarn = new Color(0.12f, 0.09f, 0.02f, 1f);
+
         float _titleFontSize = DefaultTitleFontSize;
         float _textFontSize = DefaultTextFontSize;
         float _smallFontSize = DefaultSmallFontSize;
@@ -111,7 +141,7 @@ namespace Sorolla.Palette
                 fontSize = titleSize,
                 fontStyle = FontStyle.Bold,
                 wordWrap = true,
-                normal = { textColor = new Color(0.95f, 0.96f, 0.97f, 1f) },
+                normal = { textColor = TokenTextPrimary },
             };
 
             SectionStyle = new GUIStyle(GUI.skin.label)
@@ -119,7 +149,7 @@ namespace Sorolla.Palette
                 fontSize = textSize,
                 fontStyle = FontStyle.Bold,
                 wordWrap = true,
-                normal = { textColor = new Color(0.5f, 0.9f, 0.94f, 1f) },
+                normal = { textColor = TokenTextAccent },
             };
 
             SectionButtonStyle = new GUIStyle(GUI.skin.button)
@@ -128,7 +158,7 @@ namespace Sorolla.Palette
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleLeft,
                 wordWrap = true,
-                normal = { textColor = new Color(0.82f, 0.9f, 0.94f, 1f), background = _sectionBackground },
+                normal = { textColor = TokenTextAccentMuted, background = _sectionBackground },
                 hover = { textColor = Color.white, background = _buttonActiveBackground },
                 active = { textColor = Color.white, background = _buttonActiveBackground },
                 padding = new RectOffset(rowPadX + 3, rowPadX + 3, rowPadY + 2, rowPadY + 2),
@@ -139,7 +169,7 @@ namespace Sorolla.Palette
                 fontSize = textSize,
                 fontStyle = FontStyle.Bold,
                 wordWrap = true,
-                normal = { textColor = new Color(0.95f, 0.97f, 0.98f, 1f) },
+                normal = { textColor = TokenTextPrimaryAlt },
             };
 
             RowNameInlineStyle = new GUIStyle(RowNameStyle)
@@ -152,13 +182,13 @@ namespace Sorolla.Palette
             {
                 fontSize = smallSize,
                 wordWrap = true,
-                normal = { textColor = new Color(0.8f, 0.84f, 0.88f, 1f) },
+                normal = { textColor = TokenTextSecondary },
             };
 
             MiniDetailStyle = new GUIStyle(DetailStyle)
             {
                 fontSize = Mathf.Max(10, smallSize - 1),
-                normal = { textColor = new Color(0.72f, 0.77f, 0.82f, 1f) },
+                normal = { textColor = TokenTextTertiary },
             };
 
             BadgeStyle = new GUIStyle(GUI.skin.label)
@@ -190,7 +220,7 @@ namespace Sorolla.Palette
             TabStyle = new GUIStyle(ButtonStyle)
             {
                 fontSize = textSize,
-                normal = { textColor = new Color(0.68f, 0.73f, 0.78f, 1f), background = _tabBackground },
+                normal = { textColor = TokenTextTabInactive, background = _tabBackground },
                 hover = { textColor = Color.white, background = _buttonActiveBackground },
                 active = { textColor = Color.white, background = _activeTabBackground },
             };
@@ -243,23 +273,23 @@ namespace Sorolla.Palette
         {
             DestroyStyleResources();
 
-            _panelBackground = CreateTexture(new Color(0.01f, 0.012f, 0.016f, 1f));
-            _summaryBackground = CreateTexture(new Color(0.045f, 0.055f, 0.065f, 1f));
-            _rowBackground = CreateTexture(new Color(0.055f, 0.067f, 0.08f, 1f));
-            _rowAltBackground = CreateTexture(new Color(0.07f, 0.085f, 0.1f, 1f));
-            _rowProblemBackground = CreateTexture(new Color(0.12f, 0.055f, 0.06f, 1f));
-            _rowWarningBackground = CreateTexture(new Color(0.17f, 0.145f, 0.08f, 1f));
-            _sectionBackground = CreateTexture(new Color(0.105f, 0.13f, 0.155f, 1f));
-            _buttonBackground = CreateTexture(new Color(0.16f, 0.18f, 0.21f, 1f));
-            _buttonActiveBackground = CreateTexture(new Color(0.22f, 0.25f, 0.29f, 1f));
-            _buttonSelectedBackground = CreateTexture(new Color(0.12f, 0.26f, 0.31f, 1f));
-            _tabBackground = CreateTexture(new Color(0.055f, 0.065f, 0.08f, 1f));
-            _activeTabBackground = CreateTexture(new Color(0.08f, 0.32f, 0.38f, 1f));
-            _passBackground = CreateTexture(new Color(0.12f, 0.58f, 0.32f, 1f));
-            _warnBackground = CreateTexture(new Color(1f, 0.78f, 0.28f, 1f));
-            _failBackground = CreateTexture(new Color(0.9f, 0.25f, 0.28f, 1f));
-            _waitBackground = CreateTexture(new Color(0.31f, 0.49f, 0.86f, 1f));
-            _infoBackground = CreateTexture(new Color(0.42f, 0.46f, 0.5f, 1f));
+            _panelBackground = CreateTexture(TokenBgPage);
+            _summaryBackground = CreateTexture(TokenBgSummary);
+            _rowBackground = CreateTexture(TokenBgCard);
+            _rowAltBackground = CreateTexture(TokenBgCardAlt);
+            _rowProblemBackground = CreateTexture(TokenStatusFailTint);
+            _rowWarningBackground = CreateTexture(TokenStatusWarnTint);
+            _sectionBackground = CreateTexture(TokenBgSection);
+            _buttonBackground = CreateTexture(TokenBgElevated);
+            _buttonActiveBackground = CreateTexture(TokenBgElevatedHover);
+            _buttonSelectedBackground = CreateTexture(TokenBgAccentMuted);
+            _tabBackground = CreateTexture(TokenBgCard);
+            _activeTabBackground = CreateTexture(TokenBgAccent);
+            _passBackground = CreateTexture(TokenStatusPass);
+            _warnBackground = CreateTexture(TokenStatusWarn);
+            _failBackground = CreateTexture(TokenStatusFail);
+            _waitBackground = CreateTexture(TokenStatusWait);
+            _infoBackground = CreateTexture(TokenStatusInfo);
         }
 
         public void DestroyStyleResources()
@@ -302,7 +332,7 @@ namespace Sorolla.Palette
 
         public static Color BadgeTextColor(SorollaDiagnosticSeverity severity)
         {
-            return severity == SorollaDiagnosticSeverity.Warning ? new Color(0.12f, 0.09f, 0.02f) : Color.white;
+            return severity == SorollaDiagnosticSeverity.Warning ? TokenTextOnWarn : Color.white;
         }
 
         static Texture2D CreateTexture(Color color)
