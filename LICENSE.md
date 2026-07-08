@@ -1,22 +1,17 @@
-MIT License
+Sorolla Palette SDK
+Copyright (c) 2026 Sorolla. All rights reserved.
 
-Copyright (c) 2025 Sorolla
+This software is proprietary and confidential. Access is granted only to
+studios and partners explicitly authorized by Sorolla, solely for the
+purpose of integrating the SDK into games developed in collaboration with
+Sorolla.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+You may not copy, redistribute, sublicense, publish, or disclose this
+software or any portion of it to third parties, nor use it outside the
+scope of your agreement with Sorolla, without prior written permission.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Versions up to and including v3.18.2 were previously distributed under the
+MIT License; that grant applies only to copies obtained while it was in
+effect. All subsequent versions are governed by this license.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
+Contact: studio@sorolla.io
