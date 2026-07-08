@@ -100,9 +100,13 @@ namespace Sorolla.Palette.Editor
             // window edge (matching the gallery's look) while the content gets inset.
             const float ContentPadding = 12f;
 
+            // Extra bottom padding (Arthur's follow-up): scrolled content read as crowding the
+            // header with no bottom padding at all - a few px more than the side padding gives the
+            // fixed header its own clear breathing room above whatever scrolls beneath it.
             _heroContainer = new VisualElement();
             _heroContainer.style.paddingLeft = ContentPadding;
             _heroContainer.style.paddingRight = ContentPadding;
+            _heroContainer.style.paddingBottom = ContentPadding;
             rootVisualElement.Add(_heroContainer);
             RefreshHeroHeaderUI();
 

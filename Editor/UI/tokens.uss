@@ -532,15 +532,21 @@
 }
 
 /* Was an empty accent-colored square (no icon glyph); Arthur's design review swapped it for the
-   palette emoji as a plain text label - no image asset needed. */
+   palette emoji as a plain text label - no image asset needed. Follow-up: the glyph read small
+   and slightly off-center in the tile - bumped font-size (18px -> 24px) to fill the 32px tile
+   comfortably and added explicit padding:0 + unity-text-align on both axes so nothing pushes it
+   off-center. */
 .sorolla-hero-icon {
     width: 32px;
     height: 32px;
     border-radius: var(--sorolla-radius-input);
     background-color: var(--sorolla-bg-accent);
     margin-right: var(--sorolla-space-3);
-    font-size: 18px;
+    padding: 0;
+    font-size: 24px;
     -unity-text-align: middle-center;
+    align-items: center;
+    justify-content: center;
 }
 
 .sorolla-hero-text {
