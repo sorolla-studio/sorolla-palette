@@ -299,8 +299,15 @@ namespace Sorolla.Palette.Editor
             // Adjust (full mode only). adjustAppToken is the ONE documented hard build gate
             // (BuildValidationVendorSettings.cs / SdkConfigDetector.cs: empty or length<=5 fails a
             // Full-mode build) - Invalid state + subtext only while unresolved, no subtext once valid.
+            // Group header is now rendered explicitly (not the [Header] attribute's auto-decorator):
+            // ValidatedField.CreateBound uses a plain bound TextField, not PropertyField, so the
+            // attribute-driven decorator no longer applies here (see ValidatedField.cs for why).
             if (showAdjust)
             {
+                var adjustHeader = new Label("Adjust (Full Mode Only)");
+                adjustHeader.AddToClassList("sorolla-config-group-header");
+                _configContainer.Add(adjustHeader);
+
                 string adjustToken = _serializedConfig.FindProperty("adjustAppToken").stringValue;
                 bool adjustValid = !string.IsNullOrEmpty(adjustToken) && adjustToken.Length > 5;
                 var appToken = ValidatedField.CreateBound(_serializedConfig.FindProperty("adjustAppToken"), "App Token",

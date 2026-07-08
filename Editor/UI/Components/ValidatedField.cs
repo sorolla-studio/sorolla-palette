@@ -4,7 +4,10 @@ using UnityEngine.UIElements;
 
 namespace Sorolla.Palette.Editor.UI
 {
-    /// <summary>Labeled text input with an inline valid/required/invalid indicator + helper text.</summary>
+    /// <summary>Inline label + text input + trailing valid/required/invalid indicator, matching
+    /// the standard editor form geometry (fixed label column, input fills the rest, icon trails)
+    /// so ValidatedField rows sit in the same column as the stock PropertyField rows around
+    /// them.</summary>
     static class ValidatedField
     {
         internal enum State
@@ -20,62 +23,69 @@ namespace Sorolla.Palette.Editor.UI
         {
             var container = new VisualElement();
             container.AddToClassList("sorolla-field");
-            container.Add(BuildLabel(label));
 
             var textField = new TextField { value = value };
-            textField.AddToClassList("sorolla-field-input");
-            textField.AddToClassList(ClassFor(state));
-
-            container.Add(BuildInputRow(textField, state));
+            container.Add(BuildRow(label, textField, state));
             AddMessage(container, state, message);
             return container;
         }
 
-        /// <summary>Same accent-border/icon/message treatment as <see cref="Create"/>, but wraps a
-        /// real bound PropertyField instead of building a plain TextField from a copied string -
+        /// <summary>Same row shape as <see cref="Create"/>, but binds a real TextField to a
+        /// SerializedProperty via BindProperty instead of copying the value into a plain string -
         /// keeps the SerializedObject binding (undo, dirty-marking, multi-edit,
-        /// TrackSerializedObjectValue) and the field's own label/[Header] decorator rendering
-        /// byte-for-byte identical to a bare PropertyField; this only adds the border color + a
-        /// trailing state icon + optional subtext. Only fits a LEAF-value property (string, bool,
-        /// int) - a nested/complex property (e.g. PlatformAdUnitId) renders its own foldout and
-        /// should stay a plain PropertyField instead (verified via screenshot: wrapping one here
-        /// double-labels and reorders the Header decorator).</summary>
+        /// TrackSerializedObjectValue) identical to PropertyField's, since those all operate on the
+        /// SerializedObject/property, not on PropertyField itself.
+        ///
+        /// Deliberately does NOT use PropertyField: PropertyField renders its own inline label at
+        /// an auto width, so different label text produced different input-column start x across
+        /// rows (measured 120px/129px/135px in the real window - a visible misalignment vs the
+        /// stock PropertyField rows above). And for a property carrying a [Header] attribute,
+        /// PropertyField bakes the header decorator INSIDE the same element as the field, so
+        /// wrapping that whole thing in this component's icon row centered the icon across the
+        /// header+field combined height - it visually floated beside the header instead of sitting
+        /// on the field's own row (both caught via screenshot). A plain bound TextField has neither
+        /// problem: the label here gets the same fixed width as every other row (real
+        /// PropertyFields' own label column, see .sorolla-field-label in tokens.uss), and any
+        /// [Header] text is the caller's job to render OUTSIDE this component, never bundled into
+        /// the same row as the icon.
+        ///
+        /// Only fits a LEAF-value property (string, bool, int) - a nested/complex property (e.g.
+        /// PlatformAdUnitId) renders its own foldout and should stay a plain PropertyField
+        /// instead.</summary>
         internal static VisualElement CreateBound(SerializedProperty property, string label, State state, string message = null)
         {
             var container = new VisualElement();
             container.AddToClassList("sorolla-field");
 
-            var propertyField = new PropertyField(property, label);
-            propertyField.AddToClassList("sorolla-field-input");
-            propertyField.AddToClassList(ClassFor(state));
-
-            container.Add(BuildInputRow(propertyField, state));
+            var textField = new TextField();
+            textField.BindProperty(property);
+            container.Add(BuildRow(label, textField, state));
             AddMessage(container, state, message);
             return container;
         }
 
-        static Label BuildLabel(string label)
+        static VisualElement BuildRow(string label, TextField textField, State state)
         {
+            var row = new VisualElement();
+            row.AddToClassList("sorolla-field-row");
+
             var labelElement = new Label(label);
             labelElement.AddToClassList("sorolla-field-label");
-            return labelElement;
-        }
+            row.Add(labelElement);
 
-        static VisualElement BuildInputRow(VisualElement field, State state)
-        {
-            var inputRow = new VisualElement();
-            inputRow.AddToClassList("sorolla-field-input-row");
-            inputRow.Add(field);
+            textField.AddToClassList("sorolla-field-input");
+            textField.AddToClassList(ClassFor(state));
+            row.Add(textField);
 
             if (state != State.None)
             {
                 var icon = new Label(IconFor(state));
                 icon.AddToClassList("sorolla-field-icon");
                 icon.AddToClassList(ClassFor(state));
-                inputRow.Add(icon);
+                row.Add(icon);
             }
 
-            return inputRow;
+            return row;
         }
 
         static void AddMessage(VisualElement container, State state, string message)
