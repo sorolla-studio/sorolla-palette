@@ -83,8 +83,8 @@ namespace Sorolla.Palette
         public GUIStyle DetailStyle;
         public GUIStyle MiniDetailStyle;
         public GUIStyle BadgeStyle;
-        public GUIStyle VerifiedLabelStyle;
-        public GUIStyle UnverifiedLabelStyle;
+        public GUIStyle NoSignalLabelStyle;
+        public GUIStyle WarnLabelStyle;
         public GUIStyle ButtonStyle;
         public GUIStyle SelectedButtonStyle;
         public GUIStyle TabStyle;
@@ -213,10 +213,14 @@ namespace Sorolla.Palette
                 border = new RectOffset(badgeRadius, badgeRadius, badgeRadius, badgeRadius),
             };
 
-            // VERIFIED column (p2-rt-adapterrow): text-only, no fill, so it never competes
-            // visually with the severity badge - deliberately quieter than a real pass/fail,
-            // same "verified-column honesty" reasoning as the editor's UNVERIFIABLE StatusBadge.
-            VerifiedLabelStyle = new GUIStyle(GUI.skin.label)
+            // Verification column (p2-rt-adapterrow, corrected post-review 2026-07-08): no SDK
+            // code path emits a positive verification signal today (only test fixtures narrate
+            // "Gated:"/"Unverifiable:"), so this NEVER claims "VERIFIED" - that would manufacture
+            // false confidence on every real-device row. NoSignalLabelStyle is a quiet neutral
+            // placeholder ("-") for rows with no verification claim either way; WarnLabelStyle is
+            // the amber GATED/UNVERIFIABLE indicator for narrated rows. Text-only, no fill, so
+            // neither ever competes visually with the severity badge.
+            NoSignalLabelStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = Mathf.Max(9, smallSize - 2),
                 fontStyle = FontStyle.Bold,
@@ -224,7 +228,7 @@ namespace Sorolla.Palette
                 normal = { textColor = TokenTextTertiary },
             };
 
-            UnverifiedLabelStyle = new GUIStyle(VerifiedLabelStyle)
+            WarnLabelStyle = new GUIStyle(NoSignalLabelStyle)
             {
                 normal = { textColor = TokenStatusWarn },
             };

@@ -335,16 +335,21 @@ namespace Sorolla.Palette
             GUILayout.EndHorizontal();
         }
 
-        /// <summary>Text-only VERIFIED/UNVERIFIABLE indicator, purely presentational: parses the
-        /// existing "Unverifiable:"/"Gated:" Detail-text convention (already used by seed data and
-        /// draw code elsewhere) rather than adding a new field to SorollaDiagnosticRow - draw code
-        /// only, no data-model or QA-bridge change.</summary>
+        /// <summary>Verification column, purely presentational (draw code only, no data-model or
+        /// QA-bridge change). Corrected post-review 2026-07-08: no SDK code path emits a positive
+        /// verification signal today - only test-fixture rows narrate "Gated:"/"Unverifiable:" in
+        /// Detail text - so this must NEVER default to "VERIFIED" on a real row; that would
+        /// manufacture false confidence for exactly the vendor-network gap the QA bridge can't
+        /// see (CLAUDE.md's known landmine). Narrated rows get an honest amber GATED/UNVERIFIABLE
+        /// label; everything else gets a quiet neutral placeholder, not a claim.</summary>
         void DrawVerifiedColumn(string detail)
         {
-            bool unverifiable = detail != null && (detail.StartsWith("Unverifiable:") || detail.StartsWith("Gated:"));
-            GUILayout.Label(unverifiable ? "UNVERIFIED" : "VERIFIED",
-                unverifiable ? _theme.UnverifiedLabelStyle : _theme.VerifiedLabelStyle,
-                GUILayout.Height(BadgeHeight()));
+            if (detail != null && detail.StartsWith("Unverifiable:"))
+                GUILayout.Label("UNVERIFIABLE", _theme.WarnLabelStyle, GUILayout.Height(BadgeHeight()));
+            else if (detail != null && detail.StartsWith("Gated:"))
+                GUILayout.Label("GATED", _theme.WarnLabelStyle, GUILayout.Height(BadgeHeight()));
+            else
+                GUILayout.Label("—", _theme.NoSignalLabelStyle, GUILayout.Height(BadgeHeight()));
         }
 
         void DrawConsoleTab()
