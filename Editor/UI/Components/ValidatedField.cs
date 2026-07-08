@@ -1,3 +1,4 @@
+using System;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
@@ -25,8 +26,8 @@ namespace Sorolla.Palette.Editor.UI
             container.AddToClassList("sorolla-field");
 
             var textField = new TextField { value = value };
-            container.Add(BuildRow(label, textField, state));
-            AddMessage(container, state, message);
+            var refs = BuildRow(container, label, textField);
+            ApplyState(refs, state, message);
             return container;
         }
 
@@ -49,22 +50,45 @@ namespace Sorolla.Palette.Editor.UI
         /// [Header] text is the caller's job to render OUTSIDE this component, never bundled into
         /// the same row as the icon.
         ///
+        /// The state is LIVE, not a one-shot snapshot taken at build time: <paramref
+        /// name="evaluate"/> re-runs on every keystroke (TextField.RegisterValueChangedCallback
+        /// fires per change on a bound field), swapping the border class/icon/subtext in place. A
+        /// stale green check on a value the user has since typed garbage into is worse than no
+        /// validation at all (caught live by Arthur: typing into an already-valid ad-unit field
+        /// left the checkmark green).
+        ///
         /// Only fits a LEAF-value property (string, bool, int) - a nested/complex property (e.g.
         /// PlatformAdUnitId) renders its own foldout and should stay a plain PropertyField
         /// instead.</summary>
-        internal static VisualElement CreateBound(SerializedProperty property, string label, State state, string message = null)
+        internal static VisualElement CreateBound(SerializedProperty property, string label, Func<string, (State state, string message)> evaluate)
         {
             var container = new VisualElement();
             container.AddToClassList("sorolla-field");
 
             var textField = new TextField();
             textField.BindProperty(property);
-            container.Add(BuildRow(label, textField, state));
-            AddMessage(container, state, message);
+            var refs = BuildRow(container, label, textField);
+
+            (State state, string message) = evaluate(property.stringValue);
+            ApplyState(refs, state, message);
+
+            textField.RegisterValueChangedCallback(evt =>
+            {
+                (State newState, string newMessage) = evaluate(evt.newValue);
+                ApplyState(refs, newState, newMessage);
+            });
+
             return container;
         }
 
-        static VisualElement BuildRow(string label, TextField textField, State state)
+        struct RowRefs
+        {
+            internal TextField Field;
+            internal Label Icon;
+            internal Label Message;
+        }
+
+        static RowRefs BuildRow(VisualElement container, string label, TextField textField)
         {
             var row = new VisualElement();
             row.AddToClassList("sorolla-field-row");
@@ -74,28 +98,52 @@ namespace Sorolla.Palette.Editor.UI
             row.Add(labelElement);
 
             textField.AddToClassList("sorolla-field-input");
-            textField.AddToClassList(ClassFor(state));
             row.Add(textField);
 
-            if (state != State.None)
-            {
-                var icon = new Label(IconFor(state));
-                icon.AddToClassList("sorolla-field-icon");
-                icon.AddToClassList(ClassFor(state));
-                row.Add(icon);
-            }
+            // Always present (even for State.None, just empty/invisible) so a live state change
+            // doesn't add/remove elements and shift the row's layout mid-typing.
+            var icon = new Label();
+            icon.AddToClassList("sorolla-field-icon");
+            row.Add(icon);
 
-            return row;
+            container.Add(row);
+
+            var message = new Label();
+            message.AddToClassList("sorolla-field-message");
+            message.style.display = DisplayStyle.None;
+            container.Add(message);
+
+            return new RowRefs { Field = textField, Icon = icon, Message = message };
         }
 
-        static void AddMessage(VisualElement container, State state, string message)
+        static void ApplyState(RowRefs refs, State state, string message)
         {
-            if (string.IsNullOrEmpty(message)) return;
+            string stateClass = ClassFor(state);
 
-            var messageLabel = new Label(message);
-            messageLabel.AddToClassList("sorolla-field-message");
-            messageLabel.AddToClassList(ClassFor(state));
-            container.Add(messageLabel);
+            SetStateClass(refs.Field, stateClass);
+            SetStateClass(refs.Icon, stateClass);
+            refs.Icon.text = IconFor(state);
+
+            SetStateClass(refs.Message, stateClass);
+            if (string.IsNullOrEmpty(message))
+            {
+                refs.Message.text = string.Empty;
+                refs.Message.style.display = DisplayStyle.None;
+            }
+            else
+            {
+                refs.Message.text = message;
+                refs.Message.style.display = DisplayStyle.Flex;
+            }
+        }
+
+        static void SetStateClass(VisualElement element, string stateClass)
+        {
+            element.RemoveFromClassList("sorolla-field-valid");
+            element.RemoveFromClassList("sorolla-field-invalid");
+            element.RemoveFromClassList("sorolla-field-required");
+            if (!string.IsNullOrEmpty(stateClass))
+                element.AddToClassList(stateClass);
         }
 
         static string IconFor(State state)

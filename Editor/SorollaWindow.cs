@@ -312,11 +312,13 @@ namespace Sorolla.Palette.Editor
                 adjustHeader.AddToClassList("sorolla-config-group-header");
                 _configContainer.Add(adjustHeader);
 
-                string adjustToken = _serializedConfig.FindProperty("adjustAppToken").stringValue;
-                bool adjustValid = !string.IsNullOrEmpty(adjustToken) && adjustToken.Length > 5;
-                var appToken = ValidatedField.CreateBound(_serializedConfig.FindProperty("adjustAppToken"), "App Token",
-                    adjustValid ? ValidatedField.State.Valid : ValidatedField.State.Invalid,
-                    adjustValid ? null : "Required for Full-mode builds");
+                var appToken = ValidatedField.CreateBound(_serializedConfig.FindProperty("adjustAppToken"), "App Token", value =>
+                {
+                    bool valid = !string.IsNullOrEmpty(value) && value.Length > 5;
+                    return valid
+                        ? (ValidatedField.State.Valid, (string)null)
+                        : (ValidatedField.State.Invalid, "Required for Full-mode builds");
+                });
                 appToken.style.marginLeft = 15;
                 _configContainer.Add(appToken);
 
@@ -354,8 +356,10 @@ namespace Sorolla.Palette.Editor
         VisualElement BoundField(string propertyName, string label)
         {
             var property = _serializedConfig.FindProperty(propertyName);
-            var state = string.IsNullOrEmpty(property.stringValue) ? ValidatedField.State.None : ValidatedField.State.Valid;
-            return ValidatedField.CreateBound(property, label, state);
+            return ValidatedField.CreateBound(property, label, value =>
+                string.IsNullOrEmpty(value)
+                    ? (ValidatedField.State.None, (string)null)
+                    : (ValidatedField.State.Valid, (string)null));
         }
 
         static VisualElement Indented(VisualElement element)
@@ -389,15 +393,16 @@ namespace Sorolla.Palette.Editor
         VisualElement AdUnitField(string label, string propertyPath)
         {
             var property = _serializedConfig.FindProperty(propertyPath);
-            string value = property.stringValue;
+            return ValidatedField.CreateBound(property, label, value =>
+            {
+                if (string.IsNullOrEmpty(value))
+                    return (ValidatedField.State.None, (string)null);
 
-            if (string.IsNullOrEmpty(value))
-                return ValidatedField.CreateBound(property, label, ValidatedField.State.None);
-
-            bool formatValid = MaxAdUnitFormat.IsMatch(value);
-            return ValidatedField.CreateBound(property, label,
-                formatValid ? ValidatedField.State.Valid : ValidatedField.State.Required,
-                formatValid ? null : "Doesn't look like a MAX ad unit ID");
+                bool formatValid = MaxAdUnitFormat.IsMatch(value);
+                return formatValid
+                    ? (ValidatedField.State.Valid, (string)null)
+                    : (ValidatedField.State.Required, "Doesn't look like a MAX ad unit ID");
+            });
         }
 
         /// <summary>Ported to UI Toolkit (p3-quickstart). The old box mixed real integration facts
