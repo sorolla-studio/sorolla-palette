@@ -41,15 +41,18 @@ namespace Sorolla.Palette.Editor
                     results.Add(Unverifiable(category, probe.Detail));
                     break;
 
+                // Awareness-first severity ruling (Arthur, via supervisor): a studio may intentionally
+                // ship one platform at a time, so a missing/rejected FB platform registration is not a
+                // build blocker - it is a warning with a clear root cause, signal, and fix.
                 case FacebookPlatformValidator.ProbeState.PlatformMissing:
-                    results.Add(Error(
+                    results.Add(Warning(
                         category,
                         probe.Detail,
                         "FB console -> Settings -> Basic -> Add Platform"));
                     break;
 
                 case FacebookPlatformValidator.ProbeState.CredentialInvalid:
-                    results.Add(Error(
+                    results.Add(Warning(
                         category,
                         probe.Detail,
                         "Verify FacebookSettings.asset app id + client token against the Facebook developer console"));

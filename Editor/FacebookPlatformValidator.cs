@@ -109,7 +109,8 @@ namespace Sorolla.Palette.Editor
                 if (LooksLikeCredentialError(body))
                 {
                     return new ProbeResult(ProbeState.CredentialInvalid, appId, platformName,
-                        $"Facebook appId/clientToken pair invalid for app {appId} (Graph API rejected the credentials).", now);
+                        $"Facebook appId/clientToken pair for app {appId} was rejected by the Graph API.\n" +
+                        "  Facebook init will report AuthError; analytics and attribution silently stop reaching Facebook.", now);
                 }
 
                 return new ProbeResult(ProbeState.Unreachable, appId, platformName,
@@ -125,7 +126,8 @@ namespace Sorolla.Palette.Editor
             if (!supportedPlatforms.Contains(platformName))
             {
                 return new ProbeResult(ProbeState.PlatformMissing, appId, platformName,
-                    $"FB app {appId} has no {platformName} platform - FB console -> Settings -> Basic -> Add Platform.", now);
+                    $"FB app {appId} has no {platformName} platform registered in the FB console.\n" +
+                    $"  Every native Graph/Login/attribution call from {platformName} will be rejected.", now);
             }
 
             return new ProbeResult(ProbeState.Verified, appId, platformName,

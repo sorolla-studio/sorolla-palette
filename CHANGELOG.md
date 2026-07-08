@@ -9,8 +9,12 @@ vendor is provisioned/configured for one platform only, every SDK indicator read
 failure only surfaces on-device (GA issue #8; Boulder Evolution FB Android-only provisioning
 2026-07-08). Editor-only except the Facebook runtime probe diagnosis.
 
+Awareness-first, not a gate: a studio may intentionally ship one platform at a time, so every new
+check below warns rather than blocks the build. Each warning states the root cause, the on-device
+signal it produces, and the fix.
+
 ### Added
-- **GameAnalytics per-platform key validation** (closes #8): Build Health now errors when the active
+- **GameAnalytics per-platform key validation** (closes #8): Build Health now warns when the active
   build target has no game key + secret key pair in `Assets/Resources/GameAnalytics/Settings.asset`,
   instead of passing on any key existing for any platform. The SDK Overview row shows a per-platform
   breakdown ("Android configured, iOS key missing") in both the configured and not-configured states.
@@ -20,8 +24,8 @@ failure only surfaces on-device (GA issue #8; Boulder Evolution FB Android-only 
 - **Facebook platform + credential Graph check** (Build Health): when FacebookSettings has an app id +
   client token, an async, non-blocking Graph API call (`GET /{app-id}?fields=supported_platforms`)
   verifies the active build target's platform is registered on the FB app and that the credential pair
-  is accepted. A missing platform errors with the exact console action; a rejected credential pair
-  errors distinctly; offline/timeout reads `unverifiable` instead of failing the build. Result is cached
+  is accepted. A missing platform warns with the exact console action; a rejected credential pair
+  warns distinctly; offline/timeout reads `unverifiable` instead of failing the build. Result is cached
   per app id/client token/platform combination and refreshes Build Health once the probe settles.
 - **Facebook runtime probe diagnosis**: when the 3.18.1 Graph readiness probe fails, the adapter now
   asks the Graph API whether the current platform is registered on the FB app before reporting
@@ -34,7 +38,8 @@ failure only surfaces on-device (GA issue #8; Boulder Evolution FB Android-only 
 - **`google-services.json` detection no longer false-positives on the desktop file**: the Firebase
   Android config check required exactly `Assets/google-services.json` (or the StreamingAssets copy);
   the fuzzy `AssetDatabase.FindAssets("google-services")` fallback that matched the auto-generated
-  `google-services-desktop.json` is removed.
+  `google-services-desktop.json` is removed. The missing-config-file case for both platforms is now a
+  warning, not a build-blocking error, per the awareness-first ruling above.
 
 ## [3.18.3] - 2026-07-08
 

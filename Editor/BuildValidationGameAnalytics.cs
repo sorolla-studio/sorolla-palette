@@ -30,10 +30,13 @@ namespace Sorolla.Palette.Editor
             }
             else
             {
-                results.Add(Error(
+                // Awareness-first severity ruling (Arthur, via supervisor): a studio may intentionally
+                // ship one platform at a time, so a missing per-platform vendor key is not a build
+                // blocker - it is a warning with a clear root cause, signal, and fix.
+                results.Add(Warning(
                     category,
-                    $"GameAnalytics has no game key + secret key pair for {platformName} in Assets/Resources/GameAnalytics/Settings.asset.\n" +
-                    "  Progression/economy/custom events silently stop reaching GameAnalytics on this platform.",
+                    $"{platformName} has no game key + secret key pair in Assets/Resources/GameAnalytics/Settings.asset.\n" +
+                    $"  GameAnalytics will drop 100% of events on {platformName}; device log shows the SDK never leaving \"not initialized\".",
                     $"Window > GameAnalytics > Select Settings, add {platformName}, and paste the game key + secret key from the GameAnalytics dashboard"));
             }
 

@@ -71,18 +71,23 @@ namespace Sorolla.Palette.Editor
 
             BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
 
+            // Awareness-first severity ruling (Arthur, via supervisor): a studio may intentionally ship
+            // one platform at a time, so a missing per-platform config file is not a build blocker - it
+            // is a warning with a clear root cause, signal, and fix.
             if (target == BuildTarget.Android && !SdkConfigDetector.IsFirebaseAndroidConfigured())
             {
-                results.Add(Error(
+                results.Add(Warning(
                     category,
-                    "google-services.json not found",
+                    "Assets/google-services.json not found.\n" +
+                    "  Firebase Android (Analytics/Crashlytics/Remote Config) will fail to initialize on this platform.",
                     "Download from Firebase Console > Project Settings > Android app and place in Assets/"));
             }
             else if (target == BuildTarget.iOS && !SdkConfigDetector.IsFirebaseIOSConfigured())
             {
-                results.Add(Error(
+                results.Add(Warning(
                     category,
-                    "GoogleService-Info.plist not found",
+                    "Assets/GoogleService-Info.plist not found.\n" +
+                    "  Firebase iOS (Analytics/Crashlytics/Remote Config) will fail to initialize on this platform.",
                     "Download from Firebase Console > Project Settings > iOS app and place in Assets/"));
             }
             else
