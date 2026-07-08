@@ -95,10 +95,23 @@ namespace Sorolla.Palette.Editor
             // therefore moves up to this cycle (originally planned for the last peel-out) and owns
             // ALL scrolling; neither IMGUIContainer keeps its own internal BeginScrollView or
             // flexGrow - each sizes to its natural GUILayout content height.
-            rootVisualElement.Add(BuildHeroHeaderSection());
+            // Content padding (Arthur's design review, item 8): content was flush against the
+            // window edges. Matches the gallery's per-section padding (space-4, 12px). Applied to
+            // the header (unscrolled) and the ScrollView's contentContainer specifically, NOT
+            // rootVisualElement/the ScrollView itself - contentContainer is the actual scrolled
+            // element, separate from the scrollbar chrome, so the scrollbar stays flush to the true
+            // window edge (matching the gallery's look) while the content gets inset.
+            const float ContentPadding = 12f;
+
+            VisualElement heroSection = BuildHeroHeaderSection();
+            heroSection.style.paddingLeft = ContentPadding;
+            heroSection.style.paddingRight = ContentPadding;
+            rootVisualElement.Add(heroSection);
 
             var scrollView = new ScrollView(ScrollViewMode.Vertical);
             scrollView.style.flexGrow = 1;
+            scrollView.contentContainer.style.paddingLeft = ContentPadding;
+            scrollView.contentContainer.style.paddingRight = ContentPadding;
             rootVisualElement.Add(scrollView);
 
             scrollView.Add(new IMGUIContainer(DrawUpperSectionsWithStyles));
