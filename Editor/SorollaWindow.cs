@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Sorolla.Palette.Editor.UI;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Sorolla.Palette.Editor
 {
@@ -13,9 +15,9 @@ namespace Sorolla.Palette.Editor
     /// </summary>
     public class SorollaWindow : EditorWindow
     {
+        const string TokensUssPath = "Packages/com.sorolla.sdk/Editor/UI/tokens.uss";
+
         // Cached GUIStyles - initialized once
-        static GUIStyle s_headerTitleStyle;
-        static GUIStyle s_headerSubtitleStyle;
         static GUIStyle s_statusGreenStyle;
         static GUIStyle s_statusYellowStyle;
         static GUIStyle s_statusRedStyle;
@@ -80,28 +82,57 @@ namespace Sorolla.Palette.Editor
             Repaint();
         }
 
-        void OnGUI()
+        void CreateGUI()
+        {
+            // Supervisor-specified layout (2026-07-08): NO outer UI Toolkit ScrollView this cycle.
+            // A plain fixed-header + flexGrow IMGUIContainer column avoids double/competing scroll
+            // containers; the IMGUIContainer keeps its own IMGUI scroll (restored below, moved from
+            // the old OnGUI) exactly as before. A UI Toolkit ScrollView only replaces it in the
+            // LAST peel-out cycle, once the IMGUI region disappears entirely.
+            rootVisualElement.Add(BuildHeroHeaderSection());
+            var imguiContainer = new IMGUIContainer(DrawMainUIWithStyles);
+            imguiContainer.style.flexGrow = 1;
+            rootVisualElement.Add(imguiContainer);
+        }
+
+        /// <summary>Ported to UI Toolkit (p3-header) - real HeroHeader component, scoped to its
+        /// own .sorolla-root container so the fixed-dark token theme applies only to the ported
+        /// section, not the still-IMGUI content below it (mid-migration, per PLAN.md's per-section
+        /// approach - the visual seam is expected and temporary, not a bug).</summary>
+        static VisualElement BuildHeroHeaderSection()
+        {
+            var container = new VisualElement();
+            container.AddToClassList("sorolla-root");
+            var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(TokensUssPath);
+            if (styleSheet != null)
+                container.styleSheets.Add(styleSheet);
+
+            bool isPrototype = SorollaSettings.Mode == SorollaMode.Prototype;
+            container.Add(HeroHeader.Create("Palette SDK", $"v{Version} - Plug & Play Publisher Stack",
+                isPrototype ? "PROTOTYPE" : "FULL", modeIsFull: !isPrototype));
+            return container;
+        }
+
+        /// <summary>DrawMainUI() itself is byte-for-byte unchanged from the pre-p3-header IMGUI
+        /// version. Its outer scroll (_scrollPos/BeginScrollView, formerly wrapping DrawHeader()
+        /// too in the old OnGUI) now wraps only this IMGUIContainer's content, since the header is
+        /// a separate fixed VisualElement above it. EnsureStyles() MUST run in here, not in
+        /// CreateGUI() - it builds GUIStyle instances (EditorStyles.boldLabel etc.) that need a
+        /// live IMGUI/OnGUI context to resolve correctly, the same class of "looks fine but is
+        /// silently wrong outside a real GUIClip/OnGUI context" bug as the GUIToScreenPoint-inside-
+        /// GeometryChangedEvent regression from p0-capture-exact-origin - caught by design this
+        /// time instead of by a second regression.</summary>
+        void DrawMainUIWithStyles()
         {
             EnsureStyles();
             _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
-
-            DrawHeader();
-            EditorGUILayout.Space(10);
             DrawMainUI();
-
             EditorGUILayout.EndScrollView();
         }
 
         static void EnsureStyles()
         {
             if (s_stylesInitialized) return;
-
-            s_headerTitleStyle = new GUIStyle(EditorStyles.boldLabel)
-            {
-                fontSize = 16,
-                alignment = TextAnchor.MiddleCenter,
-            };
-            s_headerSubtitleStyle = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleCenter };
 
             s_statusGreenStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = ColorGreen } };
             s_statusYellowStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = ColorYellow } };
@@ -159,14 +190,6 @@ namespace Sorolla.Palette.Editor
                 ShowWindow();
             }
         };
-
-        void DrawHeader()
-        {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            GUILayout.Label("Palette SDK", s_headerTitleStyle);
-            GUILayout.Label($"v{Version} - Plug & Play Publisher Stack", s_headerSubtitleStyle);
-            EditorGUILayout.EndVertical();
-        }
 
         void DrawMainUI()
         {
