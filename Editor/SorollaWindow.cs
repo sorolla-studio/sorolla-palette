@@ -974,6 +974,18 @@ namespace Sorolla.Palette.Editor
 
             _buildHealthContainer.Add(SectionHeader.Create("Build Health", "Refresh", RunBuildValidation));
 
+            // Phase 3 (Build Health parity with the pre-build gates): QA Pass vs Release scoping for
+            // checks that only apply at one phase (sandbox mode, keystore, SDK pin, ...). Switching
+            // re-runs validation so those rows reflect the new profile immediately.
+            var profileField = new EnumField("Validation Profile", BuildValidationProfileSettings.Current);
+            profileField.AddToClassList("sorolla-type-small");
+            profileField.RegisterValueChangedCallback(evt =>
+            {
+                BuildValidationProfileSettings.Current = (ValidationProfile)evt.newValue;
+                RunBuildValidation();
+            });
+            _buildHealthContainer.Add(profileField);
+
             _buildHealthContainer.Add(isHealthy
                 ? CalloutCard.Create(CalloutCard.Severity.Success, "Build Health checks passing", "Ready to build.")
                 : CalloutCard.Create(CalloutCard.Severity.Blocker, $"{errors} Issue(s)", "Fix the failing checks below before building."));
