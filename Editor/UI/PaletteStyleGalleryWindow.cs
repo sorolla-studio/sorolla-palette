@@ -19,7 +19,6 @@ namespace Sorolla.Palette.Editor.UI
         // adds a dedicated Build*Section method instead (see BuildStatusBadgeSection below).
         static readonly string[] Sections =
         {
-            "ValidatedField",
             "CodeSnippetBlock",
             "HeroHeader",
         };
@@ -86,8 +85,28 @@ namespace Sorolla.Palette.Editor.UI
             scrollView.Add(BuildCalloutCardSection());
             scrollView.Add(BuildSectionHeaderSection());
             scrollView.Add(BuildCheckRowSection());
+            scrollView.Add(BuildValidatedFieldSection());
             foreach (string section in Sections)
                 scrollView.Add(BuildSectionPlaceholder(section));
+        }
+
+        static VisualElement BuildValidatedFieldSection()
+        {
+            var container = new VisualElement();
+            container.AddToClassList("gallery-section");
+
+            var title = new Label("ValidatedField");
+            title.AddToClassList("gallery-section-title");
+            container.Add(title);
+
+            container.Add(ValidatedField.Create("MAX Ad Unit ID (Rewarded, Android)", "98e422a19d0a8049",
+                ValidatedField.State.Valid));
+            container.Add(ValidatedField.Create("Adjust App Token", "",
+                ValidatedField.State.Required, "Required for Full-mode builds - see Adjust dashboard."));
+            container.Add(ValidatedField.Create("Facebook App ID", "abc",
+                ValidatedField.State.Invalid, "Must be a numeric Facebook App ID."));
+
+            return container;
         }
 
         static VisualElement BuildCheckRowSection()
