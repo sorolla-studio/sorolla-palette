@@ -246,7 +246,7 @@ namespace Sorolla.Palette
             {
                 fontSize = smallSize,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.92f, 0.94f, 0.96f, 1f), background = _buttonBackground },
+                normal = { textColor = TokenTextPrimaryAlt, background = _buttonBackground },
                 hover = { textColor = Color.white, background = _buttonActiveBackground },
                 active = { textColor = Color.white, background = _buttonActiveBackground },
                 padding = new RectOffset(buttonPadX, buttonPadX, buttonPadY, buttonPadY),
@@ -452,7 +452,7 @@ namespace Sorolla.Palette
         public Texture2D GetPanelBackground()
         {
             if (_panelBackground == null)
-                _panelBackground = CreateTexture(new Color(0.01f, 0.012f, 0.016f, 1f));
+                _panelBackground = CreateTexture(TokenBgPage);
             return _panelBackground;
         }
     }
