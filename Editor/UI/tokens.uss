@@ -358,3 +358,44 @@
 .sorolla-field-message.sorolla-field-valid { color: var(--sorolla-status-pass); }
 .sorolla-field-message.sorolla-field-invalid { color: var(--sorolla-status-fail); }
 .sorolla-field-message.sorolla-field-required { color: var(--sorolla-status-warn); }
+
+/* CodeSnippetBlock (p2-codesnippet): title bar + Copy button + monospace body. */
+.sorolla-snippet {
+    background-color: var(--sorolla-bg-page);
+    border-radius: var(--sorolla-radius-card);
+    margin-bottom: var(--sorolla-space-3);
+    overflow: hidden;
+    border-width: 1px;
+    border-color: var(--sorolla-bg-elevated);
+}
+
+.sorolla-snippet-titlebar {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--sorolla-bg-section);
+    padding: var(--sorolla-space-2) var(--sorolla-space-3);
+}
+
+.sorolla-snippet-title {
+    font-size: 11px;
+    color: var(--sorolla-text-secondary);
+    -unity-font-style: bold;
+}
+
+.sorolla-snippet-copy {
+    background-color: var(--sorolla-bg-elevated);
+    color: var(--sorolla-text-primary);
+    border-width: 0;
+    border-radius: var(--sorolla-radius-input);
+    padding: 2px var(--sorolla-space-2);
+    font-size: 10px;
+    -unity-font-style: bold;
+}
+
+.sorolla-snippet-body {
+    color: var(--sorolla-text-primary);
+    font-size: 12px;
+    padding: var(--sorolla-space-3);
+    white-space: normal;
+}

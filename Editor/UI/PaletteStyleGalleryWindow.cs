@@ -19,7 +19,6 @@ namespace Sorolla.Palette.Editor.UI
         // adds a dedicated Build*Section method instead (see BuildStatusBadgeSection below).
         static readonly string[] Sections =
         {
-            "CodeSnippetBlock",
             "HeroHeader",
         };
 
@@ -86,8 +85,24 @@ namespace Sorolla.Palette.Editor.UI
             scrollView.Add(BuildSectionHeaderSection());
             scrollView.Add(BuildCheckRowSection());
             scrollView.Add(BuildValidatedFieldSection());
+            scrollView.Add(BuildCodeSnippetSection());
             foreach (string section in Sections)
                 scrollView.Add(BuildSectionPlaceholder(section));
+        }
+
+        static VisualElement BuildCodeSnippetSection()
+        {
+            var container = new VisualElement();
+            container.AddToClassList("gallery-section");
+
+            var title = new Label("CodeSnippetBlock");
+            title.AddToClassList("gallery-section-title");
+            container.Add(title);
+
+            container.Add(CodeSnippetBlock.Create("Quick Start",
+                "Palette.Level.Start(1);\nPalette.Level.Complete(1, score: 100);"));
+
+            return container;
         }
 
         static VisualElement BuildValidatedFieldSection()
