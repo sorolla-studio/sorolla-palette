@@ -83,6 +83,8 @@ namespace Sorolla.Palette
         public GUIStyle DetailStyle;
         public GUIStyle MiniDetailStyle;
         public GUIStyle BadgeStyle;
+        public GUIStyle VerifiedLabelStyle;
+        public GUIStyle UnverifiedLabelStyle;
         public GUIStyle ButtonStyle;
         public GUIStyle SelectedButtonStyle;
         public GUIStyle TabStyle;
@@ -208,6 +210,22 @@ namespace Sorolla.Palette
                 normal = { textColor = Color.white },
                 padding = new RectOffset(rowPadX, rowPadX, 0, 0),
                 border = new RectOffset(badgeRadius, badgeRadius, badgeRadius, badgeRadius),
+            };
+
+            // VERIFIED column (p2-rt-adapterrow): text-only, no fill, so it never competes
+            // visually with the severity badge - deliberately quieter than a real pass/fail,
+            // same "verified-column honesty" reasoning as the editor's UNVERIFIABLE StatusBadge.
+            VerifiedLabelStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = Mathf.Max(9, smallSize - 2),
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleRight,
+                normal = { textColor = TokenTextTertiary },
+            };
+
+            UnverifiedLabelStyle = new GUIStyle(VerifiedLabelStyle)
+            {
+                normal = { textColor = TokenStatusWarn },
             };
 
             ButtonStyle = new GUIStyle(GUI.skin.button)

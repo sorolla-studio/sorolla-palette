@@ -308,7 +308,21 @@ namespace Sorolla.Palette
             DrawSummaryBadge(SorollaDiagnostics.SeverityLabel(row.Severity), row.Severity, _diagnosticSeverityBadgeWidth);
             DrawSummaryBadge(SorollaDiagnostics.KindLabel(row.Kind), SorollaDiagnosticSeverity.Info, _diagnosticKindBadgeWidth);
             DrawInlineRowName(row.Name);
+            GUILayout.FlexibleSpace();
+            DrawVerifiedColumn(row.Detail);
             GUILayout.EndHorizontal();
+        }
+
+        /// <summary>Text-only VERIFIED/UNVERIFIABLE indicator, purely presentational: parses the
+        /// existing "Unverifiable:"/"Gated:" Detail-text convention (already used by seed data and
+        /// draw code elsewhere) rather than adding a new field to SorollaDiagnosticRow - draw code
+        /// only, no data-model or QA-bridge change.</summary>
+        void DrawVerifiedColumn(string detail)
+        {
+            bool unverifiable = detail != null && (detail.StartsWith("Unverifiable:") || detail.StartsWith("Gated:"));
+            GUILayout.Label(unverifiable ? "UNVERIFIED" : "VERIFIED",
+                unverifiable ? _theme.UnverifiedLabelStyle : _theme.VerifiedLabelStyle,
+                GUILayout.Height(BadgeHeight()));
         }
 
         void DrawConsoleTab()
