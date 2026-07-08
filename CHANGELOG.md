@@ -53,6 +53,38 @@ signal it produces, and the fix.
   `google-services-desktop.json` is removed. The missing-config-file case for both platforms is now a
   warning, not a build-blocking error, per the awareness-first ruling above.
 
+### Added (Phase 3 - Build Health parity with the pre-build gates)
+Ports the ~10 machine-checkable pre-build gates that Build Health lacked relative to the manual
+qa-greenlight pass. Awareness-first throughout: every check below is a Warning or an informational
+row, never an Error - existing checks (Adjust token, etc.) keep their current severity untouched.
+- **Validation profile** (QA Pass / Release, default QA Pass): a dropdown next to Build Health's
+  Refresh button, persisted per-project in EditorPrefs. Release-scoped checks below only fire in the
+  Release profile; switching profiles re-runs validation immediately.
+- **Prototype-mode intent** (Release profile): warns when `SorollaConfig.isPrototypeMode` is on while
+  a Full-mode SDK (MAX and/or Adjust) is installed - the 2026-04-23 prototype-leak incident class.
+- **Verbose logging drift**: warns when `SorollaConfig.verboseLogging` is on (both profiles). Runtime
+  already forces it off in non-development builds; this is hygiene, not a leak gate.
+- **Development Build flag** (both profiles): warns when `EditorUserBuildSettings.development` is on
+  or any `Library/BuildProfiles/*.asset` has `m_Development: 1`.
+- **Adjust sandbox mode** (Release profile): warns when `SorollaConfig.adjustSandboxMode` is on -
+  must be off before store submission.
+- **Android keystore** (Release profile, Android target): warns when no release keystore is
+  configured in Player Settings, or the configured file is missing.
+- **Hardcoded Gradle `org.gradle.java.home`** (Android target, both profiles): warns when
+  `gradleTemplate.properties` has a machine-local `org.gradle.java.home` line committed - breaks
+  every other teammate's build.
+- **GameAnalytics ResourceCurrencies whitelist**: warns when GA's `Settings.asset` exists with an
+  empty `ResourceCurrencies` list. States the conditionality in the message (only matters if the game
+  tracks economy via `Palette.Economy`) rather than inferring usage from game scripts.
+- **Addressables content** (only when the Addressables package is installed): warns when
+  `Assets/AddressableAssetsData` is missing or no `link.xml` exists in the project.
+- **SDK pin info row**: Release profile warns when `com.sorolla.sdk` in `manifest.json` isn't pinned
+  to a published `#vX.Y.Z` tag (master/hash pins are irreproducible for a release build); QA Pass
+  profile shows the current ref as an informational row instead. Embedded/local packages (no manifest
+  entry) skip the check entirely.
+- **Adjust resolved version info row** (when Adjust is installed): surfaces the version resolved into
+  `Library/PackageCache` as an informational row. Skew judgment stays human - this never warns.
+
 ## [3.18.3] - 2026-07-08
 
 Editor UI overhaul on top of 3.18.2. Editor-side: the Palette window (SorollaWindow) is fully rebuilt on UI Toolkit with a shared design-token system; runtime-side changes are confined to the debug console overlay's draw code/theme (no init, consent, analytics, ads, or QA-bridge logic touched). Design pass reviewed and accepted screen-by-screen by Arthur on 2026-07-08.
