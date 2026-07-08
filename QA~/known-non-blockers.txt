@@ -1,0 +1,61 @@
+# Known non-blocker patterns for Palette SDK QA captures.
+#
+# Provenance: derived from the `known-non-blockers:` block in the sorolla-docs
+# qa-greenlight skill's gates.yaml (platform/sdk/qa/gates.yaml), extracted here as a
+# plain grep-able data file so it ships version-pinned with the SDK. gates.yaml
+# remains the source of truth for the skill's own gate walk; this file is the
+# canonical copy for game repos / qa-gate.sh consumers that only need the pattern
+# list, not the full gate schema. Keep both in sync; edit gates.yaml's block first
+# for any Sorolla-side change, then mirror the pattern + note here.
+#
+# Format: one grep -E pattern per line (byte-identical to the gates.yaml
+# `known-non-blockers[].pattern` values, including regex escaping). Each pattern's
+# explanatory note is a single `#` comment line immediately above it. Lines
+# starting with # are comments/ignored by a plain pattern-list consumer.
+#
+# Usage: these are patterns that MAY legitimately appear in a healthy capture and
+# must NOT be treated as red flags / counted against a verdict on their own. They
+# are not currently wired into qa-gate.sh's verdict logic (that annotation work is
+# Phase 5 of the QA self-serve plan) — this file is data only for now.
+
+# Codeless IAP noise (iOS)
+InAppPurchasing: IStoreService\.Connect called without a callback
+
+# Codeless + IAPManager double-init (iOS only — Android fail is real)
+\[IAP\] Products fetch FAILED: FetchProducts cannot be invoked if a fetch is already in progress
+
+# AppLovin overrides Crashlytics handler (iOS)
+NSUncaughtExceptionHandler is 'ALHandleUncaughtException'
+
+# healthy-run spam (iOS)
+CrashReporter: No pending report exists
+
+# unresolved non-fatal (iOS)
+fopen failed for data file: errno = 2
+
+# cosmetic Info.plist gap — LSApplicationQueriesSchemes (iOS)
+fb://.*canOpenURL
+
+# only matters for Apple Search Ads (iOS)
+AdServices framework not found in the app
+
+# GameAnalytics resource taxonomy cleanup; non-blocking when Firebase purchase/economy events are green because Firebase is the first-class analytics path
+Warning/GA/Analytics: Validation fail - resource event - currency: Not found in list of pre-defined available resource currencies
+
+# TMP glyph/fallback coverage issue; studio polish unless text is user-visible and broken in the release scenario
+The character with Unicode value \\u[0-9A-Fa-f]{4} was not found in the .* font asset
+
+# missing-script asset hygiene; report with context, block only if it breaks gameplay or SDK critical path
+The referenced script .* is missing!
+
+# serialization/layout hygiene warning; report to studio unless coupled to runtime failure
+A scripted object .* has a different serialization layout when loading
+
+# Unity lifecycle hygiene warning; non-blocking unless repeated with state loss or broken singleton behavior
+DontDestroyOnLoad only works for root GameObjects
+
+# DOTween user-side animation safety net; non-blocking unless user-visible or recurring on critical path
+DOTween.*SAFE MODE.*captured .* errors
+
+# DOTween handled missing-target warning; classify as gameplay noise unless paired with a crash, broken interaction, or SDK event loss
+DOTWEEN .*Target or field is missing/null

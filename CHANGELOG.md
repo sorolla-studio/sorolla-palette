@@ -33,6 +33,11 @@ signal it produces, and the fix.
   "IOS not registered on FB app <id>" instead of the vendor's raw SSL/transport noise.
 - **MAX per-platform ad-unit warning**: in Full mode with MAX installed, Build Health warns when the
   active build target has no rewarded or interstitial ad unit ID set in SorollaConfig.
+- **QA data files ship with the SDK** (`QA~/red-flags.txt`, `QA~/signal-markers.txt`,
+  `QA~/known-non-blockers.txt`): the QA-pass grep patterns are now version-pinned with the SDK
+  instead of living only in the private qa-greenlight skill. `qa-gate.sh` reads the package copy
+  first (via `--game-root` or `$SOROLLA_SDK_QA_DIR`), falling back to the skill copy for older
+  SDK pins.
 
 ### Fixed
 - **`google-services.json` detection no longer false-positives on the desktop file**: the Firebase

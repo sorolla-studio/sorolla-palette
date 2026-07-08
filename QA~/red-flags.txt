@@ -1,0 +1,72 @@
+# Provenance: this copy is version-pinned with the SDK (ships in QA~/ as of the
+# QA-self-serve Phase 2 change) and is the CANONICAL copy for this SDK version.
+# The sorolla-docs skill copy (platform/sdk/qa/protocols/red-flags.txt) is the
+# fallback for SDK pins older than this change (pre-3.19) or when no game-root
+# package copy is reachable. Keep both copies' patterns byte-identical; edit here
+# first, then mirror to the skill copy.
+
+# Red-flag substrings — these MUST NOT appear in a greenlight run.
+# One substring per line. Lines starting with # are ignored.
+# Grep list the agent applies to a RAW capture (iOS devicectl /tmp/unity_ios_rolling.log
+# or Android logcat). No capture script auto-loads it (pymobiledevice3/ios_logs.py retired
+# cycle 0014). Usage:  grep -Ff <(grep -v '^#' protocols/red-flags.txt | grep -v '^$') <capture>
+# (strip comments/blanks first: grep -Ff treats every line, including these comments,
+#  as a pattern; raw -Ff false-fired on 2 innocuous lines in the 2026-06-12 hungrysnake run)
+# Mirrored in protocols/verification-matrix.md §"Red flags".
+#
+# These are UNIVERSAL (apply to both QA-pass and release-ship). Context-sensitive
+# reds (e.g. "Sandbox" is OK in QA-pass but fails release-ship) live in
+# qa-pass.md / release-ship.md, not here.
+
+# SDK mode leaks
+# Prototype mode is valid for games.yaml mode=prototype qa-pass runs.
+# Full-mode and release-ship mode checks live in gates.yaml.
+
+# Facebook app access token rejected (cred mismatch) or app invalid/deleted.
+# Real Android log shape is "errorCode: 190" (colon) inside the GraphResponse JSON.
+# The old "errorCode 190" (space) pattern NEVER matched a real capture and let a
+# broken FB init pass QA on wander-td/floatingfortress 2026-06-10. Match the JSON
+# shape and the human-readable forms, not a remembered shape. See history/incidents.md
+# 2026-06-15. iOS GraphResponse delimiter unverified: confirm against an iOS capture.
+errorCode: 190
+OAuthException
+Invalid OAuth access token signature
+Application has been deleted
+
+# ATT attribution cliff — zeroed IDFA reached Adjust
+idfa 00000000-0000-0000-0000-000000000000
+
+# ATT-gating regression (v3.16.0): "ad_personalization=Granted while ATT denied" is a
+# CORRELATION across two log lines, NOT a single forbidden substring, so it is NOT listed
+# here — a bare grep for ad_personalization=Granted false-fires on every healthy ATT-allow
+# run. The check lives in verification-matrix.md (ATT <-> ad_personalization cross-check)
+# and gates.yaml (rf_att_denied_but_personalized, qa_att_deny_non_personalized). Verify:
+# any non-authorized ATT (att:2/att:1/att:0) MUST coincide with ad_personalization=Denied.
+
+# Firebase Core init failure — events silently dropped (appear in Vitals, never reach Firebase)
+Firebase init failed — dropping analytics events
+
+# CMP misconfiguration — no TCF string emitted
+IABTCF_TCString=EMPTY
+
+# Stale Unity masks real messages
+<private>
+
+# Android process crash
+FATAL EXCEPTION
+
+# Common unhandled C# exceptions
+NullReferenceException
+
+# Addressables catalog out of date
+InvalidKeyException
+
+# TLS failures (context: iOS 15.x on old QA device is known-acceptable,
+# see incidents.md 2026-04-23 TLS -9816)
+NSURLErrorDomain -1200
+errSSLFatalAlert
+
+# GameAnalytics silently dropping events while adapter reports ready
+# (boulderevolution iOS 2026-07-07: 8x drops 5+min in, snapshot said gameanalytics=ready;
+# GA was the SOLE analytics vendor in prototype => false-green risk)
+event: SDK is not initialized

@@ -1,0 +1,82 @@
+# Provenance: this copy is version-pinned with the SDK (ships in QA~/ as of the
+# QA-self-serve Phase 2 change) and is the CANONICAL copy for this SDK version.
+# The sorolla-docs skill copy (platform/sdk/qa/protocols/signal-markers.txt) is the
+# fallback for SDK pins older than this change (pre-3.19) or when no game-root
+# package copy is reachable. Keep both copies' patterns byte-identical; edit here
+# first, then mirror to the skill copy.
+
+# Canonical signal markers for Palette SDK games.
+# One substring per line. Lines starting with # are ignored.
+# This is the grep list the agent applies to a RAW capture:
+#   iOS:     /tmp/unity_ios_rolling.log  (devicectl --console via ios_logs.sh) or an Xcode Console export
+#   Android: /tmp/unity_android_rolling.log (adb logcat via android_logs.sh)
+# No capture script auto-loads this file (pymobiledevice3/ios_logs.py retired
+# cycle 0014; android_logs.sh tag-filters inline). Usage:
+#   grep -Ff <(grep -v '^#' protocols/signal-markers.txt | grep -v '^$') <capture>
+# (strip comments/blanks first: grep -Ff treats comment lines as patterns too)
+# protocols/verification-matrix.md keeps a rendered copy in sync manually.
+
+# Palette SDK
+[Palette
+[Palette:
+[Consent Diagnostics]
+
+# Firebase
+[Firebase
+FirebaseRemoteConfig
+FirebaseCrashlytics
+
+# Consent Mode v2 (cross-check ATT <-> ad_personalization — see verification-matrix.md).
+# Mostly already caught by the [Palette / [Firebase prefixes; listed explicitly so the
+# consent cross-check survives any future prefix narrowing. Do NOT add att_decision /
+# consent_resolved / consent_changed — those are TrackEvent events, not Debug.Log lines,
+# so they never appear in the device-log capture.
+Consent mode signals:
+Consent updated by MAX CMP:
+MAX consent resolved:
+ConsentStatus:
+SetAdvertiserTrackingEnabled(
+Firebase init failed — dropping analytics events
+Event submission:
+
+# GameAnalytics (both iOS NSLog and Android logcat tag forms)
+Info/GA
+Info/GameAnalytics: Add
+PROGRESSION event
+BUSINESS event
+DESIGN event
+RESOURCE event
+ERROR event
+
+# IAP wrappers
+[IAP]
+Purchase
+StoreKit
+BillingClient
+TrackPurchase
+
+# AppLovin MAX
+[AppLovinSdk]
+[AppLovin MAX]
+[AppLovin MAX] Invoking event
+[AppLovin MAX] Listener
+OnInterstitial
+OnRewarded
+TrackAdRevenue
+
+# Facebook
+[FB]
+Application has been deleted
+
+# Adjust
+[Adjust]
+
+# Consent / privacy
+UMP
+
+# Crashes / exceptions
+F AndroidRuntime
+E AndroidRuntime
+FATAL EXCEPTION
+NullReferenceException
+Exception
