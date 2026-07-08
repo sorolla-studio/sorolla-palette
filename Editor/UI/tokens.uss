@@ -1,39 +1,33 @@
 /* Palette UI Overhaul design tokens - canonical values in docs/ui-overhaul/TOKENS.md.
-   Backgrounds now track Unity's default editor dark-skin window color (Arthur's design review,
-   2026-07-08 - overturns the earlier fixed-near-black-page decision recorded in TOKENS.md
-   Provenance). bg-page is Unity's real default window background (rgb(56,56,56), read live via
-   EditorGUIUtility.GetDefaultBackgroundColor() with isProSkin=true, not guessed); every other
-   background step is the SAME delta-from-page as the previous near-black ramp, just re-anchored
-   to this lighter baseline, so the relative depth/contrast design is unchanged - only the anchor
-   moved. Status colors are untouched per Arthur's explicit call. Mirror any change here into
-   TOKENS.md and SorollaConsoleTheme.cs in the same cycle (SorollaConsoleTheme.cs is the RUNTIME
-   console's separate theme system - an in-game overlay, not editor chrome - and is intentionally
-   NOT touched by this change; Arthur's review was of the editor window/gallery only). */
+   REVISED THEME RULING (Arthur, 2026-07-08, supersedes both the original fixed-dark decision AND
+   the same-day fixed-lighter-literal fix): backgrounds/text now DERIVE from the live Unity editor
+   skin at runtime, not a single hardcoded value - a light-skin user gets an adapted UI
+   automatically. Mechanism: this file defines the shared, skin-INDEPENDENT tokens (status colors,
+   radii, spacing) in the base .sorolla-root rule, then two variant rules
+   (.sorolla-root.sorolla-skin-dark / .sorolla-skin-light) carry the skin-DEPENDENT background/text
+   ramps. C# adds exactly one of those two classes alongside .sorolla-root when building a ported
+   container (CreatePortedSectionContainer in SorollaWindow.cs), based on
+   EditorGUIUtility.isProSkin - never both, never neither. The dark ramp is read LIVE via
+   EditorGUIUtility.GetDefaultBackgroundColor() (rgb(56,56,56), confirmed isProSkin=true on the
+   reviewing machine) with every other dark step preserving the same delta-from-page as the
+   original near-black ramp. The light ramp's page anchor (rgb(194,194,194)) is Unity's
+   well-documented default light-skin intensity (0.76) from EditorGUIUtility's own source, NOT
+   live-verified on this machine (no light-skin editor available without the banned global
+   re-skin) - flagged as exploratory/"to be tested" per Arthur, pending a human on a real
+   light-skin editor. Status colors are untouched in both skins per Arthur's explicit call. A debug
+   forced-skin toggle lives in the gallery window (PaletteStyleGalleryWindow) so light mode can be
+   visually checked without the banned SwitchSkinAndRepaintAllViews re-skin. Mirror any change here
+   into TOKENS.md and SorollaConsoleTheme.cs in the same cycle (SorollaConsoleTheme.cs is the
+   RUNTIME console's separate theme system - an in-game overlay, not editor chrome - and remains
+   intentionally NOT skin-adaptive; Arthur's review was of the editor window/gallery only). */
 
 .sorolla-root {
-    --sorolla-bg-page: rgb(56, 56, 56);
-    --sorolla-bg-card: rgb(67, 70, 72);
-    --sorolla-bg-card-alt: rgb(71, 75, 78);
-    --sorolla-bg-section: rgb(80, 86, 92);
-    --sorolla-bg-elevated: rgb(94, 99, 106);
-    --sorolla-bg-elevated-hover: rgb(109, 117, 126);
-    --sorolla-bg-accent-muted: rgb(84, 119, 131);
-    --sorolla-bg-accent: rgb(73, 135, 149);
-
     --sorolla-status-pass: rgb(31, 148, 82);
     --sorolla-status-warn: rgb(255, 199, 71);
     --sorolla-status-fail: rgb(230, 64, 71);
     --sorolla-status-wait: rgb(79, 125, 219);
     --sorolla-status-info: rgb(107, 117, 128);
 
-    --sorolla-status-fail-tint: rgb(84, 67, 67);
-    --sorolla-status-warn-tint: rgb(96, 90, 72);
-    --sorolla-status-pass-tint: rgb(68, 89, 75);
-
-    --sorolla-text-primary: rgb(242, 245, 248);
-    --sorolla-text-secondary: rgb(204, 214, 224);
-    --sorolla-text-tertiary: rgb(184, 196, 209);
-    --sorolla-text-accent: rgb(128, 230, 240);
     --sorolla-text-on-status: rgb(255, 255, 255);
     --sorolla-text-on-warn: rgb(31, 23, 5);
 
@@ -53,6 +47,46 @@
     --sorolla-space-6: 24px;
 
     background-color: var(--sorolla-bg-page);
+}
+
+.sorolla-root.sorolla-skin-dark {
+    --sorolla-bg-page: rgb(56, 56, 56);
+    --sorolla-bg-card: rgb(67, 70, 72);
+    --sorolla-bg-card-alt: rgb(71, 75, 78);
+    --sorolla-bg-section: rgb(80, 86, 92);
+    --sorolla-bg-elevated: rgb(94, 99, 106);
+    --sorolla-bg-elevated-hover: rgb(109, 117, 126);
+    --sorolla-bg-accent-muted: rgb(84, 119, 131);
+    --sorolla-bg-accent: rgb(73, 135, 149);
+
+    --sorolla-status-fail-tint: rgb(84, 67, 67);
+    --sorolla-status-warn-tint: rgb(96, 90, 72);
+    --sorolla-status-pass-tint: rgb(68, 89, 75);
+
+    --sorolla-text-primary: rgb(242, 245, 248);
+    --sorolla-text-secondary: rgb(204, 214, 224);
+    --sorolla-text-tertiary: rgb(184, 196, 209);
+    --sorolla-text-accent: rgb(128, 230, 240);
+}
+
+.sorolla-root.sorolla-skin-light {
+    --sorolla-bg-page: rgb(194, 194, 194);
+    --sorolla-bg-card: rgb(178, 178, 178);
+    --sorolla-bg-card-alt: rgb(172, 172, 172);
+    --sorolla-bg-section: rgb(160, 160, 160);
+    --sorolla-bg-elevated: rgb(145, 145, 145);
+    --sorolla-bg-elevated-hover: rgb(130, 130, 130);
+    --sorolla-bg-accent-muted: rgb(150, 195, 205);
+    --sorolla-bg-accent: rgb(110, 175, 190);
+
+    --sorolla-status-fail-tint: rgb(225, 205, 205);
+    --sorolla-status-warn-tint: rgb(228, 220, 195);
+    --sorolla-status-pass-tint: rgb(200, 220, 205);
+
+    --sorolla-text-primary: rgb(20, 20, 24);
+    --sorolla-text-secondary: rgb(55, 58, 62);
+    --sorolla-text-tertiary: rgb(85, 88, 92);
+    --sorolla-text-accent: rgb(20, 110, 120);
 }
 
 /* Every gallery section is a card sitting on the page background - bg-card must read as visibly

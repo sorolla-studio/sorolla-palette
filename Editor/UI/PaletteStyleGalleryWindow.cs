@@ -61,6 +61,10 @@ namespace Sorolla.Palette.Editor.UI
             ("Small / editor-type-small 11px", "sorolla-type-small"),
         };
 
+        Button _skinToggleButton;
+        ScrollView _content;
+        bool _forcedLight;
+
         void CreateGUI()
         {
             rootVisualElement.AddToClassList("sorolla-root");
@@ -68,18 +72,56 @@ namespace Sorolla.Palette.Editor.UI
             if (styleSheet != null)
                 rootVisualElement.styleSheets.Add(styleSheet);
 
-            var scrollView = new ScrollView(ScrollViewMode.Vertical);
-            scrollView.style.flexGrow = 1;
-            rootVisualElement.Add(scrollView);
+            _forcedLight = !EditorGUIUtility.isProSkin;
+            _skinToggleButton = BuildSkinToggle();
+            rootVisualElement.Add(_skinToggleButton);
 
-            scrollView.Add(BuildTokenSwatchSection());
-            scrollView.Add(BuildStatusBadgeSection());
-            scrollView.Add(BuildCalloutCardSection());
-            scrollView.Add(BuildSectionHeaderSection());
-            scrollView.Add(BuildCheckRowSection());
-            scrollView.Add(BuildValidatedFieldSection());
-            scrollView.Add(BuildCodeSnippetSection());
-            scrollView.Add(BuildHeroHeaderSection());
+            _content = new ScrollView(ScrollViewMode.Vertical);
+            _content.style.flexGrow = 1;
+            rootVisualElement.Add(_content);
+
+            RebuildForSkin();
+        }
+
+        /// <summary>Debug-only forced-skin toggle (item 11, Arthur's revised theme ruling) so the
+        /// light-mode token ramp can be visually checked WITHOUT
+        /// InternalEditorUtility.SwitchSkinAndRepaintAllViews (that call re-skins the whole editor
+        /// via a global pref and previously timed out Coplay at 60s - see LOOP.md amendments); this
+        /// button only touches this one dev-only window. Real bug found and fixed while building
+        /// this: toggling rootVisualElement's sorolla-skin-* class on an ALREADY-BUILT live tree
+        /// does not make UI Toolkit re-resolve the custom properties on existing children (verified:
+        /// resolvedStyle.backgroundColor stayed at the old value after the class list changed,
+        /// confirmed by class + repaint) - a fresh window built with the class already present
+        /// resolves correctly. Fix: RebuildForSkin() below fully clears and rebuilds the content
+        /// section's children AFTER changing the class, so every child is constructed fresh under
+        /// the new class - the same path that works for a brand-new window.</summary>
+        Button BuildSkinToggle()
+        {
+            var button = new Button { text = _forcedLight ? "Force Dark Mode" : "Force Light Mode" };
+            button.clicked += () =>
+            {
+                _forcedLight = !_forcedLight;
+                RebuildForSkin();
+            };
+            return button;
+        }
+
+        void RebuildForSkin()
+        {
+            rootVisualElement.RemoveFromClassList("sorolla-skin-dark");
+            rootVisualElement.RemoveFromClassList("sorolla-skin-light");
+            rootVisualElement.AddToClassList(_forcedLight ? "sorolla-skin-light" : "sorolla-skin-dark");
+            _skinToggleButton.text = _forcedLight ? "Force Dark Mode" : "Force Light Mode";
+
+            _content.Clear();
+            _content.Add(BuildTokenSwatchSection());
+            _content.Add(BuildStatusBadgeSection());
+            _content.Add(BuildCalloutCardSection());
+            _content.Add(BuildSectionHeaderSection());
+            _content.Add(BuildCheckRowSection());
+            _content.Add(BuildValidatedFieldSection());
+            _content.Add(BuildCodeSnippetSection());
+            _content.Add(BuildHeroHeaderSection());
         }
 
         static VisualElement BuildHeroHeaderSection()

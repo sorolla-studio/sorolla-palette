@@ -149,6 +149,7 @@ namespace Sorolla.Palette.Editor
         {
             var container = new VisualElement();
             container.AddToClassList("sorolla-root");
+            container.AddToClassList(EditorGUIUtility.isProSkin ? "sorolla-skin-dark" : "sorolla-skin-light");
             var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(TokensUssPath);
             if (styleSheet != null)
                 container.styleSheets.Add(styleSheet);
