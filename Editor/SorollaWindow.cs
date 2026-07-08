@@ -42,6 +42,7 @@ namespace Sorolla.Palette.Editor
         VisualElement _buildHealthContainer;
         VisualElement _sdkOverviewContainer;
         VisualElement _configContainer;
+        bool _buildHealthChecksExpanded;
         List<BuildValidator.ValidationResult> _validationResults = new List<BuildValidator.ValidationResult>();
 
         void OnEnable()
@@ -877,7 +878,12 @@ namespace Sorolla.Palette.Editor
         /// data change only (RunBuildValidation's completion path + this initial call from
         /// CreateGUI) - never from a per-frame/per-event path, per the supervisor's guard against a
         /// UITK Clear()-in-a-hot-path anti-pattern. Content/logic is unchanged from the old
-        /// DrawBuildHealthSection()/DrawFirebaseConfigSubRows() - only the rendering technology.</summary>
+        /// DrawBuildHealthSection()/DrawFirebaseConfigSubRows() - only the rendering technology.
+        /// The check list itself is wrapped in a CollapsibleCheckGroup (Arthur's design review,
+        /// 2026-07-08): default-collapsed so the always-visible CalloutCard summary above it is the
+        /// primary signal, not a wall of rows; _buildHealthChecksExpanded remembers whatever the
+        /// user last chose across refreshes (Refresh button, mode switch, etc.) within this window
+        /// session, rather than re-collapsing every rebuild.</summary>
         void RefreshBuildHealthUI()
         {
             // Ordering/null-safety guard: RunBuildValidation() can run from OnEnable before
@@ -904,6 +910,9 @@ namespace Sorolla.Palette.Editor
                 _buildHealthContainer.Add(fixLabel);
             }
 
+            var checkRows = new List<VisualElement>();
+            int issueCount = 0;
+
             foreach (BuildValidator.CheckCategory category in (BuildValidator.CheckCategory[])Enum.GetValues(typeof(BuildValidator.CheckCategory)))
             {
                 string checkName = BuildValidator.CheckNames[category];
@@ -919,11 +928,13 @@ namespace Sorolla.Palette.Editor
                 {
                     status = CheckRow.Status.Fail;
                     statusText = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Error).Message.Split('\n')[0];
+                    issueCount++;
                 }
                 else if (hasWarning)
                 {
                     status = CheckRow.Status.Warn;
                     statusText = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Warning).Message.Split('\n')[0];
+                    issueCount++;
                 }
                 else if (validResult != null)
                 {
@@ -936,7 +947,7 @@ namespace Sorolla.Palette.Editor
                     statusText = "Not checked";
                 }
 
-                _buildHealthContainer.Add(CheckRow.Create(checkName, status, statusText));
+                checkRows.Add(CheckRow.Create(checkName, status, statusText));
 
                 if (category == BuildValidator.CheckCategory.FirebaseCoherence && SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
                 {
@@ -946,14 +957,19 @@ namespace Sorolla.Palette.Editor
                     VisualElement androidRow = CheckRow.Create("google-services.json",
                         androidOk ? CheckRow.Status.Pass : CheckRow.Status.Warn, androidOk ? "Found" : "Missing");
                     androidRow.style.marginLeft = 24;
-                    _buildHealthContainer.Add(androidRow);
+                    checkRows.Add(androidRow);
 
                     VisualElement iosRow = CheckRow.Create("GoogleService-Info.plist",
                         iosOk ? CheckRow.Status.Pass : CheckRow.Status.Warn, iosOk ? "Found" : "Missing");
                     iosRow.style.marginLeft = 24;
-                    _buildHealthContainer.Add(iosRow);
+                    checkRows.Add(iosRow);
                 }
             }
+
+            string summary = issueCount > 0 ? $"{issueCount} of {checkRows.Count} checks need attention" : $"{checkRows.Count} checks passing";
+            Foldout checkGroup = CollapsibleCheckGroup.Create(summary, checkRows, _buildHealthChecksExpanded);
+            checkGroup.RegisterValueChangedCallback(evt => _buildHealthChecksExpanded = evt.newValue);
+            _buildHealthContainer.Add(checkGroup);
         }
 
         #endregion
