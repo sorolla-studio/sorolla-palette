@@ -261,14 +261,23 @@
     background-color: var(--sorolla-bg-elevated);
 }
 
+/* Was borderless/backgroundless text (read as a plain label, not a button); Arthur's design
+   review asked for a real button affordance matching the Edit/Console row buttons
+   (.sorolla-callout-button) - same elevated-chip treatment, kept the accent text color for
+   this action's identity. */
 .sorolla-section-header-action {
     margin-left: var(--sorolla-space-3);
-    background-color: rgba(0, 0, 0, 0);
+    background-color: var(--sorolla-bg-elevated);
     border-width: 0;
+    border-radius: var(--sorolla-radius-input);
     color: var(--sorolla-text-accent);
     font-size: 11px;
     -unity-font-style: bold;
-    padding: 0;
+    padding: var(--sorolla-space-1) var(--sorolla-space-3);
+}
+
+.sorolla-section-header-action:hover {
+    background-color: var(--sorolla-bg-elevated-hover);
 }
 
 /* CheckRow + CollapsibleCheckGroup (p2-checkrow) */
