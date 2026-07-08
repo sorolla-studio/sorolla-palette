@@ -163,7 +163,7 @@ namespace Sorolla.Palette.Editor.UI
             title.AddToClassList("gallery-section-title");
             container.Add(title);
 
-            container.Add(ValidatedField.Create("MAX Ad Unit ID (Rewarded, Android)", "98e422a19d0a8049",
+            container.Add(ValidatedField.Create("Rewarded (Android)", "98e422a19d0a8049",
                 ValidatedField.State.Valid));
             container.Add(ValidatedField.Create("Adjust App Token", "",
                 ValidatedField.State.Required, "Required for Full-mode builds - see Adjust dashboard."));
