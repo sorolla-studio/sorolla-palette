@@ -154,6 +154,8 @@ namespace Sorolla.Palette
             DrawActionRow("Bridge", bridgeArmed ? "Auto on 127.0.0.1:" + QaBridgeServer.Port : "Bind failed or unavailable",
                 bridgeArmed ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
                 bridgeArmed ? "Restart" : "Retry", RestartQaBridge);
+            if (DrawPrimaryButton("Copy SDK state"))
+                GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildQaStateSummary();
             GUILayout.Space(_sectionTopGap * _theme.UiScale);
 
             GUILayout.Label("Events", _theme.SectionStyle);

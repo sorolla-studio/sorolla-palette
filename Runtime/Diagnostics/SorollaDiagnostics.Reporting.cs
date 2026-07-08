@@ -77,6 +77,85 @@ namespace Sorolla.Palette
             return sb.ToString();
         }
 
+        /// <summary>
+        ///     Plain-text report of the full QA bridge snapshot (<see cref="SorollaQaState"/>, the same
+        ///     data <c>/qa/snapshot</c> serves), for the console's "Copy SDK state" action. Studios paste
+        ///     this to Sorolla when they can't self-fix a red row. Must run on the Unity main thread
+        ///     (delegates to <see cref="CaptureQaState"/>).
+        /// </summary>
+        internal static string BuildQaStateSummary()
+        {
+            SorollaQaState state = CaptureQaState();
+
+            var sb = new StringBuilder(2048);
+            AppendReportHeader(sb, "Sorolla SDK State", $"Mode: {state.Mode} | Build: {(state.DevelopmentBuild ? "Development" : "Release")}");
+
+            sb.AppendLine("[Header]");
+            sb.AppendLine($"sdk: {state.SdkVersion}");
+            sb.AppendLine($"armed: {state.BridgeArmed}");
+            sb.AppendLine($"ready: {state.Ready}");
+            sb.AppendLine();
+
+            sb.AppendLine("[Consent]");
+            sb.AppendLine($"status: {state.ConsentStatus} | geography: {state.ConsentGeography} | att: {state.Att}");
+            sb.AppendLine($"can_request_ads: {state.CanRequestAds} | form_shown_this_session: {state.ConsentFormShownThisSession}");
+            sb.AppendLine($"signals known: {state.ConsentSignalsKnown} | ad_storage: {state.AdStorageConsent} | ad_personalization: {state.AdPersonalizationConsent} | ad_user_data: {state.AdUserDataConsent} | analytics_storage: {state.AnalyticsStorageConsent}");
+            sb.AppendLine($"iabtcf tc_string_present: {state.TcStringPresent}");
+            sb.AppendLine();
+
+            sb.AppendLine("[Remote Config]");
+            sb.AppendLine($"status: {state.RemoteConfigStatus} | fetch_seen: {state.RemoteConfigFetchSeen} | fetch_success: {state.RemoteConfigFetchSuccess}");
+            if (state.RemoteConfigValues != null)
+            {
+                foreach (SorollaQaRcValue value in state.RemoteConfigValues)
+                    sb.AppendLine($"  {value.Key} = {value.Value} ({value.Source})");
+            }
+            sb.AppendLine();
+
+            sb.AppendLine("[Adapters]");
+            sb.AppendLine($"max: {state.MaxAdapter}");
+            sb.AppendLine($"adjust: {state.AdjustAdapter}");
+            sb.AppendLine($"firebase: {state.FirebaseAdapter}");
+            sb.AppendLine($"gameanalytics: {state.GameAnalyticsAdapter}");
+            sb.AppendLine($"facebook: {state.FacebookAdapter}");
+            sb.AppendLine();
+
+            sb.AppendLine("[Identity]");
+            sb.AppendLine($"advertising_id_present: {state.AdvertisingIdPresent} | advertising_id_zeroed: {state.AdvertisingIdZeroed}");
+            sb.AppendLine($"adjust_adid_present: {state.AdjustAdidPresent} | adjust_environment: {state.AdjustEnvironment}");
+            sb.AppendLine($"attribution_network: {state.AttributionNetwork}");
+            sb.AppendLine();
+
+            sb.AppendLine("[Ads]");
+            sb.AppendLine($"interstitial: loaded={state.InterstitialLoaded}, completed={state.InterstitialCompleted}");
+            sb.AppendLine($"rewarded: loaded={state.RewardedLoaded}, completed={state.RewardedCompleted}");
+            sb.AppendLine($"revenue_seen: {state.AdRevenueSeen}");
+            sb.AppendLine();
+
+            sb.AppendLine("[IAP]");
+            sb.AppendLine($"tracking_attached: {state.IapTrackingAttached} | purchase_count: {state.IapPurchaseCount} | duplicate_count: {state.IapDuplicateCount}");
+            sb.AppendLine($"verification: {state.IapVerification} | last_issue: {state.IapLastIssue}");
+            sb.AppendLine();
+
+            sb.AppendLine("[Events]");
+            if (state.Events == null || state.Events.Length == 0)
+            {
+                sb.AppendLine("None observed");
+            }
+            else
+            {
+                foreach (SorollaQaEvent evt in state.Events)
+                    sb.AppendLine($"{evt.Name} x{evt.Count}");
+            }
+            sb.AppendLine();
+
+            sb.AppendLine("[Problems]");
+            sb.AppendLine($"sdk_warnings: {state.SdkWarningCount} | sdk_errors: {state.SdkErrorCount} | last_sdk_error: {state.LastSdkError}");
+            sb.AppendLine($"runtime_unique: {state.RuntimeProblemUniqueCount} | runtime_total: {state.RuntimeProblemTotalCount} | runtime_top: {state.RuntimeProblemSummary}");
+
+            return sb.ToString();
+        }
+
         internal static string BuildHeaderContext()
         {
             SorollaConfig config = LoadConfig();
