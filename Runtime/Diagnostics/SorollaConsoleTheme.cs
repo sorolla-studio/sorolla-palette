@@ -24,6 +24,12 @@ namespace Sorolla.Palette
         const float DefaultMinUiScale = 1f;
         const float DefaultMaxUiScale = 2.7f;
 
+        // p2-rt-card: card corner radius (TOKENS.md radius-card, 8pt) and badge/pill radius
+        // (TOKENS.md radius-pill, rounded enough to look like a full stadium at typical badge
+        // heights), both scaled by _uiScale so they stay proportional at the console's max scale.
+        const float DefaultCardRadius = 8f;
+        const float DefaultBadgeRadius = 10f;
+
         // Design tokens - canonical values + hex in docs/ui-overhaul/TOKENS.md; mirror any change
         // there and into Editor/UI/tokens.uss in the same cycle.
         static readonly Color TokenBgPage = new Color(0.01f, 0.012f, 0.016f, 1f);
@@ -119,8 +125,11 @@ namespace Sorolla.Palette
             if (TitleStyle != null && RowNameInlineStyle != null &&
                 TitleStyle.fontSize == titleSize && Mathf.Approximately(_stylesUiScale, _uiScale)) return;
 
+            int cardRadius = Mathf.Max(2, Mathf.RoundToInt(DefaultCardRadius * _uiScale));
+            int badgeRadius = Mathf.Max(2, Mathf.RoundToInt(DefaultBadgeRadius * _uiScale));
+
             _stylesUiScale = _uiScale;
-            RebuildTextures();
+            RebuildTextures(cardRadius, badgeRadius);
 
             int padX = Mathf.RoundToInt(_panelPadX * _uiScale);
             int padY = Mathf.RoundToInt(_panelPadY * _uiScale);
@@ -198,6 +207,7 @@ namespace Sorolla.Palette
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = Color.white },
                 padding = new RectOffset(rowPadX, rowPadX, 0, 0),
+                border = new RectOffset(badgeRadius, badgeRadius, badgeRadius, badgeRadius),
             };
 
             ButtonStyle = new GUIStyle(GUI.skin.button)
@@ -241,6 +251,7 @@ namespace Sorolla.Palette
             RowStyle = new GUIStyle(GUI.skin.box)
             {
                 padding = new RectOffset(rowPadX, rowPadX, rowPadY + 1, rowPadY + 1),
+                border = new RectOffset(cardRadius, cardRadius, cardRadius, cardRadius),
                 normal = { background = _rowBackground },
             };
 
@@ -269,27 +280,27 @@ namespace Sorolla.Palette
             _uiScale = shortSide > 0f ? Mathf.Clamp(shortSide / reference, minScale, maxScale) : minScale;
         }
 
-        void RebuildTextures()
+        void RebuildTextures(int cardRadius, int badgeRadius)
         {
             DestroyStyleResources();
 
             _panelBackground = CreateTexture(TokenBgPage);
             _summaryBackground = CreateTexture(TokenBgSummary);
-            _rowBackground = CreateTexture(TokenBgCard);
-            _rowAltBackground = CreateTexture(TokenBgCardAlt);
-            _rowProblemBackground = CreateTexture(TokenStatusFailTint);
-            _rowWarningBackground = CreateTexture(TokenStatusWarnTint);
+            _rowBackground = CreateRoundedTexture(TokenBgCard, cardRadius);
+            _rowAltBackground = CreateRoundedTexture(TokenBgCardAlt, cardRadius);
+            _rowProblemBackground = CreateRoundedTexture(TokenStatusFailTint, cardRadius);
+            _rowWarningBackground = CreateRoundedTexture(TokenStatusWarnTint, cardRadius);
             _sectionBackground = CreateTexture(TokenBgSection);
             _buttonBackground = CreateTexture(TokenBgElevated);
             _buttonActiveBackground = CreateTexture(TokenBgElevatedHover);
             _buttonSelectedBackground = CreateTexture(TokenBgAccentMuted);
             _tabBackground = CreateTexture(TokenBgCard);
             _activeTabBackground = CreateTexture(TokenBgAccent);
-            _passBackground = CreateTexture(TokenStatusPass);
-            _warnBackground = CreateTexture(TokenStatusWarn);
-            _failBackground = CreateTexture(TokenStatusFail);
-            _waitBackground = CreateTexture(TokenStatusWait);
-            _infoBackground = CreateTexture(TokenStatusInfo);
+            _passBackground = CreateRoundedTexture(TokenStatusPass, badgeRadius);
+            _warnBackground = CreateRoundedTexture(TokenStatusWarn, badgeRadius);
+            _failBackground = CreateRoundedTexture(TokenStatusFail, badgeRadius);
+            _waitBackground = CreateRoundedTexture(TokenStatusWait, badgeRadius);
+            _infoBackground = CreateRoundedTexture(TokenStatusInfo, badgeRadius);
         }
 
         public void DestroyStyleResources()
@@ -346,6 +357,47 @@ namespace Sorolla.Palette
             texture.SetPixel(0, 0, color);
             texture.Apply();
             return texture;
+        }
+
+        /// <summary>Procedural rounded-rect texture, 9-sliced via the consuming GUIStyle.border
+        /// (set to the same radius) so it stretches to any row/badge size without corner
+        /// distortion - IMGUI has no native border-radius, this is the standard workaround.</summary>
+        static Texture2D CreateRoundedTexture(Color color, int radius)
+        {
+            radius = Mathf.Max(1, radius);
+            int size = radius * 2 + 8;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+            };
+            var pixels = new Color[size * size];
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                Color pixel = color;
+                pixel.a *= RoundedRectCoverage(x, y, size, size, radius);
+                pixels[y * size + x] = pixel;
+            }
+            texture.SetPixels(pixels);
+            texture.Apply();
+            return texture;
+        }
+
+        /// <summary>1 inside the rect, 0 outside a corner's radius, anti-aliased in between.</summary>
+        static float RoundedRectCoverage(int x, int y, int width, int height, int radius)
+        {
+            float cx = -1f, cy = -1f;
+            if (x < radius && y < radius) { cx = radius - 0.5f; cy = radius - 0.5f; }
+            else if (x >= width - radius && y < radius) { cx = width - radius - 0.5f; cy = radius - 0.5f; }
+            else if (x < radius && y >= height - radius) { cx = radius - 0.5f; cy = height - radius - 0.5f; }
+            else if (x >= width - radius && y >= height - radius) { cx = width - radius - 0.5f; cy = height - radius - 0.5f; }
+            if (cx < 0f) return 1f;
+            float dx = x + 0.5f - cx;
+            float dy = y + 0.5f - cy;
+            float dist = Mathf.Sqrt(dx * dx + dy * dy);
+            return Mathf.Clamp01(radius - dist + 0.5f);
         }
 
         static void DestroyTexture(ref Texture2D texture)
