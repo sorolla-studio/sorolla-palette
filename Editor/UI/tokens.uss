@@ -61,13 +61,6 @@
     margin-bottom: var(--sorolla-space-1);
 }
 
-.gallery-section-placeholder {
-    white-space: normal;
-    color: var(--sorolla-text-tertiary);
-    opacity: 0.7;
-    padding: var(--sorolla-space-2);
-}
-
 /* Swatch sheet (docs/ui-overhaul p1-tokens acceptance): renders every token as a labeled tile so
    a screenshot can be judged for legibility. Not consumed by any real component yet - phase 2/3
    components apply these variables directly instead of duplicating hex values. */
@@ -398,4 +391,47 @@
     font-size: 12px;
     padding: var(--sorolla-space-3);
     white-space: normal;
+}
+
+/* HeroHeader (p2-heroheader): icon + title + version + mode toggle pill. */
+.sorolla-hero {
+    flex-direction: row;
+    align-items: center;
+}
+
+.sorolla-hero-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--sorolla-radius-input);
+    background-color: var(--sorolla-bg-accent);
+    margin-right: var(--sorolla-space-3);
+}
+
+.sorolla-hero-text {
+    flex-grow: 1;
+}
+
+.sorolla-hero-title {
+    font-size: 18px;
+    -unity-font-style: bold;
+    color: var(--sorolla-text-primary);
+}
+
+.sorolla-hero-version {
+    font-size: 11px;
+    color: var(--sorolla-text-tertiary);
+}
+
+.sorolla-hero-mode {
+    border-radius: var(--sorolla-radius-pill);
+    padding: var(--sorolla-space-1) var(--sorolla-space-3);
+}
+
+.sorolla-hero-mode-full { background-color: var(--sorolla-status-pass); }
+.sorolla-hero-mode-prototype { background-color: var(--sorolla-status-info); }
+
+.sorolla-hero-mode-label {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: var(--sorolla-text-on-status);
 }

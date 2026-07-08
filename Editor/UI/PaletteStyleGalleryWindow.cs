@@ -15,13 +15,6 @@ namespace Sorolla.Palette.Editor.UI
     {
         const string TokensUssPath = "Packages/com.sorolla.sdk/Editor/UI/tokens.uss";
 
-        // Placeholder sections not yet built - each phase-2 cycle removes one from this list and
-        // adds a dedicated Build*Section method instead (see BuildStatusBadgeSection below).
-        static readonly string[] Sections =
-        {
-            "HeroHeader",
-        };
-
         static readonly (string Label, StatusBadge.Severity Severity)[] BadgeVariants =
         {
             ("BLOCKER", StatusBadge.Severity.Blocker),
@@ -86,8 +79,22 @@ namespace Sorolla.Palette.Editor.UI
             scrollView.Add(BuildCheckRowSection());
             scrollView.Add(BuildValidatedFieldSection());
             scrollView.Add(BuildCodeSnippetSection());
-            foreach (string section in Sections)
-                scrollView.Add(BuildSectionPlaceholder(section));
+            scrollView.Add(BuildHeroHeaderSection());
+        }
+
+        static VisualElement BuildHeroHeaderSection()
+        {
+            var container = new VisualElement();
+            container.AddToClassList("gallery-section");
+
+            var title = new Label("HeroHeader");
+            title.AddToClassList("gallery-section-title");
+            container.Add(title);
+
+            container.Add(HeroHeader.Create("Palette SDK", "v3.18.2 - Plug & Play Publisher Stack", "FULL", modeIsFull: true));
+            container.Add(HeroHeader.Create("Palette SDK", "v3.18.2 - Plug & Play Publisher Stack", "PROTOTYPE", modeIsFull: false));
+
+            return container;
         }
 
         static VisualElement BuildCodeSnippetSection()
@@ -250,21 +257,5 @@ namespace Sorolla.Palette.Editor.UI
             return container;
         }
 
-        static VisualElement BuildSectionPlaceholder(string title)
-        {
-            var container = new VisualElement();
-            container.AddToClassList("gallery-section");
-            container.style.marginTop = 8;
-
-            var label = new Label(title);
-            label.AddToClassList("gallery-section-title");
-            container.Add(label);
-
-            var placeholder = new Label("Not yet implemented — placeholder for the phase-2 component cycle.");
-            placeholder.AddToClassList("gallery-section-placeholder");
-            container.Add(placeholder);
-
-            return container;
-        }
     }
 }
