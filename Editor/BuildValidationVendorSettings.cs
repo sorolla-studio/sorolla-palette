@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using UnityEditor;
@@ -116,6 +117,55 @@ namespace Sorolla.Palette.Editor
             }
 
             return results;
+        }
+
+        /// <summary>
+        ///     Informational row: the Adjust version actually resolved into Library/PackageCache.
+        ///     Skew judgment (is this version too old / does it match the manifest intent) stays
+        ///     human - this check only surfaces the fact, it never warns.
+        /// </summary>
+        static List<ValidationResult> CheckAdjustResolvedVersion()
+        {
+            var results = new List<ValidationResult>();
+            const CheckCategory category = CheckCategory.AdjustResolvedVersion;
+
+            if (!SdkDetector.IsInstalled(SdkId.Adjust))
+            {
+                results.Add(Valid(category, "Adjust not installed"));
+                return results;
+            }
+
+            string version = ReadAdjustResolvedVersion();
+            results.Add(Valid(category, version != null
+                ? $"Adjust resolved version: {version}"
+                : "Adjust resolved version: could not read package.json from Library/PackageCache"));
+
+            return results;
+        }
+
+        static string ReadAdjustResolvedVersion()
+        {
+            try
+            {
+                string cacheRoot = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "Library", "PackageCache");
+                if (!Directory.Exists(cacheRoot))
+                    return null;
+
+                string[] dirs = Directory.GetDirectories(cacheRoot, "com.adjust.sdk*");
+                if (dirs.Length == 0)
+                    return null;
+
+                string packageJsonPath = Path.Combine(dirs[0], "package.json");
+                if (!File.Exists(packageJsonPath))
+                    return null;
+
+                var parsed = MiniJson.Deserialize(File.ReadAllText(packageJsonPath)) as Dictionary<string, object>;
+                return parsed != null && parsed.TryGetValue("version", out object v) ? v?.ToString() : null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>
