@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Sorolla.Palette.Editor.UI;
 using UnityEditor;
 using UnityEditor.PackageManager;
@@ -282,18 +283,21 @@ namespace Sorolla.Palette.Editor
 
             _configContainer.Add(SectionHeader.Create("SDK Keys"));
 
-            // MAX Ad Units (Header comes from [Header] attribute on first property - PropertyField
-            // renders it automatically, same as the old EditorGUILayout.PropertyField did). These
-            // stay plain PropertyField, NOT ValidatedField: rewardedAdUnit/interstitialAdUnit/
-            // bannerAdUnit are PlatformAdUnitId (nested Android/iOS struct), not a leaf string, so
-            // they render as Unity's own foldout - ValidatedField's label+input+icon shell is built
-            // for a single value and visibly double-labels/breaks on a nested type (caught via
-            // screenshot, not assumed).
+            // MAX Ad Units. Arthur's follow-up: the struct-level revert (plain PropertyField for
+            // the whole PlatformAdUnitId) was the right call against double-labeling, but the
+            // design intent still applies ONE LEVEL DOWN - each Android/iOS string is a real leaf
+            // property, so it gets ValidatedField same as Adjust's fields, inside a manually-built
+            // Foldout that keeps the exact same expand/collapse structure PropertyField used to
+            // give us for free. Header rendered explicitly for the same reason as Adjust's.
             if (showMax)
             {
-                _configContainer.Add(new PropertyField(_serializedConfig.FindProperty("rewardedAdUnit"), "Rewarded"));
-                _configContainer.Add(new PropertyField(_serializedConfig.FindProperty("interstitialAdUnit"), "Interstitial"));
-                _configContainer.Add(new PropertyField(_serializedConfig.FindProperty("bannerAdUnit"), "Banner (Optional)"));
+                var maxHeader = new Label("MAX Ad Units");
+                maxHeader.AddToClassList("sorolla-config-group-header");
+                _configContainer.Add(maxHeader);
+
+                _configContainer.Add(BuildAdUnitFoldout("Rewarded", "rewardedAdUnit"));
+                _configContainer.Add(BuildAdUnitFoldout("Interstitial", "interstitialAdUnit"));
+                _configContainer.Add(BuildAdUnitFoldout("Banner (Optional)", "bannerAdUnit"));
             }
 
             // Adjust (full mode only). adjustAppToken is the ONE documented hard build gate
@@ -358,6 +362,40 @@ namespace Sorolla.Palette.Editor
         {
             element.style.marginLeft = 15;
             return element;
+        }
+
+        static readonly Regex MaxAdUnitFormat = new Regex("^[0-9a-f]{16}$");
+
+        /// <summary>Foldout containing ValidatedField rows for a PlatformAdUnitId's Android/iOS
+        /// leaf properties (Arthur's follow-up: apply ValidatedField at the leaf level, not the
+        /// struct level - avoids the double-label/[Header] problem the earlier struct-level attempt
+        /// hit, since each row binds a real leaf SerializedProperty). Foldout keeps the exact same
+        /// expand/collapse structure the old plain PropertyField gave us for free (default
+        /// expanded, matching the prior behavior).</summary>
+        VisualElement BuildAdUnitFoldout(string label, string propertyPath)
+        {
+            var foldout = new Foldout { text = label, value = true };
+            foldout.Add(AdUnitField("Android", propertyPath + ".android"));
+            foldout.Add(AdUnitField("Ios", propertyPath + ".ios"));
+            return foldout;
+        }
+
+        /// <summary>Empty is NOT an error (ads are optional at prototype stage, Banner is
+        /// explicitly optional) - no icon, no subtext. A non-empty value is validated against the
+        /// MAX ad-unit ID format (16 lowercase hex chars): Valid if it matches, Invalid with a
+        /// short subtext if it doesn't.</summary>
+        VisualElement AdUnitField(string label, string propertyPath)
+        {
+            var property = _serializedConfig.FindProperty(propertyPath);
+            string value = property.stringValue;
+
+            if (string.IsNullOrEmpty(value))
+                return ValidatedField.CreateBound(property, label, ValidatedField.State.None);
+
+            bool formatValid = MaxAdUnitFormat.IsMatch(value);
+            return ValidatedField.CreateBound(property, label,
+                formatValid ? ValidatedField.State.Valid : ValidatedField.State.Invalid,
+                formatValid ? null : "Doesn't look like a MAX ad unit ID");
         }
 
         /// <summary>Ported to UI Toolkit (p3-quickstart). The old box mixed real integration facts
