@@ -85,6 +85,7 @@ namespace Sorolla.Palette
         public GUIStyle BadgeStyle;
         public GUIStyle NoSignalLabelStyle;
         public GUIStyle WarnLabelStyle;
+        public GUIStyle VerifiedLabelStyle;
         public GUIStyle ButtonStyle;
         public GUIStyle SelectedButtonStyle;
         public GUIStyle TabStyle;
@@ -231,6 +232,14 @@ namespace Sorolla.Palette
             WarnLabelStyle = new GUIStyle(NoSignalLabelStyle)
             {
                 normal = { textColor = TokenStatusWarn },
+            };
+
+            // Only used when a row's Detail actually carries a positive verification marker -
+            // nothing in the shipped SDK produces one today (see the roadmap note in
+            // docs/ui-overhaul/state.json), but the gallery/seed still demonstrates this state.
+            VerifiedLabelStyle = new GUIStyle(NoSignalLabelStyle)
+            {
+                normal = { textColor = TokenStatusPass },
             };
 
             ButtonStyle = new GUIStyle(GUI.skin.button)
