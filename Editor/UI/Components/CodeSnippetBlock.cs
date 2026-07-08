@@ -33,10 +33,28 @@ namespace Sorolla.Palette.Editor.UI
 
             var body = new Label(code);
             body.AddToClassList("sorolla-snippet-body");
-            body.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(MonoFont));
+            ApplyMonoFont(body);
             card.Add(body);
 
             return card;
+        }
+
+        /// <summary>Font.CreateDynamicFontFromOSFont silently returns null when called synchronously
+        /// during CreateGUI() construction (verified: the identical call succeeds when made from any
+        /// other context) - assigning a FontDefinition wrapping a null Font then renders the Label
+        /// completely blank instead of falling back to the default font, which is how this shipped
+        /// with invisible Quick Start snippet bodies. Deferring via the UI Toolkit scheduler runs the
+        /// assignment on a later update tick, outside CreateGUI's synchronous call stack, where the
+        /// same API call succeeds; if it's ever still null, skip the assignment entirely rather than
+        /// risk another null-FontDefinition blank-render.</summary>
+        static void ApplyMonoFont(Label label)
+        {
+            label.schedule.Execute(() =>
+            {
+                Font font = MonoFont;
+                if (font != null)
+                    label.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(font));
+            });
         }
     }
 }
