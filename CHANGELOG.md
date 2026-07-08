@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.18.3] - 2026-07-08
+
+Editor UI overhaul on top of 3.18.2. Editor-side: the Palette window (SorollaWindow) is fully rebuilt on UI Toolkit with a shared design-token system; runtime-side changes are confined to the debug console overlay's draw code/theme (no init, consent, analytics, ads, or QA-bridge logic touched). Design pass reviewed and accepted screen-by-screen by Arthur on 2026-07-08.
+
+### Added
+- **Design-token system** (`Editor/UI/tokens.uss` + `TOKENS.md`): status colors, radii, spacing, type scale as USS custom properties; background/text tokens derive from the live editor skin (dark verified; light implemented, pending human verification) instead of hardcoded values.
+- **Reusable editor UI components** (`Editor/UI/`, namespace `Sorolla.Palette.Editor.UI`): StatusBadge, CalloutCard, SectionHeader, CheckRow/CollapsibleCheckGroup, ValidatedField (live per-keystroke validation, neutral-when-empty semantics), CodeSnippetBlock (copy-to-clipboard), HeroHeader (🎨 icon + Prototype|Full segmented mode switch).
+- **PaletteStyleGalleryWindow** (`Palette/Style Gallery`): renders every component/state on one page, including a debug forced-light-mode toggle for skin testing without re-skinning the editor.
+
+### Changed
+- **SorollaWindow rebuilt on UI Toolkit**: hero header with segmented Prototype|Full mode switch (replaces the old Mode box; same confirmation + package flow), collapsible Build Health checks (collapsed by default), SDK overview vendor rows, ValidatedFields for MAX ad-unit IDs (16-hex format check, empty stays neutral) and Adjust tokens (contextual "required for Full-mode builds" hint), real compilable Quick Start snippets (source-verified API calls) replacing prose pseudo-code, unified small-button style, footer links. Opens as a utility window (no dock-tab strip), single-instance.
+- **Runtime console styling only**: rounded row cards and rectangular severity badges via `SorollaConsoleTheme` (radius 4), honest VERIFIED column (neutral "—" without positive evidence; narrated Gated/Unverifiable states in amber), "N adapters can't be verified" explainer.
+
+### Fixed
+- **Quick Start snippets rendered blank after a domain reload**: `Font.CreateDynamicFontFromOSFont` returns null when called during `CreateGUI()` construction; the monospace font is now assigned via the scheduler with a null-guard fallback.
+
 ## [3.18.2] - 2026-07-06
 
 Editor-tooling fixes + a runtime refactor batch (behavior-preserving intended, compile-verified only) on top of 3.18.1, plus two init/consent-path robustness fixes (DR-129, DR-133-residual), per-key Remote Config visibility in the QA bridge, and public purchasing-API docs. One telemetry payload changed and one public type was removed (see below). Verified on-device (romba iOS, Full mode, release build) before tagging.
