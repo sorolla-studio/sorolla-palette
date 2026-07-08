@@ -44,18 +44,24 @@ namespace Sorolla.Palette.Editor.UI
             if (styleSheet != null)
                 rootVisualElement.styleSheets.Add(styleSheet);
 
+            // GUIUtility.GUIToScreenPoint only resolves correctly inside an active IMGUI OnGUI
+            // callback (it reads the current GUIClip stack, which UI Toolkit's own event
+            // callbacks - e.g. GeometryChangedEvent - never push). A zero-size IMGUIContainer
+            // gives us that real OnGUI context to record an accurate origin from.
+            var originProbe = new IMGUIContainer(RecordScreenOrigin) { style = { height = 0 } };
+            rootVisualElement.Add(originProbe);
+
             var scrollView = new ScrollView(ScrollViewMode.Vertical);
             scrollView.style.flexGrow = 1;
             rootVisualElement.Add(scrollView);
 
             foreach (string section in Sections)
                 scrollView.Add(BuildSectionPlaceholder(section));
-
-            rootVisualElement.RegisterCallback<GeometryChangedEvent>(_ => RecordScreenOrigin());
         }
 
         void RecordScreenOrigin()
         {
+            if (Event.current.type != EventType.Repaint) return;
             ScreenOrigin = GUIUtility.GUIToScreenPoint(Vector2.zero);
             ScreenOriginValid = true;
         }
