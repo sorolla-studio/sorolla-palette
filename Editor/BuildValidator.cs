@@ -26,6 +26,8 @@ namespace Sorolla.Palette.Editor
             Edm4uSettings,
             GradleConfig,
             FirebaseConfig,
+            GameAnalyticsSettings,
+            FacebookPlatformConfig,
         }
 
         public enum ValidationStatus
@@ -33,6 +35,9 @@ namespace Sorolla.Palette.Editor
             Valid,
             Warning,
             Error,
+            /// <summary>Could not verify: offline or the vendor endpoint is unreachable. Never blocks a
+            /// build and never renders as a pass - re-run the check when online.</summary>
+            Unverifiable,
         }
         const string Tag = "[Palette BuildValidator]";
 
@@ -54,6 +59,8 @@ namespace Sorolla.Palette.Editor
             [CheckCategory.Edm4uSettings] = "EDM4U Settings",
             [CheckCategory.GradleConfig] = "Gradle Configuration",
             [CheckCategory.FirebaseConfig] = "Firebase Config Files",
+            [CheckCategory.GameAnalyticsSettings] = "GameAnalytics Platform Keys",
+            [CheckCategory.FacebookPlatformConfig] = "Facebook Platform",
         };
 
         static ValidationResult Valid(CheckCategory category, string message) =>
@@ -64,6 +71,10 @@ namespace Sorolla.Palette.Editor
 
         static ValidationResult Error(CheckCategory category, string message, string fix = null) =>
             new ValidationResult(ValidationStatus.Error, message, fix, category);
+
+        /// <summary>Offline/unreachable network check - never blocks a build, never renders as a pass.</summary>
+        static ValidationResult Unverifiable(CheckCategory category, string message, string fix = null) =>
+            new ValidationResult(ValidationStatus.Unverifiable, message, fix, category);
 
         // Stashed by RunAutoFixes(), consumed once by RunAllChecks() to avoid double detection.
         static AndroidManifestSanitizer.ManifestDiagnostics _lastManifestDiagnostics;

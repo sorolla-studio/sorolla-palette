@@ -990,6 +990,7 @@ namespace Sorolla.Palette.Editor
 
                 bool hasError = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Error);
                 bool hasWarning = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Warning);
+                bool hasUnverifiable = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Unverifiable);
                 var validResult = categoryResults.Find(r => r.Status == BuildValidator.ValidationStatus.Valid);
 
                 CheckRow.Status status;
@@ -1005,6 +1006,13 @@ namespace Sorolla.Palette.Editor
                     status = CheckRow.Status.Warn;
                     statusText = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Warning).Message.Split('\n')[0];
                     issueCount++;
+                }
+                else if (hasUnverifiable)
+                {
+                    // Neutral, not a pass and not a build-blocking issue: offline/unreachable network
+                    // check. Never counted in issueCount - there is nothing actionable to fix locally.
+                    status = CheckRow.Status.Wait;
+                    statusText = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Unverifiable).Message.Split('\n')[0];
                 }
                 else if (validResult != null)
                 {
