@@ -20,7 +20,6 @@ namespace Sorolla.Palette.Editor
         // Cached GUIStyles - initialized once
         static GUIStyle s_statusGreenStyle;
         static GUIStyle s_statusYellowStyle;
-        static GUIStyle s_statusRedStyle;
         static GUIStyle s_configStyleGreen;
         static GUIStyle s_configStyleYellow;
         static GUIStyle s_configStyleRed;
@@ -29,7 +28,6 @@ namespace Sorolla.Palette.Editor
         static GUIStyle s_modeFullStyle;
         static GUIStyle s_wordWrapStyle;
         static GUIStyle s_linkStyle;
-        static GUIStyle s_autoFixStyle;
         static bool s_stylesInitialized;
 
         // Icon colors (avoid style mutation)
@@ -48,7 +46,7 @@ namespace Sorolla.Palette.Editor
         readonly HashSet<string> _installingPackages = new HashSet<string>();
         SorollaConfig _config;
         SerializedObject _serializedConfig;
-        Vector2 _scrollPos;
+        VisualElement _buildHealthContainer;
         List<BuildValidator.ValidationResult> _validationResults = new List<BuildValidator.ValidationResult>();
 
         void OnEnable()
@@ -84,15 +82,32 @@ namespace Sorolla.Palette.Editor
 
         void CreateGUI()
         {
-            // Supervisor-specified layout (2026-07-08): NO outer UI Toolkit ScrollView this cycle.
-            // A plain fixed-header + flexGrow IMGUIContainer column avoids double/competing scroll
-            // containers; the IMGUIContainer keeps its own IMGUI scroll (restored below, moved from
-            // the old OnGUI) exactly as before. A UI Toolkit ScrollView only replaces it in the
-            // LAST peel-out cycle, once the IMGUI region disappears entirely.
+            // Revised layout (p3-buildhealth, supervisor-approved): Build Health sits in the
+            // MIDDLE of the old DrawMainUI() call order, so porting it splits the IMGUI region
+            // into two disjoint pieces with a real ported VisualElement between them - an
+            // IMGUI-internal scroll can no longer span that gap. The outer UI Toolkit ScrollView
+            // therefore moves up to this cycle (originally planned for the last peel-out) and owns
+            // ALL scrolling; neither IMGUIContainer keeps its own internal BeginScrollView or
+            // flexGrow - each sizes to its natural GUILayout content height.
             rootVisualElement.Add(BuildHeroHeaderSection());
-            var imguiContainer = new IMGUIContainer(DrawMainUIWithStyles);
-            imguiContainer.style.flexGrow = 1;
-            rootVisualElement.Add(imguiContainer);
+
+            var scrollView = new ScrollView(ScrollViewMode.Vertical);
+            scrollView.style.flexGrow = 1;
+            rootVisualElement.Add(scrollView);
+
+            scrollView.Add(new IMGUIContainer(DrawUpperSectionsWithStyles));
+
+            _buildHealthContainer = new VisualElement();
+            _buildHealthContainer.AddToClassList("sorolla-root");
+            _buildHealthContainer.style.marginTop = 10;
+            _buildHealthContainer.style.marginBottom = 10;
+            var tokensStyleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(TokensUssPath);
+            if (tokensStyleSheet != null)
+                _buildHealthContainer.styleSheets.Add(tokensStyleSheet);
+            scrollView.Add(_buildHealthContainer);
+            RefreshBuildHealthUI(); // initial paint from whatever _validationResults already holds
+
+            scrollView.Add(new IMGUIContainer(DrawLowerSectionsWithStyles));
         }
 
         /// <summary>Ported to UI Toolkit (p3-header) - real HeroHeader component, scoped to its
@@ -113,21 +128,26 @@ namespace Sorolla.Palette.Editor
             return container;
         }
 
-        /// <summary>DrawMainUI() itself is byte-for-byte unchanged from the pre-p3-header IMGUI
-        /// version. Its outer scroll (_scrollPos/BeginScrollView, formerly wrapping DrawHeader()
-        /// too in the old OnGUI) now wraps only this IMGUIContainer's content, since the header is
-        /// a separate fixed VisualElement above it. EnsureStyles() MUST run in here, not in
-        /// CreateGUI() - it builds GUIStyle instances (EditorStyles.boldLabel etc.) that need a
-        /// live IMGUI/OnGUI context to resolve correctly, the same class of "looks fine but is
-        /// silently wrong outside a real GUIClip/OnGUI context" bug as the GUIToScreenPoint-inside-
+        /// <summary>DrawUpperSections()/DrawLowerSections() are byte-for-byte unchanged draw calls
+        /// (only their grouping into two methods changed, see the split above). Neither IMGUI
+        /// piece keeps its own scroll anymore - the outer UI Toolkit ScrollView in CreateGUI() owns
+        /// all scrolling now, spanning both IMGUI pieces and the ported Build Health section
+        /// between them. EnsureStyles() MUST run in EACH handler, not once in CreateGUI() - every
+        /// IMGUIContainer is its own separate GUI context, and GUIStyle construction needs a live
+        /// one to resolve correctly (same bug class as the GUIToScreenPoint-inside-
         /// GeometryChangedEvent regression from p0-capture-exact-origin - caught by design this
-        /// time instead of by a second regression.</summary>
-        void DrawMainUIWithStyles()
+        /// time). EnsureStyles() is itself idempotent (s_stylesInitialized guard), so calling it
+        /// from both handlers every frame is cheap and correct.</summary>
+        void DrawUpperSectionsWithStyles()
         {
             EnsureStyles();
-            _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
-            DrawMainUI();
-            EditorGUILayout.EndScrollView();
+            DrawUpperSections();
+        }
+
+        void DrawLowerSectionsWithStyles()
+        {
+            EnsureStyles();
+            DrawLowerSections();
         }
 
         static void EnsureStyles()
@@ -136,7 +156,6 @@ namespace Sorolla.Palette.Editor
 
             s_statusGreenStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = ColorGreen } };
             s_statusYellowStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = ColorYellow } };
-            s_statusRedStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = ColorRed } };
 
             s_configStyleGreen = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = new Color(0.5f, 0.8f, 0.5f) } };
             s_configStyleYellow = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = ColorYellow } };
@@ -152,8 +171,6 @@ namespace Sorolla.Palette.Editor
                 normal = { textColor = new Color(0.4f, 0.7f, 1f) },
                 hover = { textColor = new Color(0.6f, 0.85f, 1f) },
             };
-            s_autoFixStyle = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = new Color(0.4f, 0.8f, 0.4f) } };
-
             s_stylesInitialized = true;
         }
 
@@ -191,15 +208,20 @@ namespace Sorolla.Palette.Editor
             }
         };
 
-        void DrawMainUI()
+        /// <summary>Draw-only split of the old DrawMainUI() (p3-buildhealth) - Build Health now
+        /// sits between these two as a real ported VisualElement, so the single IMGUI region that
+        /// used to be one contiguous blob is now two separate IMGUIContainers in the outer UI
+        /// Toolkit ScrollView. No logic moved, only which method calls which draw call.</summary>
+        void DrawUpperSections()
         {
             DrawPlayModeWarning();
             DrawModeSection();
             EditorGUILayout.Space(10);
             DrawSdkOverviewSection();
-            EditorGUILayout.Space(10);
-            DrawBuildHealthSection();
-            EditorGUILayout.Space(10);
+        }
+
+        void DrawLowerSections()
+        {
             DrawConfigSection();
             EditorGUILayout.Space(10);
             DrawInfoSection();
@@ -765,46 +787,41 @@ namespace Sorolla.Palette.Editor
             // Run validation checks
             _validationResults = BuildValidator.RunAllChecks();
             Repaint();
+            RefreshBuildHealthUI();
         }
 
-        void DrawBuildHealthSection()
+        /// <summary>Ported to UI Toolkit (p3-buildhealth): CalloutCard summary + SectionHeader +
+        /// CheckRow per category, rebuilt from _validationResults/_autoFixLog. Clear-and-rebuild on
+        /// data change only (RunBuildValidation's completion path + this initial call from
+        /// CreateGUI) - never from a per-frame/per-event path, per the supervisor's guard against a
+        /// UITK Clear()-in-a-hot-path anti-pattern. Content/logic is unchanged from the old
+        /// DrawBuildHealthSection()/DrawFirebaseConfigSubRows() - only the rendering technology.</summary>
+        void RefreshBuildHealthUI()
         {
+            // Ordering/null-safety guard: RunBuildValidation() can run from OnEnable before
+            // CreateGUI() has built _buildHealthContainer on some window lifecycles (and after a
+            // domain reload). No-op safely; CreateGUI()'s own call renders whatever
+            // _validationResults already holds once the container exists.
+            if (_buildHealthContainer == null) return;
+
+            _buildHealthContainer.Clear();
+
             int errors = _validationResults.Count(r => r.Status == BuildValidator.ValidationStatus.Error);
             bool isHealthy = errors == 0;
 
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            _buildHealthContainer.Add(SectionHeader.Create("Build Health", "Refresh", RunBuildValidation));
 
-            // Header with status
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Build Health", EditorStyles.boldLabel);
-            GUILayout.FlexibleSpace();
+            _buildHealthContainer.Add(isHealthy
+                ? CalloutCard.Create(CalloutCard.Severity.Success, "Build Health checks passing", "Ready to build.")
+                : CalloutCard.Create(CalloutCard.Severity.Blocker, $"{errors} Issue(s)", "Fix the failing checks below before building."));
 
-            if (isHealthy)
-                GUILayout.Label("Ready to Build", s_statusGreenStyle);
-            else
-                GUILayout.Label($"{errors} Issue(s)", s_statusRedStyle);
-
-            if (GUILayout.Button("Refresh", GUILayout.Width(60)))
-                RunBuildValidation();
-
-            EditorGUILayout.EndHorizontal();
-
-            // Auto-fixed items
-            if (_autoFixLog.Count > 0)
+            foreach (string fix in _autoFixLog)
             {
-                EditorGUILayout.Space(5);
-                foreach (string fix in _autoFixLog)
-                {
-                    EditorGUILayout.BeginHorizontal();
-                    GUILayout.Label("AUTO-FIXED", s_autoFixStyle, GUILayout.Width(70));
-                    GUILayout.Label(fix, EditorStyles.miniLabel);
-                    EditorGUILayout.EndHorizontal();
-                }
+                var fixLabel = new Label($"AUTO-FIXED: {fix}");
+                fixLabel.AddToClassList("sorolla-type-small");
+                _buildHealthContainer.Add(fixLabel);
             }
 
-            EditorGUILayout.Space(5);
-
-            // Show all checks with their status
             foreach (BuildValidator.CheckCategory category in (BuildValidator.CheckCategory[])Enum.GetValues(typeof(BuildValidator.CheckCategory)))
             {
                 string checkName = BuildValidator.CheckNames[category];
@@ -814,74 +831,47 @@ namespace Sorolla.Palette.Editor
                 bool hasWarning = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Warning);
                 var validResult = categoryResults.Find(r => r.Status == BuildValidator.ValidationStatus.Valid);
 
-                EditorGUILayout.BeginHorizontal();
-
-                // Status icon
-                if (hasError)
-                    DrawIcon("✗", ColorRed);
-                else if (hasWarning)
-                    DrawIcon("⚠", ColorYellow);
-                else
-                    DrawIcon("✓", ColorGreen);
-
-                GUILayout.Label(checkName, GUILayout.Width(120));
-
-                // Status text
-                GUIStyle textStyle;
+                CheckRow.Status status;
                 string statusText;
                 if (hasError)
                 {
-                    textStyle = s_configStyleRed;
+                    status = CheckRow.Status.Fail;
                     statusText = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Error).Message.Split('\n')[0];
                 }
                 else if (hasWarning)
                 {
-                    textStyle = s_configStyleYellow;
+                    status = CheckRow.Status.Warn;
                     statusText = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Warning).Message.Split('\n')[0];
                 }
                 else if (validResult != null)
                 {
-                    textStyle = s_configStyleGreen;
+                    status = CheckRow.Status.Pass;
                     statusText = validResult.Message;
                 }
                 else
                 {
-                    textStyle = s_configStyleGray;
+                    status = CheckRow.Status.Wait; // "Not checked" - not a pass, closest honest state
                     statusText = "Not checked";
                 }
 
-                GUILayout.Label(statusText, textStyle);
+                _buildHealthContainer.Add(CheckRow.Create(checkName, status, statusText));
 
-                EditorGUILayout.EndHorizontal();
-
-                // Firebase config file sub-rows
                 if (category == BuildValidator.CheckCategory.FirebaseCoherence && SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
-                    DrawFirebaseConfigSubRows();
+                {
+                    bool androidOk = SdkConfigDetector.IsFirebaseAndroidConfigured();
+                    bool iosOk = SdkConfigDetector.IsFirebaseIOSConfigured();
+
+                    VisualElement androidRow = CheckRow.Create("google-services.json",
+                        androidOk ? CheckRow.Status.Pass : CheckRow.Status.Warn, androidOk ? "Found" : "Missing");
+                    androidRow.style.marginLeft = 24;
+                    _buildHealthContainer.Add(androidRow);
+
+                    VisualElement iosRow = CheckRow.Create("GoogleService-Info.plist",
+                        iosOk ? CheckRow.Status.Pass : CheckRow.Status.Warn, iosOk ? "Found" : "Missing");
+                    iosRow.style.marginLeft = 24;
+                    _buildHealthContainer.Add(iosRow);
+                }
             }
-
-            EditorGUILayout.EndVertical();
-        }
-
-        void DrawFirebaseConfigSubRows()
-        {
-            bool androidOk = SdkConfigDetector.IsFirebaseAndroidConfigured();
-            bool iosOk = SdkConfigDetector.IsFirebaseIOSConfigured();
-
-            // Android config
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Space(24); // Indent under parent row
-            DrawIcon(androidOk ? "✓" : "○", androidOk ? ColorGreen : ColorYellow);
-            GUILayout.Label("google-services.json", GUILayout.Width(150));
-            GUILayout.Label(androidOk ? "Found" : "Missing", androidOk ? s_configStyleGreen : s_configStyleYellow);
-            EditorGUILayout.EndHorizontal();
-
-            // iOS config
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Space(24);
-            DrawIcon(iosOk ? "✓" : "○", iosOk ? ColorGreen : ColorYellow);
-            GUILayout.Label("GoogleService-Info.plist", GUILayout.Width(150));
-            GUILayout.Label(iosOk ? "Found" : "Missing", iosOk ? s_configStyleGreen : s_configStyleYellow);
-            EditorGUILayout.EndHorizontal();
         }
 
         #endregion
