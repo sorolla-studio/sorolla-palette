@@ -5,6 +5,7 @@ using Sorolla.Palette.Editor.UI;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -42,6 +43,7 @@ namespace Sorolla.Palette.Editor
         SerializedObject _serializedConfig;
         VisualElement _buildHealthContainer;
         VisualElement _sdkOverviewContainer;
+        VisualElement _configContainer;
         List<BuildValidator.ValidationResult> _validationResults = new List<BuildValidator.ValidationResult>();
 
         void OnEnable()
@@ -105,26 +107,38 @@ namespace Sorolla.Palette.Editor
             // p3-sdkoverview: DrawSdkOverviewSection() was the LAST call in DrawUpperSections, so
             // porting it is a clean peel from the end of the already-shrunk IMGUIContainerA region,
             // not a new middle-split - it just slots in right before Build Health.
-            _sdkOverviewContainer = new VisualElement();
-            _sdkOverviewContainer.AddToClassList("sorolla-root");
+            _sdkOverviewContainer = CreatePortedSectionContainer();
             _sdkOverviewContainer.style.marginTop = 10;
-            var sdkOverviewStyleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(TokensUssPath);
-            if (sdkOverviewStyleSheet != null)
-                _sdkOverviewContainer.styleSheets.Add(sdkOverviewStyleSheet);
             scrollView.Add(_sdkOverviewContainer);
             RefreshSdkOverviewUI();
 
-            _buildHealthContainer = new VisualElement();
-            _buildHealthContainer.AddToClassList("sorolla-root");
+            _buildHealthContainer = CreatePortedSectionContainer();
             _buildHealthContainer.style.marginTop = 10;
             _buildHealthContainer.style.marginBottom = 10;
-            var tokensStyleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(TokensUssPath);
-            if (tokensStyleSheet != null)
-                _buildHealthContainer.styleSheets.Add(tokensStyleSheet);
             scrollView.Add(_buildHealthContainer);
             RefreshBuildHealthUI(); // initial paint from whatever _validationResults already holds
 
+            // p3-config: DrawConfigSection() was the FIRST call in DrawLowerSections, so porting it
+            // is a clean peel from the front of the already-shrunk IMGUIContainerB region.
+            _configContainer = CreatePortedSectionContainer();
+            _configContainer.style.marginBottom = 10;
+            scrollView.Add(_configContainer);
+            RefreshConfigUI();
+
             scrollView.Add(new IMGUIContainer(DrawLowerSectionsWithStyles));
+        }
+
+        /// <summary>Shared boilerplate for every ported section container: fixed-dark theme scope
+        /// + the tokens stylesheet. Factored once three call sites needed the same 6 lines
+        /// (p3-config).</summary>
+        static VisualElement CreatePortedSectionContainer()
+        {
+            var container = new VisualElement();
+            container.AddToClassList("sorolla-root");
+            var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(TokensUssPath);
+            if (styleSheet != null)
+                container.styleSheets.Add(styleSheet);
+            return container;
         }
 
         /// <summary>Ported to UI Toolkit (p3-header) - real HeroHeader component, scoped to its
@@ -133,11 +147,7 @@ namespace Sorolla.Palette.Editor
         /// approach - the visual seam is expected and temporary, not a bug).</summary>
         static VisualElement BuildHeroHeaderSection()
         {
-            var container = new VisualElement();
-            container.AddToClassList("sorolla-root");
-            var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(TokensUssPath);
-            if (styleSheet != null)
-                container.styleSheets.Add(styleSheet);
+            var container = CreatePortedSectionContainer();
 
             bool isPrototype = SorollaSettings.Mode == SorollaMode.Prototype;
             container.Add(HeroHeader.Create("Palette SDK", $"v{Version} - Plug & Play Publisher Stack",
@@ -220,8 +230,6 @@ namespace Sorolla.Palette.Editor
 
         void DrawLowerSections()
         {
-            DrawConfigSection();
-            EditorGUILayout.Space(10);
             DrawInfoSection();
             EditorGUILayout.Space(8);
             DrawLinksSection();
@@ -268,74 +276,90 @@ namespace Sorolla.Palette.Editor
             EditorGUILayout.EndVertical();
         }
 
-        void DrawConfigSection()
+        /// <summary>Ported to UI Toolkit (p3-sdkconfig): real UnityEditor.UIElements.PropertyField
+        /// bound to _serializedConfig, not a phase-2 component - PropertyField is Unity's own
+        /// SerializedObject-binding mechanism (undo, dirty-marking, multi-edit, [Header] decorator
+        /// rendering all come for free) and is the behavior-preserving equivalent of the old
+        /// EditorGUILayout.PropertyField calls, not a re-implementation. Indent levels become an
+        /// explicit marginLeft (same approximation Build Health already used for its indented
+        /// Firebase sub-rows). Rebuild-on-change same pattern as buildhealth/sdkoverview: called
+        /// from CreateGUI, RunBuildValidation()'s completion (mode/install changes affect
+        /// showMax/showAdjust), and the TikTok toggle callback (its own field visibility).</summary>
+        void RefreshConfigUI()
         {
+            if (_configContainer == null) return;
+
+            _configContainer.Clear();
+
             if (_config == null || _serializedConfig == null)
             {
-                EditorGUILayout.HelpBox("No config found. Click below to create one.", MessageType.Warning);
-                if (GUILayout.Button("Create Configuration Asset"))
+                _configContainer.Add(new HelpBox("No config found. Click below to create one.", HelpBoxMessageType.Warning));
+                _configContainer.Add(new Button(() =>
                 {
                     CreateConfig();
                     _serializedConfig = new SerializedObject(_config);
-                }
+                    RefreshConfigUI();
+                })
+                { text = "Create Configuration Asset" });
                 return;
             }
 
-            _serializedConfig.Update();
             bool isPrototype = SorollaSettings.IsPrototype;
             bool showMax = SdkDetector.IsInstalled(SdkId.AppLovinMAX);
             bool showAdjust = !isPrototype && SdkDetector.IsInstalled(SdkId.Adjust);
 
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            GUILayout.Label("SDK Keys", EditorStyles.boldLabel);
+            _configContainer.Add(SectionHeader.Create("SDK Keys"));
 
-            // MAX Ad Units (Header comes from [Header] attribute on first property)
+            // MAX Ad Units (Header comes from [Header] attribute on first property - PropertyField
+            // renders it automatically, same as the old EditorGUILayout.PropertyField did)
             if (showMax)
             {
-                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("rewardedAdUnit"), new GUIContent("Rewarded"));
-                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("interstitialAdUnit"), new GUIContent("Interstitial"));
-                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("bannerAdUnit"), new GUIContent("Banner (Optional)"));
+                _configContainer.Add(new PropertyField(_serializedConfig.FindProperty("rewardedAdUnit"), "Rewarded"));
+                _configContainer.Add(new PropertyField(_serializedConfig.FindProperty("interstitialAdUnit"), "Interstitial"));
+                _configContainer.Add(new PropertyField(_serializedConfig.FindProperty("bannerAdUnit"), "Banner (Optional)"));
             }
 
-            // Adjust (full mode only)
+            // Adjust (full mode only) - "Adjust (Full Mode Only)" header comes from the
+            // [Header] attribute on adjustAppToken itself, same auto-render as MAX Ad Units above;
+            // a manual label here would duplicate it (caught via screenshot, not assumed).
             if (showAdjust)
             {
-                EditorGUILayout.Space(5);
-                GUILayout.Label("Adjust", EditorStyles.boldLabel);
-                EditorGUI.indentLevel++;
-                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("adjustAppToken"), new GUIContent("App Token"));
-                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("adjustPurchaseEventToken"), new GUIContent("Purchase Event Token"));
-                EditorGUI.indentLevel--;
+                var appToken = new PropertyField(_serializedConfig.FindProperty("adjustAppToken"), "App Token");
+                appToken.style.marginLeft = 15;
+                _configContainer.Add(appToken);
+                var purchaseToken = new PropertyField(_serializedConfig.FindProperty("adjustPurchaseEventToken"), "Purchase Event Token");
+                purchaseToken.style.marginLeft = 15;
+                _configContainer.Add(purchaseToken);
             }
 
-            // TikTok (optional - shown only when enabled in SDK Overview)
+            // TikTok (optional - shown only when enabled in SDK Overview) - "TikTok (Optional)"
+            // header comes from tiktokAppId's own [Header] attribute, same as Adjust above.
             if (_config.enableTikTok)
             {
-                EditorGUILayout.Space(5);
-                GUILayout.Label("TikTok", EditorStyles.boldLabel);
-                EditorGUI.indentLevel++;
-                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("tiktokAppId"), new GUIContent("TikTok App ID"));
-                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("tiktokEmAppId"), new GUIContent("App ID (EM)"));
-                EditorGUILayout.PropertyField(_serializedConfig.FindProperty("tiktokAccessToken"), new GUIContent("Access Token"));
-                EditorGUI.indentLevel--;
+                var appId = new PropertyField(_serializedConfig.FindProperty("tiktokAppId"), "TikTok App ID");
+                appId.style.marginLeft = 15;
+                _configContainer.Add(appId);
+                var emAppId = new PropertyField(_serializedConfig.FindProperty("tiktokEmAppId"), "App ID (EM)");
+                emAppId.style.marginLeft = 15;
+                _configContainer.Add(emAppId);
+                var accessToken = new PropertyField(_serializedConfig.FindProperty("tiktokAccessToken"), "Access Token");
+                accessToken.style.marginLeft = 15;
+                _configContainer.Add(accessToken);
             }
 
-            // Verbose Logging (master toggle)
-            EditorGUILayout.Space(5);
-            GUILayout.Label("Logging", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(_serializedConfig.FindProperty("verboseLogging"),
-                new GUIContent("Verbose Logging", "Enable verbose debug output for all vendor SDKs (MAX, Adjust, TikTok). Forced OFF in release builds."));
+            // Verbose Logging (master toggle) - "Logging" header comes from verboseLogging's own
+            // [Header] attribute, same as Adjust/TikTok above.
+            var verboseLogging = new PropertyField(_serializedConfig.FindProperty("verboseLogging"), "Verbose Logging");
+            verboseLogging.tooltip = "Enable verbose debug output for all vendor SDKs (MAX, Adjust, TikTok). Forced OFF in release builds.";
+            _configContainer.Add(verboseLogging);
 
-            if (_serializedConfig.ApplyModifiedProperties())
-            {
-                EditorUtility.SetDirty(_config);
+            _configContainer.Bind(_serializedConfig);
 
-                // Auto-sync MAX SDK key to AppLovinSettings when config changes
-                if (showMax)
-                    MaxSettingsSanitizer.SyncEmbeddedSdkKey();
-            }
-
-            EditorGUILayout.EndVertical();
+            // Auto-sync MAX SDK key to AppLovinSettings whenever any field on this config changes,
+            // matching the old "if (_serializedConfig.ApplyModifiedProperties()) { ... if (showMax)
+            // sync }" behavior - TrackSerializedObjectValue fires once per change, same semantics.
+            if (showMax)
+                _configContainer.TrackSerializedObjectValue(_serializedConfig, _ => MaxSettingsSanitizer.SyncEmbeddedSdkKey());
         }
 
         void DrawInfoSection()
@@ -684,6 +708,7 @@ namespace Sorolla.Palette.Editor
                 _config.enableTikTok = evt.newValue;
                 EditorUtility.SetDirty(_config);
                 RefreshSdkOverviewUI();
+                RefreshConfigUI(); // TikTok's config fields show/hide with this same flag
             });
 
             Color configColor;
@@ -824,6 +849,7 @@ namespace Sorolla.Palette.Editor
             Repaint();
             RefreshBuildHealthUI();
             RefreshSdkOverviewUI();
+            RefreshConfigUI();
         }
 
         /// <summary>Ported to UI Toolkit (p3-buildhealth): CalloutCard summary + SectionHeader +
