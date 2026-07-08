@@ -213,7 +213,29 @@ namespace Sorolla.Palette
         void DrawVitalsTab()
         {
             DrawFilters();
+            DrawUnverifiableCallout();
             DrawRows();
+        }
+
+        /// <summary>"N adapters can't be verified" explainer - draw-code-only, counts rows whose
+        /// Detail matches the existing "Unverifiable:"/"Gated:" convention (same one the VERIFIED
+        /// column reads, p2-rt-adapterrow). Hidden when the count is zero to avoid clutter.</summary>
+        void DrawUnverifiableCallout()
+        {
+            int count = 0;
+            for (int i = 0; i < _rows.Count; i++)
+            {
+                string detail = _rows[i].Detail;
+                if (detail != null && (detail.StartsWith("Unverifiable:") || detail.StartsWith("Gated:")))
+                    count++;
+            }
+            if (count == 0) return;
+
+            GUILayout.BeginVertical(_theme.InfoCalloutStyle);
+            GUILayout.Label($"{count} adapter{(count == 1 ? "" : "s")} can't be verified", _theme.RowNameStyle);
+            GUILayout.Label("The diagnostics bridge can only confirm init did not throw, not that vendor network calls succeeded.", _theme.MiniDetailStyle);
+            GUILayout.EndVertical();
+            GUILayout.Space(_sectionTopGap * _theme.UiScale);
         }
 
         void DrawFilters()

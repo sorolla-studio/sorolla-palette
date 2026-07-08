@@ -95,6 +95,7 @@ namespace Sorolla.Palette
         public GUIStyle RowAltStyle;
         public GUIStyle RowProblemStyle;
         public GUIStyle RowWarningStyle;
+        public GUIStyle InfoCalloutStyle;
 
         Texture2D _panelBackground;
         Texture2D _summaryBackground;
@@ -286,6 +287,16 @@ namespace Sorolla.Palette
             RowWarningStyle = new GUIStyle(RowStyle)
             {
                 normal = { background = _rowWarningBackground },
+            };
+
+            // Info callout (p2-rt-infocallout): reuses the neutral bg-card-alt rounded background
+            // rather than adding a dedicated info-tint token - same precedent as the editor
+            // CalloutCard's Info variant (p2-callout).
+            InfoCalloutStyle = new GUIStyle(GUI.skin.box)
+            {
+                padding = new RectOffset(padX, padX, padY, padY),
+                border = new RectOffset(cardRadius, cardRadius, cardRadius, cardRadius),
+                normal = { background = _rowAltBackground },
             };
         }
 
