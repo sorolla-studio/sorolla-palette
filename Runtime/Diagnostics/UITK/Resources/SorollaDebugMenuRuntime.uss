@@ -1,25 +1,30 @@
-/* Runtime-safe design tokens for the UI Toolkit debug menu overlay (spike, phase 1). Seeded from
-   the editor's Editor/UI/tokens.uss severity palette + spacing scale - editor-only selectors
-   (skin-adaptive dark/light variants, gallery/window chrome) stay in the editor sheet. This sheet
-   is deliberately standalone: it must load and render with zero project setup, so it does not
-   @import the editor stylesheet (which lives outside any Resources folder and is not guaranteed
-   to ship at runtime). Dark shell only - the menu spec calls for an opaque dark shell regardless
-   of game or editor skin. */
+/* Runtime-safe design tokens for the UI Toolkit debug menu overlay (spike, phase 1). Values are
+   the EXACT tokens from the approved design source (Claude Design "Sorolla Vitals Mobile.dc.html"),
+   distilled in sorolla-docs platform/sdk/research/debug-menu-mockups-2026-07/design-tokens.md -
+   these supersede the earlier "seed from editor tokens.uss" placeholder colors; the editor sheet
+   is expected to converge toward these later, not the other way around. This sheet is deliberately
+   standalone: it must load and render with zero project setup, so it does not @import the editor
+   stylesheet (which lives outside any Resources folder and is not guaranteed to ship at runtime).
+   Phase 1 only wires the shell/header/tabs; row/badge/console/action tokens below are captured
+   now (verbatim from the token doc) so phase 2+ can consume them without re-deriving values. */
 
+/* NOT position:absolute here: this class is applied to UIDocument.rootVisualElement itself,
+   which UI Toolkit already stretches to fill the panel by default (100% width/height, no
+   positioned ancestor to resolve offsets against). Overriding it to absolute produced a NaN-sized
+   layout (confirmed via execute_script inspection: root resolvedStyle was NaNxNaN, hence the
+   blank screenshot during the first verification pass) - explicit 100%/flex column is the fix. */
 .sorolla-debugmenu-root {
-    position: absolute;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgb(28, 29, 31);
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    background-color: rgb(13, 15, 19); /* shell #0d0f13 */
 }
 
 .sorolla-debugmenu-header {
-    background-color: rgb(20, 21, 22);
+    background-color: rgb(18, 21, 28); /* section header bg #141922, close enough for header band */
     padding: 12px 16px 8px 16px;
     border-bottom-width: 1px;
-    border-bottom-color: rgb(56, 56, 56);
+    border-bottom-color: rgb(28, 34, 44); /* #1c222c neutral row border */
 }
 
 .sorolla-debugmenu-header-row {
@@ -29,16 +34,17 @@
 }
 
 .sorolla-debugmenu-title {
-    font-size: 16px;
+    font-size: 12px; /* "Sorolla Vitals" label token: 12px */
     -unity-font-style: bold;
-    color: rgb(242, 245, 248);
+    color: rgb(106, 116, 132); /* #6a7484 */
     flex-grow: 1;
 }
 
 .sorolla-debugmenu-close {
-    background-color: rgb(67, 70, 72);
-    color: rgb(242, 245, 248);
-    border-width: 0;
+    background-color: rgb(23, 29, 39); /* normal action bg #171d27 */
+    color: rgb(211, 218, 228); /* normal action fg #d3dae4 */
+    border-width: 1px;
+    border-color: rgb(36, 45, 58); /* #242d3a */
     border-radius: 6px;
     padding: 4px 12px;
     font-size: 12px;
@@ -46,31 +52,55 @@
 }
 
 .sorolla-debugmenu-close:hover {
-    background-color: rgb(94, 99, 106);
+    background-color: rgb(28, 33, 44);
 }
 
+/* Verdict badge: 9px dot + 15px/800 word, padding 7x14, radius 8, 1px border (token doc). Dot is a
+   fixed-size rounded VisualElement added alongside the label, not a unicode glyph, so it renders
+   identically across platforms. */
 .sorolla-debugmenu-badge {
-    border-radius: 4px;
-    padding: 2px 10px;
+    flex-direction: row;
+    align-items: center;
+    border-radius: 8px;
+    border-width: 1px;
+    padding: 7px 14px;
     margin-right: 8px;
     align-self: flex-start;
 }
 
-.sorolla-debugmenu-badge-label {
-    font-size: 11px;
-    -unity-font-style: bold;
-    color: rgb(255, 255, 255);
+.sorolla-debugmenu-badge-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 5px;
+    margin-right: 6px;
 }
 
-.sorolla-debugmenu-badge-healthy { background-color: rgb(31, 148, 82); }
-.sorolla-debugmenu-badge-issues { background-color: rgb(255, 199, 71); }
-.sorolla-debugmenu-badge-issues .sorolla-debugmenu-badge-label { color: rgb(31, 23, 5); }
-.sorolla-debugmenu-badge-failing { background-color: rgb(230, 64, 71); }
-.sorolla-debugmenu-badge-placeholder { background-color: rgb(107, 117, 128); }
+.sorolla-debugmenu-badge-label {
+    font-size: 15px;
+    -unity-font-style: bold;
+}
+
+.sorolla-debugmenu-badge-healthy { background-color: rgb(18, 40, 26); border-color: rgb(44, 107, 68); }
+.sorolla-debugmenu-badge-healthy .sorolla-debugmenu-badge-label { color: rgb(126, 226, 164); }
+.sorolla-debugmenu-badge-healthy .sorolla-debugmenu-badge-dot { background-color: rgb(63, 191, 114); }
+
+.sorolla-debugmenu-badge-issues { background-color: rgb(46, 36, 16); border-color: rgb(122, 95, 34); }
+.sorolla-debugmenu-badge-issues .sorolla-debugmenu-badge-label { color: rgb(243, 210, 122); }
+.sorolla-debugmenu-badge-issues .sorolla-debugmenu-badge-dot { background-color: rgb(217, 166, 54); }
+
+.sorolla-debugmenu-badge-failing { background-color: rgb(51, 21, 18); border-color: rgb(138, 58, 50); }
+.sorolla-debugmenu-badge-failing .sorolla-debugmenu-badge-label { color: rgb(255, 157, 148); }
+.sorolla-debugmenu-badge-failing .sorolla-debugmenu-badge-dot { background-color: rgb(224, 88, 79); }
+
+/* Placeholder state (phase 1 only - real verdict computation lands in phase 2): reuses the
+   neutral/info tone rather than inventing a 4th badge color. */
+.sorolla-debugmenu-badge-placeholder { background-color: rgb(51, 58, 68); border-color: rgb(36, 45, 58); }
+.sorolla-debugmenu-badge-placeholder .sorolla-debugmenu-badge-label { color: rgb(154, 165, 179); }
+.sorolla-debugmenu-badge-placeholder .sorolla-debugmenu-badge-dot { background-color: rgb(154, 165, 179); }
 
 .sorolla-debugmenu-context-line {
     font-size: 11px;
-    color: rgb(184, 196, 209);
+    color: rgb(111, 122, 138); /* header context line #6f7a8a */
     margin-bottom: 2px;
 }
 
@@ -78,12 +108,18 @@
     flex-direction: row;
 }
 
+/* Tabs & accents token block: active bg #1c5b63 / fg #dffafd / border #2a7a85, radius 8 8 0 0,
+   underline #2a5a63; inactive bg #12151c / fg #7d8694 / border #1c222c. */
 .sorolla-debugmenu-tab {
     flex-grow: 1;
-    background-color: rgb(42, 42, 42);
-    color: rgb(184, 196, 209);
-    border-width: 0;
-    border-radius: 0;
+    background-color: rgb(18, 21, 28); /* #12151c */
+    color: rgb(125, 134, 148); /* #7d8694 */
+    border-width: 1px;
+    border-color: rgb(28, 34, 44); /* #1c222c */
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
     padding: 8px 4px;
     font-size: 12px;
     -unity-font-style: bold;
@@ -91,12 +127,15 @@
 }
 
 .sorolla-debugmenu-tab:hover {
-    background-color: rgb(60, 60, 62);
+    background-color: rgb(24, 29, 38);
 }
 
 .sorolla-debugmenu-tab-active {
-    background-color: rgb(73, 135, 149);
-    color: rgb(255, 255, 255);
+    background-color: rgb(28, 91, 99); /* #1c5b63 */
+    color: rgb(223, 250, 253); /* #dffafd */
+    border-color: rgb(42, 122, 133); /* #2a7a85 */
+    border-bottom-width: 2px;
+    border-bottom-color: rgb(42, 90, 99); /* underline #2a5a63 */
 }
 
 .sorolla-debugmenu-content {
@@ -106,5 +145,5 @@
 
 .sorolla-debugmenu-placeholder {
     font-size: 12px;
-    color: rgb(184, 196, 209);
+    color: rgb(125, 134, 148); /* #7d8694 */
 }

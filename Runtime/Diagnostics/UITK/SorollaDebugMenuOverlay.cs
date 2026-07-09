@@ -106,6 +106,9 @@ namespace Sorolla.Palette
             var badge = new VisualElement();
             badge.AddToClassList("sorolla-debugmenu-badge");
             badge.AddToClassList("sorolla-debugmenu-badge-placeholder");
+            var badgeDot = new VisualElement();
+            badgeDot.AddToClassList("sorolla-debugmenu-badge-dot");
+            badge.Add(badgeDot);
             var badgeLabel = new Label("VERDICT —");
             badgeLabel.AddToClassList("sorolla-debugmenu-badge-label");
             badge.Add(badgeLabel);
