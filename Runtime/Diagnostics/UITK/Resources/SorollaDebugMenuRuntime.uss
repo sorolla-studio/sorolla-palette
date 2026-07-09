@@ -144,45 +144,19 @@
     width: 100%;
 }
 
-/* COVERAGE caption + sentence render INLINE on one row (team-lead tier-2 ruling, matches the
-   design source): the caption is a fixed-width label on the left, the sentence flows to its right
-   and may wrap to a second line under itself - not a separate stacked line. Stacking them was the
-   single biggest contributor to the header's oversized vertical footprint. */
-.sorolla-debugmenu-coverage-row {
-    flex-direction: row;
-    align-items: flex-start;
-}
-
-/* Punch list item 2 (Arthur, phase 6): CAPTION (9.5px bold) vs sentence (11px normal) sit on the
-   same row with align-items:flex-start, which aligns their layout-box TOPS, not visual
-   baselines - a smaller font's cap-height sits noticeably higher than a larger font's when top-
-   aligned, reading as "misaligned". UI Toolkit/Yoga has no baseline align option, so the fix is a
-   manual nudge sized to the two fonts' size delta (11 - 9.5 = 1.5px) rather than the old flat 1px,
-   which under-corrected. */
-.sorolla-debugmenu-coverage-caption {
-    font-size: 9.5px;
-    -unity-font-style: bold;
-    letter-spacing: 0.4px;
-    color: rgb(125, 134, 148);
-    flex-shrink: 0;
-    margin-right: 6px;
-    margin-top: 2.5px;
-}
-
-/* Coverage sentence: #7d8694 normal, amber #d9a636 when coverage is thin (design-tokens.md
-   COVERAGE). white-space normal + flex-grow/shrink so it wraps to a second line within the
-   remaining row width instead of overflowing the panel edge (found in visual QA against mockup 01). */
+/* Tier-3 structural fix (Arthur, phase 6 fix round): COVERAGE caption + sentence are now ONE
+   Label using UITK rich text (<size>/<color>/<b> spans) built in SorollaDebugMenuOverlay.cs, so
+   they share one line box/baseline by construction - the old two-Label + margin-nudge approach
+   (dead classes -row/-caption/-line-thin removed) could never truly align two different font
+   sizes with a flat margin guess. Base size here is the SENTENCE size; the caption span overrides
+   its own size via <size=9.5px> inline. Color is baked into the rich text markup per-build (thin
+   vs normal), not a CSS class, since the two spans need different colors within one Label. */
 .sorolla-debugmenu-coverage-line {
     font-size: 11px;
     color: rgb(125, 134, 148);
     white-space: normal;
-    flex-grow: 1;
-    flex-shrink: 1;
-    min-width: 0;
-}
-
-.sorolla-debugmenu-coverage-line-thin {
-    color: rgb(217, 166, 54); /* #d9a636 */
+    width: 100%;
+    margin-bottom: 2px;
 }
 
 /* Severity count strip (header, spec 2.1.2). Colored counts: FAIL #ff9d94, WARN #f3d27a,
@@ -238,9 +212,14 @@
     border-bottom-color: rgb(42, 90, 99); /* underline #2a5a63 */
 }
 
+/* Tier-3 fix (Arthur, phase 6 fix round): right padding lives ONLY on .sorolla-debugmenu-issues-
+   scroll below, not here - every tab pane wraps its content in a ScrollView using that class, so
+   stacking padding-right on both this container AND the scroll (16px + 22px = 38px) is what
+   produced the overshot right margin he flagged. Left/top/bottom stay here since nothing else
+   adds to those edges. */
 .sorolla-debugmenu-content {
     flex-grow: 1;
-    padding: 16px;
+    padding: 16px 0 16px 16px;
 }
 
 .sorolla-debugmenu-placeholder {
@@ -257,13 +236,15 @@
 
 /* padding-right reserves a gutter so the vertical scrollbar (drawn inside the ScrollView's own
    box) doesn't sit on top of row text - found via visual QA against mockup 01, where row detail
-   ran under the scrollbar thumb. Punch list item 1 (Arthur, phase 6): 14px still read as the
-   scrollbar riding right against row content on every tab (this class is shared by Issues/
-   Overview/Console/Actions) - widened to 22px, plus a left margin on the scroller itself
-   (below) so the thumb sits clear of the gutter's own inner edge instead of hugging it. */
+   ran under the scrollbar thumb. Punch list item 1 (Arthur, phase 6): 14px read as the scrollbar
+   riding right against row content. Tier-3 correction (Arthur, phase 6 fix round): the first fix
+   (22px HERE stacked on top of .sorolla-debugmenu-content's own 16px right padding) overshot to a
+   38px total right margin, visibly unbalanced vs the 16px left gutter. .sorolla-debugmenu-content
+   no longer contributes right padding (see above) - this 16px is now the ONLY right padding, and
+   it matches the left gutter exactly; the thumb (below) sits inside it via its own left margin. */
 .sorolla-debugmenu-issues-scroll {
     flex-grow: 1;
-    padding-right: 22px;
+    padding-right: 16px;
 }
 
 /* No default widget chrome may survive (standing rule): the default UITK vertical scroller reads
@@ -484,6 +465,20 @@
     border-radius: 10px;
     padding: 12px 14px 8px 14px;
     margin-bottom: 12px;
+}
+
+/* Tier-3 addition: badge on the left, Copy status ghost-button filling the dead space on the
+   right - wraps at narrow widths like the header's own title row. */
+.sorolla-debugmenu-hero-top-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sorolla-debugmenu-hero-copy-status {
+    margin: 0 0 4px 0;
+    align-self: flex-start;
 }
 
 .sorolla-debugmenu-area-cards {

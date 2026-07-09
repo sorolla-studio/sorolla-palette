@@ -164,27 +164,20 @@ namespace Sorolla.Palette
             contextLine.AddToClassList("sorolla-debugmenu-context-line");
             header.Add(contextLine);
 
-            // Inline row (team-lead tier-2 ruling): the mockup/design source puts the COVERAGE
-            // caption and the coverage sentence on the SAME row, not stacked - stacking them was the
-            // main contributor to the header reading ~31% of screen height vs the mockup's ~22%.
-            var coverageRow = new VisualElement();
-            coverageRow.AddToClassList("sorolla-debugmenu-coverage-row");
-
-            var coverageCaption = new Label("COVERAGE");
-            coverageCaption.AddToClassList("sorolla-debugmenu-coverage-caption");
-
+            // Tier-3 fix (Arthur, phase 6 fix round): margin-nudging two SEPARATE Labels never
+            // actually put them on one baseline (two different font sizes each lay out from their
+            // own line box top, so any fixed nudge is a guess, not a fix - confirmed by Arthur still
+            // seeing misalignment after the 1px->2.5px nudge tier-2 had accepted). Structural fix:
+            // ONE Label with UITK rich text, so the caption and sentence share the SAME line box and
+            // therefore the same baseline by construction - no manual metric-matching required.
             string coverageText = SorollaDiagnostics.BuildMenuCoverageLine(out bool thin);
-            var coverageLine = new Label(coverageText);
+            string captionColor = thin ? "d9a636" : "7d8694";
+            string sentenceColor = thin ? "d9a636" : "7d8694";
+            var coverageLine = new Label(
+                $"<size=9.5px><color=#{captionColor}><b>COVERAGE</b></color></size>  <color=#{sentenceColor}>{coverageText}</color>");
+            coverageLine.enableRichText = true;
             coverageLine.AddToClassList("sorolla-debugmenu-coverage-line");
-            if (thin)
-            {
-                coverageCaption.AddToClassList("sorolla-debugmenu-coverage-line-thin");
-                coverageLine.AddToClassList("sorolla-debugmenu-coverage-line-thin");
-            }
-
-            coverageRow.Add(coverageCaption);
-            coverageRow.Add(coverageLine);
-            header.Add(coverageRow);
+            header.Add(coverageLine);
 
             return header;
         }

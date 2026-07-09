@@ -35,9 +35,39 @@ namespace Sorolla.Palette
         {
             var hero = new VisualElement();
             hero.AddToClassList("sorolla-debugmenu-hero");
-            hero.Add(BuildVerdictBadge(fail, warn, wait));
+
+            // Tier-3 addition (Arthur, phase 6 fix round): the hero's top-right had dead space next
+            // to the badge - fills it with the single most-wanted quick action, a SHORT status copy
+            // distinct from the full "Copy SDK state" report on Actions (that one is the multi-
+            // section dump; this one is a few lines someone pastes into a chat message).
+            var topRow = new VisualElement();
+            topRow.AddToClassList("sorolla-debugmenu-hero-top-row");
+            topRow.Add(BuildVerdictBadge(fail, warn, wait));
+
+            var copyStatus = new UnityEngine.UIElements.Button(() =>
+                UnityEngine.GUIUtility.systemCopyBuffer = BuildShortStatusSummary(fail, warn, wait, pass))
+            {
+                text = "Copy status",
+            };
+            copyStatus.AddToClassList("sorolla-debugmenu-action-button");
+            copyStatus.AddToClassList("sorolla-debugmenu-action-button-ghost");
+            copyStatus.AddToClassList("sorolla-debugmenu-hero-copy-status");
+            topRow.Add(copyStatus);
+
+            hero.Add(topRow);
             hero.Add(BuildCountStrip(fail, warn, wait, pass));
             return hero;
+        }
+
+        static string BuildShortStatusSummary(int fail, int warn, int wait, int pass)
+        {
+            string verdict = fail > 0 ? "FAILING" : warn + wait > 0 ? $"{warn + wait} ISSUES" : "HEALTHY";
+            var sb = new System.Text.StringBuilder(256);
+            sb.Append(verdict).Append(" — FAIL ").Append(fail).Append(" · WARN ").Append(warn)
+                .Append(" · WAIT ").Append(wait).Append(" · PASS ").Append(pass).AppendLine();
+            sb.AppendLine(SorollaDiagnostics.BuildMenuContextLine());
+            sb.Append(SorollaDiagnostics.BuildMenuCoverageLine(out _));
+            return sb.ToString();
         }
 
         // One card per Group actually present in the snapshot, in encounter order - NOT a fixed
