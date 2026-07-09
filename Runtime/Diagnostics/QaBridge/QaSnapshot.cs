@@ -29,6 +29,7 @@ namespace Sorolla.Palette
             QaJson.BoolMember(sb, ref first, "development_build", state.DevelopmentBuild);
             QaJson.BoolMember(sb, ref first, "armed", state.BridgeArmed);
             QaJson.BoolMember(sb, ref first, "ready", state.Ready);
+            QaJson.StringMember(sb, ref first, "device_wall_clock", state.DeviceWallClock);
 
             QaJson.Comma(sb, ref first);
             QaJson.Key(sb, "consent");
@@ -213,6 +214,8 @@ namespace Sorolla.Palette
             QaJson.StringMember(sb, ref first, "firebase", state.FirebaseAdapter);
             QaJson.StringMember(sb, ref first, "gameanalytics", state.GameAnalyticsAdapter);
             QaJson.StringMember(sb, ref first, "facebook", state.FacebookAdapter);
+            QaJson.BoolMember(sb, ref first, "crashlytics_ready", state.CrashlyticsReady);
+            QaJson.StringMember(sb, ref first, "crashlytics_outcome", state.CrashlyticsOutcome);
             sb.Append('}');
         }
 

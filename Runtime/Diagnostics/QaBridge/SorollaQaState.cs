@@ -15,6 +15,7 @@ namespace Sorolla.Palette
         public bool DevelopmentBuild;
         public bool BridgeArmed;
         public bool Ready;
+        internal string DeviceWallClock; // ISO-8601 local time with UTC offset, captured with the snapshot
 
         // Consent
         public string ConsentStatus;     // Unknown | NotApplicable | Required | Obtained | Denied
@@ -44,6 +45,8 @@ namespace Sorolla.Palette
         public string FirebaseAdapter;
         public string GameAnalyticsAdapter;
         public string FacebookAdapter;
+        internal bool CrashlyticsReady;
+        internal string CrashlyticsOutcome;
 
         // Identity / attribution
         public bool AdvertisingIdPresent;

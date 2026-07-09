@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using Sorolla.Palette.Adapters;
 using UnityEngine;
@@ -127,6 +128,7 @@ namespace Sorolla.Palette
                 DevelopmentBuild = Debug.isDebugBuild,
                 BridgeArmed = QaBridgeServer.IsArmed,
                 Ready = Palette.IsInitialized || snap.ReadySeen,
+                DeviceWallClock = CurrentDeviceWallClock(),
 
                 ConsentStatus = Palette.ConsentStatus.ToString(),
                 ConsentGeography = ConsentGeography(Palette.ConsentStatus),
@@ -151,6 +153,8 @@ namespace Sorolla.Palette
                 FirebaseAdapter = FirebaseAdapterStatus(snap, fullMode),
                 GameAnalyticsAdapter = GameAnalyticsAdapterStatus(snap),
                 FacebookAdapter = FacebookAdapterStatus(snap),
+                CrashlyticsReady = CrashlyticsReadyForSnapshot(snap),
+                CrashlyticsOutcome = CrashlyticsOutcomeStatus(snap, fullMode),
 
                 AdvertisingIdPresent = snap.AdIdPresent,
                 AdvertisingIdZeroed = snap.AdIdZeroed,
@@ -203,6 +207,9 @@ namespace Sorolla.Palette
             }
             return values;
         }
+
+        static string CurrentDeviceWallClock() =>
+            DateTimeOffset.Now.ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture);
 
         static string ModeForSnapshot(SorollaConfig config, Snapshot snapshot)
         {
@@ -265,6 +272,26 @@ namespace Sorolla.Palette
             string analyticsOutcome = AdapterStatusForSnapshot(snapshot.FirebaseAnalyticsOutcome);
             if (analyticsOutcome != null && analyticsOutcome != "ready") return analyticsOutcome;
             return snapshot.FirebaseAnalyticsReady || FirebaseAdapter.IsReady ? "ready" : "waiting";
+#else
+            return fullMode ? "missing" : "not_installed";
+#endif
+        }
+
+        static bool CrashlyticsReadyForSnapshot(Snapshot snapshot)
+        {
+#if FIREBASE_CRASHLYTICS_INSTALLED
+            return snapshot.CrashlyticsReady || FirebaseCrashlyticsAdapter.IsReady;
+#else
+            return false;
+#endif
+        }
+
+        static string CrashlyticsOutcomeStatus(Snapshot snapshot, bool fullMode)
+        {
+#if FIREBASE_CRASHLYTICS_INSTALLED
+            string outcome = AdapterStatusForSnapshot(snapshot.CrashlyticsOutcome);
+            if (outcome != null && outcome != "ready") return outcome;
+            return CrashlyticsReadyForSnapshot(snapshot) ? "ready" : "waiting";
 #else
             return fullMode ? "missing" : "not_installed";
 #endif

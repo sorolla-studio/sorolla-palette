@@ -88,12 +88,13 @@ namespace Sorolla.Palette
             SorollaQaState state = CaptureQaState();
 
             var sb = new StringBuilder(2048);
-            AppendReportHeader(sb, "Sorolla SDK State", $"Mode: {state.Mode} | Build: {(state.DevelopmentBuild ? "Development" : "Release")}");
+            AppendReportHeader(sb, "Sorolla SDK State", $"Mode: {state.Mode} | Build: {(state.DevelopmentBuild ? "Development" : "Release")}", state.DeviceWallClock);
 
             sb.AppendLine("[Header]");
             sb.AppendLine($"sdk: {state.SdkVersion}");
             sb.AppendLine($"armed: {state.BridgeArmed}");
             sb.AppendLine($"ready: {state.Ready}");
+            sb.AppendLine($"device_wall_clock: {state.DeviceWallClock}");
             sb.AppendLine();
 
             sb.AppendLine("[Consent]");
@@ -118,6 +119,7 @@ namespace Sorolla.Palette
             sb.AppendLine($"firebase: {state.FirebaseAdapter}");
             sb.AppendLine($"gameanalytics: {state.GameAnalyticsAdapter}");
             sb.AppendLine($"facebook: {state.FacebookAdapter}");
+            sb.AppendLine($"crashlytics_ready: {state.CrashlyticsReady} | crashlytics_outcome: {state.CrashlyticsOutcome}");
             sb.AppendLine();
 
             sb.AppendLine("[Identity]");
@@ -202,12 +204,14 @@ namespace Sorolla.Palette
             }
         }
 
-        static void AppendReportHeader(StringBuilder sb, string title, string buildDetail)
+        static void AppendReportHeader(StringBuilder sb, string title, string buildDetail, string deviceWallClock = null)
         {
             sb.AppendLine(title);
             sb.AppendLine($"App: {Application.identifier} {Application.version}");
             sb.AppendLine($"Platform: {Application.platform} | Unity: {Application.unityVersion}");
             sb.AppendLine(buildDetail);
+            if (!string.IsNullOrEmpty(deviceWallClock))
+                sb.AppendLine($"Device time: {deviceWallClock}");
             sb.AppendLine($"Time: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}Z");
             sb.AppendLine();
         }
