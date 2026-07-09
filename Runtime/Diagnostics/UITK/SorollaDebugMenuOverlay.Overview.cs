@@ -115,7 +115,12 @@ namespace Sorolla.Palette
             card.Add(header);
 
             // Single most-important-fact line (spec: "Consent - 1 waiting · CMP not resolved").
-            var fact = new Label($"{group} · {SafeFirstLine(topRow.Detail)}");
+            // Team-lead content-fix ruling (post tier-2): the card TITLE already names the area, so
+            // prefixing the fact with the group name again just duplicates it ("Firebase · Firebase
+            // native library not available"). Prefix with the ROW name instead - detail strings are
+            // terse/context-free on their own ("Observed", "False", "Loaded from Resources"), so the
+            // row name is what makes the fact legible, not the group name repeated.
+            var fact = new Label($"{topRow.Name} — {SafeFirstLine(topRow.Detail)}");
             fact.AddToClassList("sorolla-debugmenu-area-card-fact");
             card.Add(fact);
 

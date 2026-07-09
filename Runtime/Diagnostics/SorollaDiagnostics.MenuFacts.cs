@@ -130,9 +130,17 @@ namespace Sorolla.Palette
             rows.Add(new SorollaMenuMatrixRow("Economy", economySeen,
                 $"{snap.EconomyEarnCount} earn · {snap.EconomySpendCount} spend", "Earn and spend soft currency once each"));
 
+            // Hint verified live (team-lead tier-2 follow-up): Actions -> "Fire test event" does NOT
+            // flip this row - DoTrackTestEvent tags the event with the QA-test marker and runs inside
+            // a test-action scope, and RecordCustomEvent excludes both from this counter (same
+            // DR-33/60 rationale as Economy/Progression: QA smoke tests must not inflate real
+            // game-integration coverage). The hint points at a real Palette.TrackEvent call from game
+            // code, not the Actions-tab button - matching the Economy/Progression/Custom convention
+            // already used elsewhere in this matrix.
             bool customSeen = snap.CustomEventCount > 0;
             rows.Add(new SorollaMenuMatrixRow("Custom events", customSeen,
-                customSeen ? $"{snap.CustomEventCount} seen" : "none seen", "Fire a custom event from Actions"));
+                customSeen ? $"{snap.CustomEventCount} seen" : "none seen",
+                "Trigger a real Palette.TrackEvent call from game code (the Actions test-event button is excluded from this count)"));
 
             bool interExercised = state.InterstitialLoaded && state.InterstitialCompleted;
             rows.Add(new SorollaMenuMatrixRow("Ads · interstitial", interExercised,
