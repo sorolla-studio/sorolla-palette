@@ -113,6 +113,24 @@
 .sorolla-debugmenu-badge-failing .sorolla-debugmenu-badge-label { color: rgb(255, 157, 148); }
 .sorolla-debugmenu-badge-failing .sorolla-debugmenu-badge-dot { background-color: rgb(224, 88, 79); }
 
+/* Compact header chip (phase 6, spec section 11 item 1): word-only verdict, no dot, no count
+   strip - the header keeps just this + title + Close so every tab's header stays slim. Reuses the
+   badge-failing/-issues/-healthy color classes for the text color, applied to a Label directly. */
+.sorolla-debugmenu-compact-chip {
+    font-size: 11px;
+    -unity-font-style: bold;
+    border-radius: 6px;
+    border-width: 1px;
+    padding: 3px 8px;
+    margin-right: 8px;
+    margin-bottom: 4px;
+    align-self: flex-start;
+}
+
+.sorolla-debugmenu-compact-chip.sorolla-debugmenu-badge-healthy { color: rgb(126, 226, 164); }
+.sorolla-debugmenu-compact-chip.sorolla-debugmenu-badge-issues { color: rgb(243, 210, 122); }
+.sorolla-debugmenu-compact-chip.sorolla-debugmenu-badge-failing { color: rgb(255, 157, 148); }
+
 /* width:100% + white-space:normal (not just one or the other) - a Label with no explicit width
    sizes to its own intrinsic (unwrapped) text width in some UITK layouts regardless of white-space,
    so wrapping never kicks in without an explicit width to wrap against. Found live at 1920x1080
@@ -135,6 +153,12 @@
     align-items: flex-start;
 }
 
+/* Punch list item 2 (Arthur, phase 6): CAPTION (9.5px bold) vs sentence (11px normal) sit on the
+   same row with align-items:flex-start, which aligns their layout-box TOPS, not visual
+   baselines - a smaller font's cap-height sits noticeably higher than a larger font's when top-
+   aligned, reading as "misaligned". UI Toolkit/Yoga has no baseline align option, so the fix is a
+   manual nudge sized to the two fonts' size delta (11 - 9.5 = 1.5px) rather than the old flat 1px,
+   which under-corrected. */
 .sorolla-debugmenu-coverage-caption {
     font-size: 9.5px;
     -unity-font-style: bold;
@@ -142,7 +166,7 @@
     color: rgb(125, 134, 148);
     flex-shrink: 0;
     margin-right: 6px;
-    margin-top: 1px; /* nudges the small-caps caption toward the sentence's cap-height baseline */
+    margin-top: 2.5px;
 }
 
 /* Coverage sentence: #7d8694 normal, amber #d9a636 when coverage is thin (design-tokens.md
@@ -233,10 +257,13 @@
 
 /* padding-right reserves a gutter so the vertical scrollbar (drawn inside the ScrollView's own
    box) doesn't sit on top of row text - found via visual QA against mockup 01, where row detail
-   ran under the scrollbar thumb. */
+   ran under the scrollbar thumb. Punch list item 1 (Arthur, phase 6): 14px still read as the
+   scrollbar riding right against row content on every tab (this class is shared by Issues/
+   Overview/Console/Actions) - widened to 22px, plus a left margin on the scroller itself
+   (below) so the thumb sits clear of the gutter's own inner edge instead of hugging it. */
 .sorolla-debugmenu-issues-scroll {
     flex-grow: 1;
-    padding-right: 14px;
+    padding-right: 22px;
 }
 
 /* No default widget chrome may survive (standing rule): the default UITK vertical scroller reads
@@ -244,6 +271,7 @@
    thin token-colored thumb with no track/arrows, matching the design source's own scrollbar spec. */
 .sorolla-debugmenu-issues-scroll .unity-scroller--vertical {
     width: 8px;
+    margin-left: 8px; /* gap between row content edge and the thumb, inside the padding-right gutter */
 }
 
 .sorolla-debugmenu-issues-scroll .unity-scroller__low-button,
@@ -439,37 +467,160 @@
     align-self: flex-start;
 }
 
-/* ---- Overview tab (phase 3): mockup 03, spec 2.3 ---- */
+/* ---- Overview tab (phase 6 redesign): spec section 11, one-pager dashboard ---- */
 
 .sorolla-debugmenu-overview-pane {
     flex-grow: 1;
     flex-direction: column;
 }
 
-.sorolla-debugmenu-filter-row {
+/* Verdict hero: the big badge + count strip, moved here from the header (spec item 1). Reuses the
+   existing badge/countstrip classes verbatim so it renders pixel-identical to the old header
+   treatment - only its container changed. */
+.sorolla-debugmenu-hero {
+    background-color: rgb(18, 21, 28); /* #12151c, matches header band */
+    border-width: 1px;
+    border-color: rgb(28, 34, 44); /* #1c222c */
+    border-radius: 10px;
+    padding: 12px 14px 8px 14px;
+    margin-bottom: 12px;
+}
+
+.sorolla-debugmenu-area-cards {
+    margin-bottom: 12px;
+}
+
+/* Area card row skins mirror the Issues row severity skins (FAIL/WARN/neutral-for-wait), clean
+   cards use the section-clean green tint from the phase-3 grouped list. */
+.sorolla-debugmenu-area-card {
+    border-radius: 8px;
+    border-width: 1px;
+    margin-bottom: 8px;
+    overflow: hidden;
+    padding: 10px 12px;
+}
+
+.sorolla-debugmenu-area-card-fail { background-color: rgb(29, 18, 16); border-color: rgb(74, 38, 32); }
+.sorolla-debugmenu-area-card-warn { background-color: rgb(28, 24, 16); border-color: rgb(70, 58, 28); }
+.sorolla-debugmenu-area-card-wait { background-color: rgb(20, 25, 34); border-color: rgb(36, 45, 58); }
+.sorolla-debugmenu-area-card-clean { background-color: rgb(18, 21, 28); border-color: rgb(28, 34, 44); }
+
+.sorolla-debugmenu-area-card-header {
     flex-direction: row;
-    flex-wrap: wrap;
+    align-items: center;
+}
+
+.sorolla-debugmenu-area-card-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.sorolla-debugmenu-area-card-dot-fail { background-color: rgb(224, 88, 79); }
+.sorolla-debugmenu-area-card-dot-warn { background-color: rgb(217, 166, 54); }
+.sorolla-debugmenu-area-card-dot-wait { background-color: rgb(157, 184, 210); }
+.sorolla-debugmenu-area-card-dot-clean { background-color: rgb(95, 138, 110); }
+
+.sorolla-debugmenu-area-card-name {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: rgb(211, 218, 228); /* #d3dae4 */
+    flex-grow: 1;
+}
+
+.sorolla-debugmenu-area-card-counts {
+    font-size: 10.5px;
+    -unity-font-style: bold;
+    color: rgb(125, 134, 148);
+    margin-right: 6px;
+}
+
+.sorolla-debugmenu-area-card-chevron {
+    font-size: 14px;
+    color: rgb(125, 134, 148);
+}
+
+.sorolla-debugmenu-area-card-fact {
+    font-size: 11px;
+    color: rgb(125, 134, 148); /* #7d8694 */
+    white-space: normal;
+    margin-top: 4px;
+}
+
+/* Coverage matrix card (spec item 3): a plain rows-in-a-card layout, not the collapsible-section
+   chrome the old grouped list used - this card never collapses. */
+.sorolla-debugmenu-matrix-card {
+    background-color: rgb(18, 21, 28); /* #12151c */
+    border-width: 1px;
+    border-color: rgb(28, 34, 44); /* #1c222c */
+    border-radius: 10px;
+    padding: 12px 12px 6px 12px;
+    margin-bottom: 12px;
+}
+
+.sorolla-debugmenu-matrix-title {
+    font-size: 11px;
+    -unity-font-style: bold;
+    letter-spacing: 0.4px;
+    color: rgb(125, 134, 148); /* #7d8694 */
+    margin-bottom: 8px;
+}
+
+.sorolla-debugmenu-matrix-row {
+    flex-direction: row;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.sorolla-debugmenu-matrix-row-text {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.sorolla-debugmenu-matrix-row-name {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgb(211, 218, 228); /* #d3dae4 */
+}
+
+.sorolla-debugmenu-matrix-row-detail {
+    font-size: 11px;
+    color: rgb(125, 134, 148); /* #7d8694 */
+    white-space: normal;
+    margin-top: 2px;
+}
+
+/* Issues tab area filter indicator (spec item 3, punch list): dismissible banner shown only when
+   an Overview card jumped in with a Group filter applied. */
+.sorolla-debugmenu-area-filter-indicator {
+    flex-direction: row;
+    align-items: center;
+    background-color: rgb(20, 25, 34); /* #141922 */
+    border-width: 1px;
+    border-color: rgb(36, 45, 58); /* #242d3a */
+    border-radius: 7px;
+    padding: 6px 10px;
     margin-bottom: 10px;
 }
 
-/* Filter chips: active = active-tab skin, inactive = inactive-tab skin (design-tokens.md). */
-.sorolla-debugmenu-filter-chip {
-    background-color: rgb(18, 21, 28); /* inactive #12151c */
-    color: rgb(125, 134, 148); /* #7d8694 */
-    border-width: 1px;
-    border-color: rgb(28, 34, 44); /* #1c222c */
-    border-radius: 7px;
-    padding: 7px 12px;
+.sorolla-debugmenu-area-filter-label {
     font-size: 11px;
-    -unity-font-style: bold;
-    margin-right: 6px;
-    margin-bottom: 6px;
+    color: rgb(154, 166, 182); /* #9aa6b6 */
+    flex-grow: 1;
 }
 
-.sorolla-debugmenu-filter-chip-active {
-    background-color: rgb(28, 91, 99); /* #1c5b63 */
-    color: rgb(223, 250, 253); /* #dffafd */
-    border-color: rgb(42, 122, 133); /* #2a7a85 */
+.sorolla-debugmenu-area-filter-clear {
+    background-color: rgb(26, 33, 44); /* #1a212c */
+    color: rgb(185, 195, 210); /* #b9c3d2 */
+    border-width: 1px;
+    border-color: rgb(36, 45, 58); /* #242d3a */
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 10.5px;
+    -unity-font-style: bold;
 }
 
 .sorolla-debugmenu-section {
@@ -730,24 +881,5 @@
 .sorolla-debugmenu-action-card-disabled .sorolla-debugmenu-action-card-label { color: rgb(95, 104, 117); } /* #5f6875 */
 .sorolla-debugmenu-action-card-disabled .sorolla-debugmenu-action-card-sub { color: rgb(77, 86, 99); } /* #4d5663 */
 
-/* Event chip row (tier-2 parity ruling): #1c222d bg / #c3cad6 text / #252c38 border, per team-lead's
-   token spec (the design project's earlier non-approved concept - no chip precedent in the approved
-   mockup 05, so this sheet is the source of truth for these exact values, not a re-derivation). */
-.sorolla-debugmenu-event-chip-row {
-    flex-direction: row;
-    flex-wrap: wrap;
-    margin-bottom: 10px;
-}
-
-.sorolla-debugmenu-event-chip {
-    background-color: rgb(28, 34, 45); /* #1c222d */
-    color: rgb(195, 202, 214); /* #c3cad6 */
-    border-width: 1px;
-    border-color: rgb(37, 44, 56); /* #252c38 */
-    border-radius: 7px;
-    padding: 6px 10px;
-    font-size: 11px;
-    -unity-font-style: bold;
-    margin-right: 6px;
-    margin-bottom: 6px;
-}
+/* Event chip row CSS removed (phase 6 punch list item 4): the 4 event triggers now render as full
+   action-cards via BuildActionButton, no bespoke chip skin left to maintain. */

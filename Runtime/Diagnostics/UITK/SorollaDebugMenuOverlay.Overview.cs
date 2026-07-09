@@ -1,122 +1,72 @@
 using System.Collections.Generic;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Sorolla.Palette
 {
-    // Overview tab (mockup 03, spec 2.3): all diagnostic rows grouped in collapsible sections using
-    // the SAME consecutive-Group convention the IMGUI Vitals tab uses (SorollaDiagnosticsConsole.
-    // UI.cs DrawRows) - rows for one group are always contiguous in BuildRows() output, so grouping
-    // is a single linear pass, not a dictionary/GroupBy. Display-only: no new fact pipeline.
-    //
-    // Judgment call (stated for the report): the filter chips operate on ALL rows (Required +
-    // Observed + Context/Pass), unlike the Issues tab's Required/Observed-only "needs attention"
-    // list - Overview's job is "the complete picture" (spec 2.3 heading), so a PASS/Context row must
-    // still be visible under the "All"/"Pass" filters even though it never appears in Issues.
+    // Overview tab (spec section 11, Arthur-approved 2026-07-09 post-implementation redesign).
+    // Replaces the phase-3 "all rows grouped + filter chips" layout, which duplicated Issues with no
+    // dedicated role. New role contract: Overview is the 5-second one-pager map, DEFAULT landing tab,
+    // NO diagnostic rows of its own - verdict hero, then one card per diagnostic area (tap -> Issues
+    // pre-filtered), then the session coverage matrix. Display-only, same BuildRows()/CaptureQaState
+    // fact pipeline as every other tab.
     internal sealed partial class SorollaDebugMenuOverlay
     {
-        enum OverviewFilter
-        {
-            All,
-            Problems,
-            Fail,
-            Warn,
-            Wait,
-            Pass,
-        }
-
-        OverviewFilter _overviewFilter;
-        readonly Dictionary<string, bool> _overviewSectionExpanded = new Dictionary<string, bool>(16);
-        VisualElement _overviewSectionsHost;
-        List<SorollaDiagnosticRow> _overviewRows;
-        readonly List<Button> _overviewFilterChips = new List<Button>(6);
-
         internal VisualElement BuildOverviewTab(List<SorollaDiagnosticRow> rows)
         {
-            _overviewRows = rows;
-
-            bool anyIssues = CountIssueRows(rows) > 0;
-            _overviewFilter = anyIssues ? OverviewFilter.Problems : OverviewFilter.All;
-
             var pane = new VisualElement();
             pane.AddToClassList("sorolla-debugmenu-overview-pane");
 
-            pane.Add(BuildOverviewFilterRow());
-
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.AddToClassList("sorolla-debugmenu-issues-scroll"); // shares the restyled-scrollbar rule
-            _overviewSectionsHost = new VisualElement();
-            scroll.Add(_overviewSectionsHost);
+            var host = new VisualElement();
+            scroll.Add(host);
             pane.Add(scroll);
 
-            RefreshOverviewSections();
+            (int fail, int warn, int wait, int pass) = SorollaDiagnostics.ComputeMenuHealthCounts(rows);
+            host.Add(BuildVerdictHero(fail, warn, wait, pass));
+
+            host.Add(BuildAreaCardsSection(rows));
+            host.Add(BuildCoverageMatrixCard());
 
             return pane;
         }
 
-        VisualElement BuildOverviewFilterRow()
+        VisualElement BuildVerdictHero(int fail, int warn, int wait, int pass)
         {
-            var row = new VisualElement();
-            row.AddToClassList("sorolla-debugmenu-filter-row");
-            _overviewFilterChips.Clear();
-
-            foreach (OverviewFilter filter in new[]
-                     {
-                         OverviewFilter.All, OverviewFilter.Problems, OverviewFilter.Fail,
-                         OverviewFilter.Warn, OverviewFilter.Wait, OverviewFilter.Pass,
-                     })
-            {
-                var chip = new Button(() =>
-                {
-                    _overviewFilter = filter;
-                    RefreshOverviewSections();
-                })
-                {
-                    text = filter.ToString(),
-                };
-                chip.AddToClassList("sorolla-debugmenu-filter-chip");
-                chip.userData = filter;
-                _overviewFilterChips.Add(chip);
-                row.Add(chip);
-            }
-
-            return row;
+            var hero = new VisualElement();
+            hero.AddToClassList("sorolla-debugmenu-hero");
+            hero.Add(BuildVerdictBadge(fail, warn, wait));
+            hero.Add(BuildCountStrip(fail, warn, wait, pass));
+            return hero;
         }
 
-        void RefreshOverviewSections()
+        // One card per Group actually present in the snapshot, in encounter order - NOT a fixed
+        // enumeration of the spec's 7 named areas (SDKs/Consent/Firebase/Ads/Identity/Activity/Red
+        // flags). Judgment call (stated for the report): the row pipeline also emits "Boot" and
+        // "Config" groups the spec prose didn't name; hardcoding the 7-item list would silently drop
+        // those rows off Overview entirely, which contradicts "derived only from snapshot facts."
+        VisualElement BuildAreaCardsSection(List<SorollaDiagnosticRow> rows)
         {
-            _overviewSectionsHost.Clear();
+            var section = new VisualElement();
+            section.AddToClassList("sorolla-debugmenu-area-cards");
 
-            // Chip active-state sync via the tracked chip list (team-lead tier-2 fix: the previous
-            // parent-traversal query never found the filter row - a ScrollView reparents its children
-            // into its own contentContainer, so _overviewSectionsHost.parent was the ScrollView's
-            // content container, not a sibling of the filter row - every chip silently stayed
-            // inactive-styled regardless of _overviewFilter).
-            foreach (Button chip in _overviewFilterChips)
-            {
-                bool active = chip.userData is OverviewFilter cf && cf == _overviewFilter;
-                chip.EnableInClassList("sorolla-debugmenu-filter-chip-active", active);
-            }
-
-            List<SorollaDiagnosticRow> rows = _overviewRows;
             for (int i = 0; i < rows.Count;)
             {
                 string group = rows[i].Group;
                 int start = i;
                 while (i < rows.Count && rows[i].Group == group)
                     i++;
-                int end = i;
-
-                VisualElement section = BuildOverviewSection(group, rows, start, end);
-                if (section != null)
-                    _overviewSectionsHost.Add(section);
+                section.Add(BuildAreaCard(group, rows, start, i));
             }
+
+            return section;
         }
 
-        VisualElement BuildOverviewSection(string group, List<SorollaDiagnosticRow> rows, int start, int end)
+        VisualElement BuildAreaCard(string group, List<SorollaDiagnosticRow> rows, int start, int end)
         {
             int fail = 0, warn = 0, wait = 0, pass = 0;
-            var visibleRows = new List<SorollaDiagnosticRow>(end - start);
+            SorollaDiagnosticRow topRow = default;
+            int topRank = -1;
             for (int i = start; i < end; i++)
             {
                 SorollaDiagnosticRow row = rows[i];
@@ -128,92 +78,90 @@ namespace Sorolla.Palette
                     case SorollaDiagnosticSeverity.Pass: pass++; break;
                 }
 
-                if (MatchesOverviewFilter(row))
-                    visibleRows.Add(row);
+                int rank = SeverityRank(row.Severity);
+                if (rank > topRank)
+                {
+                    topRank = rank;
+                    topRow = row;
+                }
             }
 
-            if (visibleRows.Count == 0) return null; // empty sections hide under the active filter
-
-            // Team-lead tier-2 fix: WAIT counts as a problem for BOTH count color and default
-            // expansion (mockup 03's CONSENT section - "1 WAIT · 2 PASS" - renders amber and
-            // default-expanded). WAIT rows are on the Issues to-do list, so a section hiding one
-            // behind a "clean" green/collapsed treatment would misrepresent it.
             bool hasProblems = fail > 0 || warn > 0 || wait > 0;
 
-            var section = new VisualElement();
-            section.AddToClassList("sorolla-debugmenu-section");
+            var card = new VisualElement();
+            card.AddToClassList("sorolla-debugmenu-area-card");
+            card.AddToClassList(hasProblems ? AreaCardSeverityClass(fail, warn) : "sorolla-debugmenu-area-card-clean");
 
             var header = new VisualElement();
-            header.AddToClassList("sorolla-debugmenu-section-header");
+            header.AddToClassList("sorolla-debugmenu-area-card-header");
 
-            var chevron = new Label(hasProblems ? "⌄" : "›");
-            chevron.AddToClassList("sorolla-debugmenu-section-chevron");
+            var dot = new VisualElement();
+            dot.AddToClassList("sorolla-debugmenu-area-card-dot");
+            dot.AddToClassList(hasProblems ? AreaDotSeverityClass(fail, warn) : "sorolla-debugmenu-area-card-dot-clean");
+            header.Add(dot);
+
+            var name = new Label(group);
+            name.AddToClassList("sorolla-debugmenu-area-card-name");
+            header.Add(name);
+
+            var counts = new Label(AreaCardCountsText(fail, warn, wait, pass));
+            counts.AddToClassList("sorolla-debugmenu-area-card-counts");
+            header.Add(counts);
+
+            var chevron = new Label("›");
+            chevron.AddToClassList("sorolla-debugmenu-area-card-chevron");
             header.Add(chevron);
 
-            var title = new Label(group.ToUpperInvariant());
-            title.AddToClassList("sorolla-debugmenu-section-title");
-            header.Add(title);
+            card.Add(header);
 
-            var count = new Label(SectionCountsText(fail, warn, wait, pass));
-            count.AddToClassList("sorolla-debugmenu-section-count");
-            count.AddToClassList(hasProblems ? "sorolla-debugmenu-section-count-warn" : "sorolla-debugmenu-section-count-clean");
-            header.Add(count);
+            // Single most-important-fact line (spec: "Consent - 1 waiting · CMP not resolved").
+            var fact = new Label($"{group} · {SafeFirstLine(topRow.Detail)}");
+            fact.AddToClassList("sorolla-debugmenu-area-card-fact");
+            card.Add(fact);
 
-            section.Add(header);
+            // All-green cards expand IN PLACE to show their PASS rows (spec item 2); a card with
+            // problems instead jumps to Issues pre-filtered - two different taps, same header.
+            if (hasProblems)
+            {
+                header.RegisterCallback<ClickEvent>(_ => JumpToIssuesFilteredBy(group));
+                return card;
+            }
 
             var body = new VisualElement();
             body.AddToClassList("sorolla-debugmenu-section-body");
-            foreach (SorollaDiagnosticRow row in visibleRows)
-                body.Add(BuildOverviewRow(row));
-            section.Add(body);
+            body.style.display = DisplayStyle.None;
+            for (int i = start; i < end; i++)
+                body.Add(BuildOverviewRow(rows[i]));
+            card.Add(body);
 
-            // Sections with problems default-expanded, all-green default-collapsed (spec 2.3); tap
-            // toggles, remembered per-group for the life of this menu instance.
-            bool expanded = _overviewSectionExpanded.TryGetValue(group, out bool stored) ? stored : hasProblems;
-            body.style.display = expanded ? DisplayStyle.Flex : DisplayStyle.None;
-            chevron.text = expanded ? "⌄" : "›";
-
+            bool expanded = false;
             header.RegisterCallback<ClickEvent>(_ =>
             {
-                bool nowExpanded = body.style.display == DisplayStyle.None;
-                body.style.display = nowExpanded ? DisplayStyle.Flex : DisplayStyle.None;
-                chevron.text = nowExpanded ? "⌄" : "›";
-                _overviewSectionExpanded[group] = nowExpanded;
+                expanded = !expanded;
+                body.style.display = expanded ? DisplayStyle.Flex : DisplayStyle.None;
+                chevron.text = expanded ? "⌄" : "›";
             });
 
-            return section;
+            return card;
         }
 
-        bool MatchesOverviewFilter(SorollaDiagnosticRow row)
+        static string AreaCardCountsText(int fail, int warn, int wait, int pass)
         {
-            switch (_overviewFilter)
-            {
-                case OverviewFilter.All: return true;
-                case OverviewFilter.Problems: return SorollaDiagnostics.NeedsAttention(row.Severity);
-                case OverviewFilter.Fail: return row.Severity == SorollaDiagnosticSeverity.Fail;
-                case OverviewFilter.Warn: return row.Severity == SorollaDiagnosticSeverity.Warning;
-                case OverviewFilter.Wait: return row.Severity == SorollaDiagnosticSeverity.Waiting;
-                case OverviewFilter.Pass: return row.Severity == SorollaDiagnosticSeverity.Pass;
-                default: return true;
-            }
+            if (fail > 0) return $"{fail} FAIL";
+            if (warn > 0) return $"{warn} WARN";
+            if (wait > 0) return $"{wait} WAIT";
+            return $"{pass} PASS";
         }
 
-        static string SectionCountsText(int fail, int warn, int wait, int pass)
-        {
-            if (fail == 0 && warn == 0 && wait == 0 && pass == 0) return "none";
+        static string AreaCardSeverityClass(int fail, int warn) =>
+            fail > 0 ? "sorolla-debugmenu-area-card-fail" : warn > 0 ? "sorolla-debugmenu-area-card-warn" : "sorolla-debugmenu-area-card-wait";
 
-            var parts = new List<string>(4);
-            if (fail > 0) parts.Add($"{fail} FAIL");
-            if (warn > 0) parts.Add($"{warn} WARN");
-            if (wait > 0) parts.Add($"{wait} WAIT");
-            if (pass > 0) parts.Add($"{pass} PASS");
-            return string.Join(" · ", parts);
-        }
+        static string AreaDotSeverityClass(int fail, int warn) =>
+            fail > 0 ? "sorolla-debugmenu-area-card-dot-fail" : warn > 0 ? "sorolla-debugmenu-area-card-dot-warn" : "sorolla-debugmenu-area-card-dot-wait";
 
-        // Child rows share the Issues row anatomy (badge+name+detail+expand to WHY/SIGNAL/FIX), just
-        // indented and always-collapsed-by-default regardless of severity (Overview's job is the
-        // complete picture, not a to-do list - the Issues tab already surfaces problems pre-expanded
-        // nowhere; consistent "tap to expand" behavior here too).
+        // Child rows share the Issues row anatomy (badge+name+detail+expand to WHY/SIGNAL/FIX),
+        // indented, always-collapsed - an all-green card's expansion is "the complete picture", not a
+        // to-do list.
         static VisualElement BuildOverviewRow(SorollaDiagnosticRow row)
         {
             VisualElement issueRow = BuildIssueRow(row);

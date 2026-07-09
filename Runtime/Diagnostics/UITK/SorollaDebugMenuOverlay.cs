@@ -110,8 +110,10 @@ namespace Sorolla.Palette
             {
                 switch (i)
                 {
-                    case 0: _tabPanes[i] = BuildIssuesTab(_rows); break;
-                    case 1: _tabPanes[i] = BuildOverviewTab(_rows); break;
+                    // Phase 6 (spec section 11): Overview is now the DEFAULT landing tab - moved
+                    // to index 0 (leftmost + initially active) instead of Issues.
+                    case 0: _tabPanes[i] = BuildOverviewTab(_rows); break;
+                    case 1: _tabPanes[i] = BuildIssuesTab(_rows); break;
                     case 2: _tabPanes[i] = BuildConsoleTab(); break;
                     case 3: _tabPanes[i] = BuildActionsTab(); break;
                     default: _tabPanes[i] = BuildPlaceholderPane(TabLabel(i)); break;
@@ -121,7 +123,7 @@ namespace Sorolla.Palette
             }
             root.Add(content);
 
-            SetActiveTab(0);
+            SetActiveTab(0); // Overview, now index 0 - the default landing tab (spec section 11)
 
             _createdEventSystem = SorollaDebugMenuEventSystemFactory.CreateIfMissing();
         }
@@ -134,8 +136,13 @@ namespace Sorolla.Palette
             var titleRow = new VisualElement();
             titleRow.AddToClassList("sorolla-debugmenu-header-row");
 
+            // Phase 6 (Overview redesign, spec section 11 item 1): the big verdict badge + severity
+            // count strip MOVE to the Overview hero. The always-visible header keeps only a COMPACT
+            // verdict chip (word only, no dot, no count strip) so every tab's header stays slim -
+            // this was the "FAILING too big" note. Full counts are one tap away (Overview, the
+            // default landing tab) or in the coverage line below.
             (int fail, int warn, int wait, int pass) = SorollaDiagnostics.ComputeMenuHealthCounts(_rows);
-            titleRow.Add(BuildVerdictBadge(fail, warn, wait));
+            titleRow.Add(BuildCompactVerdictChip(fail, warn, wait));
 
             var title = new Label("Sorolla Vitals");
             title.AddToClassList("sorolla-debugmenu-title");
@@ -152,7 +159,6 @@ namespace Sorolla.Palette
             titleRow.Add(close);
 
             header.Add(titleRow);
-            header.Add(BuildCountStrip(fail, warn, wait, pass));
 
             var contextLine = new Label(SorollaDiagnostics.BuildMenuContextLine());
             contextLine.AddToClassList("sorolla-debugmenu-context-line");
@@ -183,7 +189,24 @@ namespace Sorolla.Palette
             return header;
         }
 
-        static VisualElement BuildVerdictBadge(int fail, int warn, int wait)
+        // Compact header chip (phase 6): word-only, no dot, no count strip - roughly a third the
+        // footprint of the Overview hero badge below. Same verdict thresholds as BuildVerdictBadge
+        // so the header and the hero never disagree.
+        static VisualElement BuildCompactVerdictChip(int fail, int warn, int wait)
+        {
+            string verdictClass;
+            string verdictWord;
+            if (fail > 0) { verdictClass = "sorolla-debugmenu-badge-failing"; verdictWord = "FAILING"; }
+            else if (warn + wait > 0) { verdictClass = "sorolla-debugmenu-badge-issues"; verdictWord = $"{warn + wait} ISSUES"; }
+            else { verdictClass = "sorolla-debugmenu-badge-healthy"; verdictWord = "HEALTHY"; }
+
+            var chip = new Label(verdictWord);
+            chip.AddToClassList("sorolla-debugmenu-compact-chip");
+            chip.AddToClassList(verdictClass);
+            return chip;
+        }
+
+        internal static VisualElement BuildVerdictBadge(int fail, int warn, int wait)
         {
             string verdictClass;
             string verdictWord;
@@ -215,7 +238,7 @@ namespace Sorolla.Palette
             return badge;
         }
 
-        static VisualElement BuildCountStrip(int fail, int warn, int wait, int pass)
+        internal static VisualElement BuildCountStrip(int fail, int warn, int wait, int pass)
         {
             var strip = new VisualElement();
             strip.AddToClassList("sorolla-debugmenu-countstrip");
@@ -255,7 +278,7 @@ namespace Sorolla.Palette
         {
             switch (index)
             {
-                case 0: return $"Issues {issueCount}";
+                case 1: return $"Issues {issueCount}";
                 case 2: return consoleCount > 0 ? $"Console {consoleCount}" : "Console";
                 default: return TabLabel(index);
             }
@@ -277,7 +300,7 @@ namespace Sorolla.Palette
         {
             int issueCount = CountIssueRows(_rows);
             int consoleCount = CountConsoleEntries();
-            _tabButtons[0].text = TabBarLabel(0, issueCount, consoleCount);
+            _tabButtons[1].text = TabBarLabel(1, issueCount, consoleCount);
             _tabButtons[2].text = TabBarLabel(2, issueCount, consoleCount);
         }
 
@@ -321,8 +344,8 @@ namespace Sorolla.Palette
         {
             switch (index)
             {
-                case 0: return "Issues";
-                case 1: return "Overview";
+                case 0: return "Overview";
+                case 1: return "Issues";
                 case 2: return "Console";
                 default: return "Actions";
             }

@@ -17,26 +17,30 @@ namespace Sorolla.Palette
     // matching the existing IMGUI convention - only the Issues list widens.
     internal sealed partial class SorollaDebugMenuOverlay
     {
+        // Phase 6 (Overview redesign, spec section 11 item 3): Overview's area cards jump here
+        // pre-filtered to one Group. null = no filter (the normal "all issues" list). A small
+        // dismissible indicator at the top shows which area is active and lets the studio clear it
+        // without leaving the tab - this is the ONLY filter surface left on Issues; the old
+        // Overview-side chip row + grouped list died with this redesign.
+        string _issuesAreaFilter;
+        List<SorollaDiagnosticRow> _issuesRows;
+        VisualElement _issuesFilterIndicatorHost;
+        VisualElement _issuesListHost;
+
         internal VisualElement BuildIssuesTab(List<SorollaDiagnosticRow> rows)
         {
+            _issuesRows = rows;
+
             var pane = new VisualElement();
             pane.AddToClassList("sorolla-debugmenu-issues-pane");
 
-            List<SorollaDiagnosticRow> issues = rows
-                .Where(row => SorollaDiagnostics.NeedsAttention(row.Severity))
-                .OrderByDescending(row => SeverityRank(row.Severity))
-                .ToList();
-
-            if (issues.Count == 0)
-            {
-                pane.Add(BuildEmptyState());
-                return pane;
-            }
+            _issuesFilterIndicatorHost = new VisualElement();
+            pane.Add(_issuesFilterIndicatorHost);
 
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.AddToClassList("sorolla-debugmenu-issues-scroll");
-            foreach (SorollaDiagnosticRow row in issues)
-                scroll.Add(BuildIssueRow(row));
+            _issuesListHost = new VisualElement();
+            scroll.Add(_issuesListHost);
             pane.Add(scroll);
 
             var copyAll = new Button(() => GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildProblemsSummary())
@@ -46,8 +50,71 @@ namespace Sorolla.Palette
             copyAll.AddToClassList("sorolla-debugmenu-action-button");
             copyAll.AddToClassList("sorolla-debugmenu-action-button-primary");
             pane.Add(copyAll);
+            _issuesCopyAllButton = copyAll;
+
+            RefreshIssuesList();
 
             return pane;
+        }
+
+        Button _issuesCopyAllButton;
+
+        // Called by an Overview area-card tap (SorollaDebugMenuOverlay.Overview.cs). Sets the filter,
+        // re-renders the Issues list in place, and switches the active tab - a single entry point so
+        // the card handler doesn't need to know Issues' internal layout.
+        internal void JumpToIssuesFilteredBy(string area)
+        {
+            _issuesAreaFilter = area;
+            RefreshIssuesList();
+            SetActiveTab(1); // Issues tab index (phase 6 reorder: Overview is now index 0)
+        }
+
+        void RefreshIssuesList()
+        {
+            _issuesFilterIndicatorHost.Clear();
+            if (_issuesAreaFilter != null)
+                _issuesFilterIndicatorHost.Add(BuildAreaFilterIndicator(_issuesAreaFilter));
+
+            List<SorollaDiagnosticRow> issues = _issuesRows
+                .Where(row => SorollaDiagnostics.NeedsAttention(row.Severity))
+                .Where(row => _issuesAreaFilter == null || row.Group == _issuesAreaFilter)
+                .OrderByDescending(row => SeverityRank(row.Severity))
+                .ToList();
+
+            _issuesListHost.Clear();
+            if (issues.Count == 0)
+            {
+                _issuesListHost.Add(BuildEmptyState());
+                _issuesCopyAllButton.style.display = DisplayStyle.None;
+                return;
+            }
+
+            foreach (SorollaDiagnosticRow row in issues)
+                _issuesListHost.Add(BuildIssueRow(row));
+            _issuesCopyAllButton.style.display = DisplayStyle.Flex;
+        }
+
+        VisualElement BuildAreaFilterIndicator(string area)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("sorolla-debugmenu-area-filter-indicator");
+
+            var label = new Label($"Filtered to {area}");
+            label.AddToClassList("sorolla-debugmenu-area-filter-label");
+            row.Add(label);
+
+            var clear = new Button(() =>
+            {
+                _issuesAreaFilter = null;
+                RefreshIssuesList();
+            })
+            {
+                text = "Clear",
+            };
+            clear.AddToClassList("sorolla-debugmenu-area-filter-clear");
+            row.Add(clear);
+
+            return row;
         }
 
         static VisualElement BuildIssueRow(SorollaDiagnosticRow row)

@@ -90,32 +90,22 @@ namespace Sorolla.Palette
                 "sorolla_vitals_test — visible in Console + vendor dashboards",
                 ActionButtonStyle.Normal,
                 () => RunActionAndRefresh(QaActionRegistry.TrackTestEvent)));
-            host.Add(BuildEventChipRow());
+
+            // Punch list item 4 (Arthur): the 4 event-trigger chips restyle to the SAME full-size
+            // action-card style as every other button on this tab - the earlier compact chip-row
+            // treatment (team-lead tier-2 concept) read as visually inconsistent next to the cards
+            // above it. Same registry calls, same RunActionAndRefresh wiring, just BuildActionButton
+            // instead of a bespoke chip.
+            host.Add(BuildActionButton("Level start", "Fires level_start (test level)", ActionButtonStyle.Normal,
+                () => RunActionAndRefresh(QaActionRegistry.LevelStart)));
+            host.Add(BuildActionButton("Level complete", "Fires level_end (test level, win)", ActionButtonStyle.Normal,
+                () => RunActionAndRefresh(QaActionRegistry.LevelComplete)));
+            host.Add(BuildActionButton("Economy earn", "Fires an economy earn event", ActionButtonStyle.Normal,
+                () => RunActionAndRefresh(QaActionRegistry.EconomyEarn)));
+            host.Add(BuildActionButton("Economy spend", "Fires an economy spend event", ActionButtonStyle.Normal,
+                () => RunActionAndRefresh(QaActionRegistry.EconomySpend)));
 
             return pane;
-        }
-
-        // Tier-2 parity ruling: the 4 remaining IMGUI test-event triggers as a compact chip row,
-        // not 4 more full-width cards - "Fire test event" is the one a studio tester reaches for,
-        // these are secondary smoke-test variants that don't each need a label+sub+arrow treatment.
-        VisualElement BuildEventChipRow()
-        {
-            var row = new VisualElement();
-            row.AddToClassList("sorolla-debugmenu-event-chip-row");
-
-            row.Add(BuildEventChip("Level Start", QaActionRegistry.LevelStart));
-            row.Add(BuildEventChip("Level Complete", QaActionRegistry.LevelComplete));
-            row.Add(BuildEventChip("Economy Earn", QaActionRegistry.EconomyEarn));
-            row.Add(BuildEventChip("Economy Spend", QaActionRegistry.EconomySpend));
-
-            return row;
-        }
-
-        VisualElement BuildEventChip(string label, string registryAction)
-        {
-            var chip = new Button(() => RunActionAndRefresh(registryAction)) { text = label };
-            chip.AddToClassList("sorolla-debugmenu-event-chip");
-            return chip;
         }
 
         void RunActionAndRefresh(string registryAction)

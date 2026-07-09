@@ -171,6 +171,15 @@ namespace Sorolla.Palette
 
         static string Pluralize(string noun, int count) => count == 1 ? noun : noun + "s";
 
+        static string BuildConsoleRowCopyText(ConsoleEntry entry)
+        {
+            var sb = new System.Text.StringBuilder(128);
+            sb.AppendLine(entry.Title);
+            foreach (SorollaDiagnosticPayloadLine line in entry.Payload)
+                sb.Append(line.Key).Append(": ").AppendLine(line.Value);
+            return sb.ToString();
+        }
+
         static (string text, string cssClass) BadgeForEventSource(string source)
         {
             switch (source)
@@ -222,6 +231,17 @@ namespace Sorolla.Palette
 
                 expanded.Add(lineEl);
             }
+
+            // Punch list item 3 (Arthur): per-log Copy button, same pattern/logic as the Issues
+            // per-row "Copy diagnosis" button - copies the title + every payload line as plain text.
+            var copyRow = new Button(() => GUIUtility.systemCopyBuffer = BuildConsoleRowCopyText(entry))
+            {
+                text = "Copy",
+            };
+            copyRow.AddToClassList("sorolla-debugmenu-action-button");
+            copyRow.AddToClassList("sorolla-debugmenu-action-button-ghost");
+            expanded.Add(copyRow);
+
             row.Add(expanded);
 
             collapsed.RegisterCallback<ClickEvent>(_ =>
