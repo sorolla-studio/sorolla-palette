@@ -126,10 +126,10 @@ namespace Sorolla.Palette
 #if FIREBASE_ANALYTICS_INSTALLED
             bool firebaseCoreReady = snapshot.FirebaseCoreReady || FirebaseCoreManager.IsInitialized;
             bool firebaseAnalyticsReady = snapshot.FirebaseAnalyticsReady || FirebaseAdapter.IsReady;
-            Add(rows, "Firebase", "Core",
+            AddFirebaseRow(rows, "Core", "Firebase Core",
                 AdapterRowSeverity(snapshot.FirebaseCoreOutcome, firebaseCoreReady ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting),
                 AdapterRowDetail(snapshot.FirebaseCoreOutcome, firebaseCoreReady ? "Ready" : "Waiting for Firebase Core"));
-            Add(rows, "Firebase", "Analytics",
+            AddFirebaseRow(rows, "Analytics", "Firebase Analytics",
                 AdapterRowSeverity(snapshot.FirebaseAnalyticsOutcome, firebaseAnalyticsReady ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting),
                 AdapterRowDetail(snapshot.FirebaseAnalyticsOutcome, firebaseAnalyticsReady ? "Ready" : "Waiting for Firebase Analytics"));
 #else
@@ -142,7 +142,7 @@ namespace Sorolla.Palette
 
 #if FIREBASE_CRASHLYTICS_INSTALLED
             bool crashlyticsReady = snapshot.CrashlyticsReady || FirebaseCrashlyticsAdapter.IsReady;
-            Add(rows, "Firebase", "Crashlytics",
+            AddFirebaseRow(rows, "Crashlytics", "Firebase Crashlytics",
                 AdapterRowSeverity(snapshot.CrashlyticsOutcome, crashlyticsReady ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting),
                 AdapterRowDetail(snapshot.CrashlyticsOutcome, crashlyticsReady ? "Initialized" : "Waiting for init"));
 #else
@@ -159,7 +159,7 @@ namespace Sorolla.Palette
                 ? SorollaDiagnosticSeverity.Info
                 : SorollaDiagnosticSeverity.Pass;
             string remoteConfigDetail = RemoteConfigRowDetail(remoteConfigStatus, snapshot);
-            Add(rows, "Firebase", "Remote Config",
+            AddFirebaseRow(rows, "Remote Config", "Firebase Remote Config",
                 AdapterRowSeverity(snapshot.RemoteConfigOutcome, remoteConfigSeverity),
                 AdapterRowDetail(snapshot.RemoteConfigOutcome, remoteConfigDetail));
 #else
@@ -480,6 +480,26 @@ namespace Sorolla.Palette
             return snapshot.PurchaseVerification.Contains("success")
                 ? SorollaDiagnosticSeverity.Pass
                 : SorollaDiagnosticSeverity.Warning;
+        }
+
+        // Firebase's own "not available" message is the single most common Fail this menu ever
+        // shows (every editor playmode session, no native lib) and is a completely different fact
+        // from the same wording on a real device build (missing config file) - see
+        // FirebaseUnavailableInEditorDiagnosis / FirebaseUnavailableOnDeviceDiagnosis.
+        static void AddFirebaseRow(List<SorollaDiagnosticRow> rows, string name, string vendorLabel,
+            SorollaDiagnosticSeverity severity, string detail)
+        {
+            if (severity == SorollaDiagnosticSeverity.Fail && detail != null && detail.Contains("not available"))
+            {
+                var diagnosis = detail.Contains("in Editor")
+                    ? FirebaseUnavailableInEditorDiagnosis(vendorLabel)
+                    : FirebaseUnavailableOnDeviceDiagnosis(vendorLabel);
+                AddDiagnosed(rows, "Firebase", name, severity, detail, diagnosis);
+            }
+            else
+            {
+                Add(rows, "Firebase", name, severity, detail);
+            }
         }
 
         static void AddAdRow(List<SorollaDiagnosticRow> rows, string format, bool ready, bool loadStarted, bool loadFailed,

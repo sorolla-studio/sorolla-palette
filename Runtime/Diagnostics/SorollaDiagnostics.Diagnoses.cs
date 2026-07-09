@@ -72,6 +72,23 @@ namespace Sorolla.Palette
 
         // ---- Ads ----
 
+        // ---- Firebase (native library unavailable) ----
+
+        // The single most common Fail this menu will ever show: FirebaseCoreManagerImpl reports
+        // "Firebase native library not available in Editor..." on literally every editor playmode
+        // session (no native Firebase binary in the Editor), which is a completely different fact
+        // from the same class of message on a real device build (missing config file / bad project
+        // setup). Distinguishing them here means editor testers stop reading this as a real failure.
+        internal static (string why, string signal, string fix) FirebaseUnavailableInEditorDiagnosis(string vendorLabel) => (
+            $"The Unity Editor has no native Firebase library, so {vendorLabel} cannot initialize here - this is expected in every editor playmode session, not a configuration problem.",
+            $"{vendorLabel} calls no-op silently for the rest of this editor session; the row stays Fail the whole time you play in-editor.",
+            "Nothing to fix for editor testing. This must be re-checked on an actual Android/iOS device build - if it still fails there, it's a real config gap (see the device-build diagnosis for the same row).");
+
+        internal static (string why, string signal, string fix) FirebaseUnavailableOnDeviceDiagnosis(string vendorLabel) => (
+            $"{vendorLabel} could not reach the native Firebase library on a real device build - most commonly a missing or misplaced config file (Assets/google-services.json for Android, Assets/GoogleService-Info.plist for iOS).",
+            $"All {vendorLabel} calls are dropped; Firebase's own console shows no data from this build.",
+            "Confirm the REAL config file is at Assets/google-services.json / Assets/GoogleService-Info.plist (Firebase console -> the app -> download it) - the Build Health window's own \"Found\" check fuzzy-matches the auto-generated google-services-desktop.json and can false-positive, so verify the file exists by eye, not just by the checkmark.");
+
         internal static (string why, string signal, string fix) AdLoadFailedDiagnosis(string format, string loadIssue) => (
             $"MAX's {format} load request finished with a failure ({(string.IsNullOrEmpty(loadIssue) ? "no fill or network error" : loadIssue)}).",
             $"Show {format.ToLowerInvariant()} reports \"not loaded\" until a retry succeeds; this is normal mediation behavior under low fill, not necessarily a misconfiguration.",
