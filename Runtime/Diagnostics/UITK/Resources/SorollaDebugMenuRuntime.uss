@@ -421,3 +421,202 @@
     color: rgb(154, 165, 182); /* #9aa5b6 */
     align-self: flex-start;
 }
+
+/* ---- Overview tab (phase 3): mockup 03, spec 2.3 ---- */
+
+.sorolla-debugmenu-overview-pane {
+    flex-grow: 1;
+    flex-direction: column;
+}
+
+.sorolla-debugmenu-filter-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+/* Filter chips: active = active-tab skin, inactive = inactive-tab skin (design-tokens.md). */
+.sorolla-debugmenu-filter-chip {
+    background-color: rgb(18, 21, 28); /* inactive #12151c */
+    color: rgb(125, 134, 148); /* #7d8694 */
+    border-width: 1px;
+    border-color: rgb(28, 34, 44); /* #1c222c */
+    border-radius: 7px;
+    padding: 7px 12px;
+    font-size: 11px;
+    -unity-font-style: bold;
+    margin-right: 6px;
+    margin-bottom: 6px;
+}
+
+.sorolla-debugmenu-filter-chip-active {
+    background-color: rgb(28, 91, 99); /* #1c5b63 */
+    color: rgb(223, 250, 253); /* #dffafd */
+    border-color: rgb(42, 122, 133); /* #2a7a85 */
+}
+
+.sorolla-debugmenu-section {
+    margin-bottom: 8px;
+}
+
+/* Section header: bg #141922, border #1d2430, title 12px/800 #b9c3d2, count mono 10.5px. */
+.sorolla-debugmenu-section-header {
+    flex-direction: row;
+    align-items: center;
+    background-color: rgb(20, 25, 34);
+    border-width: 1px;
+    border-color: rgb(29, 36, 48);
+    border-radius: 8px;
+    padding: 8px 10px;
+    min-height: 36px;
+}
+
+.sorolla-debugmenu-section-chevron {
+    font-size: 13px;
+    color: rgb(125, 134, 148);
+    margin-right: 6px;
+}
+
+.sorolla-debugmenu-section-title {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgb(185, 195, 210); /* #b9c3d2 */
+    flex-grow: 1;
+}
+
+.sorolla-debugmenu-section-count {
+    font-size: 10.5px;
+    -unity-font-style: bold;
+}
+
+.sorolla-debugmenu-section-count-warn { color: rgb(217, 166, 54); } /* CTXT.WARN */
+.sorolla-debugmenu-section-count-clean { color: rgb(95, 138, 110); } /* #5f8a6e */
+
+.sorolla-debugmenu-section-body {
+    padding-top: 6px;
+    padding-left: 10px; /* child rows indented 10px, design-tokens.md */
+}
+
+.sorolla-debugmenu-section-child-row {
+    margin-bottom: 4px;
+}
+
+/* ---- Console tab (phase 3): mockup 04, spec 2.4 ---- */
+
+.sorolla-debugmenu-console-pane {
+    flex-grow: 1;
+    flex-direction: column;
+}
+
+.sorolla-debugmenu-console-toolbar {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.sorolla-debugmenu-console-summary {
+    font-size: 11px;
+    color: rgb(125, 134, 148); /* #7d8694 */
+    flex-grow: 1;
+}
+
+.sorolla-debugmenu-console-controls {
+    flex-direction: row;
+    align-items: center;
+}
+
+.sorolla-debugmenu-console-toggle {
+    font-size: 11px;
+    color: rgb(125, 134, 148);
+    margin-right: 8px;
+}
+
+/* No default widget chrome: strip the built-in Toggle checkbox texture, use a small token-colored
+   box instead - same standing rule the Issues scrollbar restyle follows. */
+.sorolla-debugmenu-console-toggle .unity-toggle__checkmark {
+    width: 12px;
+    height: 12px;
+    border-width: 1px;
+    border-color: rgb(66, 74, 88);
+    background-color: rgb(18, 21, 28);
+    border-radius: 3px;
+}
+
+.sorolla-debugmenu-console-toggle > .unity-toggle__input:checked .unity-toggle__checkmark {
+    background-color: rgb(28, 91, 99); /* #1c5b63 */
+    border-color: rgb(42, 122, 133); /* #2a7a85 */
+}
+
+.sorolla-debugmenu-console-toolbar-button {
+    background-color: rgb(26, 33, 44); /* #1a212c */
+    color: rgb(185, 195, 210); /* #b9c3d2 */
+    border-width: 1px;
+    border-color: rgb(36, 45, 58); /* #242d3a */
+    border-radius: 7px;
+    padding: 5px 12px;
+    font-size: 11px;
+    -unity-font-style: bold;
+    margin-left: 6px;
+}
+
+.sorolla-debugmenu-console-row {
+    border-radius: 8px;
+    border-width: 1px;
+    background-color: rgb(18, 21, 28); /* neutral row #12151c */
+    border-color: rgb(28, 34, 44); /* #1c222c */
+    margin-bottom: 6px;
+    overflow: hidden;
+}
+
+.sorolla-debugmenu-console-row-collapsed {
+    flex-direction: row;
+    align-items: center;
+    min-height: 44px;
+    padding: 6px 10px;
+}
+
+.sorolla-debugmenu-console-row-title {
+    font-size: 12.5px;
+    -unity-font-style: bold;
+    color: rgb(211, 218, 228); /* mono per token doc; no bundled mono font asset yet, default font */
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-left: 4px;
+    margin-right: 8px;
+}
+
+.sorolla-debugmenu-console-payload {
+    padding: 4px 10px 10px 10px;
+    border-top-width: 1px;
+    border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Expanded payload key/value rows: bg #0e1219, key mono 11px #6f7a8a (108px column), value mono
+   11px #cdd5e0 (design-tokens.md "Console"). */
+.sorolla-debugmenu-console-payload-line {
+    flex-direction: row;
+    background-color: rgb(14, 18, 25);
+    border-radius: 4px;
+    padding: 3px 6px;
+    margin-top: 3px;
+}
+
+.sorolla-debugmenu-console-payload-key {
+    width: 108px;
+    font-size: 11px;
+    color: rgb(111, 122, 138); /* #6f7a8a */
+    flex-shrink: 0;
+}
+
+.sorolla-debugmenu-console-payload-value {
+    font-size: 11px;
+    color: rgb(205, 213, 224); /* #cdd5e0 */
+    white-space: normal;
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+}

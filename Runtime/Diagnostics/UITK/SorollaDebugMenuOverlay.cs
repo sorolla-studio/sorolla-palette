@@ -104,13 +104,19 @@ namespace Sorolla.Palette
             int issueCount = CountIssueRows(_rows);
 
             root.Add(BuildHeader());
-            root.Add(BuildTabBar(issueCount));
+            root.Add(BuildTabBar(issueCount, CountConsoleEntries()));
 
             VisualElement content = new VisualElement();
             content.AddToClassList("sorolla-debugmenu-content");
             for (int i = 0; i < _tabPanes.Length; i++)
             {
-                _tabPanes[i] = i == 0 ? BuildIssuesTab(_rows) : BuildPlaceholderPane(TabLabel(i));
+                switch (i)
+                {
+                    case 0: _tabPanes[i] = BuildIssuesTab(_rows); break;
+                    case 1: _tabPanes[i] = BuildOverviewTab(_rows); break;
+                    case 2: _tabPanes[i] = BuildConsoleTab(); break;
+                    default: _tabPanes[i] = BuildPlaceholderPane(TabLabel(i)); break;
+                }
                 _tabPanes[i].style.display = i == 0 ? DisplayStyle.Flex : DisplayStyle.None;
                 content.Add(_tabPanes[i]);
             }
@@ -230,7 +236,7 @@ namespace Sorolla.Palette
             return item;
         }
 
-        VisualElement BuildTabBar(int issueCount)
+        VisualElement BuildTabBar(int issueCount, int consoleCount)
         {
             var bar = new VisualElement();
             bar.AddToClassList("sorolla-debugmenu-tabs");
@@ -238,14 +244,43 @@ namespace Sorolla.Palette
             for (int i = 0; i < _tabButtons.Length; i++)
             {
                 int index = i;
-                string label = i == 0 ? $"Issues {issueCount}" : TabLabel(i);
-                var button = new Button(() => SetActiveTab(index)) { text = label };
+                var button = new Button(() => SetActiveTab(index)) { text = TabBarLabel(i, issueCount, consoleCount) };
                 button.AddToClassList("sorolla-debugmenu-tab");
                 _tabButtons[i] = button;
                 bar.Add(button);
             }
 
             return bar;
+        }
+
+        static string TabBarLabel(int index, int issueCount, int consoleCount)
+        {
+            switch (index)
+            {
+                case 0: return $"Issues {issueCount}";
+                case 2: return consoleCount > 0 ? $"Console {consoleCount}" : "Console";
+                default: return TabLabel(index);
+            }
+        }
+
+        int CountConsoleEntries()
+        {
+            var events = new List<SorollaDiagnosticEventLogEntry>(40);
+            var problems = new List<SorollaRuntimeProblem>(20);
+            SorollaDiagnostics.CopyEventLog(events);
+            SorollaDiagnostics.CopyRuntimeProblems(problems);
+            return events.Count + problems.Count;
+        }
+
+        // Goal C (tab badge live-update): called whenever Console/Issues-affecting actions run inside
+        // an already-open menu (currently: Console tab's Clear). Re-derives both counts from the same
+        // sources BuildTabBar used and rewrites just the button text - no full Build() rebuild needed.
+        void RefreshTabBadgeCounts()
+        {
+            int issueCount = CountIssueRows(_rows);
+            int consoleCount = CountConsoleEntries();
+            _tabButtons[0].text = TabBarLabel(0, issueCount, consoleCount);
+            _tabButtons[2].text = TabBarLabel(2, issueCount, consoleCount);
         }
 
         /// <summary>Issues tab count: every row (Required or Observed) at FAIL/WARN/WAIT, matching
