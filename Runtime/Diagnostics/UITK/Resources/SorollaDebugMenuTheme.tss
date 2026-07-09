@@ -1,0 +1,6 @@
+/* Runtime theme for the code-injected UI Toolkit debug menu (spike, phase 1). Imports Unity's
+   built-in default runtime theme via the special unity-theme:// URL - the documented zero-setup
+   mechanism for packages that need default control chrome (buttons, scrollbars) without shipping
+   or referencing an editor asset. Our own runtime USS layers on top for the severity/spacing
+   tokens; this file only provides the base theme PanelSettings requires. */
+@import url("unity-theme://default");

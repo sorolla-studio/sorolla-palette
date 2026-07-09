@@ -39,5 +39,9 @@ namespace Sorolla.Palette
             QaBridgeServer.Arm();
             RequestDiagnosticsRefresh();
         }
+
+        // Phase-1 spike entry point (debug-menu overhaul): opens the inert parallel UI Toolkit
+        // overlay. This IMGUI console stays the shipping menu until phase 4 parity is confirmed.
+        static void OpenNewMenuPreview() => SorollaDebugMenuOverlay.Toggle();
     }
 }

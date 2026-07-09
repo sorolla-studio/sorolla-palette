@@ -162,6 +162,13 @@ namespace Sorolla.Palette
             DrawActionButtons("Custom", TrackVitalsTestEvent, "Level Start", TrackVitalsLevelStart);
             DrawActionButtons("Level End", TrackVitalsLevelComplete, "Earn", TrackVitalsEconomyEarn);
             DrawActionButtons("Spend", TrackVitalsEconomySpend, null, null);
+            GUILayout.Space(_sectionTopGap * _theme.UiScale);
+
+            // Phase-1 debug-menu-overhaul spike: inert parallel entry point, this console stays
+            // untouched otherwise. Toggles the code-injected UI Toolkit overlay on/off.
+            GUILayout.Label("Preview", _theme.SectionStyle);
+            if (DrawPrimaryButton(SorollaDebugMenuOverlay.IsOpen ? "Close new menu (preview)" : "Open new menu (preview)"))
+                OpenNewMenuPreview();
 
             GUILayout.EndVertical();
             GUILayout.Space(_actionsBottomGap * _theme.UiScale);

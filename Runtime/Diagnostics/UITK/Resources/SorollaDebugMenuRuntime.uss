@@ -1,0 +1,110 @@
+/* Runtime-safe design tokens for the UI Toolkit debug menu overlay (spike, phase 1). Seeded from
+   the editor's Editor/UI/tokens.uss severity palette + spacing scale - editor-only selectors
+   (skin-adaptive dark/light variants, gallery/window chrome) stay in the editor sheet. This sheet
+   is deliberately standalone: it must load and render with zero project setup, so it does not
+   @import the editor stylesheet (which lives outside any Resources folder and is not guaranteed
+   to ship at runtime). Dark shell only - the menu spec calls for an opaque dark shell regardless
+   of game or editor skin. */
+
+.sorolla-debugmenu-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgb(28, 29, 31);
+}
+
+.sorolla-debugmenu-header {
+    background-color: rgb(20, 21, 22);
+    padding: 12px 16px 8px 16px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(56, 56, 56);
+}
+
+.sorolla-debugmenu-header-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.sorolla-debugmenu-title {
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: rgb(242, 245, 248);
+    flex-grow: 1;
+}
+
+.sorolla-debugmenu-close {
+    background-color: rgb(67, 70, 72);
+    color: rgb(242, 245, 248);
+    border-width: 0;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 12px;
+    -unity-font-style: bold;
+}
+
+.sorolla-debugmenu-close:hover {
+    background-color: rgb(94, 99, 106);
+}
+
+.sorolla-debugmenu-badge {
+    border-radius: 4px;
+    padding: 2px 10px;
+    margin-right: 8px;
+    align-self: flex-start;
+}
+
+.sorolla-debugmenu-badge-label {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: rgb(255, 255, 255);
+}
+
+.sorolla-debugmenu-badge-healthy { background-color: rgb(31, 148, 82); }
+.sorolla-debugmenu-badge-issues { background-color: rgb(255, 199, 71); }
+.sorolla-debugmenu-badge-issues .sorolla-debugmenu-badge-label { color: rgb(31, 23, 5); }
+.sorolla-debugmenu-badge-failing { background-color: rgb(230, 64, 71); }
+.sorolla-debugmenu-badge-placeholder { background-color: rgb(107, 117, 128); }
+
+.sorolla-debugmenu-context-line {
+    font-size: 11px;
+    color: rgb(184, 196, 209);
+    margin-bottom: 2px;
+}
+
+.sorolla-debugmenu-tabs {
+    flex-direction: row;
+}
+
+.sorolla-debugmenu-tab {
+    flex-grow: 1;
+    background-color: rgb(42, 42, 42);
+    color: rgb(184, 196, 209);
+    border-width: 0;
+    border-radius: 0;
+    padding: 8px 4px;
+    font-size: 12px;
+    -unity-font-style: bold;
+    margin-right: 1px;
+}
+
+.sorolla-debugmenu-tab:hover {
+    background-color: rgb(60, 60, 62);
+}
+
+.sorolla-debugmenu-tab-active {
+    background-color: rgb(73, 135, 149);
+    color: rgb(255, 255, 255);
+}
+
+.sorolla-debugmenu-content {
+    flex-grow: 1;
+    padding: 16px;
+}
+
+.sorolla-debugmenu-placeholder {
+    font-size: 12px;
+    color: rgb(184, 196, 209);
+}
