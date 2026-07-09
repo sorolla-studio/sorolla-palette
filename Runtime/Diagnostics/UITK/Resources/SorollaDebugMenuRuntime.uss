@@ -92,17 +92,42 @@
 .sorolla-debugmenu-badge-failing .sorolla-debugmenu-badge-label { color: rgb(255, 157, 148); }
 .sorolla-debugmenu-badge-failing .sorolla-debugmenu-badge-dot { background-color: rgb(224, 88, 79); }
 
-/* Placeholder state (phase 1 only - real verdict computation lands in phase 2): reuses the
-   neutral/info tone rather than inventing a 4th badge color. */
-.sorolla-debugmenu-badge-placeholder { background-color: rgb(51, 58, 68); border-color: rgb(36, 45, 58); }
-.sorolla-debugmenu-badge-placeholder .sorolla-debugmenu-badge-label { color: rgb(154, 165, 179); }
-.sorolla-debugmenu-badge-placeholder .sorolla-debugmenu-badge-dot { background-color: rgb(154, 165, 179); }
-
 .sorolla-debugmenu-context-line {
     font-size: 11px;
     color: rgb(111, 122, 138); /* header context line #6f7a8a */
     margin-bottom: 2px;
 }
+
+/* Coverage line: #7d8694 normal, amber #d9a636 when coverage is thin (design-tokens.md COVERAGE). */
+.sorolla-debugmenu-coverage-line {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: rgb(125, 134, 148);
+    margin-bottom: 2px;
+}
+
+.sorolla-debugmenu-coverage-line-thin {
+    color: rgb(217, 166, 54); /* #d9a636 */
+}
+
+/* Severity count strip (header, spec 2.1.2). Colored counts: FAIL #ff9d94, WARN #f3d27a,
+   WAIT #9db8d2, PASS #7ee2a4; zero-count severities grey to #525c6b (PASS always colored). */
+.sorolla-debugmenu-countstrip {
+    flex-direction: row;
+    margin-bottom: 6px;
+}
+
+.sorolla-debugmenu-countstrip-item {
+    font-size: 12px;
+    -unity-font-style: bold;
+    margin-right: 12px;
+}
+
+.sorolla-debugmenu-count-fail { color: rgb(255, 157, 148); }
+.sorolla-debugmenu-count-warn { color: rgb(243, 210, 122); }
+.sorolla-debugmenu-count-wait { color: rgb(157, 184, 210); }
+.sorolla-debugmenu-count-pass { color: rgb(126, 226, 164); }
+.sorolla-debugmenu-count-zero { color: rgb(82, 92, 107); } /* #525c6b */
 
 .sorolla-debugmenu-tabs {
     flex-direction: row;
@@ -146,4 +171,184 @@
 .sorolla-debugmenu-placeholder {
     font-size: 12px;
     color: rgb(125, 134, 148); /* #7d8694 */
+}
+
+/* ---- Issues tab (phase 2): mockups 01/02, spec 2.2 + section 3 ---- */
+
+.sorolla-debugmenu-issues-pane {
+    flex-grow: 1;
+    flex-direction: column;
+}
+
+.sorolla-debugmenu-issues-scroll {
+    flex-grow: 1;
+}
+
+/* Row skins by severity (design-tokens.md): FAIL #1d1210/#4a2620, WARN #1c1810/#463a1c,
+   neutral (WAIT/other) #12151c/#1c222c. */
+.sorolla-debugmenu-issue-row {
+    border-radius: 8px;
+    border-width: 1px;
+    margin-bottom: 6px;
+    overflow: hidden;
+}
+
+.sorolla-debugmenu-row-fail { background-color: rgb(29, 18, 16); border-color: rgb(74, 38, 32); }
+.sorolla-debugmenu-row-warn { background-color: rgb(28, 24, 16); border-color: rgb(70, 58, 28); }
+.sorolla-debugmenu-row-neutral { background-color: rgb(18, 21, 28); border-color: rgb(28, 34, 44); }
+
+.sorolla-debugmenu-issue-row-collapsed {
+    flex-direction: row;
+    align-items: center;
+    min-height: 44px;
+    padding: 6px 10px;
+}
+
+/* Severity badge: bg/fg per design-tokens.md (FAIL/WARN/WAIT/PASS/INFO). Square radius 5px. */
+.sorolla-debugmenu-severity-badge {
+    font-size: 10px;
+    -unity-font-style: bold;
+    letter-spacing: 0.5px;
+    border-radius: 5px;
+    padding: 3px 6px;
+    margin-right: 8px;
+    min-width: 40px;
+    -unity-text-align: middle-center;
+}
+
+.sorolla-debugmenu-badge-fail { background-color: rgb(201, 71, 62); color: rgb(255, 255, 255); }
+.sorolla-debugmenu-badge-warn { background-color: rgb(217, 166, 54); color: rgb(36, 26, 4); }
+.sorolla-debugmenu-badge-wait { background-color: rgb(65, 88, 110); color: rgb(211, 226, 242); }
+.sorolla-debugmenu-badge-pass { background-color: rgb(47, 122, 76); color: rgb(230, 246, 236); }
+.sorolla-debugmenu-badge-info { background-color: rgb(51, 58, 68); color: rgb(154, 165, 179); }
+
+.sorolla-debugmenu-issue-name {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: rgb(211, 218, 228);
+    margin-right: 8px;
+}
+
+.sorolla-debugmenu-issue-detail {
+    font-size: 11px;
+    color: rgb(125, 134, 148);
+    flex-grow: 1;
+    -unity-text-overflow-position: end;
+}
+
+.sorolla-debugmenu-issue-chevron {
+    font-size: 15px;
+    color: rgb(125, 134, 148);
+}
+
+/* Expanded WHY/SIGNAL/FIX block (design-tokens.md "Diagnosis expansion"): 46px key column,
+   WHY #ff9d94, SIGNAL #9db8d2, FIX #7ee2a4, value text 12px/#c6cdd8. */
+.sorolla-debugmenu-diagnosis {
+    padding: 4px 10px 10px 10px;
+    border-top-width: 1px;
+    border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+.sorolla-debugmenu-diagnosis-line {
+    flex-direction: row;
+    margin-top: 6px;
+}
+
+.sorolla-debugmenu-diagnosis-key {
+    width: 46px;
+    font-size: 9.5px;
+    -unity-font-style: bold;
+    letter-spacing: 0.6px;
+    flex-shrink: 0;
+}
+
+.sorolla-debugmenu-diagnosis-why { color: rgb(255, 157, 148); }
+.sorolla-debugmenu-diagnosis-signal { color: rgb(157, 184, 210); }
+.sorolla-debugmenu-diagnosis-fix { color: rgb(126, 226, 164); }
+
+.sorolla-debugmenu-diagnosis-value {
+    font-size: 12px;
+    color: rgb(198, 205, 216); /* #c6cdd8 */
+    white-space: normal;
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+/* ---- Empty state (Issues, zero problems) ---- */
+
+.sorolla-debugmenu-empty-card {
+    background-color: rgb(16, 25, 15); /* #10190f */
+    border-color: rgb(30, 58, 42); /* #1e3a2a */
+    border-width: 1px;
+    border-radius: 12px;
+    padding: 20px 16px;
+    align-items: center;
+}
+
+.sorolla-debugmenu-empty-check {
+    width: 40px;
+    height: 40px;
+    background-color: rgb(20, 58, 36); /* #143a24 */
+    border-color: rgb(44, 107, 68); /* #2c6b44 */
+    border-width: 1px;
+    border-radius: 20px;
+    color: rgb(126, 226, 164); /* #7ee2a4 */
+    font-size: 18px;
+    -unity-text-align: middle-center;
+    margin-bottom: 10px;
+}
+
+.sorolla-debugmenu-empty-title {
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: rgb(207, 232, 214); /* #cfe8d6 */
+    margin-bottom: 10px;
+}
+
+/* ---- Notes / callouts (info + warn) ---- */
+
+.sorolla-debugmenu-note {
+    font-size: 11px;
+    white-space: normal;
+    border-width: 1px;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-top: 8px;
+}
+
+.sorolla-debugmenu-note-info {
+    background-color: rgb(20, 25, 34); /* #141922 */
+    border-color: rgb(36, 45, 58); /* #242d3a */
+    color: rgb(154, 166, 182); /* #9aa6b6 */
+}
+
+.sorolla-debugmenu-note-warn {
+    background-color: rgb(36, 29, 16); /* #241d10 */
+    border-color: rgb(90, 74, 36); /* #5a4a24 */
+    color: rgb(215, 192, 140); /* #d7c08c */
+}
+
+/* ---- Buttons (Copy diagnosis / Copy problems) ---- */
+
+.sorolla-debugmenu-action-button {
+    border-radius: 9px;
+    border-width: 1px;
+    padding: 8px 14px;
+    font-size: 12px;
+    -unity-font-style: bold;
+    margin-top: 8px;
+}
+
+.sorolla-debugmenu-action-button-primary {
+    background-color: rgb(28, 91, 99); /* #1c5b63 */
+    border-color: rgb(42, 122, 133); /* #2a7a85 */
+    color: rgb(223, 250, 253); /* #dffafd */
+    margin: 8px 10px;
+}
+
+.sorolla-debugmenu-action-button-ghost {
+    background-color: rgba(0, 0, 0, 0);
+    border-color: rgb(42, 49, 60); /* #2a313c */
+    color: rgb(154, 165, 182); /* #9aa5b6 */
+    align-self: flex-start;
 }

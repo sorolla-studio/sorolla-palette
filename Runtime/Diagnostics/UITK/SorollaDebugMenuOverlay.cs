@@ -1,16 +1,19 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Sorolla.Palette
 {
-    // Phase-1 spike (debug-menu overhaul): inert parallel code proving the injected-UIDocument
-    // bootstrap gate. Opened only via the existing IMGUI console's "Open new menu (preview)"
-    // action button; the IMGUI console itself stays untouched and shipping. Zero scene setup -
-    // GameObject + UIDocument + PanelSettings are created entirely from code on open,
-    // DontDestroyOnLoad, and fully torn down on close. Display-only: header facts are read
-    // straight off the existing diagnostics/snapshot pipeline (BuildHeaderContext, Application.*),
-    // no new fact pipeline. Tab content is 4 empty placeholder panes - phase 2+ fills them in.
-    internal sealed class SorollaDebugMenuOverlay : MonoBehaviour
+    // Phase-1 spike proved the injected-UIDocument bootstrap gate (inert parallel code, opened only
+    // via the existing IMGUI console's "Open new menu (preview)" action button; the IMGUI console
+    // itself stays untouched and shipping). Phase 2 (debug-menu overhaul) fills in the design system,
+    // the real header (verdict/counts/context/coverage), and the Issues tab - see
+    // SorollaDebugMenuOverlay.Issues.cs. Zero scene setup - GameObject + UIDocument + PanelSettings
+    // are created entirely from code on open, DontDestroyOnLoad, and fully torn down on close.
+    // Display-only: all facts are read straight off the existing diagnostics/snapshot pipeline
+    // (BuildRows, CaptureQaState, Application.*) - no new fact pipeline. Overview/Console/Actions
+    // tabs stay empty placeholders until phase 3+.
+    internal sealed partial class SorollaDebugMenuOverlay : MonoBehaviour
     {
         const string HostName = "[Palette SDK Debug Menu]";
         const string ThemeResourcePath = "SorollaDebugMenuTheme";
@@ -24,6 +27,9 @@ namespace Sorolla.Palette
         readonly VisualElement[] _tabPanes = new VisualElement[4];
         readonly Button[] _tabButtons = new Button[4];
         int _activeTabIndex;
+
+        // Computed once per Build() (menu open), never per frame - rebuilt tree, not rebuilt rows.
+        readonly List<SorollaDiagnosticRow> _rows = new List<SorollaDiagnosticRow>(64);
 
         internal static bool IsOpen => s_instance != null;
 
@@ -77,14 +83,17 @@ namespace Sorolla.Palette
             else
                 Debug.LogWarning("[Palette] Debug menu spike: runtime USS not found at Resources/" + UssResourcePath);
 
+            SorollaDiagnostics.BuildRows(_rows);
+            int issueCount = CountIssueRows(_rows);
+
             root.Add(BuildHeader());
-            root.Add(BuildTabBar());
+            root.Add(BuildTabBar(issueCount));
 
             VisualElement content = new VisualElement();
             content.AddToClassList("sorolla-debugmenu-content");
             for (int i = 0; i < _tabPanes.Length; i++)
             {
-                _tabPanes[i] = BuildPlaceholderPane(TabLabel(i));
+                _tabPanes[i] = i == 0 ? BuildIssuesTab(_rows) : BuildPlaceholderPane(TabLabel(i));
                 _tabPanes[i].style.display = i == 0 ? DisplayStyle.Flex : DisplayStyle.None;
                 content.Add(_tabPanes[i]);
             }
@@ -103,18 +112,10 @@ namespace Sorolla.Palette
             var titleRow = new VisualElement();
             titleRow.AddToClassList("sorolla-debugmenu-header-row");
 
-            var badge = new VisualElement();
-            badge.AddToClassList("sorolla-debugmenu-badge");
-            badge.AddToClassList("sorolla-debugmenu-badge-placeholder");
-            var badgeDot = new VisualElement();
-            badgeDot.AddToClassList("sorolla-debugmenu-badge-dot");
-            badge.Add(badgeDot);
-            var badgeLabel = new Label("VERDICT —");
-            badgeLabel.AddToClassList("sorolla-debugmenu-badge-label");
-            badge.Add(badgeLabel);
-            titleRow.Add(badge);
+            (int fail, int warn, int wait, int pass) = SorollaDiagnostics.ComputeMenuHealthCounts(_rows);
+            titleRow.Add(BuildVerdictBadge(fail, warn, wait));
 
-            var title = new Label("Palette Debug Menu (preview)");
+            var title = new Label("Sorolla Vitals");
             title.AddToClassList("sorolla-debugmenu-title");
             titleRow.Add(title);
 
@@ -123,22 +124,74 @@ namespace Sorolla.Palette
             titleRow.Add(close);
 
             header.Add(titleRow);
+            header.Add(BuildCountStrip(fail, warn, wait, pass));
 
-            // Real facts, reused from the existing diagnostics/snapshot pipeline - no new fact
-            // pipeline: same BuildHeaderContext() the IMGUI console's DrawBuildContext calls, plus
-            // Application.identifier the same way DrawBuildContext already does.
-            var appLine = new Label($"{Application.identifier}  |  {Application.platform}  |  {(Debug.isDebugBuild ? "Dev" : "Release")} build");
-            appLine.AddToClassList("sorolla-debugmenu-context-line");
-            header.Add(appLine);
+            var contextLine = new Label(SorollaDiagnostics.BuildMenuContextLine());
+            contextLine.AddToClassList("sorolla-debugmenu-context-line");
+            header.Add(contextLine);
 
-            var sdkLine = new Label(SorollaDiagnostics.BuildHeaderContext());
-            sdkLine.AddToClassList("sorolla-debugmenu-context-line");
-            header.Add(sdkLine);
+            string coverageText = SorollaDiagnostics.BuildMenuCoverageLine(out bool thin);
+            var coverageLine = new Label(coverageText);
+            coverageLine.AddToClassList("sorolla-debugmenu-coverage-line");
+            if (thin)
+                coverageLine.AddToClassList("sorolla-debugmenu-coverage-line-thin");
+            header.Add(coverageLine);
 
             return header;
         }
 
-        VisualElement BuildTabBar()
+        static VisualElement BuildVerdictBadge(int fail, int warn, int wait)
+        {
+            string verdictClass;
+            string verdictWord;
+            if (fail > 0)
+            {
+                verdictClass = "sorolla-debugmenu-badge-failing";
+                verdictWord = "FAILING";
+            }
+            else if (warn + wait > 0)
+            {
+                verdictClass = "sorolla-debugmenu-badge-issues";
+                verdictWord = $"{warn + wait} ISSUES";
+            }
+            else
+            {
+                verdictClass = "sorolla-debugmenu-badge-healthy";
+                verdictWord = "HEALTHY";
+            }
+
+            var badge = new VisualElement();
+            badge.AddToClassList("sorolla-debugmenu-badge");
+            badge.AddToClassList(verdictClass);
+            var badgeDot = new VisualElement();
+            badgeDot.AddToClassList("sorolla-debugmenu-badge-dot");
+            badge.Add(badgeDot);
+            var badgeLabel = new Label(verdictWord);
+            badgeLabel.AddToClassList("sorolla-debugmenu-badge-label");
+            badge.Add(badgeLabel);
+            return badge;
+        }
+
+        static VisualElement BuildCountStrip(int fail, int warn, int wait, int pass)
+        {
+            var strip = new VisualElement();
+            strip.AddToClassList("sorolla-debugmenu-countstrip");
+            strip.Add(BuildCountItem("FAIL", fail, "sorolla-debugmenu-count-fail"));
+            strip.Add(BuildCountItem("WARN", warn, "sorolla-debugmenu-count-warn"));
+            strip.Add(BuildCountItem("WAIT", wait, "sorolla-debugmenu-count-wait"));
+            strip.Add(BuildCountItem("PASS", pass, "sorolla-debugmenu-count-pass", alwaysColored: true));
+            return strip;
+        }
+
+        static Label BuildCountItem(string label, int count, string colorClass, bool alwaysColored = false)
+        {
+            var item = new Label($"{label} {count}");
+            item.AddToClassList("sorolla-debugmenu-countstrip-item");
+            item.AddToClassList(count > 0 || alwaysColored ? colorClass : "sorolla-debugmenu-count-zero");
+            return item;
+        }
+
+        VisualElement BuildTabBar(int issueCount)
         {
             var bar = new VisualElement();
             bar.AddToClassList("sorolla-debugmenu-tabs");
@@ -146,13 +199,29 @@ namespace Sorolla.Palette
             for (int i = 0; i < _tabButtons.Length; i++)
             {
                 int index = i;
-                var button = new Button(() => SetActiveTab(index)) { text = TabLabel(i) };
+                string label = i == 0 ? $"Issues {issueCount}" : TabLabel(i);
+                var button = new Button(() => SetActiveTab(index)) { text = label };
                 button.AddToClassList("sorolla-debugmenu-tab");
                 _tabButtons[i] = button;
                 bar.Add(button);
             }
 
             return bar;
+        }
+
+        /// <summary>Issues tab count: every row (Required or Observed) at FAIL/WARN/WAIT, matching
+        /// what BuildIssuesTab actually lists - see SorollaDebugMenuOverlay.Issues.cs for the ruling
+        /// that Observed rows belong in the studio's flat to-do list too.</summary>
+        static int CountIssueRows(List<SorollaDiagnosticRow> rows)
+        {
+            int count = 0;
+            foreach (SorollaDiagnosticRow row in rows)
+            {
+                if (SorollaDiagnostics.NeedsAttention(row.Severity))
+                    count++;
+            }
+
+            return count;
         }
 
         static VisualElement BuildPlaceholderPane(string tabLabel)
