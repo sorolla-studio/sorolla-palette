@@ -525,8 +525,13 @@
     flex-direction: column;
 }
 
+/* flex-wrap (phase4 carry-over fix): at narrow portrait width the summary text + toggle + Copy +
+   Clear don't fit one row; without wrap, Clear silently ran off the right panel edge instead of
+   visibly overflowing (found in tier-2 review of the phase-3 console capture). Same fix shape as
+   the header-row overlap bug - let the row wrap instead of clipping/overlapping. */
 .sorolla-debugmenu-console-toolbar {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     margin-bottom: 10px;
 }
@@ -535,10 +540,14 @@
     font-size: 11px;
     color: rgb(125, 134, 148); /* #7d8694 */
     flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 90px;
+    margin-bottom: 4px;
 }
 
 .sorolla-debugmenu-console-controls {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
 }
 
@@ -574,6 +583,8 @@
     font-size: 11px;
     -unity-font-style: bold;
     margin-left: 6px;
+    margin-bottom: 4px;
+    flex-shrink: 0;
 }
 
 .sorolla-debugmenu-console-row {
