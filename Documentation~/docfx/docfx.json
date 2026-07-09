@@ -30,7 +30,7 @@
       }
     ],
     "output": "_site",
-    "template": ["default", "modern"],
+    "template": ["default", "modern", "templates/sorolla"],
     "globalMetadata": {
       "_appTitle": "Sorolla SDK",
       "_appName": "Sorolla SDK",

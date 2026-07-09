@@ -1,0 +1,164 @@
+/* Sorolla Palette docs — custom layer over the docfx "modern" template.
+   Identity: Joaquín Sorolla's Mediterranean light — luminous white canvas,
+   ultramarine ink, sun ochre + coral daubs. Signature: the paint-daub strip. */
+
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  --srl-canvas: #fdfcf9;
+  --srl-ink: #20303f;
+  --srl-ultramarine: #2456a6;
+  --srl-ultramarine-deep: #1b3a6b;
+  --srl-ochre: #e8a13d;
+  --srl-coral: #de5f41;
+  --srl-sand: #f5efe3;
+  --srl-sea: #3d8ea9;
+
+  --bs-body-bg: var(--srl-canvas);
+  --bs-body-color: var(--srl-ink);
+  --bs-body-font-family: 'Instrument Sans', system-ui, sans-serif;
+  --bs-font-monospace: 'JetBrains Mono', ui-monospace, monospace;
+  --bs-link-color: var(--srl-ultramarine);
+  --bs-link-hover-color: var(--srl-ultramarine-deep);
+  --bs-link-color-rgb: 36, 86, 166;
+  --bs-link-hover-color-rgb: 27, 58, 107;
+  --bs-primary: var(--srl-ultramarine);
+  --bs-primary-rgb: 36, 86, 166;
+}
+
+[data-bs-theme='dark'] {
+  --srl-canvas: #131a23;
+  --srl-ink: #dfe6ee;
+  --srl-ultramarine: #7ba3e0;
+  --srl-ultramarine-deep: #a8c4ef;
+  --srl-sand: #1b2531;
+  --bs-body-bg: var(--srl-canvas);
+  --bs-body-color: var(--srl-ink);
+  --bs-link-color: var(--srl-ultramarine);
+  --bs-link-hover-color: var(--srl-ultramarine-deep);
+  --bs-link-color-rgb: 123, 163, 224;
+  --bs-link-hover-color-rgb: 168, 196, 239;
+}
+
+/* ---------- Signature: the paint-daub strip ---------- */
+/* Uneven hard stops so it reads as daubs on a palette, not a gradient. */
+.navbar {
+  border-bottom: none;
+  background: var(--bs-body-bg);
+  box-shadow: 0 4px 0 0 transparent;
+  position: relative;
+}
+.navbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 4px;
+  background: linear-gradient(
+    to right,
+    var(--srl-ultramarine) 0 34%,
+    var(--srl-sea) 34% 52%,
+    var(--srl-ochre) 52% 79%,
+    var(--srl-coral) 79% 91%,
+    var(--srl-ultramarine-deep) 91% 100%
+  );
+}
+
+/* ---------- Type ---------- */
+h1, h2, h3, .navbar-brand {
+  font-family: 'Bricolage Grotesque', 'Instrument Sans', sans-serif;
+  letter-spacing: -0.01em;
+}
+article h1 {
+  font-weight: 750;
+  font-size: 2.4rem;
+  margin-bottom: 1rem;
+}
+article h2 {
+  font-weight: 650;
+  margin-top: 2.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+/* swatch dot: heading counterpart of the daub strip */
+article h2::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50% 46% 52% 48%;
+  background: var(--srl-ochre);
+}
+article h2:nth-of-type(3n + 2)::before { background: var(--srl-coral); }
+article h2:nth-of-type(3n)::before { background: var(--srl-sea); }
+
+.navbar-brand {
+  font-weight: 700;
+  color: var(--srl-ink) !important;
+}
+
+article {
+  max-width: 76ch;
+  line-height: 1.65;
+}
+
+/* ---------- Code ---------- */
+code {
+  font-size: 0.875em;
+  color: var(--srl-ultramarine-deep);
+  background: var(--srl-sand);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+pre {
+  background: var(--srl-sand) !important;
+  border: none;
+  border-left: 3px solid var(--srl-ultramarine);
+  border-radius: 6px;
+}
+pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+[data-bs-theme='dark'] code { color: var(--srl-ultramarine); }
+
+/* ---------- Tables ---------- */
+.table {
+  --bs-table-striped-bg: var(--srl-sand);
+}
+.table thead {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 650;
+}
+
+/* ---------- Sidebars / TOC ---------- */
+.toc .nav-link.active,
+#toc a.link-body-emphasis:hover,
+.toc .nav-link:hover {
+  color: var(--srl-ultramarine) !important;
+}
+.affix h5 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+}
+
+/* ---------- Misc discipline ---------- */
+blockquote {
+  border-left: 3px solid var(--srl-ochre);
+  background: var(--srl-sand);
+  padding: 0.6rem 1rem;
+  border-radius: 0 6px 6px 0;
+  color: inherit;
+}
+.btn-primary {
+  --bs-btn-bg: var(--srl-ultramarine);
+  --bs-btn-border-color: var(--srl-ultramarine);
+  --bs-btn-hover-bg: var(--srl-ultramarine-deep);
+  --bs-btn-hover-border-color: var(--srl-ultramarine-deep);
+}
+:focus-visible {
+  outline: 2px solid var(--srl-ultramarine);
+  outline-offset: 2px;
+}
