@@ -729,3 +729,25 @@
 
 .sorolla-debugmenu-action-card-disabled .sorolla-debugmenu-action-card-label { color: rgb(95, 104, 117); } /* #5f6875 */
 .sorolla-debugmenu-action-card-disabled .sorolla-debugmenu-action-card-sub { color: rgb(77, 86, 99); } /* #4d5663 */
+
+/* Event chip row (tier-2 parity ruling): #1c222d bg / #c3cad6 text / #252c38 border, per team-lead's
+   token spec (the design project's earlier non-approved concept - no chip precedent in the approved
+   mockup 05, so this sheet is the source of truth for these exact values, not a re-derivation). */
+.sorolla-debugmenu-event-chip-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.sorolla-debugmenu-event-chip {
+    background-color: rgb(28, 34, 45); /* #1c222d */
+    color: rgb(195, 202, 214); /* #c3cad6 */
+    border-width: 1px;
+    border-color: rgb(37, 44, 56); /* #252c38 */
+    border-radius: 7px;
+    padding: 6px 10px;
+    font-size: 11px;
+    -unity-font-style: bold;
+    margin-right: 6px;
+    margin-bottom: 6px;
+}

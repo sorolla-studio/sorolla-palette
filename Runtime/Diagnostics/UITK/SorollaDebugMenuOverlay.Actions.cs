@@ -13,10 +13,16 @@ namespace Sorolla.Palette
     // event name is "sorolla_vitals_test" (QaActionRegistry.DoTrackTestEvent) - "palette_debug_ping"
     // does not exist anywhere in the SDK. Per section 8's message-rewriting rule ("counts, ids are
     // literal and copyable, never paraphrased"), the sub line uses the REAL event name, not the
-    // mockup's placeholder string. The IMGUI console additionally exposes Level Start/Complete and
-    // Economy Earn/Spend test buttons that the approved mockup does not show; matching the mockup
-    // exactly (one canonical smoke-test action) over silently expanding scope beyond what Arthur
-    // approved - those four stay reachable via "Legacy console" until a ruling says otherwise.
+    // mockup's placeholder string.
+    //
+    // Team-lead tier-2 parity ruling: port every IMGUI action, don't accept the mockup's narrower
+    // Events group as a ceiling. The 4 extra event triggers (Level Start/Complete, Economy Earn/
+    // Spend) ship as a compact chip row under "Fire test event" - #1c222d bg / #c3cad6 text /
+    // #252c38 border, per the ruling's token spec (from the design project's earlier, non-approved
+    // concept; the approved mockup 05 has no chip-row precedent, so this is a team-lead-directed
+    // extrapolation, not a source-of-truth screen). CONSENT gets a third row, "Refresh consent
+    // status", porting IMGUI's Consent -> Refresh. Once both land, every registry action the IMGUI
+    // console exposes has a home here - Legacy console can come out (separate commit).
     internal sealed partial class SorollaDebugMenuOverlay
     {
         internal VisualElement BuildActionsTab()
@@ -62,6 +68,11 @@ namespace Sorolla.Palette
                 "Clears the stored choice; CMP runs again on restart",
                 ActionButtonStyle.Normal,
                 () => RunActionAndRefresh(QaActionRegistry.ResetConsent)));
+            host.Add(BuildActionButton(
+                "Refresh consent status",
+                Palette.ConsentStatus + (Palette.CanRequestAds ? " · can request ads" : " · cannot request ads"),
+                ActionButtonStyle.Normal,
+                () => RunActionAndRefresh(QaActionRegistry.RefreshConsent)));
 
             host.Add(BuildActionGroupTitle("QA BRIDGE"));
             bool bridgeArmed = QaBridgeServer.IsArmed;
@@ -79,8 +90,32 @@ namespace Sorolla.Palette
                 "sorolla_vitals_test — visible in Console + vendor dashboards",
                 ActionButtonStyle.Normal,
                 () => RunActionAndRefresh(QaActionRegistry.TrackTestEvent)));
+            host.Add(BuildEventChipRow());
 
             return pane;
+        }
+
+        // Tier-2 parity ruling: the 4 remaining IMGUI test-event triggers as a compact chip row,
+        // not 4 more full-width cards - "Fire test event" is the one a studio tester reaches for,
+        // these are secondary smoke-test variants that don't each need a label+sub+arrow treatment.
+        VisualElement BuildEventChipRow()
+        {
+            var row = new VisualElement();
+            row.AddToClassList("sorolla-debugmenu-event-chip-row");
+
+            row.Add(BuildEventChip("Level Start", QaActionRegistry.LevelStart));
+            row.Add(BuildEventChip("Level Complete", QaActionRegistry.LevelComplete));
+            row.Add(BuildEventChip("Economy Earn", QaActionRegistry.EconomyEarn));
+            row.Add(BuildEventChip("Economy Spend", QaActionRegistry.EconomySpend));
+
+            return row;
+        }
+
+        VisualElement BuildEventChip(string label, string registryAction)
+        {
+            var chip = new Button(() => RunActionAndRefresh(registryAction)) { text = label };
+            chip.AddToClassList("sorolla-debugmenu-event-chip");
+            return chip;
         }
 
         void RunActionAndRefresh(string registryAction)
@@ -142,7 +177,11 @@ namespace Sorolla.Palette
 
             if (style != ActionButtonStyle.Disabled)
             {
-                var arrow = new Label(style == ActionButtonStyle.Primary ? "⧉" : "→");
+                // Tier-2 fix: the design source's ⧉ "copy" glyph is not in the runtime font and
+                // rendered as an empty tofu box on the primary card. → IS confirmed rendering
+                // correctly elsewhere in this same font (every Normal-skin card, pixel-verified in
+                // prior captures), so reuse it here instead of trusting a second, unverified glyph.
+                var arrow = new Label("→");
                 arrow.AddToClassList("sorolla-debugmenu-action-card-arrow");
                 button.Add(arrow);
 

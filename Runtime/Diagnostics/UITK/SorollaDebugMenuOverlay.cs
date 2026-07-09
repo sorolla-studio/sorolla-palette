@@ -78,8 +78,6 @@ namespace Sorolla.Palette
             else Open();
         }
 
-        static void OpenLegacyConsole() => SorollaDiagnosticsConsole.Show();
-
         void Build()
         {
             var document = gameObject.AddComponent<UIDocument>();
@@ -143,13 +141,12 @@ namespace Sorolla.Palette
             title.AddToClassList("sorolla-debugmenu-title");
             titleRow.Add(title);
 
-            // Temporary two-way switch for the phase 2-4 transition (Arthur, scope addition): the old
-            // IMGUI console still owns Actions/Console until those tabs are ported, so the 5-tap
-            // unlock opening this overlay directly must not strand anyone who needs it.
-            var legacy = new Button(OpenLegacyConsole) { text = "Legacy console" };
-            legacy.AddToClassList("sorolla-debugmenu-close");
-            titleRow.Add(legacy);
-
+            // Phase 4 (Actions tab parity ruling): "Legacy console" removed now that every
+            // QaActionRegistry action the IMGUI console exposed has a home here (ads, consent incl.
+            // refresh, QA bridge, report, and all 5 event triggers incl. the phase-4 chip row).
+            // Restores the mockups' one-line header as a side effect. The IMGUI console CODE stays
+            // (SorollaDiagnosticsConsole*.cs untouched) - only this button is gone; deletion is
+            // gated on Arthur's later device confirmation, not this phase.
             var close = new Button(Close) { text = "Close" };
             close.AddToClassList("sorolla-debugmenu-close");
             titleRow.Add(close);
