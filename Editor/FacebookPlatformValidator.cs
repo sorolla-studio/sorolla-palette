@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine.Networking;
 
@@ -53,8 +54,19 @@ namespace Sorolla.Palette.Editor
 
         internal static ProbeResult Current => s_lastResult;
 
+        // Graph vocabulary trap: FB Graph API supported_platforms uses IPHONE / IPAD / ANDROID.
+        // There is no "IOS" value - a correctly-provisioned iOS app registers as IPHONE and/or
+        // IPAD. This shipped once as a false "platform missing" report; do not compare against
+        // "IOS" again. Human-facing messages still say "iOS" (ActivePlatformName below).
+        static readonly string[] s_iosGraphPlatforms = { "IPHONE", "IPAD" };
+
         internal static string ActivePlatformName() =>
-            EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS ? "IOS" : "ANDROID";
+            EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS ? "iOS" : "ANDROID";
+
+        static bool IsRegistered(List<string> supportedPlatforms, string platformName) =>
+            platformName == "iOS"
+                ? s_iosGraphPlatforms.Any(supportedPlatforms.Contains)
+                : supportedPlatforms.Contains(platformName);
 
         /// <summary>
         ///     Kicks off a Graph API probe for this app id/client token/active-platform combination if
@@ -123,7 +135,7 @@ namespace Sorolla.Palette.Editor
                     "Facebook Graph API response could not be parsed. Re-run Build Health when online.", now);
             }
 
-            if (!supportedPlatforms.Contains(platformName))
+            if (!IsRegistered(supportedPlatforms, platformName))
             {
                 return new ProbeResult(ProbeState.PlatformMissing, appId, platformName,
                     $"FB app {appId} has no {platformName} platform registered in the FB console.\n" +

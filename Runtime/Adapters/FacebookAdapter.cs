@@ -171,11 +171,10 @@ namespace Sorolla.Palette.Adapters
                 && !string.IsNullOrEmpty(platformResult.RawResult))
             {
                 var parsed = JsonUtility.FromJson<SupportedPlatformsResponse>(platformResult.RawResult);
-                if (parsed?.supported_platforms != null
-                    && Array.IndexOf(parsed.supported_platforms, CurrentPlatformName) < 0)
+                if (parsed?.supported_platforms != null && !IsCurrentPlatformRegistered(parsed.supported_platforms))
                 {
                     string appId = NormalizeAppId(FB.AppId);
-                    ReportProbeFailure($"{CurrentPlatformName} not registered on FB app {appId}");
+                    ReportProbeFailure($"{CurrentPlatformDisplayName} not registered on FB app {appId}");
                     return;
                 }
             }
@@ -190,11 +189,23 @@ namespace Sorolla.Palette.Adapters
                 "auth_error", detail);
         }
 
-        private static string CurrentPlatformName =>
+        // Graph vocabulary trap: FB Graph API supported_platforms uses IPHONE / IPAD / ANDROID.
+        // There is no "IOS" value - a correctly-provisioned iOS app registers as IPHONE and/or
+        // IPAD. This shipped once as a false "platform missing" report; compare against the
+        // Graph vocabulary here, keep "iOS" only for the human-facing message.
 #if UNITY_IOS
-            "IOS";
+        private static readonly string[] s_iosGraphPlatforms = { "IPHONE", "IPAD" };
+
+        private static bool IsCurrentPlatformRegistered(string[] supportedPlatforms) =>
+            Array.IndexOf(supportedPlatforms, s_iosGraphPlatforms[0]) >= 0
+            || Array.IndexOf(supportedPlatforms, s_iosGraphPlatforms[1]) >= 0;
+
+        private static string CurrentPlatformDisplayName => "iOS";
 #else
-            "ANDROID";
+        private static bool IsCurrentPlatformRegistered(string[] supportedPlatforms) =>
+            Array.IndexOf(supportedPlatforms, "ANDROID") >= 0;
+
+        private static string CurrentPlatformDisplayName => "ANDROID";
 #endif
 
         [Serializable]
