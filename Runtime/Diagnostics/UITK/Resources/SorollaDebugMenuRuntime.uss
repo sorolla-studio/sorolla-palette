@@ -31,8 +31,16 @@
    ruling): the header was reading ~31% of screen height vs the mockup's ~22%, and stacked
    margin-bottoms across 5 blocks (badge row / count strip / context / coverage) compounded past
    the mockup's tighter spacing. */
+/* flex-wrap (tier-2 fix, portrait header-overlap bug): at the true 392pt-wide phone reference,
+   verdict badge + title + "Legacy console" + "Close" (4 elements - 2 more than the approved
+   mockup, which only has one close affordance; Legacy console is our own phase 2-4 scope
+   addition) don't fit one row. Without wrap the row doesn't grow taller to fit, so the title
+   label's painted text overlapped the badge instead of any element visibly overflowing -
+   found via a real portrait 1080x1920 capture. flex-wrap lets the buttons drop to their own
+   line instead of colliding with the badge/title. */
 .sorolla-debugmenu-header-row {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     margin-bottom: 8px;
 }
@@ -42,6 +50,11 @@
     -unity-font-style: bold;
     color: rgb(106, 116, 132); /* #6a7484 */
     flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .sorolla-debugmenu-close {
@@ -53,6 +66,8 @@
     padding: 4px 12px;
     font-size: 12px;
     -unity-font-style: bold;
+    flex-shrink: 0;
+    margin-bottom: 4px;
 }
 
 .sorolla-debugmenu-close:hover {
@@ -64,11 +79,13 @@
    identically across platforms. */
 .sorolla-debugmenu-badge {
     flex-direction: row;
+    flex-shrink: 0;
     align-items: center;
     border-radius: 8px;
     border-width: 1px;
     padding: 7px 14px;
     margin-right: 8px;
+    margin-bottom: 4px; /* breathing room when the row wraps at narrow widths */
     align-self: flex-start;
 }
 
