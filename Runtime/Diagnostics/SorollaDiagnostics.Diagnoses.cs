@@ -53,7 +53,7 @@ namespace Sorolla.Palette
         internal static (string why, string signal, string fix) FacebookGenericFailureDiagnosis(string vendorDetail)
         {
             string why = $"Facebook's validation probe failed ({vendorDetail}). The app's platform registration was checked and did not explain it, so the cause is one the SDK cannot see from inside the app: device clock/certificate, network path (VPN/private DNS blocking Facebook domains), or app credentials.";
-            const string signal = "Every Facebook call is rejected; siblings (Firebase, Adjust, MAX) may stay healthy at the same time if the cause is Facebook-specific (e.g. a Facebook certificate expiring while others are still valid on a future-dated device clock).";
+            const string signal = "Every Facebook call is rejected; siblings (Firebase, Adjust, MAX) may keep passing at the same time if the cause is Facebook-specific (e.g. a Facebook certificate expiring while others are still valid on a future-dated device clock).";
             const string fix = "Unknown from in-app data alone. Check the device clock is on automatic, then \"Copy SDK state\" (Actions) and send it to Sorolla - or walk the Facebook failure triage ladder (rung 1.5: device clock; rung 2: device network path; rung 3: does another Sorolla game on this device also fail).";
             return (why, signal, fix);
         }
@@ -62,7 +62,7 @@ namespace Sorolla.Palette
 
         internal static (string why, string signal, string fix) CannotRequestAdsDiagnosis() => (
             "The user has not granted the consent MAX's CMP requires before ads can be requested (GDPR/consent-mode gate), or consent was explicitly denied.",
-            "No ad request leaves the device; Show rewarded/Show interstitial both report \"not loaded\" even though the SDK itself is healthy.",
+            "No ad request leaves the device; Show rewarded/Show interstitial both report \"not loaded\" even though every other adapter row can still pass.",
             "This is often correct behavior, not a bug - a real user in a consent-required region who declines ads. To re-test the accepted-consent path: Actions -> Reset consent, then accept in the CMP form that reopens.");
 
         internal static (string why, string signal, string fix) AttDeniedDiagnosis() => (

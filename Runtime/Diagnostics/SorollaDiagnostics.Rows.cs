@@ -486,12 +486,30 @@ namespace Sorolla.Palette
         // shows (every editor playmode session, no native lib) and is a completely different fact
         // from the same wording on a real device build (missing config file) - see
         // FirebaseUnavailableInEditorDiagnosis / FirebaseUnavailableOnDeviceDiagnosis.
+        //
+        // Bug found in my own verification pass (phase-5 checkpoint 2, live device-vs-editor state
+        // check): the row's stored Detail text is the SHORT form ("Firebase native library not
+        // available"), not the fuller log-line wording ("...not available in Editor. This does not
+        // affect..."), so a detail.Contains("in Editor") string match never matched and every Fail
+        // silently fell into the DEVICE-build diagnosis - shown live in the Unity EDITOR, an honesty
+        // violation (guessing a config-file cause that doesn't apply). Fixed to key on
+        // Application.isEditor directly instead of re-deriving it from message text.
         static void AddFirebaseRow(List<SorollaDiagnosticRow> rows, string name, string vendorLabel,
             SorollaDiagnosticSeverity severity, string detail)
         {
             if (severity == SorollaDiagnosticSeverity.Fail && detail != null && detail.Contains("not available"))
             {
-                var diagnosis = detail.Contains("in Editor")
+                var diagnosis = Application.isEditor
+                    ? FirebaseUnavailableInEditorDiagnosis(vendorLabel)
+                    : FirebaseUnavailableOnDeviceDiagnosis(vendorLabel);
+                AddDiagnosed(rows, "Firebase", name, severity, detail, diagnosis);
+            }
+            else if (severity == SorollaDiagnosticSeverity.Fail && detail != null && detail.Contains("init failed"))
+            {
+                // Firebase Analytics' own distinct failure wording ("Firebase init failed - dropping
+                // analytics event") - Core failed and Analytics inherited it by dropping events,
+                // rather than reporting "not available" itself. Same editor-vs-device split applies.
+                var diagnosis = Application.isEditor
                     ? FirebaseUnavailableInEditorDiagnosis(vendorLabel)
                     : FirebaseUnavailableOnDeviceDiagnosis(vendorLabel);
                 AddDiagnosed(rows, "Firebase", name, severity, detail, diagnosis);
