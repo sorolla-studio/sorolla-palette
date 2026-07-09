@@ -637,3 +637,84 @@
     flex-shrink: 1;
     min-width: 0;
 }
+
+/* ---- Actions tab (phase 4): mockup 05, spec 2.5 ---- */
+
+.sorolla-debugmenu-actions-pane {
+    flex-grow: 1;
+    flex-direction: column;
+}
+
+/* Section-title / action-group accent token: #4fd0dd, 12px/800 (design-tokens.md "Tabs & accents"). */
+.sorolla-debugmenu-action-group-title {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgb(79, 208, 221); /* #4fd0dd */
+    letter-spacing: 0.4px;
+    margin-top: 10px;
+    margin-bottom: 6px;
+}
+
+/* Action button/card tokens (design-tokens.md "Actions"): min-height 48px, radius 9, label 13px/700
+   + sub 11px. Primary/Normal/Disabled skins below. */
+.sorolla-debugmenu-action-card {
+    flex-direction: row;
+    align-items: center;
+    min-height: 48px;
+    border-radius: 9px;
+    border-width: 1px;
+    padding: 10px 14px;
+    margin-bottom: 6px;
+}
+
+.sorolla-debugmenu-action-card-text {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.sorolla-debugmenu-action-card-label {
+    font-size: 13px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.sorolla-debugmenu-action-card-sub {
+    font-size: 11px;
+    white-space: normal;
+    margin-top: 2px;
+}
+
+.sorolla-debugmenu-action-card-arrow {
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-left: 10px;
+}
+
+.sorolla-debugmenu-action-card-primary {
+    background-color: rgb(28, 91, 99); /* #1c5b63 */
+    border-color: rgb(42, 122, 133); /* #2a7a85 */
+}
+
+.sorolla-debugmenu-action-card-primary .sorolla-debugmenu-action-card-label { color: rgb(223, 250, 253); } /* #dffafd */
+.sorolla-debugmenu-action-card-primary .sorolla-debugmenu-action-card-sub { color: rgb(159, 212, 218); } /* #9fd4da */
+.sorolla-debugmenu-action-card-primary .sorolla-debugmenu-action-card-arrow { color: rgb(159, 212, 218); }
+
+.sorolla-debugmenu-action-card-normal {
+    background-color: rgb(23, 29, 39); /* #171d27 */
+    border-color: rgb(36, 45, 58); /* #242d3a */
+}
+
+.sorolla-debugmenu-action-card-normal .sorolla-debugmenu-action-card-label { color: rgb(211, 218, 228); } /* #d3dae4 */
+.sorolla-debugmenu-action-card-normal .sorolla-debugmenu-action-card-sub { color: rgb(125, 134, 148); } /* #7d8694 */
+.sorolla-debugmenu-action-card-normal .sorolla-debugmenu-action-card-arrow { color: rgb(106, 116, 132); } /* #6a7484 */
+
+/* Disabled: no arrow, opacity 0.85, reason shown inline in the sub line (design-tokens.md). */
+.sorolla-debugmenu-action-card-disabled {
+    background-color: rgb(18, 21, 28); /* #12151c */
+    border-color: rgb(28, 34, 44); /* #1c222c */
+    opacity: 0.85;
+}
+
+.sorolla-debugmenu-action-card-disabled .sorolla-debugmenu-action-card-label { color: rgb(95, 104, 117); } /* #5f6875 */
+.sorolla-debugmenu-action-card-disabled .sorolla-debugmenu-action-card-sub { color: rgb(77, 86, 99); } /* #4d5663 */

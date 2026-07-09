@@ -115,6 +115,7 @@ namespace Sorolla.Palette
                     case 0: _tabPanes[i] = BuildIssuesTab(_rows); break;
                     case 1: _tabPanes[i] = BuildOverviewTab(_rows); break;
                     case 2: _tabPanes[i] = BuildConsoleTab(); break;
+                    case 3: _tabPanes[i] = BuildActionsTab(); break;
                     default: _tabPanes[i] = BuildPlaceholderPane(TabLabel(i)); break;
                 }
                 _tabPanes[i].style.display = i == 0 ? DisplayStyle.Flex : DisplayStyle.None;
