@@ -29,6 +29,7 @@ namespace Sorolla.Palette
         readonly Dictionary<string, bool> _overviewSectionExpanded = new Dictionary<string, bool>(16);
         VisualElement _overviewSectionsHost;
         List<SorollaDiagnosticRow> _overviewRows;
+        readonly List<Button> _overviewFilterChips = new List<Button>(6);
 
         internal VisualElement BuildOverviewTab(List<SorollaDiagnosticRow> rows)
         {
@@ -57,6 +58,7 @@ namespace Sorolla.Palette
         {
             var row = new VisualElement();
             row.AddToClassList("sorolla-debugmenu-filter-row");
+            _overviewFilterChips.Clear();
 
             foreach (OverviewFilter filter in new[]
                      {
@@ -74,6 +76,7 @@ namespace Sorolla.Palette
                 };
                 chip.AddToClassList("sorolla-debugmenu-filter-chip");
                 chip.userData = filter;
+                _overviewFilterChips.Add(chip);
                 row.Add(chip);
             }
 
@@ -84,19 +87,15 @@ namespace Sorolla.Palette
         {
             _overviewSectionsHost.Clear();
 
-            // Chip active-state sync (siblings share the parent filter row - simplest reliable path
-            // is a class sweep here rather than threading per-chip refs through the closures above).
-            VisualElement filterRow = _overviewSectionsHost.parent?.Q(className: "sorolla-debugmenu-filter-row");
-            if (filterRow != null)
+            // Chip active-state sync via the tracked chip list (team-lead tier-2 fix: the previous
+            // parent-traversal query never found the filter row - a ScrollView reparents its children
+            // into its own contentContainer, so _overviewSectionsHost.parent was the ScrollView's
+            // content container, not a sibling of the filter row - every chip silently stayed
+            // inactive-styled regardless of _overviewFilter).
+            foreach (Button chip in _overviewFilterChips)
             {
-                foreach (VisualElement child in filterRow.Children())
-                {
-                    if (child is Button chip)
-                    {
-                        bool active = chip.userData is OverviewFilter cf && cf == _overviewFilter;
-                        chip.EnableInClassList("sorolla-debugmenu-filter-chip-active", active);
-                    }
-                }
+                bool active = chip.userData is OverviewFilter cf && cf == _overviewFilter;
+                chip.EnableInClassList("sorolla-debugmenu-filter-chip-active", active);
             }
 
             List<SorollaDiagnosticRow> rows = _overviewRows;
@@ -135,7 +134,11 @@ namespace Sorolla.Palette
 
             if (visibleRows.Count == 0) return null; // empty sections hide under the active filter
 
-            bool hasProblems = fail > 0 || warn > 0;
+            // Team-lead tier-2 fix: WAIT counts as a problem for BOTH count color and default
+            // expansion (mockup 03's CONSENT section - "1 WAIT · 2 PASS" - renders amber and
+            // default-expanded). WAIT rows are on the Issues to-do list, so a section hiding one
+            // behind a "clean" green/collapsed treatment would misrepresent it.
+            bool hasProblems = fail > 0 || warn > 0 || wait > 0;
 
             var section = new VisualElement();
             section.AddToClassList("sorolla-debugmenu-section");

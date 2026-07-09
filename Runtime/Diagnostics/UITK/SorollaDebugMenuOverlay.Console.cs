@@ -114,7 +114,11 @@ namespace Sorolla.Palette
             SorollaDiagnostics.CopyRuntimeProblems(_consoleProblems);
 
             if (_consoleSummaryLabel != null)
-                _consoleSummaryLabel.text = $"{_consoleProblems.Count} problems · {_consoleEvents.Count} events";
+            {
+                _consoleSummaryLabel.text =
+                    $"{_consoleProblems.Count} {Pluralize("problem", _consoleProblems.Count)} · "
+                    + $"{_consoleEvents.Count} {Pluralize("event", _consoleEvents.Count)}";
+            }
 
             var entries = new List<ConsoleEntry>(_consoleEvents.Count + _consoleProblems.Count);
             foreach (SorollaDiagnosticEventLogEntry e in _consoleEvents)
@@ -164,6 +168,8 @@ namespace Sorolla.Palette
             return new ConsoleEntry(p.LastTimeSeconds, "DROPPED", "sorolla-debugmenu-badge-fail",
                 $"{SorollaDiagnostics.FormatEventTime(p.LastTimeSeconds)}  {p.Type} (see Issues) x{p.Count}", payload);
         }
+
+        static string Pluralize(string noun, int count) => count == 1 ? noun : noun + "s";
 
         static (string text, string cssClass) BadgeForEventSource(string source)
         {
