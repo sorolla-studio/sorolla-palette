@@ -33,6 +33,7 @@
     "template": ["default", "modern", "templates/sorolla"],
     "globalMetadata": {
       "_appTitle": "Sorolla SDK",
+      "_appFaviconPath": "logo.svg",
       "_appName": "Sorolla SDK",
       "_enableSearch": true,
       "_appFooter": "© Sorolla Studio",
