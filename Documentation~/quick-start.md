@@ -1,5 +1,12 @@
 # Prototype Mode Quick Start
 
+<div class="srl-journey">
+  <span class="srl-journey-step srl-journey-current">Prototype</span>
+  <span class="srl-journey-step"><a href="switching-to-full.html">Full migration</a></span>
+  <span class="srl-journey-step"><a href="validation.html">Validation</a></span>
+  <span class="srl-journey-step">Soft launch</span>
+</div>
+
 Fresh installs start in **Prototype** mode automatically. Do not switch to Full mode until Sorolla tells you to do so.
 
 Follow these instructions to prepare the build in prototype mode:

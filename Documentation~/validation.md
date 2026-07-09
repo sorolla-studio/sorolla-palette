@@ -1,5 +1,12 @@
 # Full Mode Validation Checklist
 
+<div class="srl-journey">
+  <span class="srl-journey-step"><a href="quick-start.html">Prototype</a></span>
+  <span class="srl-journey-step"><a href="switching-to-full.html">Full migration</a></span>
+  <span class="srl-journey-step srl-journey-current">Validation</span>
+  <span class="srl-journey-step">Soft launch</span>
+</div>
+
 Use this page for Full-mode soft-launch validation.
 
 For Prototype mode, use the embedded checklist at the end of [Prototype Mode Quick Start](quick-start.md#prototype-checklist). Keeping Prototype setup and Prototype validation on one page avoids a second path for studios.

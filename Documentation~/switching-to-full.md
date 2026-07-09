@@ -1,5 +1,12 @@
 # Full Mode Soft Launch Migration
 
+<div class="srl-journey">
+  <span class="srl-journey-step"><a href="quick-start.html">Prototype</a></span>
+  <span class="srl-journey-step srl-journey-current">Full migration</span>
+  <span class="srl-journey-step"><a href="validation.html">Validation</a></span>
+  <span class="srl-journey-step">Soft launch</span>
+</div>
+
 Move to Full mode when your Prototype build is already reporting level analytics and the game is ready for soft-launch monetization, attribution, consent, and revenue validation.
 
 **Best for:** soft launch, paid UA tests, ad monetization tests, store-submitted builds.

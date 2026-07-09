@@ -1,19 +1,27 @@
-- name: Prototype Quick Start
+- name: "1 · Prototype"
   href: quick-start.md
-- name: Full Mode Migration
-  href: switching-to-full.md
-- name: Full Mode Validation
-  href: validation.md
+- name: "2 · Going Full"
+  items:
+    - name: Full Mode Migration
+      href: switching-to-full.md
+    - name: Full Mode Validation
+      href: validation.md
 - name: SDK Guides
   href: guides/toc.yml
 - name: API Reference
   href: api/
   topicUid: Sorolla.Palette.Palette
-- name: Troubleshooting
-  href: troubleshooting.md
-- name: Known Issues
-  href: known-issues.md
-- name: Architecture
-  href: architecture.md
-- name: Contributing
-  href: contributing.md
+- name: Help
+  items:
+    - name: Troubleshooting
+      href: troubleshooting.md
+    - name: Known Issues
+      href: known-issues.md
+    - name: App Store Privacy
+      href: app-store-privacy.md
+- name: About
+  items:
+    - name: Architecture
+      href: architecture.md
+    - name: Contributing
+      href: contributing.md

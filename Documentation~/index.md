@@ -1,28 +1,32 @@
 # Sorolla Palette SDK
 
-Unity SDK for mobile game studios working with Sorolla. Start with Prototype mode, prove the core analytics path, then migrate to Full mode when the build is ready for soft launch.
+<div class="srl-hero">
+  <p class="srl-hero-eyebrow">Sorolla Studio · Unity SDK</p>
+  <p class="srl-hero-lead">One package for everything a Sorolla game ships with: analytics, ads, attribution, consent, and remote config behind a single <code>Palette</code> API. Install it, paste your keys, wire three level events — Palette handles the rest.</p>
+  <div class="srl-cards">
+    <a class="srl-card" href="quick-start.html">
+      <span class="srl-card-step">Step 1</span>
+      <strong>Prototype Mode</strong>
+      <span>First integration. GameAnalytics, Facebook, and Firebase for publisher review builds and CPI tests. About an hour.</span>
+    </a>
+    <a class="srl-card" href="switching-to-full.html">
+      <span class="srl-card-step">Step 2</span>
+      <strong>Full Mode</strong>
+      <span>When the game is ready for soft launch: ads, attribution, consent, and revenue validation on top of Prototype.</span>
+    </a>
+  </div>
+</div>
 
-## Start Here
+## The integration journey
 
-### Prototype Mode
+<div class="srl-journey">
+  <span class="srl-journey-step"><a href="quick-start.html">Prototype</a></span>
+  <span class="srl-journey-step"><a href="switching-to-full.html">Full migration</a></span>
+  <span class="srl-journey-step"><a href="validation.html">Validation</a></span>
+  <span class="srl-journey-step">Soft launch</span>
+</div>
 
-Fastest path to a useful studio build:
-
-1. Install Palette.
-2. Create GameAnalytics, Facebook, and Firebase apps.
-3. Paste the keys and config files.
-4. Add three level analytics calls.
-5. Build once on device.
-
-[Follow the Prototype quick start](quick-start.md)
-
-### Full Mode
-
-Use this when Prototype analytics are already working and the game is ready for ads, attribution, consent, and revenue validation.
-
-[Migrate to Full mode](switching-to-full.md)
-
-## What Palette Handles
+Every game follows the same path. Fresh installs start in Prototype mode automatically; do not switch to Full mode until Sorolla tells you to.
 
 | Mode | Included SDKs | Best for |
 |------|---------------|----------|
@@ -31,7 +35,7 @@ Use this when Prototype analytics are already working and the game is ready for 
 
 Palette auto-initializes at runtime. Studios only wire game events and game-specific placements.
 
-## Common Paths
+## Common paths
 
 | Need | Go to |
 |------|-------|
@@ -40,9 +44,10 @@ Palette auto-initializes at runtime. Studios only wire game events and game-spec
 | Full-mode validation | [Full Mode Validation](validation.md) |
 | API signatures | [API Reference](api-reference.md) |
 | Build or dashboard issue | [Troubleshooting](troubleshooting.md) |
+| Upload/store rejections seen before | [Known Issues](known-issues.md) |
 | App Store privacy answers | [App Store Privacy](app-store-privacy.md) |
 
-## SDK Setup Guides
+## SDK setup guides
 
 Use these only when you need dashboard-level detail:
 
