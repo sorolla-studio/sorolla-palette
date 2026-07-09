@@ -98,12 +98,23 @@
     margin-bottom: 2px;
 }
 
-/* Coverage line: #7d8694 normal, amber #d9a636 when coverage is thin (design-tokens.md COVERAGE). */
+/* COVERAGE caption (design-tokens.md: "COVERAGE label: 9.5px/800"). */
+.sorolla-debugmenu-coverage-caption {
+    font-size: 9.5px;
+    -unity-font-style: bold;
+    letter-spacing: 0.4px;
+    color: rgb(125, 134, 148);
+    margin-bottom: 1px;
+}
+
+/* Coverage line: #7d8694 normal, amber #d9a636 when coverage is thin (design-tokens.md COVERAGE).
+   white-space normal so a long line wraps (matches mockup 01/02's two-line coverage sentence)
+   instead of being clipped at the panel edge (found in visual QA against mockup 01). */
 .sorolla-debugmenu-coverage-line {
     font-size: 11px;
-    -unity-font-style: bold;
     color: rgb(125, 134, 148);
     margin-bottom: 2px;
+    white-space: normal;
 }
 
 .sorolla-debugmenu-coverage-line-thin {
@@ -180,8 +191,12 @@
     flex-direction: column;
 }
 
+/* padding-right reserves a gutter so the vertical scrollbar (drawn inside the ScrollView's own
+   box) doesn't sit on top of row text - found via visual QA against mockup 01, where row detail
+   ran under the scrollbar thumb. */
 .sorolla-debugmenu-issues-scroll {
     flex-grow: 1;
+    padding-right: 14px;
 }
 
 /* Row skins by severity (design-tokens.md): FAIL #1d1210/#4a2620, WARN #1c1810/#463a1c,
@@ -229,11 +244,19 @@
     margin-right: 8px;
 }
 
+/* Ellipsis truncation needs all three of these (UITK, not one shorthand); flex-shrink + min-width:0
+   is required or a flex child never shrinks below its text's natural width and overflow/ellipsis
+   never kicks in - found via visual QA against mockup 01, where the old `flex-grow:1` alone let
+   long detail strings run under the chevron/scrollbar instead of eliding. */
 .sorolla-debugmenu-issue-detail {
     font-size: 11px;
     color: rgb(125, 134, 148);
     flex-grow: 1;
-    -unity-text-overflow-position: end;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .sorolla-debugmenu-issue-chevron {

@@ -20,6 +20,15 @@ namespace Sorolla.Palette
         const string UssResourcePath = "SorollaDebugMenuRuntime";
         const int PanelSortingOrder = 32000;
 
+        // The design source (Sorolla Vitals Mobile.dc.html) authors its 11-13px type scale as phone
+        // POINTS, not desktop pixels. ScaleWithScreenSize + this reference resolution reproduces that
+        // scale on any game view size (large editor Game View included) instead of rendering the raw
+        // px values 1:1, which is unreadably tiny on anything wider than a phone. 392x852 matches the
+        // design source's phone frame; matchWidthOrHeight = 0.5 blends width/height matching so
+        // neither portrait nor a wider aspect starves the type scale.
+        static readonly Vector2Int ReferenceResolution = new Vector2Int(392, 852);
+        const float ReferenceResolutionMatch = 0.5f;
+
         static SorollaDebugMenuOverlay s_instance;
 
         PanelSettings _panelSettings;
@@ -71,6 +80,8 @@ namespace Sorolla.Palette
             _panelSettings.name = "SorollaDebugMenuPanelSettings (runtime, code-created)";
             _panelSettings.themeStyleSheet = Resources.Load<ThemeStyleSheet>(ThemeResourcePath);
             _panelSettings.scaleMode = PanelScaleMode.ScaleWithScreenSize;
+            _panelSettings.referenceResolution = ReferenceResolution;
+            _panelSettings.match = ReferenceResolutionMatch;
             _panelSettings.sortingOrder = PanelSortingOrder;
             document.panelSettings = _panelSettings;
 
@@ -130,11 +141,19 @@ namespace Sorolla.Palette
             contextLine.AddToClassList("sorolla-debugmenu-context-line");
             header.Add(contextLine);
 
+            var coverageCaption = new Label("COVERAGE");
+            coverageCaption.AddToClassList("sorolla-debugmenu-coverage-caption");
+
             string coverageText = SorollaDiagnostics.BuildMenuCoverageLine(out bool thin);
             var coverageLine = new Label(coverageText);
             coverageLine.AddToClassList("sorolla-debugmenu-coverage-line");
             if (thin)
+            {
+                coverageCaption.AddToClassList("sorolla-debugmenu-coverage-line-thin");
                 coverageLine.AddToClassList("sorolla-debugmenu-coverage-line-thin");
+            }
+
+            header.Add(coverageCaption);
             header.Add(coverageLine);
 
             return header;
