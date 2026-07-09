@@ -21,13 +21,18 @@ namespace Sorolla.Palette
         const int PanelSortingOrder = 32000;
 
         // The design source (Sorolla Vitals Mobile.dc.html) authors its 11-13px type scale as phone
-        // POINTS, not desktop pixels. ScaleWithScreenSize + this reference resolution reproduces that
-        // scale on any game view size (large editor Game View included) instead of rendering the raw
-        // px values 1:1, which is unreadably tiny on anything wider than a phone. 392x852 matches the
-        // design source's phone frame; matchWidthOrHeight = 0.5 blends width/height matching so
-        // neither portrait nor a wider aspect starves the type scale.
-        static readonly Vector2Int ReferenceResolution = new Vector2Int(392, 852);
-        const float ReferenceResolutionMatch = 0.5f;
+        // POINTS on a 392-wide phone frame. ScaleWithScreenSize's width/height blend (`match`) breaks
+        // down on a landscape desktop Game View (1920x1080): matching width scales 1920/392=4.9x but
+        // matching height only scales 1080/852=1.27x, and any blend between them still starves the
+        // type on the height-dominated axis - confirmed too-small live at 1920x1080 even after the
+        // first ScaleWithScreenSize fix. ConstantPixelSize + a manually computed `scale`, driven by
+        // the SHORTER screen dimension, sidesteps the axis-blend problem entirely: a phone reads off
+        // its width, a landscape desktop window reads off its height, and either way the type scale
+        // matches "point size relative to the narrow axis" the way a real phone would render it.
+        const float ReferenceShortDimension = 392f;
+
+        static float ComputePanelScale() =>
+            Mathf.Max(1f, Mathf.Min(Screen.width, Screen.height) / ReferenceShortDimension);
 
         static SorollaDebugMenuOverlay s_instance;
 
@@ -73,15 +78,16 @@ namespace Sorolla.Palette
             else Open();
         }
 
+        static void OpenLegacyConsole() => SorollaDiagnosticsConsole.Show();
+
         void Build()
         {
             var document = gameObject.AddComponent<UIDocument>();
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
             _panelSettings.name = "SorollaDebugMenuPanelSettings (runtime, code-created)";
             _panelSettings.themeStyleSheet = Resources.Load<ThemeStyleSheet>(ThemeResourcePath);
-            _panelSettings.scaleMode = PanelScaleMode.ScaleWithScreenSize;
-            _panelSettings.referenceResolution = ReferenceResolution;
-            _panelSettings.match = ReferenceResolutionMatch;
+            _panelSettings.scaleMode = PanelScaleMode.ConstantPixelSize;
+            _panelSettings.scale = ComputePanelScale();
             _panelSettings.sortingOrder = PanelSortingOrder;
             document.panelSettings = _panelSettings;
 
@@ -129,6 +135,13 @@ namespace Sorolla.Palette
             var title = new Label("Sorolla Vitals");
             title.AddToClassList("sorolla-debugmenu-title");
             titleRow.Add(title);
+
+            // Temporary two-way switch for the phase 2-4 transition (Arthur, scope addition): the old
+            // IMGUI console still owns Actions/Console until those tabs are ported, so the 5-tap
+            // unlock opening this overlay directly must not strand anyone who needs it.
+            var legacy = new Button(OpenLegacyConsole) { text = "Legacy console" };
+            legacy.AddToClassList("sorolla-debugmenu-close");
+            titleRow.Add(legacy);
 
             var close = new Button(Close) { text = "Close" };
             close.AddToClassList("sorolla-debugmenu-close");

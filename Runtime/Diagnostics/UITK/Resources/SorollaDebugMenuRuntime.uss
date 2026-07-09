@@ -92,10 +92,17 @@
 .sorolla-debugmenu-badge-failing .sorolla-debugmenu-badge-label { color: rgb(255, 157, 148); }
 .sorolla-debugmenu-badge-failing .sorolla-debugmenu-badge-dot { background-color: rgb(224, 88, 79); }
 
+/* width:100% + white-space:normal (not just one or the other) - a Label with no explicit width
+   sizes to its own intrinsic (unwrapped) text width in some UITK layouts regardless of white-space,
+   so wrapping never kicks in without an explicit width to wrap against. Found live at 1920x1080
+   (context/coverage text overflowing the panel edge instead of wrapping) even after white-space
+   alone was set. */
 .sorolla-debugmenu-context-line {
     font-size: 11px;
     color: rgb(111, 122, 138); /* header context line #6f7a8a */
     margin-bottom: 2px;
+    white-space: normal;
+    width: 100%;
 }
 
 /* COVERAGE caption (design-tokens.md: "COVERAGE label: 9.5px/800"). */
@@ -115,6 +122,7 @@
     color: rgb(125, 134, 148);
     margin-bottom: 2px;
     white-space: normal;
+    width: 100%;
 }
 
 .sorolla-debugmenu-coverage-line-thin {
@@ -197,6 +205,29 @@
 .sorolla-debugmenu-issues-scroll {
     flex-grow: 1;
     padding-right: 14px;
+}
+
+/* No default widget chrome may survive (standing rule): the default UITK vertical scroller reads
+   as an unfinished desktop-app scrollbar (thick track, arrow buttons, grey chrome). Restyled to a
+   thin token-colored thumb with no track/arrows, matching the design source's own scrollbar spec. */
+.sorolla-debugmenu-issues-scroll .unity-scroller--vertical {
+    width: 8px;
+}
+
+.sorolla-debugmenu-issues-scroll .unity-scroller__low-button,
+.sorolla-debugmenu-issues-scroll .unity-scroller__high-button {
+    display: none;
+}
+
+.sorolla-debugmenu-issues-scroll .unity-scroller--vertical .unity-base-slider__tracker {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+}
+
+.sorolla-debugmenu-issues-scroll .unity-scroller--vertical .unity-base-slider__dragger {
+    background-color: rgb(58, 63, 72); /* #3a3f48 */
+    border-radius: 6px;
+    width: 6px;
 }
 
 /* Row skins by severity (design-tokens.md): FAIL #1d1210/#4a2620, WARN #1c1810/#463a1c,
