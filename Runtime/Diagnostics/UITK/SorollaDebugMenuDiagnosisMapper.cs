@@ -24,11 +24,12 @@ namespace Sorolla.Palette
     }
 
     /// <summary>
-    ///     Maps an existing <see cref="SorollaDiagnosticRow"/> (one free-text Detail string) into the
-    ///     three-part WHY/SIGNAL/FIX shape the Issues tab renders. As of phase 2, every row uses the
-    ///     fallback shape - the underlying data model has no structured WHY/SIGNAL/FIX fields yet, and
-    ///     rewriting the diagnostic message strings themselves is explicitly out of scope (phase-5
-    ///     content pass, spec section 8). Do not special-case individual message strings here.
+    ///     Maps a <see cref="SorollaDiagnosticRow"/> into the three-part WHY/SIGNAL/FIX shape the
+    ///     Issues/Overview tabs render. Phase 5 (content pass): prefers the row's own structured
+    ///     Why/Signal/Fix when the row-producing site populated them (see SorollaDiagnostics.
+    ///     Diagnoses.cs); falls back to the free-text Detail in the old single-line shape for every
+    ///     row class that isn't wired yet. Do not special-case individual message strings here - new
+    ///     diagnoses get added at the row-producing site, not in this mapper.
     /// </summary>
     internal static class SorollaDebugMenuDiagnosisMapper
     {
@@ -37,6 +38,9 @@ namespace Sorolla.Palette
 
         internal static SorollaDebugMenuDiagnosis Map(SorollaDiagnosticRow row)
         {
+            if (row.HasStructuredDiagnosis)
+                return new SorollaDebugMenuDiagnosis(row.Why, row.Signal, row.Fix, true);
+
             string why = string.IsNullOrEmpty(row.Detail) ? "No detail recorded." : row.Detail;
             return new SorollaDebugMenuDiagnosis(why, UnknownSignal, UnknownFix, false);
         }

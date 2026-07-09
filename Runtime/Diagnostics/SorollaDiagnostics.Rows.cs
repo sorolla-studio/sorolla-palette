@@ -24,9 +24,25 @@ namespace Sorolla.Palette
                 Palette.IsInitialized || snapshot.ReadySeen ? "Ready" : snapshot.InitDetail);
             Add(rows, "Boot", "Network reachability", ReachabilitySeverity(), Application.internetReachability.ToString());
 
-            Add(rows, "Config", "SorollaConfig", config != null ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Fail,
-                config != null ? "Loaded from Resources" : "Missing Assets/Resources/SorollaConfig.asset");
-            Add(rows, "Config", "Adjust token", ConfigPresence(config?.adjustAppToken, fullMode, snapshot.AdjustMissingToken));
+            if (config != null)
+            {
+                Add(rows, "Config", "SorollaConfig", SorollaDiagnosticSeverity.Pass, "Loaded from Resources");
+            }
+            else
+            {
+                AddDiagnosed(rows, "Config", "SorollaConfig", SorollaDiagnosticSeverity.Fail,
+                    "Missing Assets/Resources/SorollaConfig.asset", SorollaConfigMissingDiagnosis());
+            }
+
+            if (fullMode && snapshot.AdjustMissingToken)
+            {
+                AddDiagnosed(rows, "Config", "Adjust token", SorollaDiagnosticSeverity.Fail,
+                    "Missing or rejected by SDK", AdjustTokenMissingDiagnosis());
+            }
+            else
+            {
+                Add(rows, "Config", "Adjust token", ConfigPresence(config?.adjustAppToken, fullMode, snapshot.AdjustMissingToken));
+            }
             Add(rows, "Config", "Adjust environment", AdjustEnvironmentSeverity(config, fullMode),
                 AdjustEnvironmentDetail(config, fullMode));
             Add(rows, "Config", "Rewarded ad unit", ConfigPresence(config?.rewardedAdUnit?.Current, fullMode, false));
@@ -43,7 +59,8 @@ namespace Sorolla.Palette
                     ? "Ready"
                     : AdapterRowDetail(snapshot.GameAnalyticsOutcome, "Waiting for GameAnalytics initialization"));
 #else
-            Add(rows, "SDKs", "GameAnalytics", SorollaDiagnosticSeverity.Fail, "Package not installed");
+            AddDiagnosed(rows, "SDKs", "GameAnalytics", SorollaDiagnosticSeverity.Fail, "Package not installed",
+                PackageMissingDiagnosis("GameAnalytics", "com.gameanalytics.sdk"));
 #endif
 
 #if SOROLLA_FACEBOOK_ENABLED
@@ -58,9 +75,23 @@ namespace Sorolla.Palette
             string facebookDetail = snapshot.FacebookFailed ? "Initialization failed" :
                 facebookValidated ? "Initialized and validated" :
                 snapshot.FacebookInitialized ? "Validating app credentials" : "Waiting for init callback";
-            Add(rows, "SDKs", "Facebook",
-                AdapterRowSeverity(snapshot.FacebookOutcome, facebookSeverity),
-                AdapterRowDetail(snapshot.FacebookOutcome, facebookDetail));
+            SorollaDiagnosticSeverity facebookRowSeverity = AdapterRowSeverity(snapshot.FacebookOutcome, facebookSeverity);
+            string facebookRowDetail = AdapterRowDetail(snapshot.FacebookOutcome, facebookDetail);
+            if (facebookRowSeverity == SorollaDiagnosticSeverity.Fail)
+            {
+                // fb-failure-triage.md rung 1: DiagnoseProbeFailure already wrote "{platform} not
+                // registered on FB app {appId}" into the detail when Graph confirmed the platform
+                // gap (the boulder-evolution cause). Any other Fail detail is a genuine SDK-can't-see
+                // boundary (rungs 1.5-5 of the ladder) - honestly named as unknown, not guessed.
+                var diagnosis = facebookRowDetail != null && facebookRowDetail.Contains("not registered on FB app")
+                    ? FacebookPlatformNotRegisteredDiagnosis(facebookRowDetail)
+                    : FacebookGenericFailureDiagnosis(facebookRowDetail);
+                AddDiagnosed(rows, "SDKs", "Facebook", facebookRowSeverity, facebookRowDetail, diagnosis);
+            }
+            else
+            {
+                Add(rows, "SDKs", "Facebook", facebookRowSeverity, facebookRowDetail);
+            }
 #else
             Add(rows, "SDKs", "Facebook", SorollaDiagnosticSeverity.Info, "Package not installed");
 #endif
@@ -72,8 +103,11 @@ namespace Sorolla.Palette
                 AdapterRowSeverity(snapshot.MaxOutcome, snapshot.MaxInitialized ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting),
                 AdapterRowDetail(snapshot.MaxOutcome, snapshot.MaxInitialized ? "Initialized" : "Waiting for MAX callback"));
 #else
-            Add(rows, "SDKs", "MAX", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
-                fullMode ? "Package missing for Full mode" : "Not installed");
+            if (fullMode)
+                AddDiagnosed(rows, "SDKs", "MAX", SorollaDiagnosticSeverity.Fail, "Package missing for Full mode",
+                    PackageMissingDiagnosis("AppLovin MAX", "com.applovin.mediation.ads"));
+            else
+                Add(rows, "SDKs", "MAX", SorollaDiagnosticSeverity.Info, "Not installed");
 #endif
 
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
@@ -82,8 +116,11 @@ namespace Sorolla.Palette
             Add(rows, "SDKs", "Adjust initialized", AdjustRuntimeSeverity(snapshot, fullMode),
                 AdjustRuntimeDetail(snapshot, fullMode));
 #else
-            Add(rows, "SDKs", "Adjust", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
-                fullMode ? "Package missing for Full mode" : "Not installed");
+            if (fullMode)
+                AddDiagnosed(rows, "SDKs", "Adjust", SorollaDiagnosticSeverity.Fail, "Package missing for Full mode",
+                    PackageMissingDiagnosis("Adjust", "com.adjust.sdk"));
+            else
+                Add(rows, "SDKs", "Adjust", SorollaDiagnosticSeverity.Info, "Not installed");
 #endif
 
 #if FIREBASE_ANALYTICS_INSTALLED
@@ -96,8 +133,11 @@ namespace Sorolla.Palette
                 AdapterRowSeverity(snapshot.FirebaseAnalyticsOutcome, firebaseAnalyticsReady ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting),
                 AdapterRowDetail(snapshot.FirebaseAnalyticsOutcome, firebaseAnalyticsReady ? "Ready" : "Waiting for Firebase Analytics"));
 #else
-            Add(rows, "Firebase", "Analytics", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
-                fullMode ? "Package missing for Full mode" : "Not installed");
+            if (fullMode)
+                AddDiagnosed(rows, "Firebase", "Analytics", SorollaDiagnosticSeverity.Fail, "Package missing for Full mode",
+                    PackageMissingDiagnosis("Firebase Analytics", "com.google.firebase.analytics"));
+            else
+                Add(rows, "Firebase", "Analytics", SorollaDiagnosticSeverity.Info, "Not installed");
 #endif
 
 #if FIREBASE_CRASHLYTICS_INSTALLED
@@ -106,8 +146,11 @@ namespace Sorolla.Palette
                 AdapterRowSeverity(snapshot.CrashlyticsOutcome, crashlyticsReady ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting),
                 AdapterRowDetail(snapshot.CrashlyticsOutcome, crashlyticsReady ? "Initialized" : "Waiting for init"));
 #else
-            Add(rows, "Firebase", "Crashlytics", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
-                fullMode ? "Package missing for Full mode" : "Not installed");
+            if (fullMode)
+                AddDiagnosed(rows, "Firebase", "Crashlytics", SorollaDiagnosticSeverity.Fail, "Package missing for Full mode",
+                    PackageMissingDiagnosis("Firebase Crashlytics", "com.google.firebase.crashlytics"));
+            else
+                Add(rows, "Firebase", "Crashlytics", SorollaDiagnosticSeverity.Info, "Not installed");
 #endif
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
@@ -120,15 +163,31 @@ namespace Sorolla.Palette
                 AdapterRowSeverity(snapshot.RemoteConfigOutcome, remoteConfigSeverity),
                 AdapterRowDetail(snapshot.RemoteConfigOutcome, remoteConfigDetail));
 #else
-            Add(rows, "Firebase", "Remote Config", fullMode ? SorollaDiagnosticSeverity.Fail : SorollaDiagnosticSeverity.Info,
-                fullMode ? "Package missing for Full mode" : "Not installed");
+            if (fullMode)
+                AddDiagnosed(rows, "Firebase", "Remote Config", SorollaDiagnosticSeverity.Fail, "Package missing for Full mode",
+                    PackageMissingDiagnosis("Firebase Remote Config", "com.google.firebase.remote-config"));
+            else
+                Add(rows, "Firebase", "Remote Config", SorollaDiagnosticSeverity.Info, "Not installed");
 #endif
 
             Add(rows, "Consent", "MAX consent", ConsentSeverity(snapshot),
                 snapshot.MaxConsentSeen ? snapshot.MaxConsentDetail : "Waiting for consent status");
-            Add(rows, "Consent", "Can request ads", Palette.CanRequestAds ? SorollaDiagnosticSeverity.Pass : fullMode ? SorollaDiagnosticSeverity.Warning : SorollaDiagnosticSeverity.Info,
-                Palette.CanRequestAds ? "True" : fullMode ? "False" : "Not applicable");
-            Add(rows, "Consent", "ATT", AttSeverity(), Palette.AttStatus.ToString());
+            if (!Palette.CanRequestAds && fullMode)
+            {
+                AddDiagnosed(rows, "Consent", "Can request ads", SorollaDiagnosticSeverity.Warning, "False",
+                    CannotRequestAdsDiagnosis());
+            }
+            else
+            {
+                Add(rows, "Consent", "Can request ads", Palette.CanRequestAds ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
+                    Palette.CanRequestAds ? "True" : "Not applicable");
+            }
+
+            SorollaDiagnosticSeverity attSeverity = AttSeverity();
+            if (attSeverity == SorollaDiagnosticSeverity.Warning)
+                AddDiagnosed(rows, "Consent", "ATT", attSeverity, Palette.AttStatus.ToString(), AttDeniedDiagnosis());
+            else
+                Add(rows, "Consent", "ATT", attSeverity, Palette.AttStatus.ToString());
             AddObserved(rows, "Identity", AdvertisingIdLabel(), AdvertisingIdSeverity(snapshot), AdvertisingIdDetail(snapshot));
             AddObserved(rows, "Identity", "Adjust ADID", AdjustIdSeverity(snapshot, fullMode), AdjustIdDetail(snapshot, fullMode));
             AddObserved(rows, "Identity", "Attribution", AttributionSeverity(snapshot, fullMode), AttributionDetail(snapshot));
@@ -147,14 +206,12 @@ namespace Sorolla.Palette
             AddObserved(rows, "Activity", "Purchase issues", snapshot.PurchaseIssue == "No issue observed" ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
                 snapshot.PurchaseDuplicateCount > 0 ? $"{snapshot.PurchaseIssue}; duplicates={snapshot.PurchaseDuplicateCount}" : snapshot.PurchaseIssue);
 
-            Add(rows, "Ads", "Interstitial", AdSeverity(snapshot.InterstitialReady, snapshot.InterstitialLoadStarted,
-                    snapshot.InterstitialLoadFailed, snapshot.InterstitialLoaded, snapshot.InterstitialCompleted, snapshot.MaxInitialized),
-                AdDetail(snapshot.InterstitialReady, snapshot.InterstitialLoadStarted, snapshot.InterstitialLoadFailed,
-                    snapshot.InterstitialLoaded, snapshot.InterstitialCompleted, snapshot.InterstitialLoadIssue, snapshot.MaxInitialized));
-            Add(rows, "Ads", "Rewarded", AdSeverity(snapshot.RewardedReady, snapshot.RewardedLoadStarted,
-                    snapshot.RewardedLoadFailed, snapshot.RewardedLoaded, snapshot.RewardedCompleted, snapshot.MaxInitialized),
-                AdDetail(snapshot.RewardedReady, snapshot.RewardedLoadStarted, snapshot.RewardedLoadFailed,
-                    snapshot.RewardedLoaded, snapshot.RewardedCompleted, snapshot.RewardedLoadIssue, snapshot.MaxInitialized));
+            AddAdRow(rows, "Interstitial", snapshot.InterstitialReady, snapshot.InterstitialLoadStarted,
+                snapshot.InterstitialLoadFailed, snapshot.InterstitialLoaded, snapshot.InterstitialCompleted,
+                snapshot.InterstitialLoadIssue, snapshot.MaxInitialized);
+            AddAdRow(rows, "Rewarded", snapshot.RewardedReady, snapshot.RewardedLoadStarted,
+                snapshot.RewardedLoadFailed, snapshot.RewardedLoaded, snapshot.RewardedCompleted,
+                snapshot.RewardedLoadIssue, snapshot.MaxInitialized);
             AddObserved(rows, "Ads", "Ad revenue", snapshot.AdRevenueSeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
                 snapshot.AdRevenueSeen ? "Observed" : "No revenue callback observed");
             Add(rows, "Ads", "Ad issues", snapshot.LastAdIssue == "No issue observed" ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
@@ -179,6 +236,12 @@ namespace Sorolla.Palette
         static void Add(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity, string detail,
             SorollaDiagnosticKind kind) =>
             rows.Add(new SorollaDiagnosticRow(group, name, severity, detail, kind));
+
+        // Phase 5: structured WHY/SIGNAL/FIX variant. Only called at row-producing sites where the
+        // diagnosis text in SorollaDiagnostics.Diagnoses.cs applies - see that file for the strings.
+        static void AddDiagnosed(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity,
+            string detail, (string why, string signal, string fix) diagnosis, SorollaDiagnosticKind kind = SorollaDiagnosticKind.Required) =>
+            rows.Add(new SorollaDiagnosticRow(group, name, severity, detail, kind, diagnosis.why, diagnosis.signal, diagnosis.fix));
 
         static (SorollaDiagnosticSeverity severity, string detail) ConfigPresence(string value, bool required, bool forcedFail)
         {
@@ -417,6 +480,17 @@ namespace Sorolla.Palette
             return snapshot.PurchaseVerification.Contains("success")
                 ? SorollaDiagnosticSeverity.Pass
                 : SorollaDiagnosticSeverity.Warning;
+        }
+
+        static void AddAdRow(List<SorollaDiagnosticRow> rows, string format, bool ready, bool loadStarted, bool loadFailed,
+            bool loaded, bool completed, string loadIssue, bool maxInitialized)
+        {
+            SorollaDiagnosticSeverity severity = AdSeverity(ready, loadStarted, loadFailed, loaded, completed, maxInitialized);
+            string detail = AdDetail(ready, loadStarted, loadFailed, loaded, completed, loadIssue, maxInitialized);
+            if (severity == SorollaDiagnosticSeverity.Warning && loadFailed)
+                AddDiagnosed(rows, "Ads", format, severity, detail, AdLoadFailedDiagnosis(format, loadIssue));
+            else
+                Add(rows, "Ads", format, severity, detail);
         }
 
         static SorollaDiagnosticSeverity AdSeverity(bool ready, bool loadStarted, bool loadFailed, bool loaded, bool completed,

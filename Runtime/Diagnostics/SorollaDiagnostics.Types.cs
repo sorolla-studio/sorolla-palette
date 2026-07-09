@@ -26,15 +26,29 @@ namespace Sorolla.Palette
         public readonly string Detail;
         public readonly SorollaDiagnosticKind Kind;
 
+        // Phase 5 (message content pass, spec sections 3/8/10): optional structured three-part
+        // diagnosis. Additive - null on every row that predates this pass or whose row-producing
+        // site genuinely cannot know more than the free-text Detail (see SorollaDiagnostics.
+        // Diagnoses.cs for which classes are wired vs still fallback, and why). Public API
+        // (Palette.*) is untouched; this struct is internal.
+        public readonly string Why;
+        public readonly string Signal;
+        public readonly string Fix;
+
         public SorollaDiagnosticRow(string group, string name, SorollaDiagnosticSeverity severity, string detail,
-            SorollaDiagnosticKind kind)
+            SorollaDiagnosticKind kind, string why = null, string signal = null, string fix = null)
         {
             Group = group;
             Name = name;
             Severity = severity;
             Detail = detail;
             Kind = kind;
+            Why = why;
+            Signal = signal;
+            Fix = fix;
         }
+
+        public bool HasStructuredDiagnosis => Why != null && Signal != null && Fix != null;
     }
 
     internal readonly struct SorollaRuntimeProblem
