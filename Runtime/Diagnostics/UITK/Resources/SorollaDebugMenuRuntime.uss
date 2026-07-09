@@ -22,15 +22,19 @@
 
 .sorolla-debugmenu-header {
     background-color: rgb(18, 21, 28); /* section header bg #141922, close enough for header band */
-    padding: 12px 16px 8px 16px;
+    padding: 10px 16px 8px 16px;
     border-bottom-width: 1px;
     border-bottom-color: rgb(28, 34, 44); /* #1c222c neutral row border */
 }
 
+/* Vertical rhythm between header blocks tightened to ~8-9px at reference scale (team-lead tier-2
+   ruling): the header was reading ~31% of screen height vs the mockup's ~22%, and stacked
+   margin-bottoms across 5 blocks (badge row / count strip / context / coverage) compounded past
+   the mockup's tighter spacing. */
 .sorolla-debugmenu-header-row {
     flex-direction: row;
     align-items: center;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
 .sorolla-debugmenu-title {
@@ -105,24 +109,35 @@
     width: 100%;
 }
 
-/* COVERAGE caption (design-tokens.md: "COVERAGE label: 9.5px/800"). */
+/* COVERAGE caption + sentence render INLINE on one row (team-lead tier-2 ruling, matches the
+   design source): the caption is a fixed-width label on the left, the sentence flows to its right
+   and may wrap to a second line under itself - not a separate stacked line. Stacking them was the
+   single biggest contributor to the header's oversized vertical footprint. */
+.sorolla-debugmenu-coverage-row {
+    flex-direction: row;
+    align-items: flex-start;
+}
+
 .sorolla-debugmenu-coverage-caption {
     font-size: 9.5px;
     -unity-font-style: bold;
     letter-spacing: 0.4px;
     color: rgb(125, 134, 148);
-    margin-bottom: 1px;
+    flex-shrink: 0;
+    margin-right: 6px;
+    margin-top: 1px; /* nudges the small-caps caption toward the sentence's cap-height baseline */
 }
 
-/* Coverage line: #7d8694 normal, amber #d9a636 when coverage is thin (design-tokens.md COVERAGE).
-   white-space normal so a long line wraps (matches mockup 01/02's two-line coverage sentence)
-   instead of being clipped at the panel edge (found in visual QA against mockup 01). */
+/* Coverage sentence: #7d8694 normal, amber #d9a636 when coverage is thin (design-tokens.md
+   COVERAGE). white-space normal + flex-grow/shrink so it wraps to a second line within the
+   remaining row width instead of overflowing the panel edge (found in visual QA against mockup 01). */
 .sorolla-debugmenu-coverage-line {
     font-size: 11px;
     color: rgb(125, 134, 148);
-    margin-bottom: 2px;
     white-space: normal;
-    width: 100%;
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
 }
 
 .sorolla-debugmenu-coverage-line-thin {

@@ -154,6 +154,12 @@ namespace Sorolla.Palette
             contextLine.AddToClassList("sorolla-debugmenu-context-line");
             header.Add(contextLine);
 
+            // Inline row (team-lead tier-2 ruling): the mockup/design source puts the COVERAGE
+            // caption and the coverage sentence on the SAME row, not stacked - stacking them was the
+            // main contributor to the header reading ~31% of screen height vs the mockup's ~22%.
+            var coverageRow = new VisualElement();
+            coverageRow.AddToClassList("sorolla-debugmenu-coverage-row");
+
             var coverageCaption = new Label("COVERAGE");
             coverageCaption.AddToClassList("sorolla-debugmenu-coverage-caption");
 
@@ -166,8 +172,9 @@ namespace Sorolla.Palette
                 coverageLine.AddToClassList("sorolla-debugmenu-coverage-line-thin");
             }
 
-            header.Add(coverageCaption);
-            header.Add(coverageLine);
+            coverageRow.Add(coverageCaption);
+            coverageRow.Add(coverageLine);
+            header.Add(coverageRow);
 
             return header;
         }
