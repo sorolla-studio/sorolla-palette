@@ -54,6 +54,8 @@ namespace Sorolla.Palette
         public bool AdjustAdidPresent;
         public string AttributionNetwork;
         public string AdjustEnvironment;
+        public bool FacebookAttEnabled;
+        public bool FacebookAttApplied;
 
         // Ads (at-least-once facts; verbose-independent, already tracked)
         public bool InterstitialLoaded;

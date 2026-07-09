@@ -58,6 +58,7 @@ namespace Sorolla.Palette
                 gameAnalyticsReady
                     ? "Ready"
                     : AdapterRowDetail(snapshot.GameAnalyticsOutcome, "Waiting for GameAnalytics initialization"));
+            AddGameAnalyticsPlatformKeysRow(rows);
 #else
             AddDiagnosed(rows, "SDKs", "GameAnalytics", SorollaDiagnosticSeverity.Fail, "Package not installed",
                 PackageMissingDiagnosis("GameAnalytics", "com.gameanalytics.sdk"));
@@ -83,9 +84,7 @@ namespace Sorolla.Palette
                 // registered on FB app {appId}" into the detail when Graph confirmed the platform
                 // gap (the boulder-evolution cause). Any other Fail detail is a genuine SDK-can't-see
                 // boundary (rungs 1.5-5 of the ladder) - honestly named as unknown, not guessed.
-                var diagnosis = facebookRowDetail != null && facebookRowDetail.Contains("not registered on FB app")
-                    ? FacebookPlatformNotRegisteredDiagnosis(facebookRowDetail)
-                    : FacebookGenericFailureDiagnosis(facebookRowDetail);
+                var diagnosis = FacebookFailureDiagnosis(facebookRowDetail);
                 AddDiagnosed(rows, "SDKs", "Facebook", facebookRowSeverity, facebookRowDetail, diagnosis);
             }
             else
@@ -518,6 +517,101 @@ namespace Sorolla.Palette
             {
                 Add(rows, "Firebase", name, severity, detail);
             }
+        }
+
+#if GAMEANALYTICS_INSTALLED
+        static void AddGameAnalyticsPlatformKeysRow(List<SorollaDiagnosticRow> rows)
+        {
+            GameAnalyticsPlatformKeysDiagnostic result = CaptureGameAnalyticsPlatformKeys();
+            if (result.MissingKeyPair)
+                AddDiagnosed(rows, "SDKs", "GameAnalytics platform keys", result.Severity, result.Detail,
+                    GameAnalyticsPlatformKeyMissingDiagnosis(result.PlatformName));
+            else
+                Add(rows, "SDKs", "GameAnalytics platform keys", result.Severity, result.Detail);
+        }
+
+        static GameAnalyticsPlatformKeysDiagnostic CaptureGameAnalyticsPlatformKeys()
+        {
+            if (Application.isEditor)
+                return GameAnalyticsPlatformKeysDiagnostic.Info("editor", "editor - not checkable");
+
+            RuntimePlatform platform = Application.platform;
+            if (platform != RuntimePlatform.Android && platform != RuntimePlatform.IPhonePlayer)
+                return GameAnalyticsPlatformKeysDiagnostic.Info(platform.ToString(), $"{platform} - not checkable");
+
+            string platformName = platform == RuntimePlatform.IPhonePlayer ? "iOS" : "Android";
+            try
+            {
+                var settings = Resources.Load("GameAnalytics/Settings", typeof(GameAnalyticsSDK.Setup.Settings))
+                    as GameAnalyticsSDK.Setup.Settings;
+                if (settings == null)
+                    return GameAnalyticsPlatformKeysDiagnostic.Missing(platformName);
+
+                int index = settings.Platforms.IndexOf(platform);
+                if (index < 0)
+                    return GameAnalyticsPlatformKeysDiagnostic.Missing(platformName);
+
+                string gameKey = settings.GetGameKey(index);
+                string secretKey = settings.GetSecretKey(index);
+                if (string.IsNullOrEmpty(gameKey) || string.IsNullOrEmpty(secretKey))
+                    return GameAnalyticsPlatformKeysDiagnostic.Missing(platformName);
+
+                return new GameAnalyticsPlatformKeysDiagnostic
+                {
+                    Severity = SorollaDiagnosticSeverity.Pass,
+                    Detail = $"Configured for {platformName}",
+                    PlatformName = platformName,
+                };
+            }
+            catch (Exception e)
+            {
+                return GameAnalyticsPlatformKeysDiagnostic.Info(platformName,
+                    $"check unavailable ({e.GetType().Name})");
+            }
+        }
+
+        struct GameAnalyticsPlatformKeysDiagnostic
+        {
+            public SorollaDiagnosticSeverity Severity;
+            public string Detail;
+            public string PlatformName;
+            public bool MissingKeyPair;
+
+            public static GameAnalyticsPlatformKeysDiagnostic Info(string platformName, string detail) =>
+                new GameAnalyticsPlatformKeysDiagnostic
+                {
+                    Severity = SorollaDiagnosticSeverity.Info,
+                    Detail = detail,
+                    PlatformName = platformName,
+                };
+
+            public static GameAnalyticsPlatformKeysDiagnostic Missing(string platformName) =>
+                new GameAnalyticsPlatformKeysDiagnostic
+                {
+                    Severity = SorollaDiagnosticSeverity.Warning,
+                    Detail = $"{platformName} has no game key + secret key pair in Assets/Resources/GameAnalytics/Settings.asset.",
+                    PlatformName = platformName,
+                    MissingKeyPair = true,
+                };
+        }
+#endif
+
+        static (string why, string signal, string fix) FacebookFailureDiagnosis(string detail)
+        {
+            if (detail != null && detail.Contains("not registered on FB app"))
+                return FacebookPlatformNotRegisteredDiagnosis(detail);
+            if (IsTlsCertificateFailure(detail))
+                return FacebookDeviceClockSuspectDiagnosis(detail);
+            return FacebookGenericFailureDiagnosis(detail);
+        }
+
+        static bool IsTlsCertificateFailure(string detail)
+        {
+            if (string.IsNullOrEmpty(detail)) return false;
+            return detail.IndexOf("ssl", StringComparison.OrdinalIgnoreCase) >= 0
+                   || detail.IndexOf("tls", StringComparison.OrdinalIgnoreCase) >= 0
+                   || detail.IndexOf("certificate", StringComparison.OrdinalIgnoreCase) >= 0
+                   || detail.IndexOf("cert ", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         static void AddAdRow(List<SorollaDiagnosticRow> rows, string format, bool ready, bool loadStarted, bool loadFailed,

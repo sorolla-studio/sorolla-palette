@@ -15,8 +15,12 @@ namespace Sorolla.Palette.Adapters
         private static bool s_init;
         private static bool s_consent;
         private static bool s_validationRequested;
+        static bool s_advertiserTrackingEnabled;
+        static bool s_advertiserTrackingApplied;
 
         public static event Action<bool> OnGameVisibilityChanged;
+        internal static bool LastAdvertiserTrackingEnabled => s_advertiserTrackingEnabled;
+        internal static bool AdvertiserTrackingApplied => s_advertiserTrackingApplied;
 
         public static void Initialize(bool consent)
         {
@@ -58,14 +62,21 @@ namespace Sorolla.Palette.Adapters
         {
             s_consent = consent;
             if (!s_init) return; // will be applied in ApplyConsent() when init completes
-            FB.Mobile.SetAdvertiserTrackingEnabled(consent);
+            SetAdvertiserTrackingEnabled(consent);
             PaletteLog.Vital($"{Tag} SetAdvertiserTrackingEnabled({consent})");
         }
 
         private static void ApplyConsent()
         {
-            FB.Mobile.SetAdvertiserTrackingEnabled(s_consent);
+            SetAdvertiserTrackingEnabled(s_consent);
             FB.ActivateApp();
+        }
+
+        static void SetAdvertiserTrackingEnabled(bool consent)
+        {
+            s_advertiserTrackingEnabled = consent;
+            s_advertiserTrackingApplied = true;
+            FB.Mobile.SetAdvertiserTrackingEnabled(consent);
         }
 
         private static void RequestValidation(string source)
@@ -184,9 +195,21 @@ namespace Sorolla.Palette.Adapters
 
         private static void ReportProbeFailure(string detail)
         {
+            if (IsTlsCertificateFailure(detail))
+                detail = $"{detail} | device-clock suspect: device date {DateTime.Now:yyyy-MM-dd}; if this date is wrong, fix Settings -> General -> Date & Time -> Set Automatically, then restart - a wrong device clock makes vendors with near-expiry TLS certificates fail while others still work.";
+
             PaletteLog.Error($"{Tag} AuthError: {detail}");
             AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Failed,
                 "auth_error", detail);
+        }
+
+        static bool IsTlsCertificateFailure(string detail)
+        {
+            if (string.IsNullOrEmpty(detail)) return false;
+            return detail.IndexOf("ssl", StringComparison.OrdinalIgnoreCase) >= 0
+                   || detail.IndexOf("tls", StringComparison.OrdinalIgnoreCase) >= 0
+                   || detail.IndexOf("certificate", StringComparison.OrdinalIgnoreCase) >= 0
+                   || detail.IndexOf("cert ", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         // Graph vocabulary trap: FB Graph API supported_platforms uses IPHONE / IPAD / ANDROID.
@@ -258,6 +281,8 @@ namespace Sorolla.Palette.Adapters
         #pragma warning disable CS0067 // Event is never used (stub for API compatibility)
         public static event System.Action<bool> OnGameVisibilityChanged;
         #pragma warning restore CS0067
+        internal static bool LastAdvertiserTrackingEnabled => false;
+        internal static bool AdvertiserTrackingApplied => false;
         public static void Initialize(bool consent)
         {
             AdapterDiagnostics.Record(AdapterDiagnosticVendor.Facebook, AdapterDiagnosticStatus.Unavailable,

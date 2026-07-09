@@ -26,6 +26,8 @@ namespace Sorolla.Palette
                     FacebookInitialized = s_facebookInitialized,
                     FacebookFailed = s_facebookFailed,
                     FacebookOutcome = s_facebookOutcome,
+                    FacebookAttEnabled = FacebookAdapter.LastAdvertiserTrackingEnabled,
+                    FacebookAttApplied = FacebookAdapter.AdvertiserTrackingApplied,
                     MaxRegistered = s_maxRegistered || MaxAdapter.IsRegistered,
                     MaxInitialized = s_maxInitialized || MaxAdapter.IsInitialized,
                     MaxOutcome = s_maxAdapterOutcome,
@@ -161,6 +163,8 @@ namespace Sorolla.Palette
                 AdjustAdidPresent = snap.AdjustIdPresent,
                 AttributionNetwork = snap.AttributionSummary,
                 AdjustEnvironment = snap.AdjustEnvironment,
+                FacebookAttEnabled = snap.FacebookAttEnabled,
+                FacebookAttApplied = snap.FacebookAttApplied,
 
                 InterstitialLoaded = snap.InterstitialLoaded,
                 InterstitialCompleted = snap.InterstitialCompleted,

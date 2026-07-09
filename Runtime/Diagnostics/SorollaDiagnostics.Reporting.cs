@@ -126,6 +126,7 @@ namespace Sorolla.Palette
             sb.AppendLine($"advertising_id_present: {state.AdvertisingIdPresent} | advertising_id_zeroed: {state.AdvertisingIdZeroed}");
             sb.AppendLine($"adjust_adid_present: {state.AdjustAdidPresent} | adjust_environment: {state.AdjustEnvironment}");
             sb.AppendLine($"attribution_network: {state.AttributionNetwork}");
+            sb.AppendLine($"fb_att_enabled: {state.FacebookAttEnabled} | fb_att_applied: {state.FacebookAttApplied}");
             sb.AppendLine();
 
             sb.AppendLine("[Ads]");

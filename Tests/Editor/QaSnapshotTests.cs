@@ -43,6 +43,8 @@ namespace Sorolla.Palette.Editor.Tests
             Set(state, "AdvertisingIdPresent", true);
             Set(state, "AttributionNetwork", "Organic");
             Set(state, "AdjustEnvironment", "Production");
+            Set(state, "FacebookAttEnabled", true);
+            Set(state, "FacebookAttApplied", true);
             Set(state, "RewardedCompleted", true);
             Set(state, "RemoteConfigStatus", "live");
             Set(state, "RemoteConfigFetchSeen", true);
@@ -67,6 +69,8 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.That(json, Does.Contain("\"adapters\":{"));
             Assert.That(json, Does.Contain("\"adjust\":\"enabled(production)\""));
             Assert.That(json, Does.Contain("\"advertising_id_present\":true"));
+            Assert.That(json, Does.Contain("\"fb_att_enabled\":true"));
+            Assert.That(json, Does.Contain("\"fb_att_applied\":true"));
             Assert.That(json, Does.Contain("\"rewarded\":{"));
             Assert.That(json, Does.Contain("\"completed\":true"));
             // Remote Config

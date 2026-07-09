@@ -462,6 +462,8 @@ namespace Sorolla.Palette
             public bool FacebookInitialized;
             public bool FacebookFailed;
             public AdapterDiagnosticState FacebookOutcome;
+            public bool FacebookAttEnabled;
+            public bool FacebookAttApplied;
             public bool MaxRegistered;
             public bool MaxInitialized;
             public AdapterDiagnosticState MaxOutcome;

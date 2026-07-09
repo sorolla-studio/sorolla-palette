@@ -229,6 +229,8 @@ namespace Sorolla.Palette
             QaJson.BoolMember(sb, ref first, "adjust_adid_present", state.AdjustAdidPresent);
             QaJson.StringMember(sb, ref first, "attribution_network", state.AttributionNetwork);
             QaJson.StringMember(sb, ref first, "adjust_environment", state.AdjustEnvironment);
+            QaJson.BoolMember(sb, ref first, "fb_att_enabled", state.FacebookAttEnabled);
+            QaJson.BoolMember(sb, ref first, "fb_att_applied", state.FacebookAttApplied);
             sb.Append('}');
         }
 

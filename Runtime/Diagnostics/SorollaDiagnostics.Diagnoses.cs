@@ -58,6 +58,20 @@ namespace Sorolla.Palette
             return (why, signal, fix);
         }
 
+        internal static (string why, string signal, string fix) FacebookDeviceClockSuspectDiagnosis(string vendorDetail)
+        {
+            string today = System.DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+            string why = $"Facebook's validation probe failed with an SSL/TLS/certificate error ({vendorDetail}). Device-clock suspect: the device's current date is {today}.";
+            const string signal = "A wrong device clock makes vendors with near-expiry TLS certificates fail while others still work.";
+            const string fix = "If this date is wrong, fix Settings -> General -> Date & Time -> Set Automatically, then restart - a wrong device clock makes vendors with near-expiry TLS certificates fail while others still work.";
+            return (why, signal, fix);
+        }
+
+        internal static (string why, string signal, string fix) GameAnalyticsPlatformKeyMissingDiagnosis(string platformName) => (
+            $"GameAnalytics has no {platformName} key pair.",
+            $"100% of {platformName} GameAnalytics events are dropped silently.",
+            $"Add the {platformName} keys in Assets/Resources/GameAnalytics/Settings.asset from the GameAnalytics dashboard.");
+
         // ---- Consent ----
 
         internal static (string why, string signal, string fix) CannotRequestAdsDiagnosis() => (
