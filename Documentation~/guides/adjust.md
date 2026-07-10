@@ -9,7 +9,7 @@ Full attribution tracking for production.
 ## 1. Create Account
 
 1. Sign up at [adjust.com](https://www.adjust.com)
-2. Create an app for iOS and/or Android
+2. Create **one multi-platform app** covering both iOS and Android — not a separate app per platform. `SorollaConfig` holds a single Adjust App Token; there is no per-platform field, so two apps means two tokens and only one place to put either of them. See [Adjust Dashboard](../dashboards/adjust.md) for why this matters and how to consolidate if a per-platform setup already exists.
 3. Copy your **App Token** (12-character string, e.g., `abc123def456`)
 
 ## 2. Configure in Unity
