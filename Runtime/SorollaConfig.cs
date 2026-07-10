@@ -108,6 +108,17 @@ namespace Sorolla.Palette
         [Tooltip("Enable detailed SDK diagnostics and vendor debug logs. Forced OFF in release builds; production-safe health logs remain on.")]
         public bool verboseLogging;
 
+        /// <summary>
+        ///     Per-game override for the QA bridge password. Empty = the SDK's built-in default stays
+        ///     active (zero migration for existing games). Set here so a leaked password only exposes
+        ///     one game instead of the whole portfolio. Lives on this asset (not the QA-expectations
+        ///     asset) because <see cref="Palette.Config"/> is guaranteed loaded by the time the QA
+        ///     bridge can arm; nothing about bridge auth should depend on an optional asset.
+        /// </summary>
+        [Header("QA Bridge (optional)")]
+        [Tooltip("Per-game QA bridge password override. Leave empty to keep the SDK's built-in default password.")]
+        public string qaBridgePassword;
+
         // Note: Firebase modules (Analytics, Crashlytics, Remote Config) are always enabled
         // when Firebase is installed. No toggles needed as of v3.1.0.
     }

@@ -13,7 +13,7 @@ namespace Sorolla.Palette
         internal const string QueryName = "qa_password";
         internal const string ForbiddenJson = "{\"ok\":false,\"detail\":\"qa_password_required\"}";
 
-        const string ExpectedPassword = "BbooN5RPF3aBRR6f5Vxz5pPhYXATlGAr";
+        const string DefaultPassword = "BbooN5RPF3aBRR6f5Vxz5pPhYXATlGAr";
         const string BearerPrefix = "Bearer ";
 
         internal static bool IsAuthorized(HttpListenerRequest request)
@@ -26,7 +26,15 @@ namespace Sorolla.Palette
             if (string.IsNullOrEmpty(supplied))
                 supplied = request.QueryString[QueryName];
 
-            return FixedTimeEquals(supplied, ExpectedPassword);
+            return FixedTimeEquals(supplied, ExpectedPassword());
+        }
+
+        // Per-game override (SorollaConfig.qaBridgePassword). Empty/missing config = built-in
+        // default, so existing games need zero migration.
+        static string ExpectedPassword()
+        {
+            string configured = Palette.Config != null ? Palette.Config.qaBridgePassword : null;
+            return string.IsNullOrEmpty(configured) ? DefaultPassword : configured;
         }
 
         static string BearerPassword(string authorization)
