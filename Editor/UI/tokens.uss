@@ -351,6 +351,7 @@
 .sorolla-check-warn { color: var(--sorolla-status-warn); }
 .sorolla-check-fail { color: var(--sorolla-status-fail); }
 .sorolla-check-wait { color: var(--sorolla-status-wait); }
+.sorolla-check-info { color: var(--sorolla-status-info); }
 
 .sorolla-check-group {
     color: var(--sorolla-text-primary);

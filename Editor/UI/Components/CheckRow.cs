@@ -11,6 +11,9 @@ namespace Sorolla.Palette.Editor.UI
             Warn,
             Fail,
             Wait,
+            /// <summary>Neutral notice, not a pass/fail/pending - e.g. an optional asset is missing or a
+            /// check does not apply to this row's configuration.</summary>
+            Info,
         }
 
         internal static VisualElement Create(string label, Status status, string statusText = null)
@@ -42,6 +45,7 @@ namespace Sorolla.Palette.Editor.UI
                 case Status.Pass: return "✓";
                 case Status.Fail: return "✕";
                 case Status.Warn: return "⚠";
+                case Status.Info: return "ℹ";
                 default: return "•";
             }
         }
@@ -53,6 +57,7 @@ namespace Sorolla.Palette.Editor.UI
                 case Status.Pass: return "sorolla-check-pass";
                 case Status.Warn: return "sorolla-check-warn";
                 case Status.Fail: return "sorolla-check-fail";
+                case Status.Info: return "sorolla-check-info";
                 default: return "sorolla-check-wait";
             }
         }
