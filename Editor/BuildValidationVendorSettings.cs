@@ -72,6 +72,14 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Check Adjust SDK app token configuration (Full mode only).
         ///     Note: SDK installation is checked by CheckRequiredSdks().
+        ///     Schema note (2026-07 vendor platform-scoping sweep): Sorolla's supported Adjust setup
+        ///     is one multi-platform Adjust app with a single token; separate per-platform Adjust apps
+        ///     are not supported by this config schema - if a studio's Adjust dashboard uses
+        ///     per-platform apps, this token is wrong for one platform and this check cannot detect it.
+        ///     Confirmed via games.yaml roster that every current Adjust-using game already uses one
+        ///     token across platforms, so this is not a proxy bug like the old GA check - it is a
+        ///     schema limitation on an unsupported setup, deliberately not fixed (see
+        ///     greenlight-backtest-2026-07.md, "Vendor platform-scoping sweep").
         /// </summary>
         static List<ValidationResult> CheckAdjustSettings()
         {
