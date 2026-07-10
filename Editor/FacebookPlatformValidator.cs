@@ -121,8 +121,7 @@ namespace Sorolla.Palette.Editor
                 if (LooksLikeCredentialError(body))
                 {
                     return new ProbeResult(ProbeState.CredentialInvalid, appId, platformName,
-                        $"Facebook appId/clientToken pair for app {appId} was rejected by the Graph API.\n" +
-                        "  Facebook init will report AuthError; analytics and attribution silently stop reaching Facebook.", now);
+                        CredentialErrorDetail(appId, body), now);
                 }
 
                 return new ProbeResult(ProbeState.Unreachable, appId, platformName,
@@ -151,6 +150,36 @@ namespace Sorolla.Palette.Editor
             if (string.IsNullOrEmpty(body)) return false;
             return body.Contains("OAuthException") || body.Contains("Invalid OAuth access token")
                 || body.Contains("invalid_token") || body.Contains("Invalid access token");
+        }
+
+        // The Graph API collapses three distinct credential failures under the same errorCode 190
+        // (OAuthException) umbrella. The message text is the only thing that tells them apart -
+        // confirmed against 6 real app ids in the greenlight probe spike (2026-07-10). Split them
+        // here so the studio-facing fix text names the actual cause instead of a generic "rejected".
+        static string CredentialErrorDetail(string appId, string body)
+        {
+            string graphMessage = TryGetErrorMessage(body, out string msg) ? msg : null;
+
+            string cause = graphMessage != null && graphMessage.Contains("Application has been deleted")
+                ? $"Facebook app {appId} has been deleted from the developer console."
+                : graphMessage != null && graphMessage.Contains("Invalid OAuth access token signature")
+                    ? $"Facebook app {appId} exists, but the client token in FacebookSettings.asset does not match it."
+                    : graphMessage != null && graphMessage.Contains("Invalid application ID")
+                        ? $"App id {appId} in FacebookSettings.asset does not match any Facebook app."
+                        : $"Facebook appId/clientToken pair for app {appId} was rejected by the Graph API.";
+
+            return cause + "\n  Facebook init will report AuthError; analytics and attribution silently stop reaching Facebook.";
+        }
+
+        static bool TryGetErrorMessage(string body, out string message)
+        {
+            message = null;
+            if (string.IsNullOrEmpty(body)) return false;
+            if (!(MiniJson.Deserialize(body) is Dictionary<string, object> json)) return false;
+            if (!json.TryGetValue("error", out object rawError) || !(rawError is Dictionary<string, object> error)) return false;
+            if (!error.TryGetValue("message", out object rawMessage) || !(rawMessage is string s)) return false;
+            message = s;
+            return true;
         }
 
         static bool TryGetSupportedPlatforms(string body, out List<string> platforms)
