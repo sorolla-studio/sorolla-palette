@@ -85,8 +85,8 @@ namespace Sorolla.Palette.Editor
             [CheckCategory.GameAnalyticsCredentialProbe] = "GameAnalytics Credentials",
         };
 
-        static ValidationResult Valid(CheckCategory category, string message) =>
-            new ValidationResult(ValidationStatus.Valid, message, category: category);
+        static ValidationResult Valid(CheckCategory category, string message, string fix = null) =>
+            new ValidationResult(ValidationStatus.Valid, message, fix, category);
 
         static ValidationResult Warning(CheckCategory category, string message, string fix = null) =>
             new ValidationResult(ValidationStatus.Warning, message, fix, category);

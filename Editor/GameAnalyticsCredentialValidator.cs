@@ -135,9 +135,10 @@ namespace Sorolla.Palette.Editor
                     $"GameAnalytics init request failed unexpectedly (HTTP {responseCode}). Re-run Build Health when online.", now);
             }
 
+            // Scoped to what this probe actually proved - the platform-registration reminder lives
+            // once, in the caller's Fix text (BuildValidationGameAnalyticsCredential.cs), not here too.
             return new ProbeResult(ProbeState.CredentialsValid, gameKey,
-                $"GameAnalytics credentials for {gameKey} are a live, matched pair. " +
-                "This does NOT confirm the active platform is registered in the GA dashboard - verify that separately.", now);
+                $"GameAnalytics credentials for {gameKey} are a live, matched pair.", now);
         }
     }
 }

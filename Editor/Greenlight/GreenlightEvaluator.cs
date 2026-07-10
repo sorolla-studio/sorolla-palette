@@ -137,7 +137,10 @@ namespace Sorolla.Palette.Editor.Greenlight
                     report.Rows.Add(new Row { Label = label, Status = CheckRow.Status.Wait, Detail = FirstLine(result.Message) });
                     return;
                 default:
-                    report.Rows.Add(new Row { Label = label, Status = CheckRow.Status.Pass, Detail = FirstLine(result.Message) });
+                    // A Pass can still carry a Fix (e.g. GA credential probe's "verify platform
+                    // registration manually" reminder) - the probe validated one narrower fact than
+                    // the row's label implies, and that residual gap belongs in Fix, not the message.
+                    report.Rows.Add(new Row { Label = label, Status = CheckRow.Status.Pass, Detail = FirstLine(result.Message), Fix = result.Fix });
                     return;
             }
         }

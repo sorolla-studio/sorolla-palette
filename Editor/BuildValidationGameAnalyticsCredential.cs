@@ -54,8 +54,8 @@ namespace Sorolla.Palette.Editor
                     break;
 
                 case GameAnalyticsCredentialValidator.ProbeState.CredentialsValid:
-                    results.Add(Valid(category,
-                        probe.Detail + " Also verify in the GA dashboard that the active platform is added for this game - the credential probe cannot check that."));
+                    results.Add(Valid(category, probe.Detail,
+                        "Also verify in the GA dashboard that the active platform is added for this game - the credential probe cannot check that."));
                     break;
             }
 
