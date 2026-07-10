@@ -36,7 +36,6 @@ namespace Sorolla.Palette.Editor.Greenlight
             None,
             AdbNotFound,
             NoDevice,
-            NoPasswordConfigured,
             Unreachable,
             Parsed,
         }
@@ -60,15 +59,10 @@ namespace Sorolla.Palette.Editor.Greenlight
             state.DetailMessage = "Connecting...";
             onSettled?.Invoke();
 
-            string password = ResolvePassword();
-            if (string.IsNullOrEmpty(password))
-            {
-                state.Phase = Phase.Done;
-                state.Outcome = Outcome.NoPasswordConfigured;
-                state.DetailMessage = "No SorollaConfig.qaBridgePassword set on this project - the editor cannot reach the SDK's built-in default from outside the Runtime assembly.";
-                onSettled?.Invoke();
-                return;
-            }
+            // Same resolution the bridge itself uses (config override else built-in default) -
+            // QaBridgeAuth.EffectivePassword() is internal + InternalsVisibleTo("Sorolla.Editor"),
+            // see Runtime/Diagnostics/QaBridge/QaBridgeAuth.cs. Always resolves to a non-empty value.
+            string password = QaBridgeAuth.EffectivePassword();
 
             string adbPath = ResolveAdbPath();
             if (adbPath == null)
@@ -89,12 +83,6 @@ namespace Sorolla.Palette.Editor.Greenlight
 
             await FetchSnapshot(password, state);
             onSettled?.Invoke();
-        }
-
-        static string ResolvePassword()
-        {
-            SorollaConfig config = Palette.Config;
-            return config != null && !string.IsNullOrEmpty(config.qaBridgePassword) ? config.qaBridgePassword : null;
         }
 
         static string ResolveAdbPath()
@@ -235,16 +223,6 @@ namespace Sorolla.Palette.Editor.Greenlight
                         Label = "Device Snapshot",
                         Status = CheckRow.Status.Info,
                         Detail = "Not connected - click Connect Device to pull live /qa/snapshot state.",
-                    });
-                    return rows;
-
-                case Outcome.NoPasswordConfigured:
-                    rows.Add(new GreenlightEvaluator.Row
-                    {
-                        Label = "Device Snapshot",
-                        Status = CheckRow.Status.Info,
-                        Detail = state.DetailMessage,
-                        Fix = "Set SorollaConfig.qaBridgePassword (Palette > Configuration) to enable the editor-side snapshot pull for this project.",
                     });
                     return rows;
 
