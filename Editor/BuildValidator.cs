@@ -38,6 +38,7 @@ namespace Sorolla.Palette.Editor
             AddressablesContent,
             SdkPin,
             AdjustResolvedVersion,
+            GameAnalyticsCredentialProbe,
         }
 
         public enum ValidationStatus
@@ -81,6 +82,7 @@ namespace Sorolla.Palette.Editor
             [CheckCategory.AddressablesContent] = "Addressables Content",
             [CheckCategory.SdkPin] = "SDK Pin",
             [CheckCategory.AdjustResolvedVersion] = "Adjust Resolved Version",
+            [CheckCategory.GameAnalyticsCredentialProbe] = "GameAnalytics Credentials",
         };
 
         static ValidationResult Valid(CheckCategory category, string message) =>
@@ -151,6 +153,7 @@ namespace Sorolla.Palette.Editor
                 results.AddRange(CheckR8AgpConfig());
                 results.AddRange(CheckGameAnalyticsSettings());
                 results.AddRange(CheckFacebookPlatformConfig());
+                results.AddRange(CheckGameAnalyticsCredential());
 
                 // Phase 3 (Build Health parity with the pre-build gates) - profile-scoped and
                 // always-Warning-or-info checks, see BuildValidationReleaseReadiness.cs.

@@ -103,6 +103,59 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
+        ///     Reads the GameAnalytics game key + secret key pair for the ACTIVE build target from
+        ///     Settings.asset. Same reflection approach as <see cref="HasGameAnalyticsKeys"/> - used by
+        ///     the GA credential probe, which needs the actual values, not just a presence bool.
+        /// </summary>
+        public static bool TryGetGameAnalyticsCredentials(out string gameKey, out string secretKey)
+        {
+            gameKey = null;
+            secretKey = null;
+
+            if (!SdkDetector.IsInstalled(SdkId.GameAnalytics))
+                return false;
+
+            try
+            {
+                UnityEngine.Object settings = Resources.Load("GameAnalytics/Settings");
+                if (settings == null)
+                    return false;
+
+                Type settingsType = settings.GetType();
+                const BindingFlags publicInstance = BindingFlags.Public | BindingFlags.Instance;
+                const BindingFlags privateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
+
+                if (!(settingsType.GetField("Platforms", publicInstance)?.GetValue(settings) is IList platforms))
+                    return false;
+                if (!(settingsType.GetField("gameKey", privateInstance)?.GetValue(settings) is IList gameKeys))
+                    return false;
+                if (!(settingsType.GetField("secretKey", privateInstance)?.GetValue(settings) is IList secretKeys))
+                    return false;
+
+                RuntimePlatform active = ActiveGameAnalyticsPlatform();
+                for (int i = 0; i < platforms.Count; i++)
+                {
+                    if (!(platforms[i] is RuntimePlatform p) || p != active) continue;
+
+                    string candidateGameKey = i < gameKeys.Count ? gameKeys[i] as string : null;
+                    string candidateSecretKey = i < secretKeys.Count ? secretKeys[i] as string : null;
+                    if (string.IsNullOrEmpty(candidateGameKey) || string.IsNullOrEmpty(candidateSecretKey))
+                        return false;
+
+                    gameKey = candidateGameKey;
+                    secretKey = candidateSecretKey;
+                    return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         ///     Reads the app id + client token pair from FacebookSettings.asset (first entry, same
         ///     index convention as <see cref="GetFacebookStatus"/>). Used by the Graph platform check.
         /// </summary>
