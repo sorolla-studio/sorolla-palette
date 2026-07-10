@@ -21,20 +21,38 @@ namespace Sorolla.Palette.Adapters
             new Thread(() =>
             {
                 string gaid = null;
+
+                // Unity does not auto-attach raw C# threads to the JVM - AndroidJavaObject/Class
+                // construction throws on an unattached thread. Must attach before any JNI call and
+                // always detach before the thread exits, or repeated calls leak attached threads and
+                // break the JVM.
+                if (AndroidJNI.AttachCurrentThread() != 0)
+                {
+                    callback?.Invoke(null);
+                    return;
+                }
+
                 try
                 {
-                    using var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
-                    using var activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
-                    using var clientClass = new AndroidJavaClass("com.google.android.gms.ads.identifier.AdvertisingIdClient");
-                    using var info = clientClass.CallStatic<AndroidJavaObject>("getAdvertisingIdInfo", activity);
-                    bool limitAdTracking = info.Call<bool>("isLimitAdTrackingEnabled");
-                    gaid = limitAdTracking ? null : info.Call<string>("getId");
+                    try
+                    {
+                        using var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+                        using var activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+                        using var clientClass = new AndroidJavaClass("com.google.android.gms.ads.identifier.AdvertisingIdClient");
+                        using var info = clientClass.CallStatic<AndroidJavaObject>("getAdvertisingIdInfo", activity);
+                        bool limitAdTracking = info.Call<bool>("isLimitAdTrackingEnabled");
+                        gaid = limitAdTracking ? null : info.Call<string>("getId");
+                    }
+                    catch (Exception)
+                    {
+                        // Play Services / AdvertisingIdClient class missing, or the call failed for any
+                        // other reason - "unavailable", never crash the caller.
+                        gaid = null;
+                    }
                 }
-                catch (Exception)
+                finally
                 {
-                    // Play Services / AdvertisingIdClient class missing, or the call failed for any
-                    // other reason - "unavailable", never crash the caller.
-                    gaid = null;
+                    AndroidJNI.DetachCurrentThread();
                 }
 
                 callback?.Invoke(gaid);
