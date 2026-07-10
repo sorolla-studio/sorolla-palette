@@ -87,6 +87,15 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         static string ResolveAdbPath()
         {
+            // Unity's own embedded AndroidPlayer SDK is the single most reliable candidate - every
+            // machine with Android build support installed has it, independent of any separately
+            // installed Android Studio SDK or shell PATH (a GUI-launched Unity process does not
+            // inherit a login shell's PATH on macOS, so homebrew/system adb installs are otherwise
+            // invisible here even though they work fine from a terminal).
+            string embeddedCandidate = EmbeddedAndroidPlayerAdbPath();
+            if (embeddedCandidate != null && File.Exists(embeddedCandidate))
+                return embeddedCandidate;
+
             string sdkRoot = EditorPrefs.GetString("AndroidSdkRoot", "");
             if (!string.IsNullOrEmpty(sdkRoot))
             {
@@ -122,6 +131,23 @@ namespace Sorolla.Palette.Editor.Greenlight
             }
         }
 
+        static string EmbeddedAndroidPlayerAdbPath()
+        {
+            try
+            {
+                string playbackEngineDir = BuildPipeline.GetPlaybackEngineDirectory(BuildTarget.Android, BuildOptions.None);
+                return string.IsNullOrEmpty(playbackEngineDir)
+                    ? null
+                    : Path.Combine(playbackEngineDir, "SDK", "platform-tools", AdbFileName());
+            }
+            catch
+            {
+                // Android module not installed / API unavailable on this Unity version - fall through
+                // to the other candidates rather than failing the whole resolution.
+                return null;
+            }
+        }
+
         static string AdbFileName() =>
             Application.platform == RuntimePlatform.WindowsEditor ? "adb.exe" : "adb";
 
@@ -132,6 +158,11 @@ namespace Sorolla.Palette.Editor.Greenlight
             yield return Path.Combine(home, "Android", "Sdk", "platform-tools", "adb");
             string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             yield return Path.Combine(localAppData, "Android", "Sdk", "platform-tools", "adb.exe");
+
+            // A GUI-launched Unity process does not inherit a login shell's PATH on macOS, so the
+            // PATH-fallback probe below silently misses homebrew/system installs - list them explicitly.
+            yield return "/opt/homebrew/bin/adb";
+            yield return "/usr/local/bin/adb";
         }
 
         static async Task<bool> RunAdbForward(string adbPath, State state)
