@@ -33,6 +33,20 @@ namespace Sorolla.Palette
         Other
     }
 
+    /// <summary>
+    ///     The mode this game is meant to ship in, per the studio's own declaration. Unspecified is
+    ///     the default and means "no mismatch check" - Prototype is a first-class RELEASE path
+    ///     (Facebook UA tests), never a failure by itself; the only mode failure a machine can detect
+    ///     is this asset's declared intent disagreeing with the build's actual mode (see DR-133: this
+    ///     asset is optional and never load-bearing at init time).
+    /// </summary>
+    public enum SorollaQaIntendedMode
+    {
+        Unspecified,
+        Prototype,
+        Full
+    }
+
     /// <summary>One expected store SKU (id + type). Price/vendor metadata stays in the publisher roster.</summary>
     [Serializable]
     public class SorollaQaSku
@@ -69,6 +83,10 @@ namespace Sorolla.Palette
     [CreateAssetMenu(fileName = "SorollaQaExpectations", menuName = "Palette/QA Expectations", order = 2)]
     public class SorollaQaExpectations : ScriptableObject
     {
+        [Header("Mode")]
+        [Tooltip("The mode this game is meant to ship in. Unspecified = no mismatch check. Prototype is a first-class release path (FB UA tests), never a failure by itself.")]
+        public SorollaQaIntendedMode intendedMode = SorollaQaIntendedMode.Unspecified;
+
         [Header("Feature Flags")]
         public bool usesRewarded;
         public bool usesInterstitial;
