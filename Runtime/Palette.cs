@@ -330,9 +330,12 @@ namespace Sorolla.Palette
 #endif
 #else
             // Prototype mode: Adjust is not compiled in. iOS has a free Unity built-in getter
-            // (PrototypeAdvertisingId). Full mode never reaches this branch - the Adjust path above wins.
+            // (PrototypeAdvertisingId); Android needs a JNI shim (AndroidAdvertisingId). Full mode
+            // never reaches this branch - the Adjust path above wins.
 #if UNITY_IOS
             PrototypeAdvertisingId.GetIdfa(callback);
+#elif UNITY_ANDROID
+            AndroidAdvertisingId.GetGoogleAdId(callback);
 #else
             callback?.Invoke(null);
 #endif
