@@ -251,17 +251,22 @@ namespace Sorolla.Palette
                 : (SorollaDiagnosticSeverity.Pass, "Present");
         }
 
+        // Prototype mode is a first-class RELEASE path (prototypes ship for FB UA tests; MAX/Adjust
+        // are Full-mode-only by design). The only mode failure detectable on-device is mode UNKNOWN
+        // (config missing) - a wrong-mode-for-this-game mismatch needs the game's intended mode,
+        // which lives in the publisher roster / QA-expectations asset, not in the build.
         static SorollaDiagnosticSeverity ModeSeverity(SorollaConfig config, Snapshot snapshot)
         {
             if (config == null && !snapshot.ModeKnown) return SorollaDiagnosticSeverity.Fail;
-            bool full = IsFullMode(config, snapshot);
-            return full ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Fail;
+            return SorollaDiagnosticSeverity.Pass;
         }
 
         static string ModeDetail(SorollaConfig config, Snapshot snapshot)
         {
             if (config == null && !snapshot.ModeKnown) return "Config missing / mode unknown";
-            return IsFullMode(config, snapshot) ? "Full mode" : "Prototype mode - QA greenlight blocker";
+            return IsFullMode(config, snapshot)
+                ? "Full mode (MAX + Adjust + GA + FB + Firebase)"
+                : "Prototype mode (GA + FB + Firebase; MAX/Adjust excluded by design)";
         }
 
         static bool IsFullMode(SorollaConfig config, Snapshot snapshot)
