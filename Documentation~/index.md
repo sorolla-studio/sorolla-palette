@@ -58,3 +58,10 @@ Use these only when you need dashboard-level detail:
 - [Adjust Attribution](guides/adjust.md)
 - [TikTok](guides/tiktok.md)
 - [GDPR / ATT Consent](guides/gdpr.md)
+
+## Self-serve integration QA
+
+For running QA (human or agent-driven) once the SDK is integrated - the Greenlight verdict, the QA bridge, and what the SDK can and cannot verify per vendor:
+
+- [Agent Pack](agents.md) - how a studio's own AI agent runs integration QA: reading the Greenlight verdict, the `/qa/snapshot` + `/qa/exec` bridge contract, the QA Expectations asset, the on-device Vitals overlay, and the escalation boundary.
+- Vendor dashboard pages (what a probe can't check, and why): [GameAnalytics](dashboards/gameanalytics.md), [Facebook](dashboards/facebook.md), [Adjust](dashboards/adjust.md), [AppLovin MAX](dashboards/applovin-max.md), [Firebase](dashboards/firebase.md).

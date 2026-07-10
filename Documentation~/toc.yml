@@ -8,6 +8,12 @@
       href: validation.md
 - name: SDK Guides
   href: guides/toc.yml
+- name: Self-Serve QA
+  items:
+    - name: Agent Pack
+      href: agents.md
+    - name: Vendor Dashboards
+      href: dashboards/toc.yml
 - name: API Reference
   href: api/
   topicUid: Sorolla.Palette.Palette
