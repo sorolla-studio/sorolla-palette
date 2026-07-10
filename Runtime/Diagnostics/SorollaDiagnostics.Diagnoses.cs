@@ -10,6 +10,15 @@ namespace Sorolla.Palette
     {
         // ---- Config ----
 
+        // The "Palette mode" row's own Fail case (config missing so mode can't be determined at all -
+        // distinct from SorollaConfigMissingDiagnosis, which is the "Config" group's own row for the
+        // same underlying fact). Init may be wedged rather than merely running the wrong mode: see
+        // DR-133, a null-config early-return before subscribing MAX's init callback.
+        internal static (string why, string signal, string fix) PaletteModeUnknownDiagnosis() => (
+            "No SorollaConfig asset was found in Resources, so Palette cannot determine which mode (Prototype or Full) it is running in.",
+            "Init may be wedged rather than merely degraded - a null config makes InitializeMax() early-return before subscribing MAX's init callback (DR-133), so IsInitialized never flips and OnInitialized never fires on a MAX-compiled build.",
+            "Palette > Configuration, then create the config asset (it must land at exactly Assets/Resources/SorollaConfig.asset).");
+
         internal static (string why, string signal, string fix) SorollaConfigMissingDiagnosis() => (
             "Assets/Resources/SorollaConfig.asset does not exist, or is not exactly at that path/name.",
             "Palette silently runs Prototype mode instead of Full mode; ads, Adjust, and the vendor SDKs behave as if none of them are configured.",

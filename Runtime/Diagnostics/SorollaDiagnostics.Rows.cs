@@ -19,7 +19,10 @@ namespace Sorolla.Palette
 
             Add(rows, "Boot", "Auto-init marker", snapshot.AutoInitSeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
                 snapshot.AutoInitSeen ? "Observed" : "Waiting for bootstrap");
-            Add(rows, "Boot", "Palette mode", ModeSeverity(config, snapshot), ModeDetail(config, snapshot));
+            if (ModeSeverity(config, snapshot) == SorollaDiagnosticSeverity.Fail)
+                AddDiagnosed(rows, "Boot", "Palette mode", SorollaDiagnosticSeverity.Fail, ModeDetail(config, snapshot), PaletteModeUnknownDiagnosis());
+            else
+                Add(rows, "Boot", "Palette mode", ModeSeverity(config, snapshot), ModeDetail(config, snapshot));
             Add(rows, "Boot", "Palette ready", Palette.IsInitialized || snapshot.ReadySeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
                 Palette.IsInitialized || snapshot.ReadySeen ? "Ready" : snapshot.InitDetail);
             Add(rows, "Boot", "Network reachability", ReachabilitySeverity(), Application.internetReachability.ToString());
