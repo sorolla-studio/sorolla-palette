@@ -26,12 +26,15 @@ namespace Sorolla.Palette
             if (string.IsNullOrEmpty(supplied))
                 supplied = request.QueryString[QueryName];
 
-            return FixedTimeEquals(supplied, ExpectedPassword());
+            return FixedTimeEquals(supplied, EffectivePassword());
         }
 
         // Per-game override (SorollaConfig.qaBridgePassword). Empty/missing config = built-in
-        // default, so existing games need zero migration.
-        static string ExpectedPassword()
+        // default, so existing games need zero migration. Internal (not private) + InternalsVisibleTo
+        // Sorolla.Editor (Runtime/Sorolla.Runtime.AssemblyInfo.cs) so the editor's Greenlight device
+        // snapshot step authenticates using the exact same resolution the bridge itself uses - one
+        // source of truth for the secret and the override precedence, not a second copy that can drift.
+        internal static string EffectivePassword()
         {
             string configured = Palette.Config != null ? Palette.Config.qaBridgePassword : null;
             return string.IsNullOrEmpty(configured) ? DefaultPassword : configured;
