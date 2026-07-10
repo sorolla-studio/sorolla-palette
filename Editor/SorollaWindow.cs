@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Sorolla.Palette.Editor.Greenlight;
 using Sorolla.Palette.Editor.UI;
 using UnityEditor;
 using UnityEditor.PackageManager;
@@ -39,12 +40,17 @@ namespace Sorolla.Palette.Editor
         VisualElement _sdkOverviewContainer;
         VisualElement _configContainer;
         VisualElement _heroContainer;
+        VisualElement _greenlightContainer;
         bool _buildHealthChecksExpanded;
+        bool _greenlightChecksExpanded;
         List<BuildValidator.ValidationResult> _validationResults = new List<BuildValidator.ValidationResult>();
+        readonly GreenlightDeviceSnapshot.State _snapshotState = new GreenlightDeviceSnapshot.State();
+        GreenlightManualChecklist.State _checklistState;
 
         void OnEnable()
         {
             LoadOrCreateConfig();
+            _checklistState = GreenlightManualChecklist.Load();
             RunBuildValidation();
             Events.registeringPackages += OnPackagesRegistering;
             Events.registeredPackages += OnPackagesRegistered;
@@ -119,6 +125,15 @@ namespace Sorolla.Palette.Editor
             rootVisualElement.Add(scrollView);
 
             scrollView.Add(new IMGUIContainer(DrawUpperSections));
+
+            // Greenlight sits above SDK Overview (studio-self-serve-greenlight-2026-07 plan,
+            // §Editor window restructure): one mechanical verdict composing Build Health, editor
+            // probes, mode-intent, device snapshot, and the manual/dashboard checklist - the hero's
+            // verdict for "is this integration actually ready", above the section-by-section detail.
+            _greenlightContainer = CreatePortedSectionContainer();
+            _greenlightContainer.style.marginTop = 10;
+            scrollView.Add(_greenlightContainer);
+            RefreshGreenlightUI();
 
             // p3-sdkoverview: DrawSdkOverviewSection() was the LAST call in DrawUpperSections, so
             // porting it is a clean peel from the end of the already-shrunk IMGUIContainerA region,
@@ -924,6 +939,155 @@ namespace Sorolla.Palette.Editor
 
         #endregion
 
+        #region Greenlight
+
+        /// <summary>Rebuilds the Greenlight section: verdict badge + count strip, grouped rows, a
+        /// Connect Device button (drives <see cref="GreenlightDeviceSnapshot"/>), and a Copy Report
+        /// button. Clear-and-rebuild on data change only - same guarded pattern as the other ported
+        /// sections (RunBuildValidation's completion, the manual checklist toggles, and the device
+        /// snapshot's onSettled callback).</summary>
+        void RefreshGreenlightUI()
+        {
+            if (_greenlightContainer == null) return;
+
+            _greenlightContainer.Clear();
+
+            GreenlightEvaluator.Report report = GreenlightEvaluator.Evaluate(_validationResults, _config, _snapshotState, _checklistState);
+
+            var headerRow = new VisualElement();
+            headerRow.style.flexDirection = FlexDirection.Row;
+            headerRow.style.alignItems = Align.Center;
+            headerRow.style.marginBottom = 8;
+
+            var headerLabel = new Label("Greenlight");
+            headerLabel.AddToClassList("sorolla-type-section");
+            headerRow.Add(headerLabel);
+
+            var headerSpacer = new VisualElement();
+            headerSpacer.style.flexGrow = 1;
+            headerRow.Add(headerSpacer);
+
+            StatusBadge.Severity badgeSeverity = report.Verdict switch
+            {
+                GreenlightEvaluator.Verdict.Failing => StatusBadge.Severity.Fail,
+                GreenlightEvaluator.Verdict.Issues => StatusBadge.Severity.Advisory,
+                _ => StatusBadge.Severity.Pass,
+            };
+            headerRow.Add(StatusBadge.Create(GreenlightEvaluator.VerdictLabel(report.Verdict, report.FailCount, report.WarnCount), badgeSeverity));
+
+            _greenlightContainer.Add(headerRow);
+
+            string countStrip = $"{report.FailCount} fail · {report.WarnCount} warn · {report.WaitCount} wait · {report.InfoCount} info · {report.PassCount} pass";
+            var countLabel = new Label(countStrip);
+            countLabel.AddToClassList("sorolla-type-small");
+            countLabel.style.marginBottom = 8;
+            _greenlightContainer.Add(countLabel);
+
+            var actionsRow = new VisualElement();
+            actionsRow.style.flexDirection = FlexDirection.Row;
+            actionsRow.style.marginBottom = 8;
+
+            var refreshButton = new Button(RunBuildValidation) { text = "Refresh" };
+            refreshButton.AddToClassList("sorolla-button-small");
+            actionsRow.Add(refreshButton);
+
+            var connectButton = new Button(() => GreenlightDeviceSnapshot.Run(_snapshotState, () =>
+            {
+                RefreshGreenlightUI();
+                Repaint();
+            }))
+            {
+                text = _snapshotState.Phase == GreenlightDeviceSnapshot.Phase.Running ? "Connecting..." : "Connect Device",
+            };
+            connectButton.AddToClassList("sorolla-button-small");
+            connectButton.SetEnabled(_snapshotState.Phase != GreenlightDeviceSnapshot.Phase.Running);
+            actionsRow.Add(connectButton);
+
+            var copyButton = new Button(() => EditorGUIUtility.systemCopyBuffer = GreenlightEvaluator.ToPlainText(report)) { text = "Copy Greenlight Report" };
+            copyButton.AddToClassList("sorolla-button-small");
+            actionsRow.Add(copyButton);
+
+            _greenlightContainer.Add(actionsRow);
+
+            var rowElements = new List<VisualElement>();
+            int issueCount = 0;
+            foreach (GreenlightEvaluator.Row row in report.Rows)
+            {
+                if (row.Status == CheckRow.Status.Fail || row.Status == CheckRow.Status.Warn)
+                    issueCount++;
+
+                rowElements.Add(BuildGreenlightRow(row));
+            }
+
+            string summary = issueCount > 0 ? $"{issueCount} of {rowElements.Count} rows need attention" : $"{rowElements.Count} rows checked";
+            Foldout rowGroup = CollapsibleCheckGroup.Create(summary, rowElements, _greenlightChecksExpanded);
+            rowGroup.RegisterValueChangedCallback(evt => _greenlightChecksExpanded = evt.newValue);
+            _greenlightContainer.Add(rowGroup);
+        }
+
+        /// <summary>A CheckRow plus its Fix/deep-link line and, for manual checklist rows, a
+        /// Verified toggle - manual/dashboard rows never render as a bare unchecked box (brief
+        /// requirement: always carry fix text + deep link).</summary>
+        VisualElement BuildGreenlightRow(GreenlightEvaluator.Row row)
+        {
+            var container = new VisualElement();
+
+            container.Add(CheckRow.Create(row.Label, row.Status, row.Detail));
+
+            if (!string.IsNullOrEmpty(row.Fix))
+            {
+                var fixLabel = new Label($"Fix: {row.Fix}");
+                fixLabel.AddToClassList("sorolla-type-small");
+                fixLabel.style.marginLeft = 24;
+                fixLabel.style.whiteSpace = WhiteSpace.Normal;
+                container.Add(fixLabel);
+            }
+
+            if (!string.IsNullOrEmpty(row.DeepLinkUrl))
+            {
+                var linkButton = new Button(() => Application.OpenURL(row.DeepLinkUrl)) { text = row.DeepLinkLabel ?? "Open" };
+                linkButton.AddToClassList("sorolla-footer-link");
+                linkButton.style.marginLeft = 24;
+                container.Add(linkButton);
+            }
+
+            GreenlightManualChecklist.Item? manualItem = ManualItemFor(row.Label);
+            if (manualItem.HasValue)
+            {
+                bool ticked = _checklistState.Ticked.TryGetValue(manualItem.Value, out bool value) && value;
+                var verifiedToggle = new Toggle("Verified") { value = ticked };
+                verifiedToggle.style.marginLeft = 24;
+                verifiedToggle.RegisterValueChangedCallback(evt =>
+                {
+                    _checklistState.Ticked[manualItem.Value] = evt.newValue;
+                    GreenlightManualChecklist.SetTicked(manualItem.Value, evt.newValue);
+                    RefreshGreenlightUI();
+                });
+                container.Add(verifiedToggle);
+            }
+
+            return container;
+        }
+
+        /// <summary>Label -> checklist item lookup so the toggle only appears on manual rows -
+        /// label-matched rather than a second parallel row model, since GreenlightEvaluator.Row is
+        /// deliberately a flat display shape shared by every evidence class.</summary>
+        static GreenlightManualChecklist.Item? ManualItemFor(string label)
+        {
+            switch (label)
+            {
+                case "GA Platform Registered": return GreenlightManualChecklist.Item.GaPlatformRegistered;
+                case "Cross-Vendor Dashboard Drift": return GreenlightManualChecklist.Item.CrossVendorDashboardDrift;
+                case "Adjust Purchase Verification (Full mode)": return GreenlightManualChecklist.Item.AdjustPurchaseVerification;
+                case "Store SKUs / Testing Track Configured": return GreenlightManualChecklist.Item.StoreSkusConfigured;
+                case "Relaunch Persistence": return GreenlightManualChecklist.Item.RelaunchPersistence;
+                case "Background / Resume Cycle": return GreenlightManualChecklist.Item.BackgroundResumeCycle;
+                default: return null;
+            }
+        }
+
+        #endregion
+
         #region Build Health
 
         /// <summary>
@@ -946,6 +1110,7 @@ namespace Sorolla.Palette.Editor
             RefreshBuildHealthUI();
             RefreshSdkOverviewUI();
             RefreshConfigUI();
+            RefreshGreenlightUI();
         }
 
         /// <summary>Ported to UI Toolkit (p3-buildhealth): CalloutCard summary + SectionHeader +
