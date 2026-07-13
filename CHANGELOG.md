@@ -59,7 +59,8 @@ signal it produces, and the fix.
   Adjust sandbox, SDK pin, Prototype Mode Intent) are tagged release-ship, so a QA-pass report no longer
   reads a profile-"Skipped" result as a pass. In-app-purchase coverage is represented as its own gate
   (Required when Unity IAP is installed, its store-console proof unavailable to the SDK → INCOMPLETE;
-  NotApplicable otherwise) so it did not vanish with the QA-expectations removal. The legacy manual
+  NotApplicable otherwise) so it did not vanish with the QA-expectations removal (Cycle 5R below refines
+  this: store config is also gated on an intended release target and is split from purchase-tracking wiring). The legacy manual
   checkboxes are relabelled as non-evidence until scoped attestation lands. The device snapshot now
   carries a schema version and a build-identity binding (application id, platform, mode, app version, and
   the Unity build GUID); the greenlight rejects an unsupported schema or a wrong-game / wrong-build snapshot
@@ -88,6 +89,25 @@ signal it produces, and the fix.
   descriptor, honestly scoped as store-config attestation, NOT the later full purchase/grant/confirmation
   chain), so an Unity-IAP game can reach HEALTHY. This makes a legitimate HEALTHY reachable once every gate
   is genuinely satisfied, while keeping the no-false-green guarantee.
+- **Release-target applicability, IAP gate split, and an auditable report export (Cycle 5R)**: gate
+  applicability is now separated from evidence-collector availability. A studio declares the store
+  platforms a game actually ships to (new `SorollaConfig` release-target flags - Android / iOS); the
+  device and store gates are evaluated against those declared targets, not against which packages happen
+  to be installed. On an intended release platform the device gates stay applicable even where no evidence
+  collector exists yet (iOS today) - they resolve to INCOMPLETE (a capability gap), never dropping out as
+  NotApplicable, so an iOS-only build can no longer read HEALTHY without ever running on its only shipping
+  platform. Building for a platform the game does not ship on makes those gates NotApplicable with a
+  recorded reason (a one-store game is never forced to prove the other store). Undeclared targets fail
+  closed to INCOMPLETE. In-app purchases are now two distinct gates: `iap.store_configured` (Required only
+  when Unity IAP is installed AND the active platform is an intended commerce target; vendor-attested) and
+  a new `iap.tracking_attached` (that `Palette.AttachPurchaseTracking` is wired, observed on device) - a
+  store attestation can no longer stand in for purchase-tracking wiring. The Editor greenlight's Copy
+  Report buttons now emit the AUDITABLE canonical report (readable text and JSON) with every row - including
+  the inert NotApplicable/OptionalSkipped rows the UI collapses - carrying its stable id, definition
+  version, requirement + reason, disposition, outcome, required/observed proof, evidence (with safe
+  attestation provenance), plus a build/context fingerprint, so a pasted result is unambiguous about which
+  game/build/mode/platform/phase produced it. Affected gate versions are bumped (device gates and
+  `iap.store_configured` → v2) so the comparison instrument restarts only their agreement counts.
 - **Shared health-result contract (internal foundation)**: a new leaf assembly `Sorolla.Health`
   (`noEngineReferences`, internal types, no studio API) holds the neutral gate-result model and the
   single aggregation `HealthEvaluator.Evaluate(catalog, context, observations)`. It evaluates a

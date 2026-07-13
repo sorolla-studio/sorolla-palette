@@ -41,8 +41,8 @@ namespace Sorolla.Palette.Editor.Greenlight
             new Descriptor
             {
                 Item = Item.GaPlatformRegistered, GateId = GateIds.ManualGaPlatformRegistered,
-                Label = "GA Platform Registered",
-                Why = "The GA collector accepts events for any platform string with valid credentials - it cannot tell you the active platform is actually added in the dashboard.",
+                Label = "GameAnalytics Platform Registered",
+                Why = "The GameAnalytics collector accepts events for any platform string with valid credentials - it cannot tell you the active platform is actually added in the dashboard.",
                 Fix = "GameAnalytics dashboard -> the game -> Settings -> add the active platform if missing.",
                 DeepLinkUrl = "https://go.gameanalytics.com/login",
             },

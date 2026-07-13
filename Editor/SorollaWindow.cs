@@ -996,9 +996,20 @@ namespace Sorolla.Palette.Editor
             connectButton.SetEnabled(_snapshotState.Phase != GreenlightDeviceSnapshot.Phase.Running);
             actionsRow.Add(connectButton);
 
-            var copyButton = new Button(() => EditorGUIUtility.systemCopyBuffer = GreenlightEvaluator.ToPlainText(report)) { text = "Copy Greenlight Report" };
+            // Copy the AUDITABLE canonical report (review F4): the readable rendering carries every row's
+            // disposition/requirement/proof + a build fingerprint, so a pasted result is unambiguous. The old
+            // flattened summary is no longer the export - it dropped inert rows and provenance.
+            var copyButton = new Button(() =>
+                    EditorGUIUtility.systemCopyBuffer = GreenlightReportExport.ToText(report.Health, report.Fingerprint))
+                { text = "Copy Report (text)" };
             copyButton.AddToClassList("sorolla-button-small");
             actionsRow.Add(copyButton);
+
+            var copyJsonButton = new Button(() =>
+                    EditorGUIUtility.systemCopyBuffer = GreenlightReportExport.ToJson(report.Health, report.Fingerprint))
+                { text = "Copy Report (JSON)" };
+            copyJsonButton.AddToClassList("sorolla-button-small");
+            actionsRow.Add(copyJsonButton);
 
             _greenlightContainer.Add(actionsRow);
 

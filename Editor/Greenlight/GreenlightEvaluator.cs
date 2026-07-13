@@ -38,6 +38,12 @@ namespace Sorolla.Palette.Editor.Greenlight
             public int WarnCount;
             public int WaitCount;
             public int PassCount;
+            /// <summary>The full shared result behind the flattened display rows - the canonical report export
+            /// (review F4) reads this so it can emit every row (including the inert NotApplicable/OptionalSkipped
+            /// ones the UI collapses) with its stable id, version, disposition, and proof.</summary>
+            public HealthReport Health;
+            public EvaluationContext Context;
+            public GreenlightReportExport.Fingerprint Fingerprint;
         }
 
         internal static Report Evaluate(
@@ -48,7 +54,12 @@ namespace Sorolla.Palette.Editor.Greenlight
             List<GateObservation> observations =
                 GreenlightAdapter.BuildObservations(context, buildHealthResults, snapshotState);
             HealthReport health = HealthEvaluator.Evaluate(GateCatalog.Canonical, context, observations);
-            return ToReport(health);
+            Report report = ToReport(health);
+            report.Health = health;
+            report.Context = context;
+            report.Fingerprint = GreenlightReportExport.Fingerprint.Capture(
+                context, GreenlightDeviceSnapshot.BuildGuidOf(snapshotState));
+            return report;
         }
 
         /// <summary>Maps the shared <see cref="HealthReport"/> to the flat display shape the window renders.
@@ -175,22 +186,6 @@ namespace Sorolla.Palette.Editor.Greenlight
                 return $"{needsAttention} of {total} rows need attention";
 
             return $"{total} rows checked";
-        }
-
-        /// <summary>Plain-text report for the "Copy greenlight report" button - pasteable into chat.</summary>
-        internal static string ToPlainText(Report report)
-        {
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"Palette Greenlight: {VerdictLabel(report.Outcome, report.FailCount, report.WarnCount)}");
-            sb.AppendLine($"({report.FailCount} fail, {report.WarnCount} warn, {report.WaitCount} wait, {report.PassCount} pass)");
-            sb.AppendLine();
-            foreach (Row row in report.Rows)
-            {
-                sb.AppendLine($"[{row.Status.ToString().ToUpperInvariant()}] {row.Label}: {row.Detail}");
-                if (!string.IsNullOrEmpty(row.Fix))
-                    sb.AppendLine($"    Fix: {row.Fix}");
-            }
-            return sb.ToString();
         }
     }
 }

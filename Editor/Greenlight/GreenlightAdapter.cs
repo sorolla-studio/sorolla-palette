@@ -90,6 +90,9 @@ namespace Sorolla.Palette.Editor.Greenlight
                 Platform = ToEvalPlatform(EditorUserBuildSettings.activeBuildTarget),
                 InstalledModules = modules,
                 ModulesResolved = resolved,
+                // Studio-declared release targets (F2). Undeclared (None) fails the device/store gates closed
+                // to INCOMPLETE - applicability is NOT inferred from which packages happen to be installed.
+                IntendedTargets = SorollaSettings.IntendedTargets,
                 // Follow the active Build Health profile (the "Validation Profile" QaPass/Release selector in
                 // the window, SorollaWindow's Build Health section) so ReleaseShip-tagged gates are reachable
                 // under Release and a profile-"Skipped" check maps to the right phase, not hard-coded QaPass.
@@ -145,9 +148,12 @@ namespace Sorolla.Palette.Editor.Greenlight
         /// <summary>
         ///     Builds the neutral observations. Producer-side context guards ensure it never fabricates
         ///     evidence for a gate the context makes NotApplicable (which would be a C3-05 context mismatch):
-        ///     device observations are emitted only on Android (the adb bridge is Android-only), and the
-        ///     Adjust purchase-verification manual row only in Full mode (no Adjust in Prototype). These are
-        ///     facts about which evidence EXISTS, not requirement decisions - the catalog still owns those.
+        ///     device observations are emitted only when the active platform is an INTENDED target that also has
+        ///     a shipping transport (Android today, F1) - an intended platform with no collector emits nothing
+        ///     and its required device gates omit → INCOMPLETE; purchase-tracking evidence is emitted only when
+        ///     Unity IAP is installed (F5); and the Adjust purchase-verification manual row only in Full mode
+        ///     (no Adjust in Prototype). These are facts about which evidence EXISTS, not requirement
+        ///     decisions - the catalog still owns those.
         /// </summary>
         internal static List<GateObservation> BuildObservations(
             EvaluationContext context,
@@ -158,10 +164,24 @@ namespace Sorolla.Palette.Editor.Greenlight
             observations.AddRange(BuildHealthObservations(buildHealthResults, context.InstalledModules));
 
             string deviceBuildGuid = null;
-            if (context.Platform == EvalPlatform.Android)
+            // Emit device evidence only for an intended target with a shipping collector (the adb bridge is
+            // Android-only). On a NON-intended platform the device gates are NotApplicable, so emitting here
+            // would be a C3-05 mismatch; on an intended platform WITHOUT a collector (iOS) we emit nothing and
+            // the required device gates omit → INCOMPLETE, which is the F1 capability-gap semantics.
+            if (context.Platform == EvalPlatform.Android &&
+                HealthEnums.TargetsInclude(context.IntendedTargets, EvalPlatform.Android))
             {
                 observations.AddRange(GreenlightDeviceSnapshot.ToObservations(snapshotState));
                 deviceBuildGuid = GreenlightDeviceSnapshot.BuildGuidOf(snapshotState);
+            }
+
+            // Purchase-tracking wiring (F5) is code-level, so it is Required whenever Unity IAP is installed,
+            // independent of the intended-platform gate. Its evidence comes from the device snapshot; with no
+            // parsed snapshot the observation is null and the gate omits → INCOMPLETE.
+            if (context.Platform == EvalPlatform.Android && (context.InstalledModules & SdkModule.UnityIap) != 0)
+            {
+                GateObservation tracking = GreenlightDeviceSnapshot.TrackingAttachedObservation(snapshotState);
+                if (tracking != null) observations.Add(tracking);
             }
 
             observations.AddRange(ManualObservations(context, deviceBuildGuid));
@@ -214,7 +234,10 @@ namespace Sorolla.Palette.Editor.Greenlight
                 yield return validity == AttestationValidity.Valid
                     ? new GateObservation
                     {
-                        GateId = d.GateId, Outcome = GateOutcome.Pass, ObservedProof = required, Evidence = reason,
+                        GateId = d.GateId, Outcome = GateOutcome.Pass, ObservedProof = required,
+                        // Carry the human evidence note into the row (safe, length-limited) so the canonical
+                        // report export shows provenance beyond "attested by X at T" (review F4).
+                        Evidence = WithNote(reason, record.evidenceNote),
                     }
                     : new GateObservation
                     {
@@ -225,6 +248,19 @@ namespace Sorolla.Palette.Editor.Greenlight
                         FixHint = validity == AttestationValidity.Missing ? d.Fix : "Re-attest against the current build.",
                     };
             }
+        }
+
+        /// <summary>Appends a length-limited evidence note to an attestation's provenance line for the export
+        /// (review F4). Empty notes leave the line unchanged; long notes are truncated to keep the report tidy
+        /// and avoid dumping arbitrary operator text.</summary>
+        const int MaxNoteLength = 280;
+
+        static string WithNote(string reason, string note)
+        {
+            if (string.IsNullOrWhiteSpace(note)) return reason;
+            string trimmed = note.Trim();
+            if (trimmed.Length > MaxNoteLength) trimmed = trimmed.Substring(0, MaxNoteLength) + "…";
+            return $"{reason} — note: {trimmed}";
         }
 
         /// <summary>Vendor-coherence categories whose "not installed" result is vendor ABSENCE, not evidence
@@ -331,6 +367,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             [GateIds.DeviceReady] = "Device Snapshot: Ready",
             [GateIds.DeviceAdvertisingId] = "Device Snapshot: Advertising ID",
             [GateIds.DeviceNoSdkErrors] = "Device Snapshot: SDK Errors",
+            [GateIds.IapTrackingAttached] = "IAP Purchase-Tracking Wired (device)",
         };
 
         static readonly Dictionary<BuildValidator.CheckCategory, string> CategoryToGateId =

@@ -46,6 +46,19 @@ namespace Sorolla.Palette
         [Tooltip("Prototype = Core SDKs only | Full = Core SDKs + MAX + Adjust")]
         public bool isPrototypeMode = true;
 
+        /// <summary>
+        ///     The store platforms this game actually ships to. Drives which platform's device/store QA gates
+        ///     are required: a game shipping on only one store is validated on only that store, never forced to
+        ///     prove the other. Both left false means "undeclared" - the greenlight fails those gates closed to
+        ///     INCOMPLETE until you declare, rather than guessing from what packages happen to be installed.
+        /// </summary>
+        [Header("Release Targets")]
+        [Tooltip("Tick every store this game ships to. Leave both off only before you know - undeclared keeps device/store QA gates INCOMPLETE.")]
+        public bool releasesOnAndroid;
+
+        /// <summary>See <see cref="releasesOnAndroid"/>. Tick when this game ships on the App Store.</summary>
+        public bool releasesOniOS;
+
         /// <summary>Rewarded ad unit IDs from AppLovin MAX (one per platform).</summary>
         [Header("MAX Ad Units")]
         [Tooltip("Rewarded ad unit IDs per platform")]

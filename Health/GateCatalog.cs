@@ -44,8 +44,11 @@ namespace Sorolla.Palette.Health
         public const string DeviceAdvertisingId = "device.advertising_id";
         public const string DeviceNoSdkErrors = "device.no_sdk_errors";
 
-        // In-app purchases (applicability from the Unity IAP module).
+        // In-app purchases (applicability from the Unity IAP module). Two DISTINCT gates (F5): store-console
+        // catalog/test-track config (vendor-attested) is not the same fact as Palette purchase-tracking wiring
+        // (device-observed) - a store attestation must never be able to satisfy the wiring gate.
         public const string IapStoreConfigured = "iap.store_configured";
+        public const string IapTrackingAttached = "iap.tracking_attached";
 
         // Manual / dashboard attestations (require vendor-side or on-device human confirmation).
         public const string ManualGaPlatformRegistered = "manual.ga_platform_registered";
@@ -106,6 +109,9 @@ namespace Sorolla.Palette.Health
         // ── The mode requirement table ────────────────────────────────────
 
         const string Version = "1"; // per-gate semantic version (R3-03); bump a single gate when its meaning changes.
+        // Gates whose MEANING changed this cycle carry a bumped version so the comparison instrument restarts
+        // exactly their agreement counts (F1 device applicability now targets-based; F5 store/tracking split).
+        const string V2 = "2";
 
         static IReadOnlyList<GateDefinition> BuildCanonical()
         {
@@ -167,22 +173,31 @@ namespace Sorolla.Palette.Health
             })
                 AddBuild(defs, id, Requirements.AlwaysOptional);
 
-            // In-app purchases (review C4-10): coverage must not vanish with the expectations deletion. When
-            // Unity IAP is installed, store/purchase verification is Required but its proof is vendor-side
-            // (store console) - unavailable to the SDK - so with no observation it resolves to INCOMPLETE
-            // (Omitted), never silently absent. NotApplicable when Unity IAP is not installed.
-            defs.Add(new GateDefinition(GateIds.IapStoreConfigured, Version, qaPhase, ProofScope.VendorAccepted,
+            // In-app purchases (review C4-10, F2/F5). STORE config is Required only when Unity IAP is installed
+            // AND the active platform is an intended release/commerce target (a game shipping on one store must
+            // not be forced to prove the other store's config). Its proof is vendor-side (store console),
+            // unavailable to the SDK, so with no attestation it resolves to INCOMPLETE (Omitted). NotApplicable
+            // when Unity IAP is absent OR the active platform is not an intended target.
+            defs.Add(new GateDefinition(GateIds.IapStoreConfigured, V2, qaPhase, ProofScope.VendorAccepted,
+                Requirements.IapStoreConfiguredRequirement));
+
+            // TRACKING wiring is a DIFFERENT fact (F5): that Palette.AttachPurchaseTracking is wired, observed
+            // on device (the snapshot's iap.tracking_attached signal) - NOT satisfiable by a store attestation.
+            // Required whenever Unity IAP is installed (code wiring is platform-independent); with no device
+            // evidence it omits → INCOMPLETE. NotApplicable when Unity IAP is absent.
+            defs.Add(new GateDefinition(GateIds.IapTrackingAttached, Version, qaPhase, ProofScope.DeviceDispatch,
                 Requirements.UnityIapRequiredElseNotApplicable));
 
-            // Device snapshot - the Android QA bridge is the only transport that ships, so device facts are
-            // NotApplicable off-Android (the adapter emits no device observation there). Readiness is required
-            // on Android: a build we have never confirmed on device cannot pass, it is INCOMPLETE.
-            defs.Add(new GateDefinition(GateIds.DeviceReady, Version, qaPhase, ProofScope.DeviceDispatch,
-                Requirements.AndroidRequiredElseNotApplicable));
-            defs.Add(new GateDefinition(GateIds.DeviceAdvertisingId, Version, qaPhase, ProofScope.DeviceDispatch,
-                Requirements.AndroidOptionalElseNotApplicable));
-            defs.Add(new GateDefinition(GateIds.DeviceNoSdkErrors, Version, qaPhase, ProofScope.DeviceDispatch,
-                Requirements.AndroidOptionalElseNotApplicable));
+            // Device snapshot (F1): applicability follows the INTENDED release platform, not the (currently
+            // Android-only) transport. On an intended platform the device gates stay applicable; if no evidence
+            // collector exists yet (iOS today) the required ones omit → INCOMPLETE (a capability gap), never a
+            // NotApplicable exemption. NotApplicable only when the active platform is not an intended target.
+            defs.Add(new GateDefinition(GateIds.DeviceReady, V2, qaPhase, ProofScope.DeviceDispatch,
+                Requirements.IntendedPlatformRequiredElseNotApplicable));
+            defs.Add(new GateDefinition(GateIds.DeviceAdvertisingId, V2, qaPhase, ProofScope.DeviceDispatch,
+                Requirements.IntendedPlatformOptionalElseNotApplicable));
+            defs.Add(new GateDefinition(GateIds.DeviceNoSdkErrors, V2, qaPhase, ProofScope.DeviceDispatch,
+                Requirements.IntendedPlatformRequiredElseNotApplicable));
 
             // Manual / dashboard attestations - required, and the required proof (vendor-accepted or an
             // on-device human session) is deliberately something a legacy EditorPrefs check-off cannot supply,
@@ -215,6 +230,9 @@ namespace Sorolla.Palette.Health
                     Mode = mode,
                     Platform = platform,
                     InstalledModules = HealthEnums.AllModuleBits,
+                    // Both stores declared so the active platform is always an intended target: this makes the
+                    // target-gated device/store gates reachable (Required/Optional) in the reachability check.
+                    IntendedTargets = HealthEnums.AllTargetBits,
                     RequestedPhase = GatePhase.QaPass,
                 });
             return contexts;
@@ -327,19 +345,37 @@ namespace Sorolla.Palette.Health
             : ctx.Platform == EvalPlatform.Android ? Req("Android build fact")
             : Opt("evaluated only if reported off-Android");
 
-        internal static readonly Func<EvaluationContext, RequirementDecision> AndroidRequiredElseNotApplicable = ctx =>
-            ctx.Platform == EvalPlatform.Unknown ? Unk("build platform is unknown")
-            : ctx.Platform == EvalPlatform.Android ? Req("Android-only device transport")
-            : Na("no device transport on this platform");
-
-        internal static readonly Func<EvaluationContext, RequirementDecision> AndroidOptionalElseNotApplicable = ctx =>
-            ctx.Platform == EvalPlatform.Unknown ? Unk("build platform is unknown")
-            : ctx.Platform == EvalPlatform.Android ? Opt("Android device fact")
-            : Na("no device transport on this platform");
-
         internal static readonly Func<EvaluationContext, RequirementDecision> UnityIapRequiredElseNotApplicable = ctx =>
             (ctx.InstalledModules & SdkModule.UnityIap) != 0
-                ? Req("Unity IAP installed: store/purchase verification required")
+                ? Req("Unity IAP installed: purchase-tracking wiring required")
                 : Na("Unity IAP not installed");
+
+        // ── F1: applicability follows the INTENDED release platform, not the evidence collector ──
+        // On an intended platform a required device gate stays applicable and omits → INCOMPLETE when no
+        // collector exists (a capability gap); NotApplicable only when the active platform is not a target.
+
+        internal static readonly Func<EvaluationContext, RequirementDecision> IntendedPlatformRequiredElseNotApplicable = ctx =>
+            ctx.IntendedTargets == DistributionTargets.None ? Unk("intended release targets are not declared")
+            : ctx.Platform == EvalPlatform.Unknown ? Unk("build platform is unknown")
+            : HealthEnums.TargetsInclude(ctx.IntendedTargets, ctx.Platform)
+                ? Req("device evidence required on an intended release platform")
+                : Na("active platform is not an intended release target");
+
+        internal static readonly Func<EvaluationContext, RequirementDecision> IntendedPlatformOptionalElseNotApplicable = ctx =>
+            ctx.IntendedTargets == DistributionTargets.None ? Unk("intended release targets are not declared")
+            : ctx.Platform == EvalPlatform.Unknown ? Unk("build platform is unknown")
+            : HealthEnums.TargetsInclude(ctx.IntendedTargets, ctx.Platform)
+                ? Opt("device fact on an intended release platform")
+                : Na("active platform is not an intended release target");
+
+        // ── F2: store config is Required only when Unity IAP is installed AND the active platform is an
+        // intended commerce/release target; else NotApplicable (or Unknown when targets are undeclared). ──
+        internal static readonly Func<EvaluationContext, RequirementDecision> IapStoreConfiguredRequirement = ctx =>
+            (ctx.InstalledModules & SdkModule.UnityIap) == 0 ? Na("Unity IAP not installed")
+            : ctx.IntendedTargets == DistributionTargets.None ? Unk("intended release targets are not declared")
+            : ctx.Platform == EvalPlatform.Unknown ? Unk("build platform is unknown")
+            : HealthEnums.TargetsInclude(ctx.IntendedTargets, ctx.Platform)
+                ? Req("Unity IAP installed and active platform is an intended commerce target")
+                : Na("active platform is not an intended commerce target");
     }
 }

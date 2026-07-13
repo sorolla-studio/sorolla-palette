@@ -24,6 +24,7 @@ namespace Sorolla.Palette.Editor.Tests
             Mode = EvalMode.Full,
             Platform = EvalPlatform.Android,
             InstalledModules = HealthEnums.AllModuleBits,
+            IntendedTargets = HealthEnums.AllTargetBits,
             RequestedPhase = GatePhase.QaPass,
         };
 
@@ -159,6 +160,94 @@ namespace Sorolla.Palette.Editor.Tests
             GateObservation ready = obs.Single(o => o.GateId == GateIds.DeviceReady);
             Assert.AreEqual(GateOutcome.Incomplete, ready.Outcome);
             Assert.AreEqual(ProofScope.None, ready.ObservedProof);
+        }
+
+        // ── F1: applicability vs collector availability ───────────────────
+
+        [Test]
+        public void IntendedIosPlatform_NoCollector_DeviceGatesAreIncomplete_NotNotApplicable()
+        {
+            // F1's core repair: on an iOS-only game the absence of an iOS collector is a CAPABILITY GAP - the
+            // required device gates omit → INCOMPLETE, they do NOT drop out as NotApplicable (which would let
+            // an iOS build read HEALTHY without ever running on its only shipping platform).
+            var ctx = new EvaluationContext
+            {
+                Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
+                InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
+                IntendedTargets = DistributionTargets.iOS, RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+            };
+            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, new List<GateObservation>());
+            GateResult ready = report.Rows.Single(r => r.GateId == GateIds.DeviceReady);
+            Assert.AreEqual(Requirement.Required, ready.Requirement);
+            Assert.AreEqual(GateDisposition.Omitted, ready.Disposition);
+            Assert.AreEqual(GateOutcome.Incomplete, ready.Outcome);
+            Assert.AreEqual(GateOutcome.Incomplete, report.Outcome, "an iOS-only build with no device evidence must not be HEALTHY");
+        }
+
+        [Test]
+        public void NonShippingPlatform_DeviceAndStoreGates_AreNotApplicableWithReason()
+        {
+            // F2: building Android for an iOS-only game - Android device/store gates are NotApplicable WITH a
+            // recorded reason (we don't validate a store the game does not ship on), never silently Required.
+            var ctx = new EvaluationContext
+            {
+                Mode = EvalMode.Full, Platform = EvalPlatform.Android,
+                InstalledModules = SdkModule.UnityIap, IntendedTargets = DistributionTargets.iOS,
+                RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+            };
+            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, new List<GateObservation>());
+            GateResult store = report.Rows.Single(r => r.GateId == GateIds.IapStoreConfigured);
+            GateResult ready = report.Rows.Single(r => r.GateId == GateIds.DeviceReady);
+            Assert.AreEqual(GateDisposition.NotApplicable, store.Disposition);
+            Assert.AreEqual(GateDisposition.NotApplicable, ready.Disposition);
+            Assert.IsFalse(string.IsNullOrEmpty(store.RequirementReason), "a NotApplicable gate must record why");
+        }
+
+        // ── F5: store config PASS cannot satisfy tracking wiring ──────────
+
+        [Test]
+        public void StoreConfigPass_CannotSatisfyTrackingWiring()
+        {
+            var ctx = new EvaluationContext
+            {
+                Mode = EvalMode.Full, Platform = EvalPlatform.Android,
+                InstalledModules = SdkModule.UnityIap, IntendedTargets = DistributionTargets.Android,
+                RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+            };
+            // Store config attested at its vendor scope; NOTHING supplied for the wiring gate.
+            var observations = new List<GateObservation>
+            {
+                new GateObservation
+                {
+                    GateId = GateIds.IapStoreConfigured, Outcome = GateOutcome.Pass,
+                    ObservedProof = ProofScope.VendorAccepted,
+                },
+            };
+            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, observations);
+            Assert.AreEqual(GateOutcome.Pass, report.Rows.Single(r => r.GateId == GateIds.IapStoreConfigured).Outcome);
+            GateResult tracking = report.Rows.Single(r => r.GateId == GateIds.IapTrackingAttached);
+            Assert.AreEqual(GateDisposition.Omitted, tracking.Disposition, "a store attestation must not stand in for wiring");
+            Assert.AreEqual(GateOutcome.Incomplete, tracking.Outcome);
+        }
+
+        [Test]
+        public void TrackingObservation_NoSnapshot_IsNull_SoGateOmitsIncomplete()
+        {
+            // No parsed device snapshot → no tracking evidence → the required gate omits → INCOMPLETE (never a
+            // silent pass off the back of a store attestation).
+            Assert.IsNull(GreenlightDeviceSnapshot.TrackingAttachedObservation(new GreenlightDeviceSnapshot.State()));
+        }
+
+        [Test]
+        public void TrackingObservation_UnknownSchema_IsNull()
+        {
+            var state = new GreenlightDeviceSnapshot.State
+            {
+                Phase = GreenlightDeviceSnapshot.Phase.Done,
+                Outcome = GreenlightDeviceSnapshot.Outcome.Parsed,
+                Snapshot = new Dictionary<string, object> { ["snapshot_schema"] = "999" },
+            };
+            Assert.IsNull(GreenlightDeviceSnapshot.TrackingAttachedObservation(state));
         }
 
         // ── C4-03: build/game identity binding ────────────────────────────
@@ -344,13 +433,6 @@ namespace Sorolla.Palette.Editor.Tests
             report.Rows.Add(new GreenlightEvaluator.Row { Status = CheckRow.Status.Pass });
             report.Rows.Add(new GreenlightEvaluator.Row { Status = CheckRow.Status.Pass });
             Assert.AreEqual("2 rows checked", GreenlightEvaluator.RowSummary(report));
-        }
-
-        [Test]
-        public void ToPlainText_UnknownOutcome_ThrowsInsteadOfExportingHealthy()
-        {
-            var report = new GreenlightEvaluator.Report { Outcome = (GateOutcome)999 };
-            Assert.Throws<ArgumentOutOfRangeException>(() => GreenlightEvaluator.ToPlainText(report));
         }
 
         // ── End-to-end: no evidence must never render green ───────────────

@@ -152,10 +152,11 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = HealthEnums.AllModuleBits, // includes UnityIap
+                IntendedTargets = HealthEnums.AllTargetBits,  // Android is a declared commerce target (F2)
                 RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
             };
             Assert.AreEqual(Requirement.Required, GateCatalog.Canonical.ById(GateIds.IapStoreConfigured).Requirement(ctx).Value,
-                "with Unity IAP installed the IAP gate is Required");
+                "with Unity IAP installed and the active platform an intended target, the store gate is Required");
 
             var observations = new List<GateObservation>();
             foreach (GateDefinition def in GateCatalog.Canonical.All)
@@ -197,9 +198,13 @@ namespace Sorolla.Palette.Editor.Tests
                 Mode = mode, Platform = platform,
                 InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook | SdkModule.Firebase |
                                    SdkModule.AppLovinMax | SdkModule.Adjust | SdkModule.UnityIap,
+                IntendedTargets = HealthEnums.AllTargetBits, // Android is a declared target (F1/F2)
                 RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
             };
 
+            // The non-manual Required gates (build + device + iap.tracking_attached) are supplied as
+            // observations at their required proof; the manual + store-config gates come from the real
+            // attestation seam. tracking_attached is device-produced, so it lands via this loop, not attestation.
             var observations = new List<GateObservation>();
             observations.AddRange(GreenlightAdapter.ManualObservations(ctx, deviceGuid)); // real attestation seam
             foreach (GateDefinition def in GateCatalog.Canonical.All)
@@ -234,6 +239,8 @@ namespace Sorolla.Palette.Editor.Tests
             GateObservation obs = GreenlightAdapter.ManualObservations(ctx, null).Single(o => o.GateId == gate);
             Assert.AreEqual(GateOutcome.Pass, obs.Outcome, "a matching attestation must emit PASS");
             Assert.AreEqual(required, obs.ObservedProof, "the emitted observation must carry the gate's required proof scope");
+            StringAssert.Contains("did the dashboard check", obs.Evidence,
+                "the evidence note must ride into the row for canonical-report provenance (F4)");
         }
 
         [Test]

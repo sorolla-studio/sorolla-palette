@@ -13,10 +13,12 @@ namespace Sorolla.Palette.Editor.Tests
     /// </summary>
     public class GateCatalogTests
     {
-        static EvaluationContext Ctx(EvalMode mode, EvalPlatform platform, SdkModule modules = SdkModule.None) =>
+        static EvaluationContext Ctx(EvalMode mode, EvalPlatform platform, SdkModule modules = SdkModule.None,
+            DistributionTargets targets = HealthEnums.AllTargetBits) =>
             new EvaluationContext
             {
-                Mode = mode, Platform = platform, InstalledModules = modules, RequestedPhase = GatePhase.QaPass,
+                Mode = mode, Platform = platform, InstalledModules = modules, IntendedTargets = targets,
+                RequestedPhase = GatePhase.QaPass,
             };
 
         static Requirement ReqOf(string gateId, EvaluationContext ctx) =>
@@ -131,10 +133,23 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
-        public void DeviceReady_RequiredOnAndroid_NotApplicableOnIOS()
+        public void DeviceGates_ApplicabilityFollowsIntendedTarget_NotCollector()
         {
-            Assert.AreEqual(Requirement.Required, ReqOf(GateIds.DeviceReady, Ctx(EvalMode.Full, EvalPlatform.Android)));
-            Assert.AreEqual(Requirement.NotApplicable, ReqOf(GateIds.DeviceReady, Ctx(EvalMode.Full, EvalPlatform.iOS)));
+            // F1: device evidence is Required on an INTENDED release platform - INCLUDING iOS, where no
+            // collector exists yet (it will omit → INCOMPLETE downstream, not vanish as NotApplicable).
+            // NotApplicable only when the active platform is not a declared target; Unknown when undeclared.
+            Assert.AreEqual(Requirement.Required,
+                ReqOf(GateIds.DeviceReady, Ctx(EvalMode.Full, EvalPlatform.Android, targets: DistributionTargets.Android)));
+            Assert.AreEqual(Requirement.Required,
+                ReqOf(GateIds.DeviceReady, Ctx(EvalMode.Full, EvalPlatform.iOS, targets: DistributionTargets.iOS)));
+            Assert.AreEqual(Requirement.NotApplicable,
+                ReqOf(GateIds.DeviceReady, Ctx(EvalMode.Full, EvalPlatform.Android, targets: DistributionTargets.iOS)));
+            Assert.AreEqual(Requirement.Unknown,
+                ReqOf(GateIds.DeviceReady, Ctx(EvalMode.Full, EvalPlatform.Android, targets: DistributionTargets.None)));
+            // no_sdk_errors follows the same rule and is Required (not merely Optional) on an intended platform,
+            // so an intended platform with no collector is INCOMPLETE, not a green skip.
+            Assert.AreEqual(Requirement.Required,
+                ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.iOS, targets: DistributionTargets.iOS)));
         }
 
         [Test]
@@ -189,15 +204,40 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
-        public void IapGate_RequiredWhenUnityIapInstalled_NotApplicableOtherwise()
+        public void IapStoreGate_RequiredWhenIapInstalledAndPlatformIsTarget_NotApplicableOtherwise()
         {
-            // C4-10: IAP coverage is represented; unavailable proof (VendorAccepted, not SDK-readable) →
-            // INCOMPLETE via omission when Unity IAP is installed; NotApplicable when it is not.
-            Assert.AreEqual(Requirement.Required,
-                ReqOf(GateIds.IapStoreConfigured, Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap)));
-            Assert.AreEqual(Requirement.NotApplicable,
-                ReqOf(GateIds.IapStoreConfigured, Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.None)));
+            // F2: store config is Required only when Unity IAP is installed AND the active platform is an
+            // intended commerce target. A game shipping on only one store is never forced to prove the other.
+            Assert.AreEqual(Requirement.Required, ReqOf(GateIds.IapStoreConfigured,
+                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap, DistributionTargets.Android)));
+            // installed, but the active platform is not a declared target → NotApplicable with a reason.
+            Requirement offTarget = GateCatalog.Canonical.ById(GateIds.IapStoreConfigured)
+                .Requirement(Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap, DistributionTargets.iOS)).Value;
+            Assert.AreEqual(Requirement.NotApplicable, offTarget);
+            // Unity IAP absent → NotApplicable regardless of platform/targets.
+            Assert.AreEqual(Requirement.NotApplicable, ReqOf(GateIds.IapStoreConfigured,
+                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.None, DistributionTargets.Android)));
+            // installed + on-target but targets undeclared → Unknown (fail closed), not a silent skip.
+            Assert.AreEqual(Requirement.Unknown, ReqOf(GateIds.IapStoreConfigured,
+                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap, DistributionTargets.None)));
             Assert.AreEqual(ProofScope.VendorAccepted, GateCatalog.Canonical.ById(GateIds.IapStoreConfigured).RequiredProof);
+        }
+
+        [Test]
+        public void IapTrackingGate_IsSeparateFromStore_DeviceProof_RequiredWhenIapInstalled()
+        {
+            // F5: the wiring gate is a DIFFERENT id, Required whenever Unity IAP is installed (code wiring is
+            // platform-independent), proven by device dispatch - NOT the store's vendor attestation.
+            Assert.AreEqual(Requirement.Required, ReqOf(GateIds.IapTrackingAttached,
+                Ctx(EvalMode.Full, EvalPlatform.iOS, SdkModule.UnityIap, DistributionTargets.iOS)));
+            Assert.AreEqual(Requirement.NotApplicable, ReqOf(GateIds.IapTrackingAttached,
+                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.None, DistributionTargets.Android)));
+            Assert.AreEqual(ProofScope.DeviceDispatch,
+                GateCatalog.Canonical.ById(GateIds.IapTrackingAttached).RequiredProof);
+            Assert.AreNotEqual(
+                GateCatalog.Canonical.ById(GateIds.IapStoreConfigured).RequiredProof,
+                GateCatalog.Canonical.ById(GateIds.IapTrackingAttached).RequiredProof,
+                "store config (vendor) and tracking wiring (device) must require different proof classes");
         }
 
         // ── Manual gates require unscoped-tick-defeating proof ─────────────

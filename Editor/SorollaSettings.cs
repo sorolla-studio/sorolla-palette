@@ -54,6 +54,25 @@ namespace Sorolla.Palette.Editor
 
         public static bool HasRuntimeConfig => LoadRuntimeConfig() != null;
 
+        /// <summary>
+        ///     The store platforms this game declares it ships to (SorollaConfig release-target flags, F2).
+        ///     <see cref="Health.DistributionTargets.None"/> when no config or nothing declared - the greenlight
+        ///     treats that as undeclared and fails the device/store gates closed to INCOMPLETE until a studio
+        ///     declares its targets. Internal: it surfaces an internal Health type, so it is not public API.
+        /// </summary>
+        internal static Health.DistributionTargets IntendedTargets
+        {
+            get
+            {
+                var config = LoadRuntimeConfig();
+                if (config == null) return Health.DistributionTargets.None;
+                Health.DistributionTargets targets = Health.DistributionTargets.None;
+                if (config.releasesOnAndroid) targets |= Health.DistributionTargets.Android;
+                if (config.releasesOniOS) targets |= Health.DistributionTargets.iOS;
+                return targets;
+            }
+        }
+
         public static bool SyncFromRuntimeConfig()
         {
             var config = LoadRuntimeConfig();

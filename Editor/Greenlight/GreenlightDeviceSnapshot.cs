@@ -448,6 +448,43 @@ namespace Sorolla.Palette.Editor.Greenlight
             return IdentityResult.Match;
         }
 
+        /// <summary>
+        ///     Purchase-tracking wiring evidence for <c>iap.tracking_attached</c> (F5), read from the snapshot's
+        ///     <c>iap.tracking_attached</c> signal - a DIFFERENT fact from store-console config. Returns null
+        ///     (→ the required gate omits → INCOMPLETE) unless there is a parsed, schema-current, identity-
+        ///     matching snapshot: a store attestation can never stand in for it. Observed-wired → PASS at
+        ///     DeviceDispatch; observed-not-wired → INCOMPLETE (no positive evidence), never a silent pass.
+        /// </summary>
+        internal static GateObservation TrackingAttachedObservation(State state)
+        {
+            if (state == null || state.Phase != Phase.Done || state.Outcome != Outcome.Parsed)
+                return null;
+            Dictionary<string, object> snapshot = state.Snapshot;
+            if (GetString(snapshot, "snapshot_schema") != QaSnapshot.SchemaVersion)
+                return null;
+            if (CompareIdentity(snapshot, Application.identifier, ExpectedMode(), Application.version,
+                    ExpectedPlatform(), out _) != IdentityResult.Match)
+                return null;
+
+            bool attached = TryGetObject(snapshot, "iap", out var iap) && GetBool(iap, "tracking_attached");
+            return attached
+                ? new GateObservation
+                {
+                    GateId = GateIds.IapTrackingAttached,
+                    Outcome = GateOutcome.Pass,
+                    ObservedProof = ProofScope.DeviceDispatch,
+                    Evidence = "Palette.AttachPurchaseTracking wired (observed on device this session).",
+                }
+                : new GateObservation
+                {
+                    GateId = GateIds.IapTrackingAttached,
+                    Outcome = GateOutcome.Incomplete,
+                    ObservedProof = ProofScope.None,
+                    Evidence = "Purchase tracking not observed as wired this session (store config alone does not prove wiring).",
+                    FixHint = "Call Palette.AttachPurchaseTracking(store) at store init, trigger a test purchase, then re-snapshot.",
+                };
+        }
+
         /// <summary>The connected snapshot's Unity build GUID (from its build-identity block), or null when no
         /// parsed snapshot / no GUID. Used to bind device-session attestations to the exact build (C45-05).</summary>
         internal static string BuildGuidOf(State state)

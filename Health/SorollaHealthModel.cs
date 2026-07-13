@@ -90,6 +90,23 @@ namespace Sorolla.Palette.Health
         iOS,
     }
 
+    /// <summary>
+    ///     The store platforms a game DECLARES it ships to (F1/F2 - Arthur's one-store decision). This is
+    ///     distinct from the single active <see cref="EvalPlatform"/> the editor is currently building for:
+    ///     a game may ship to only one store and must be testable on only that platform. Applicability of the
+    ///     device/store gates is decided against THIS set (is the active platform an intended target?), NOT
+    ///     against which evidence COLLECTOR happens to exist - a missing collector on an intended platform is
+    ///     an INCOMPLETE capability gap, never a NotApplicable exemption. <c>None</c> means undeclared and
+    ///     fails closed (→ Unknown → INCOMPLETE); a studio must declare its targets.
+    /// </summary>
+    [Flags]
+    internal enum DistributionTargets
+    {
+        None = 0,
+        Android = 1 << 0,
+        iOS = 1 << 1,
+    }
+
     [Flags]
     internal enum SdkModule
     {
@@ -169,6 +186,11 @@ namespace Sorolla.Palette.Health
         public EvalMode Mode;
         public EvalPlatform Platform;
         public SdkModule InstalledModules;
+        /// <summary>The store platforms this game declares it ships to (F1/F2). Applicability of the
+        /// device/store gates is decided against this set, not against collector availability. Defaults
+        /// <see cref="DistributionTargets.None"/> = undeclared, which the predicates fail closed to Unknown →
+        /// INCOMPLETE. A producer that can read the studio's release-target declaration sets it.</summary>
+        public DistributionTargets IntendedTargets;
         /// <summary>The phase this report is for (review C3-03). The evaluator - not the caller - selects the
         /// definitions that belong to this phase. A single defined phase bit is expected.</summary>
         public GatePhase RequestedPhase;
@@ -210,6 +232,7 @@ namespace Sorolla.Palette.Health
         internal const SdkModule AllModuleBits = SdkModule.GameAnalytics | SdkModule.Facebook |
                                                  SdkModule.Firebase | SdkModule.AppLovinMax | SdkModule.Adjust |
                                                  SdkModule.UnityIap;
+        internal const DistributionTargets AllTargetBits = DistributionTargets.Android | DistributionTargets.iOS;
 
         internal static bool IsDefinedOutcome(GateOutcome v) =>
             v == GateOutcome.Incomplete || v == GateOutcome.Fail ||
@@ -232,5 +255,15 @@ namespace Sorolla.Palette.Health
         internal static bool HasOnlyDefinedBits(ProofScope v) => (v & ~AllProofBits) == 0;
         internal static bool HasOnlyDefinedBits(GatePhase v) => (v & ~AllPhaseBits) == 0;
         internal static bool HasOnlyDefinedBits(SdkModule v) => (v & ~AllModuleBits) == 0;
+        internal static bool HasOnlyDefinedBits(DistributionTargets v) => (v & ~AllTargetBits) == 0;
+
+        /// <summary>Whether the (single, active) build platform is one of the declared distribution targets.
+        /// <see cref="EvalPlatform.Unknown"/> is never a member; the caller treats it separately.</summary>
+        internal static bool TargetsInclude(DistributionTargets targets, EvalPlatform platform) => platform switch
+        {
+            EvalPlatform.Android => (targets & DistributionTargets.Android) != 0,
+            EvalPlatform.iOS => (targets & DistributionTargets.iOS) != 0,
+            _ => false,
+        };
     }
 }
