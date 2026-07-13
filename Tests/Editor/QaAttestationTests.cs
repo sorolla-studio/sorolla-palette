@@ -177,5 +177,64 @@ namespace Sorolla.Palette.Editor.Tests
                     QaAttestationStore.Clear(gid);
             }
         }
+
+        // ── Adapter seam: store → adapter → emitted observation (R-06b class) ─
+
+        [Test]
+        public void MatchingAttestation_AdapterEmitsPassAtRequiredScope()
+        {
+            // (a) The store→adapter→observation seam as one path: a real matching attestation must make the
+            // adapter EMIT a PASS observation carrying the gate's catalog-required proof scope - not a
+            // synthetic PASS asserted at the evaluator level.
+            const string gate = GateIds.ManualGaPlatformRegistered;
+            ProofScope required = GateCatalog.Canonical.ById(gate).RequiredProof;
+            var ctx = new EvaluationContext
+            {
+                Mode = EvalMode.Full, Platform = EvalPlatform.Android,
+                InstalledModules = SdkModule.None, RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+            };
+            try
+            {
+                GreenlightAdapter.AttestManualGate(gate); // real record, current identity
+                GateObservation obs = GreenlightAdapter.ManualObservations(ctx).Single(o => o.GateId == gate);
+                Assert.AreEqual(GateOutcome.Pass, obs.Outcome, "a matching attestation must emit PASS");
+                Assert.AreEqual(required, obs.ObservedProof, "the emitted observation must carry the gate's required proof scope");
+            }
+            finally { QaAttestationStore.Clear(gate); }
+        }
+
+        [Test]
+        public void StaleAttestation_AdapterEmitsIncomplete_AndGateResolvesIncomplete()
+        {
+            // (b) A stale (wrong-game) attestation must NOT emit an affirmative observation through the seam;
+            // the adapter emits INCOMPLETE with no proof, and the gate resolves INCOMPLETE end-to-end.
+            const string gate = GateIds.ManualGaPlatformRegistered;
+            ProofScope required = GateCatalog.Canonical.ById(gate).RequiredProof;
+            var ctx = new EvaluationContext
+            {
+                Mode = EvalMode.Full, Platform = EvalPlatform.Android,
+                InstalledModules = SdkModule.None, RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+            };
+            try
+            {
+                QaBuildIdentity cur = QaBuildIdentity.Current();
+                QaAttestationStore.Record(new QaAttestationRecord
+                {
+                    schema = "1", gateId = gate, gateVersion = "1", phase = "QaPass", actor = "tester",
+                    timestampUtc = DateTime.UtcNow.ToString("o"),
+                    applicationId = "com.other.game", // wrong game → stale vs current identity
+                    platform = cur.Platform, mode = cur.Mode, appVersion = cur.AppVersion,
+                    outcome = "Pass", proofScope = required.ToString(),
+                });
+
+                GateObservation obs = GreenlightAdapter.ManualObservations(ctx).Single(o => o.GateId == gate);
+                Assert.AreEqual(GateOutcome.Incomplete, obs.Outcome, "a stale attestation must not emit PASS");
+                Assert.AreEqual(ProofScope.None, obs.ObservedProof);
+
+                HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, new List<GateObservation> { obs });
+                Assert.AreEqual(GateOutcome.Incomplete, report.Rows.Single(r => r.GateId == gate).Outcome);
+            }
+            finally { QaAttestationStore.Clear(gate); }
+        }
     }
 }
