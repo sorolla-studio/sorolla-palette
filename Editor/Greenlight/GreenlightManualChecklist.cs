@@ -21,6 +21,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             AdjustPurchaseVerification,
             RelaunchPersistence,
             BackgroundResumeCycle,
+            IapStoreConfigured,
         }
 
         /// <summary>Static description of one manual gate: its neutral gate id, display label, why a machine
@@ -75,6 +76,17 @@ namespace Sorolla.Palette.Editor.Greenlight
                 Label = "Background / Resume Cycle",
                 Why = "Ad/IAP/session behavior across a backgrounded app needs a human play session, not a static probe.",
                 Fix = "Background the app mid-session (e.g. during an ad load) and resume - confirm no crash, no stuck loading state, no duplicate session start.",
+                DeepLinkUrl = null,
+            },
+            new Descriptor
+            {
+                // The foundation IAP gate (review C45-02): a scoped STORE-CONFIG attestation - NOT the later
+                // full purchase/grant/confirmation/dedup chain. It exists so an IAP game (Unity IAP installed)
+                // can legitimately reach HEALTHY instead of being permanently stuck INCOMPLETE.
+                Item = Item.IapStoreConfigured, GateId = GateIds.IapStoreConfigured,
+                Label = "IAP Store Config (attestation, not the purchase chain)",
+                Why = "Store-console product setup and testing-track membership aren't SDK-readable. This attests the store config exists for this build; it does NOT prove the full purchase/grant/confirmation flow (that lands later).",
+                Fix = "Google Play Console / App Store Connect -> confirm every product id exists and this build/tester is on the right testing track, then attest with your evidence note.",
                 DeepLinkUrl = null,
             },
         };

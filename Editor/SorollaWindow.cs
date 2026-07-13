@@ -1046,10 +1046,12 @@ namespace Sorolla.Palette.Editor
             {
                 var attestButton = new Button(() =>
                 {
-                    GreenlightAdapter.AttestManualGate(manual.GateId);
-                    RefreshGreenlightUI();
+                    // Opens a confirmation + evidence-note prompt; device gates bind to the connected build GUID
+                    // (review C45-06). No one-click PASS.
+                    string deviceBuildGuid = GreenlightDeviceSnapshot.BuildGuidOf(_snapshotState);
+                    QaAttestPromptWindow.Show(manual, deviceBuildGuid, RefreshGreenlightUI);
                 })
-                { text = "Attest for this build" };
+                { text = "Attest for this build…" };
                 attestButton.AddToClassList("sorolla-button-small");
                 attestButton.style.marginLeft = 24;
                 container.Add(attestButton);

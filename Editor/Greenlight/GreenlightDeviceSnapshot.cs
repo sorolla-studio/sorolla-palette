@@ -411,11 +411,15 @@ namespace Sorolla.Palette.Editor.Greenlight
             string appId = GetString(build, "application_id");
             string platform = GetString(build, "platform");
             string appVersion = GetString(build, "app_version");
+            string buildGuid = GetString(build, "build_guid");
             string mode = GetString(snapshot, "mode");
 
-            if (string.IsNullOrEmpty(appId) || string.IsNullOrEmpty(appVersion) || string.IsNullOrEmpty(mode))
+            // Platform and build GUID are part of the required identity: a snapshot missing either has not
+            // proven which build it came from (review C45-05) - do not accept it silently.
+            if (string.IsNullOrEmpty(appId) || string.IsNullOrEmpty(appVersion) ||
+                string.IsNullOrEmpty(mode) || string.IsNullOrEmpty(platform) || string.IsNullOrEmpty(buildGuid))
             {
-                detail = "Snapshot build identity is incomplete (missing application id / version / mode).";
+                detail = "Snapshot build identity is incomplete (missing application id / version / mode / platform / build GUID).";
                 return IdentityResult.Missing;
             }
 
@@ -434,7 +438,7 @@ namespace Sorolla.Palette.Editor.Greenlight
                 detail = $"Wrong build: snapshot app version '{appVersion}' != project '{expectedAppVersion}'.";
                 return IdentityResult.Mismatch;
             }
-            if (!string.IsNullOrEmpty(expectedPlatform) && !string.IsNullOrEmpty(platform) && platform != expectedPlatform)
+            if (!string.IsNullOrEmpty(expectedPlatform) && platform != expectedPlatform)
             {
                 detail = $"Wrong platform: snapshot platform '{platform}' != expected '{expectedPlatform}'.";
                 return IdentityResult.Mismatch;
@@ -442,6 +446,15 @@ namespace Sorolla.Palette.Editor.Greenlight
 
             detail = "identity matches";
             return IdentityResult.Match;
+        }
+
+        /// <summary>The connected snapshot's Unity build GUID (from its build-identity block), or null when no
+        /// parsed snapshot / no GUID. Used to bind device-session attestations to the exact build (C45-05).</summary>
+        internal static string BuildGuidOf(State state)
+        {
+            if (state == null || state.Phase == Phase.NotStarted || state.Outcome != Outcome.Parsed)
+                return null;
+            return TryGetObject(state.Snapshot, "build", out var build) ? GetString(build, "build_guid") : null;
         }
 
         static string ExpectedMode() => SorollaSettings.Mode switch

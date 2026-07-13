@@ -102,15 +102,42 @@ namespace Sorolla.Palette.Editor.Greenlight
         internal static GatePhase RequestedPhaseFor(bool isRelease) =>
             isRelease ? GatePhase.ReleaseShip : GatePhase.QaPass;
 
-        /// <summary>Records a scoped attestation for a manual gate against the current build identity, claiming
-        /// the gate's catalog-defined required proof scope + version + the active phase (the greenlight
-        /// "Attest" action). Keeps the Health catalog access on the adapter side.</summary>
-        internal static void AttestManualGate(string gateId)
+        /// <summary>
+        ///     Records a scoped attestation for a manual gate against the current build identity + gate version
+        ///     + active phase + required proof scope, plus the human evidence note and (for device-session
+        ///     gates) the connected build GUID (the greenlight "Attest" action, C45-06/05). Returns false if
+        ///     the gate is unknown, a device gate has no connected build to bind to, or a vendor gate has no
+        ///     evidence note - the affirmation must be honest.
+        /// </summary>
+        internal static bool AttestManualGate(string gateId, string evidenceNote, string deviceBuildGuid)
         {
             GateDefinition def = GateCatalog.Canonical.ById(gateId, throwIfMissing: false);
-            if (def == null) return;
-            string phase = RequestedPhaseFor(BuildValidationProfileSettings.IsRelease).ToString();
-            QaAttestationStore.AttestCurrent(gateId, def.Version, phase, def.RequiredProof);
+            if (def == null) return false;
+
+            bool deviceGate = (def.RequiredProof & ProofScope.DeviceDispatch) != 0;
+            bool vendorGate = (def.RequiredProof & ProofScope.VendorAccepted) != 0;
+            if (deviceGate && string.IsNullOrEmpty(deviceBuildGuid)) return false; // must bind to a connected build
+            if (vendorGate && string.IsNullOrWhiteSpace(evidenceNote)) return false; // dashboard claim needs a note
+
+            QaBuildIdentity id = QaBuildIdentity.Current();
+            QaAttestationStore.Record(new QaAttestationRecord
+            {
+                schema = QaAttestationValidator.Schema,
+                gateId = gateId,
+                gateVersion = def.Version,
+                phase = RequestedPhaseFor(BuildValidationProfileSettings.IsRelease).ToString(),
+                actor = Environment.UserName,
+                timestampUtc = DateTime.UtcNow.ToString("o"),
+                applicationId = id.ApplicationId,
+                platform = id.Platform,
+                mode = id.Mode,
+                appVersion = id.AppVersion,
+                outcome = "Pass",
+                proofScope = def.RequiredProof.ToString(),
+                evidenceNote = evidenceNote,
+                deviceBuildGuid = deviceGate ? deviceBuildGuid : null,
+            });
+            return true;
         }
 
         // ── Observations ──────────────────────────────────────────────
@@ -130,36 +157,59 @@ namespace Sorolla.Palette.Editor.Greenlight
             var observations = new List<GateObservation>();
             observations.AddRange(BuildHealthObservations(buildHealthResults, context.InstalledModules));
 
+            string deviceBuildGuid = null;
             if (context.Platform == EvalPlatform.Android)
+            {
                 observations.AddRange(GreenlightDeviceSnapshot.ToObservations(snapshotState));
+                deviceBuildGuid = GreenlightDeviceSnapshot.BuildGuidOf(snapshotState);
+            }
 
-            observations.AddRange(ManualObservations(context));
+            observations.AddRange(ManualObservations(context, deviceBuildGuid));
             return observations;
         }
 
         /// <summary>
-        ///     One observation per applicable manual gate, sourced from scoped attestations (Cycle 4b). A
-        ///     valid, fresh, identity-matching attestation carries the gate's required proof scope → PASS; a
-        ///     stale (wrong build / expired) or invalid attestation → INCOMPLETE; an unattested gate →
-        ///     INCOMPLETE with its guidance. The Adjust gate is only relevant in Full mode.
+        ///     One observation per applicable manual gate, sourced from scoped attestations (Cycle 4b, hardened
+        ///     per C45-01/04/05). A valid attestation - exact gate id + current gate version + requested phase
+        ///     + matching app identity + (for device gates) the connected build GUID, with a Pass outcome and
+        ///     required evidence - carries the gate's required proof scope → PASS. Stale (wrong build/version/
+        ///     phase/expired) or invalid → INCOMPLETE; an unattested gate → INCOMPLETE with guidance. A corrupt
+        ///     attestation store makes every manual gate INCOMPLETE with an integrity note (C45-04). The Adjust
+        ///     gate is only relevant in Full mode.
         /// </summary>
-        internal static IEnumerable<GateObservation> ManualObservations(EvaluationContext context)
+        internal static IEnumerable<GateObservation> ManualObservations(EvaluationContext context, string deviceBuildGuid)
         {
-            List<QaAttestationRecord> records = QaAttestationStore.Load();
+            List<QaAttestationRecord> records = QaAttestationStore.Load(out bool corrupt);
             QaBuildIdentity identity = QaBuildIdentity.Current();
+            string phase = context.RequestedPhase.ToString();
             DateTime now = DateTime.UtcNow;
 
             foreach (GreenlightManualChecklist.Descriptor d in GreenlightManualChecklist.Descriptors)
             {
                 if (d.GateId == GateIds.ManualAdjustPurchaseVerification && context.Mode != EvalMode.Full)
                     continue; // no Adjust in Prototype - the gate is NotApplicable there
+                if (d.GateId == GateIds.IapStoreConfigured && (context.InstalledModules & SdkModule.UnityIap) == 0)
+                    continue; // Unity IAP not installed - the iap gate is NotApplicable there
+
+                if (corrupt)
+                {
+                    yield return new GateObservation
+                    {
+                        GateId = d.GateId, Outcome = GateOutcome.Incomplete, ObservedProof = ProofScope.None,
+                        Evidence = "The attestation store is unreadable/corrupt - its evidence cannot be trusted.",
+                        FixHint = "Re-attest this gate to rewrite a valid attestation store.",
+                    };
+                    continue;
+                }
 
                 GateDefinition def = GateCatalog.Canonical.ById(d.GateId, throwIfMissing: false);
                 ProofScope required = def?.RequiredProof ?? ProofScope.None;
+                var expectation = new QaAttestationExpectation(
+                    d.GateId, def?.Version, phase, required, identity, deviceBuildGuid);
 
                 QaAttestationRecord record = QaAttestationStore.ForGate(records, d.GateId);
                 AttestationValidity validity =
-                    QaAttestationValidator.Evaluate(record, identity, required, now, out string reason);
+                    QaAttestationValidator.Evaluate(record, expectation, now, out string reason);
 
                 yield return validity == AttestationValidity.Valid
                     ? new GateObservation
@@ -262,16 +312,10 @@ namespace Sorolla.Palette.Editor.Greenlight
         {
             if (BuildGateLabels.TryGetValue(gateId, out string buildLabel)) return buildLabel;
             if (DeviceLabels.TryGetValue(gateId, out string deviceLabel)) return deviceLabel;
-            if (MiscLabels.TryGetValue(gateId, out string miscLabel)) return miscLabel;
             GreenlightManualChecklist.Descriptor manual = GreenlightManualChecklist.Descriptors
                 .FirstOrDefault(d => d.GateId == gateId);
             return manual?.Label ?? gateId;
         }
-
-        static readonly Dictionary<string, string> MiscLabels = new Dictionary<string, string>
-        {
-            [GateIds.IapStoreConfigured] = "IAP Store / Purchase Verification",
-        };
 
         internal static (string url, string label) DeepLinkFor(string gateId)
         {

@@ -170,6 +170,7 @@ namespace Sorolla.Palette.Editor.Tests
                 ["build"] = new Dictionary<string, object>
                 {
                     ["application_id"] = appId, ["platform"] = platform, ["app_version"] = appVersion,
+                    ["build_guid"] = "test-guid", // required identity field (C45-05)
                 },
             };
 

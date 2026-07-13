@@ -61,10 +61,11 @@ signal it produces, and the fix.
   (Required when Unity IAP is installed, its store-console proof unavailable to the SDK → INCOMPLETE;
   NotApplicable otherwise) so it did not vanish with the QA-expectations removal. The legacy manual
   checkboxes are relabelled as non-evidence until scoped attestation lands. The device snapshot now
-  carries a schema version and a minimum build-identity binding (application id, platform, mode, app
-  version); the greenlight rejects an unsupported schema or a wrong-game / wrong-build snapshot instead of
-  trusting it for device readiness, and requires the snapshot's SDK-error evidence (a missing or malformed
-  `problems`/`sdk_errors` value is INCOMPLETE, not a permissive zero). A vendor's "not installed" Build
+  carries a schema version and a build-identity binding (application id, platform, mode, app version, and
+  the Unity build GUID); the greenlight rejects an unsupported schema or a wrong-game / wrong-build snapshot
+  instead of trusting it for device readiness - and a snapshot missing its platform or build GUID no longer
+  passes silently (both are required identity now). It also requires the snapshot's SDK-error evidence (a
+  missing or malformed `problems`/`sdk_errors` value is INCOMPLETE, not a permissive zero). A vendor's "not installed" Build
   Health result is no longer treated as an affirmative pass - vendor absence in Prototype is a penalty-free
   skip, and a missing active-platform Firebase config in Full now blocks (Error) instead of only warning.
   An `Unknown` requirement can no longer flatten an observed FAIL, and malformed evaluator inputs (null
@@ -73,13 +74,20 @@ signal it produces, and the fix.
   release-only checks are reachable under the Release profile and never read as a QA-pass PASS.
 - **Scoped manual attestations replace the legacy checkbox**: a manual QA gate is now satisfied by an
   attestation recorded against the current build - who attested, when, the game/build identity (application
-  id, platform, mode, app version), and the proof scope claimed - not an unscoped EditorPrefs tick. The
-  greenlight "Attest for this build" button writes the record (project-scoped, atomic, under
-  `UserSettings/`); the gate reads PASS only while that attestation matches the current build identity and is
-  fresh (14-day window). A stale (wrong game/build, expired) or invalid (unknown schema, wrong proof scope,
-  future timestamp, missing identity, duplicate-conflict) attestation resolves to INCOMPLETE, never PASS.
-  This makes a legitimate HEALTHY reachable once every gate is genuinely satisfied, while keeping the
-  no-false-green guarantee.
+  id, platform, mode, app version), the gate id + definition version + phase, the proof scope claimed, a
+  human evidence note, and (for device-session gates) the connected build's GUID - not an unscoped
+  EditorPrefs tick. Every field is validated end to end: a wrong gate id / non-Pass outcome / blank actor /
+  wrong proof scope / a vendor gate with no evidence note is Invalid, and a gate-definition version change,
+  phase mismatch, different game/build, device-build-GUID mismatch, or expiry (14-day window) makes the
+  attestation Stale - both resolve to INCOMPLETE, never PASS (so a gate-version bump voids prior
+  attestations, per the Phase 3 restart rule). Recording is a confirmation prompt with a required evidence
+  note - not a one-click PASS - and the UI states plainly that this is a human attestation, not
+  machine-observed proof. Storage is a real same-volume atomic replace under `UserSettings/` that keeps the
+  prior valid file until the write succeeds; a corrupt store surfaces as INCOMPLETE integrity evidence, not
+  a silent empty set. In-app-purchase store config is attestable through this path (an explicit IAP
+  descriptor, honestly scoped as store-config attestation, NOT the later full purchase/grant/confirmation
+  chain), so an Unity-IAP game can reach HEALTHY. This makes a legitimate HEALTHY reachable once every gate
+  is genuinely satisfied, while keeping the no-false-green guarantee.
 - **Shared health-result contract (internal foundation)**: a new leaf assembly `Sorolla.Health`
   (`noEngineReferences`, internal types, no studio API) holds the neutral gate-result model and the
   single aggregation `HealthEvaluator.Evaluate(catalog, context, observations)`. It evaluates a
