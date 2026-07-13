@@ -25,13 +25,20 @@
          - native plugin folders
          - ATT UI helpers (FakeATTDialog/ContextScreenView)
            which depend on UnityEngine.UI (uGUI) and aren't in CI's managed DLL cache.
+         - Diagnostics/InputSystem: a SEPARATE Unity assembly (Sorolla.Runtime.InputSystem.asmdef,
+           references Unity.InputSystem, gated on ENABLE_INPUT_SYSTEM). It is never part of the
+           Sorolla.Runtime assembly this shadow project mirrors, so it must not be globbed in.
          ATTBridge.cs stays in because Palette.AttStatus references it; it only
-         uses UnityEngine (iOS-native path guarded by #if UNITY_IOS && !UNITY_EDITOR). -->
+         uses UnityEngine (iOS-native path guarded by #if UNITY_IOS && !UNITY_EDITOR).
+         The Diagnostics/UITK debug-menu overlay stays IN: Palette.ShowDebugger/HideDebugger/
+         ToggleDebugger route to it, so it is reachable public API. It needs UnityEngine.UIElementsModule
+         (a Managed core module, referenced below) and UnityEngine.UI/EventSystems (uGUI, referenced below). -->
     <Compile Include="..\..\Runtime\**\*.cs"
              Exclude="..\..\Runtime\Plugins\**\*.cs;
                       ..\..\Runtime\Adapters\Firebase\**\*.cs;
                       ..\..\Runtime\Adapters\MAX\**\*.cs;
                       ..\..\Runtime\Adapters\Adjust\**\*.cs;
+                      ..\..\Runtime\Diagnostics\InputSystem\**\*.cs;
                       ..\..\Runtime\ATT\ContextScreenView.cs;
                       ..\..\Runtime\ATT\FakeATTDialog.cs;
                       ..\..\Runtime\SorollaLoadingOverlay.cs;
@@ -65,6 +72,13 @@
       <HintPath>$(UnityManaged)/UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- UI Toolkit: the Diagnostics/UITK debug-menu overlay uses UnityEngine.UIElements
+         (VisualElement/Button/Label/PanelSettings). This is a Managed core module present in
+         both a local editor install and CI's extracted Managed/UnityEngine cache. -->
+    <Reference Include="UnityEngine.UIElementsModule">
+      <HintPath>$(UnityManaged)/UnityEngine.UIElementsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <!-- R3: document the public purchasing API (Palette.AttachPurchaseTracking / TrackPurchase overloads)
@@ -84,6 +98,33 @@
   <ItemGroup Condition="Exists('$(UnityPurchasingDll)')">
     <Reference Include="Unity.Purchasing">
       <HintPath>$(UnityPurchasingDll)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- uGUI (UnityEngine.UI.dll, namespace UnityEngine.EventSystems): required by the debug-menu
+       EventSystem factory, which Palette.ShowDebugger reaches. Unlike Unity.Purchasing this is NOT
+       #if-gated in the runtime, so it must ALWAYS resolve for a clean compile. It is a built-in
+       package (compiled per-project), NOT a Managed core module, so it is not in the base editor's
+       Managed/UnityEngine folder.
+         - Local docs build (inside a Unity project): reference the project's compiled copy under
+           Library/ScriptAssemblies.
+         - CI (docs-check.yml): the workflow extracts UnityEngine.UI.dll from the game-ci image and
+           drops it into the same UnityEngine folder as the other Managed DLLs, so $(UnityManaged)
+           resolves it. -->
+  <PropertyGroup>
+    <UguiLocalDll>$(MSBuildProjectDirectory)/../../../../Library/ScriptAssemblies/UnityEngine.UI.dll</UguiLocalDll>
+    <UguiManagedDll>$(UnityManaged)/UnityEngine.UI.dll</UguiManagedDll>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(UguiLocalDll)')">
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(UguiLocalDll)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup Condition="!Exists('$(UguiLocalDll)') AND Exists('$(UguiManagedDll)')">
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(UguiManagedDll)</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
