@@ -331,20 +331,25 @@ namespace Sorolla.Palette.Editor
                 tooltip = "Platforms where this game SELLS in-app purchases (store-console products). Drives the store-config gate only.",
             };
             _configContainer.Add(commerceField);
-            // Undeclared warning tracks the field WITHOUT rebuilding/rebinding the UI. The callback only
-            // toggles this element's visibility - it never writes the serialized property or re-Binds the
-            // container, so it cannot feed a SerializedPropertyChangeEvent back into itself (the recursive
-            // event loop a RefreshConfigUI-on-change would cause).
+            // Undeclared warning stays ALWAYS in the tree; the callback only flips its style.display on a real
+            // undeclared<->declared TRANSITION and never rebuilds or re-Binds the container. That is what stops
+            // the recursion: the earlier RefreshConfigUI-on-change callback re-Bound the tree during event
+            // dispatch, and the re-attach fired ChangeEvent/SerializedPropertyChangeEvent straight back into the
+            // callback (depth-501 storm). A display-only toggle dispatches no SerializedPropertyChangeEvent, and
+            // the transition guard makes even repeated same-state events inert.
             var undeclaredWarning = new HelpBox(
                 "Distribution platforms undeclared - device/QA gates stay INCOMPLETE until you declare where this game ships.",
                 HelpBoxMessageType.Warning);
             _configContainer.Add(undeclaredWarning);
-            void SyncUndeclaredWarning() =>
-                undeclaredWarning.style.display =
-                    _serializedConfig.FindProperty("distributionPlatforms").intValue == 0
-                        ? DisplayStyle.Flex : DisplayStyle.None;
-            SyncUndeclaredWarning();
-            distributionField.RegisterCallback<SerializedPropertyChangeEvent>(_ => SyncUndeclaredWarning());
+            bool prevUndeclared = _serializedConfig.FindProperty("distributionPlatforms").intValue == 0;
+            undeclaredWarning.style.display = prevUndeclared ? DisplayStyle.Flex : DisplayStyle.None;
+            distributionField.RegisterCallback<SerializedPropertyChangeEvent>(_ =>
+            {
+                bool nowUndeclared = _serializedConfig.FindProperty("distributionPlatforms").intValue == 0;
+                if (nowUndeclared == prevUndeclared) return; // act only on a real transition
+                prevUndeclared = nowUndeclared;
+                undeclaredWarning.style.display = nowUndeclared ? DisplayStyle.Flex : DisplayStyle.None;
+            });
 
             _configContainer.Add(SectionHeader.Create("SDK Keys"));
 
