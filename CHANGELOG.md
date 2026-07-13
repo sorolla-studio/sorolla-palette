@@ -193,10 +193,21 @@ row, never an Error - existing checks (Adjust token, etc.) keep their current se
   including the Full-mode init-order reference, `validation.md`, `quick-start.md`, and the
   `architecture.md` vendor list). The `SorollaConfig` TikTok field XML doc comments and the inspector
   `[Header]` are updated to parked wording at the source. Nothing removed: parked is not deprecated and
-  not removed. The generated `api-reference.md` will pick up the parked field wording on the next docs
-  regen; that regen is currently blocked by an unrelated pre-existing compile failure in the docs shadow
-  project (the `Runtime/Diagnostics/*` debug-menu subsystem is not covered by the DocFX reference/exclude
-  set), tracked separately.
+  not removed. The generated `api-reference.md` now carries the parked TikTok field wording, regenerated
+  once the docs pipeline was repaired (see below).
+- **Docs pipeline repaired + `api-reference.md` freshness enforced in CI**: the DocFX shadow project
+  (`Documentation~/docfx/sdk.csproj`) had failed to compile since the UI Toolkit debug-menu overlay
+  landed, so `docfx metadata` extracted zero public API and `api-reference.md` could not be regenerated
+  at all. The shadow project now references `UnityEngine.UIElementsModule` and uGUI and excludes the
+  separate `Sorolla.Runtime.InputSystem` assembly the compile glob wrongly pulled in. The debug-menu
+  overlay itself cannot be excluded: it is reachable from the public `Palette.ShowDebugger` /
+  `HideDebugger` / `ToggleDebugger` API, so it is part of the documented surface. `api-reference.md` is
+  regenerated (picks up SDK version `4.0.0`, the parked-TikTok wording, and the `qaBridgePassword` field
+  the broken pipeline never published). `docs-check.yml` now fails on a zero/partial extraction and on
+  staleness: it regenerates in CI and diffs against the committed file with the Unity-IAP-conditional
+  surface (`#if UNITY_PURCHASING_INSTALLED`; `Unity.Purchasing.dll` is not present in the CI image)
+  masked from both sides via `Tools~/api-reference-mask.awk`, so a newly added purchasing-gated member
+  fails the check visibly rather than being silently missed.
 
 ## [3.18.3] - 2026-07-08
 
