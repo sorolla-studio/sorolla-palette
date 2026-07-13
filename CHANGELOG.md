@@ -52,8 +52,15 @@ signal it produces, and the fix.
   An applicable-but-unobserved optional gate is an explicit skip, never relabelled `NotApplicable`; an
   observation supplied for a `NotApplicable` gate is a context-mismatch validation error (not silently
   dropped); corrupted/undefined enum or flag values are validated at the boundary and cannot fail open to
-  a pass; the catalog is frozen on construction with strict validation. A machine-readable gate-catalog
-  export (`Palette > QA > Export Gate Catalog`) feeds a private one-source divergence check.
+  a pass; the catalog is frozen on construction with strict validation (every requirement decision now
+  carries a mandatory reason). A machine-readable gate-catalog export (`Palette > QA > Export Gate
+  Catalog`) feeds a private one-source divergence check. Installed-module context is read from the package
+  manifest (unreadable → INCOMPLETE, never treated as absent). Release-only Build Health checks (keystore,
+  Adjust sandbox, SDK pin, Prototype Mode Intent) are tagged release-ship, so a QA-pass report no longer
+  reads a profile-"Skipped" result as a pass. In-app-purchase coverage is represented as its own gate
+  (Required when Unity IAP is installed, its store-console proof unavailable to the SDK → INCOMPLETE;
+  NotApplicable otherwise) so it did not vanish with the QA-expectations removal. The legacy manual
+  checkboxes are relabelled as non-evidence until scoped attestation lands.
 - **Shared health-result contract (internal foundation)**: a new leaf assembly `Sorolla.Health`
   (`noEngineReferences`, internal types, no studio API) holds the neutral gate-result model and the
   single aggregation `HealthEvaluator.Evaluate(catalog, context, observations)`. It evaluates a

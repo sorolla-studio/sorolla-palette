@@ -55,6 +55,8 @@ namespace Sorolla.Palette.Editor.Greenlight
             if (HasPackage(dependencies, SdkId.FirebaseApp) || HasPackage(dependencies, SdkId.FirebaseAnalytics) ||
                 HasPackage(dependencies, SdkId.FirebaseCrashlytics) || HasPackage(dependencies, SdkId.FirebaseRemoteConfig))
                 modules |= SdkModule.Firebase;
+            // Unity IAP is not in SdkRegistry (it is a Unity-owned package), so match its package id directly.
+            if (dependencies.ContainsKey("com.unity.purchasing")) modules |= SdkModule.UnityIap;
             return true;
         }
 
@@ -186,10 +188,16 @@ namespace Sorolla.Palette.Editor.Greenlight
         {
             if (BuildGateLabels.TryGetValue(gateId, out string buildLabel)) return buildLabel;
             if (DeviceLabels.TryGetValue(gateId, out string deviceLabel)) return deviceLabel;
+            if (MiscLabels.TryGetValue(gateId, out string miscLabel)) return miscLabel;
             GreenlightManualChecklist.Descriptor manual = GreenlightManualChecklist.Descriptors
                 .FirstOrDefault(d => d.GateId == gateId);
             return manual?.Label ?? gateId;
         }
+
+        static readonly Dictionary<string, string> MiscLabels = new Dictionary<string, string>
+        {
+            [GateIds.IapStoreConfigured] = "IAP Store / Purchase Verification",
+        };
 
         internal static (string url, string label) DeepLinkFor(string gateId)
         {

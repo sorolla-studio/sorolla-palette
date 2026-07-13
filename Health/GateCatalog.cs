@@ -44,6 +44,9 @@ namespace Sorolla.Palette.Health
         public const string DeviceAdvertisingId = "device.advertising_id";
         public const string DeviceNoSdkErrors = "device.no_sdk_errors";
 
+        // In-app purchases (applicability from the Unity IAP module).
+        public const string IapStoreConfigured = "iap.store_configured";
+
         // Manual / dashboard attestations (require vendor-side or on-device human confirmation).
         public const string ManualGaPlatformRegistered = "manual.ga_platform_registered";
         public const string ManualCrossVendorDashboardDrift = "manual.cross_vendor_dashboard_drift";
@@ -108,6 +111,9 @@ namespace Sorolla.Palette.Health
         {
             const GatePhase buildPhase = GatePhase.PreBuild | GatePhase.QaPass;
             const GatePhase qaPhase = GatePhase.QaPass;
+            // Release-only checks: NOT tagged QaPass, so a QA-pass report never selects them and a validator
+            // "Skipped (QA Pass profile)" Valid result can never masquerade as a PASS (review C4-04).
+            const GatePhase releasePhase = GatePhase.PreBuild | GatePhase.ReleaseShip;
             var defs = new List<GateDefinition>();
 
             // Build Health - core SDKs, required in BOTH modes (GameAnalytics + Facebook are SdkRequirement.Core).
@@ -128,15 +134,22 @@ namespace Sorolla.Palette.Health
             AddBuild(defs, GateIds.BuildAdjustSettings, Requirements.FullRequiredElseOptional);
             AddBuild(defs, GateIds.BuildAdjustResolvedVersion, Requirements.FullRequiredElseOptional);
 
-            // Android keystore - Required on Android; Optional (never NotApplicable) off-Android because
-            // BuildValidator still emits a "Skipped (not Android)" Valid result there, and an observation for
-            // a NotApplicable gate would be a context-mismatch error.
-            AddBuild(defs, GateIds.BuildAndroidKeystore, Requirements.AndroidRequiredElseOptional);
-
             // Firebase config files follow the SAME requirement as Firebase itself (review C4-05): when
             // Firebase is required (Full), a missing active-platform google-services.json / plist must block
             // release confidence, not sit as a non-blocking advisory warning. Optional in Prototype.
             AddBuild(defs, GateIds.BuildFirebaseConfig, Requirements.FullRequiredElseOptional);
+
+            // Release-only checks (review C4-04) - PreBuild|ReleaseShip, NOT QaPass. BuildValidator emits a
+            // "Skipped (QA Pass profile)" Valid for these in a QA-pass run; because they are not selected in a
+            // QaPass report their skip observation is unused, so it can never read as a PASS. Keystore is
+            // Required on Android at release; the rest are advisory release-ship checks.
+            defs.Add(new GateDefinition(GateIds.BuildAndroidKeystore, Version, releasePhase, ProofScope.Static,
+                Requirements.AndroidRequiredElseOptional));
+            foreach (string id in new[]
+            {
+                GateIds.BuildAdjustSandboxMode, GateIds.BuildSdkPin, GateIds.BuildPrototypeModeIntent,
+            })
+                defs.Add(new GateDefinition(id, Version, releasePhase, ProofScope.Static, Requirements.AlwaysOptional));
 
             // Advisory Build Health rows - Optional in both modes. Their OBSERVED outcome still drives
             // precedence (an error -> FAIL, a warning -> caveats); an unobserved conditional check is a real
@@ -145,12 +158,18 @@ namespace Sorolla.Palette.Health
             {
                 GateIds.BuildSdkVersions, GateIds.BuildModeConsistency, GateIds.BuildScopedRegistries,
                 GateIds.BuildConfigSync, GateIds.BuildAndroidManifest, GateIds.BuildEdm4uSettings,
-                GateIds.BuildGradleConfig, GateIds.BuildPrototypeModeIntent,
-                GateIds.BuildVerboseLogging, GateIds.BuildDevelopmentBuild, GateIds.BuildAdjustSandboxMode,
+                GateIds.BuildGradleConfig, GateIds.BuildVerboseLogging, GateIds.BuildDevelopmentBuild,
                 GateIds.BuildGradleJavaHome, GateIds.BuildGameAnalyticsResourceWhitelist,
-                GateIds.BuildAddressablesContent, GateIds.BuildSdkPin,
+                GateIds.BuildAddressablesContent,
             })
                 AddBuild(defs, id, Requirements.AlwaysOptional);
+
+            // In-app purchases (review C4-10): coverage must not vanish with the expectations deletion. When
+            // Unity IAP is installed, store/purchase verification is Required but its proof is vendor-side
+            // (store console) - unavailable to the SDK - so with no observation it resolves to INCOMPLETE
+            // (Omitted), never silently absent. NotApplicable when Unity IAP is not installed.
+            defs.Add(new GateDefinition(GateIds.IapStoreConfigured, Version, qaPhase, ProofScope.VendorAccepted,
+                Requirements.UnityIapRequiredElseNotApplicable));
 
             // Device snapshot - the Android QA bridge is the only transport that ships, so device facts are
             // NotApplicable off-Android (the adapter emits no device observation there). Readiness is required
@@ -258,8 +277,9 @@ namespace Sorolla.Palette.Health
                     }
                     if (rd.Value == Requirement.Required || rd.Value == Requirement.Optional)
                         reachable = true;
-                    if ((rd.Value == Requirement.NotApplicable || rd.Value == Requirement.Unknown) &&
-                        string.IsNullOrWhiteSpace(rd.Reason))
+                    // Reason mandatory for ALL four states (shape-GO refinement #1): an audit trail that goes
+                    // silent exactly when a gate is Required is backwards.
+                    if (string.IsNullOrWhiteSpace(rd.Reason))
                         problems.Add($"Gate '{def.Id}' has a {rd.Value} decision without a reason.");
                 }
                 if (!reachable)
@@ -313,5 +333,10 @@ namespace Sorolla.Palette.Health
             ctx.Platform == EvalPlatform.Unknown ? Unk("build platform is unknown")
             : ctx.Platform == EvalPlatform.Android ? Opt("Android device fact")
             : Na("no device transport on this platform");
+
+        internal static readonly Func<EvaluationContext, RequirementDecision> UnityIapRequiredElseNotApplicable = ctx =>
+            (ctx.InstalledModules & SdkModule.UnityIap) != 0
+                ? Req("Unity IAP installed: store/purchase verification required")
+                : Na("Unity IAP not installed");
     }
 }

@@ -1044,7 +1044,10 @@ namespace Sorolla.Palette.Editor
             if (manualItem.HasValue)
             {
                 bool ticked = _checklistState.Ticked.TryGetValue(manualItem.Value, out bool value) && value;
-                var verifiedToggle = new Toggle("Verified") { value = ticked };
+                // Legacy check-off is NOT scoped evidence (B-10 / review C4-06): it carries no
+                // build/device/vendor scope, actor, or timestamp, so ticking it keeps the gate INCOMPLETE.
+                // Labelled honestly until scoped attestation lands; do not present it as verification.
+                var verifiedToggle = new Toggle("Mark reviewed (not scoped evidence - gate stays INCOMPLETE)") { value = ticked };
                 verifiedToggle.style.marginLeft = 24;
                 verifiedToggle.RegisterValueChangedCallback(evt =>
                 {

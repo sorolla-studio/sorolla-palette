@@ -99,6 +99,7 @@ namespace Sorolla.Palette.Health
         Firebase = 1 << 2,
         AppLovinMax = 1 << 3,
         Adjust = 1 << 4,
+        UnityIap = 1 << 5,
     }
 
     /// <summary>A requirement decision plus the reason/predicate-trace that produced it. The reason is
@@ -206,7 +207,8 @@ namespace Sorolla.Palette.Health
         internal const ProofScope AllProofBits = ProofScope.Static | ProofScope.DeviceDispatch | ProofScope.VendorAccepted;
         internal const GatePhase AllPhaseBits = GatePhase.PreBuild | GatePhase.QaPass | GatePhase.ReleaseShip;
         internal const SdkModule AllModuleBits = SdkModule.GameAnalytics | SdkModule.Facebook |
-                                                 SdkModule.Firebase | SdkModule.AppLovinMax | SdkModule.Adjust;
+                                                 SdkModule.Firebase | SdkModule.AppLovinMax | SdkModule.Adjust |
+                                                 SdkModule.UnityIap;
 
         internal static bool IsDefinedOutcome(GateOutcome v) =>
             v == GateOutcome.Incomplete || v == GateOutcome.Fail ||

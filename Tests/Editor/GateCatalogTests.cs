@@ -143,6 +143,35 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(ProofScope.DeviceDispatch, GateCatalog.Canonical.ById(GateIds.DeviceReady).RequiredProof);
         }
 
+        [Test]
+        public void ReleaseOnlyGates_ExcludedFromQaPass_TaggedReleaseShip()
+        {
+            // C4-04: a QA-pass report must not select release-only checks, so a "Skipped (QA Pass profile)"
+            // Valid can never read as PASS.
+            foreach (string id in new[]
+            {
+                GateIds.BuildAndroidKeystore, GateIds.BuildAdjustSandboxMode,
+                GateIds.BuildSdkPin, GateIds.BuildPrototypeModeIntent,
+            })
+            {
+                GatePhase phases = GateCatalog.Canonical.ById(id).Phases;
+                Assert.AreEqual(GatePhase.None, phases & GatePhase.QaPass, $"{id} must not be a QaPass gate.");
+                Assert.AreNotEqual(GatePhase.None, phases & GatePhase.ReleaseShip, $"{id} must be a ReleaseShip gate.");
+            }
+        }
+
+        [Test]
+        public void IapGate_RequiredWhenUnityIapInstalled_NotApplicableOtherwise()
+        {
+            // C4-10: IAP coverage is represented; unavailable proof (VendorAccepted, not SDK-readable) →
+            // INCOMPLETE via omission when Unity IAP is installed; NotApplicable when it is not.
+            Assert.AreEqual(Requirement.Required,
+                ReqOf(GateIds.IapStoreConfigured, Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap)));
+            Assert.AreEqual(Requirement.NotApplicable,
+                ReqOf(GateIds.IapStoreConfigured, Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.None)));
+            Assert.AreEqual(ProofScope.VendorAccepted, GateCatalog.Canonical.ById(GateIds.IapStoreConfigured).RequiredProof);
+        }
+
         // ── Manual gates require unscoped-tick-defeating proof ─────────────
 
         [Test]
