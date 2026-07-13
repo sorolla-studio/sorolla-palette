@@ -1,18 +1,16 @@
 using System.Collections.Generic;
+using System.Linq;
 using Sorolla.Palette.Health;
-using UnityEditor;
-using UnityEngine;
 
 namespace Sorolla.Palette.Editor.Greenlight
 {
     /// <summary>
-    ///     Rows the greenlight verdict cannot machine-check (dashboard-only facts, or facts that need a
-    ///     human play session) - "manual gates stay manual, but guided" from the studio self-serve greenlight
-    ///     plan. Ticked state persists per-project in EditorPrefs. A legacy tick is NOT scoped evidence: it
-    ///     has no build/device/vendor scope, actor, or timestamp, so it maps to an observation whose observed
-    ///     proof cannot satisfy the gate's required proof - the gate resolves to INCOMPLETE, never PASS
-    ///     (B-10). The Item metadata (label, why, fix, deep link) drives both the emitted observation and the
-    ///     window's display.
+    ///     Metadata for the manual gates the greenlight verdict cannot machine-check (dashboard-only facts, or
+    ///     facts that need a human play session). Evidence for these comes from a scoped attestation
+    ///     (<see cref="QaAttestation"/>, Cycle 4b) recorded against the current build identity - NOT a legacy
+    ///     EditorPrefs tick, which carried no scope/actor/timestamp and could never satisfy a gate's required
+    ///     proof (B-10). This class now only supplies the display + gate metadata; the adapter turns
+    ///     attestations into observations.
     /// </summary>
     static class GreenlightManualChecklist
     {
@@ -23,11 +21,6 @@ namespace Sorolla.Palette.Editor.Greenlight
             AdjustPurchaseVerification,
             RelaunchPersistence,
             BackgroundResumeCycle,
-        }
-
-        internal sealed class State
-        {
-            public Dictionary<Item, bool> Ticked = new Dictionary<Item, bool>();
         }
 
         /// <summary>Static description of one manual gate: its neutral gate id, display label, why a machine
@@ -86,45 +79,10 @@ namespace Sorolla.Palette.Editor.Greenlight
             },
         };
 
-        internal static State Load()
-        {
-            var state = new State();
-            foreach (Item item in (Item[])System.Enum.GetValues(typeof(Item)))
-                state.Ticked[item] = EditorPrefs.GetBool(PrefKey(item), false);
-            return state;
-        }
+        internal static Descriptor DescriptorForLabel(string label) =>
+            Descriptors.FirstOrDefault(d => d.Label == label);
 
-        internal static void SetTicked(Item item, bool value)
-        {
-            EditorPrefs.SetBool(PrefKey(item), value);
-        }
-
-        static string PrefKey(Item item) => $"Sorolla_Greenlight_{item}_{Application.dataPath.GetHashCode()}";
-
-        /// <summary>
-        ///     One observation per manual gate. A ticked box reports PASS but carries <see
-        ///     cref="ProofScope.None"/> - a legacy check-off is not scoped attestation, so the catalog's
-        ///     required vendor/device proof is unmet and the gate resolves to INCOMPLETE. An unticked box
-        ///     reports INCOMPLETE directly. Either way the row surfaces its why/fix so the studio can act.
-        /// </summary>
-        internal static List<GateObservation> ToObservations(State state)
-        {
-            var observations = new List<GateObservation>();
-            foreach (Descriptor d in Descriptors)
-            {
-                bool ticked = state != null && state.Ticked.TryGetValue(d.Item, out bool value) && value;
-                observations.Add(new GateObservation
-                {
-                    GateId = d.GateId,
-                    Outcome = ticked ? GateOutcome.Pass : GateOutcome.Incomplete,
-                    ObservedProof = ProofScope.None, // legacy tick has no build/device/vendor scope
-                    Evidence = ticked
-                        ? "Marked verified in the editor, but a legacy check-off carries no build/device/vendor scope - re-attest with scoped evidence."
-                        : d.Why,
-                    FixHint = d.Fix,
-                });
-            }
-            return observations;
-        }
+        internal static Descriptor DescriptorForGate(string gateId) =>
+            Descriptors.FirstOrDefault(d => d.GateId == gateId);
     }
 }

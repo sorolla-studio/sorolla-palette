@@ -75,7 +75,7 @@ namespace Sorolla.Palette.Editor.Tests
             };
 
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                Ctx(), results, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+                Ctx(), results, new GreenlightDeviceSnapshot.State());
 
             GateObservation fb = obs.Single(o => o.GateId == GateIds.BuildFacebookPlatform);
             Assert.AreEqual(GateOutcome.Fail, fb.Outcome);
@@ -93,7 +93,7 @@ namespace Sorolla.Palette.Editor.Tests
             };
 
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                Ctx(), results, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+                Ctx(), results, new GreenlightDeviceSnapshot.State());
 
             GateObservation manifest = obs.Single(o => o.GateId == GateIds.BuildAndroidManifest);
             Assert.AreEqual(GateOutcome.Fail, manifest.Outcome);
@@ -103,7 +103,7 @@ namespace Sorolla.Palette.Editor.Tests
         public void BuildHealth_NullResults_EmitNoBuildObservations()
         {
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                Ctx(), null, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+                Ctx(), null, new GreenlightDeviceSnapshot.State());
 
             Assert.IsFalse(obs.Any(o => o.GateId.StartsWith("build.")),
                 "No Build Health results means the required core build gates omit -> INCOMPLETE, not silent pass.");
@@ -121,7 +121,7 @@ namespace Sorolla.Palette.Editor.Tests
                     new BuildValidator.ValidationResult(BuildValidator.ValidationStatus.Valid, "x", null, cat),
                 };
                 List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                    Ctx(), results, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+                    Ctx(), results, new GreenlightDeviceSnapshot.State());
                 Assert.IsFalse(obs.Any(o => o.GateId.StartsWith("unmapped:")), $"CheckCategory {cat} is unmapped.");
             }
         }
@@ -236,7 +236,7 @@ namespace Sorolla.Palette.Editor.Tests
                 InstalledModules = SdkModule.None, RequestedPhase = GatePhase.QaPass,
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                protoCtx, results, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+                protoCtx, results, new GreenlightDeviceSnapshot.State());
             Assert.IsFalse(obs.Any(o => o.GateId == GateIds.BuildFirebaseCoherence),
                 "vendor absence must not become an affirmative PASS observation.");
         }
@@ -255,31 +255,19 @@ namespace Sorolla.Palette.Editor.Tests
                 InstalledModules = SdkModule.Firebase, RequestedPhase = GatePhase.QaPass,
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                ctx, results, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+                ctx, results, new GreenlightDeviceSnapshot.State());
             Assert.IsTrue(obs.Any(o => o.GateId == GateIds.BuildFirebaseCoherence),
                 "a present vendor's coherence result must be evaluated.");
         }
 
-        // ── B-10: a ticked legacy checkmark is NOT evidence ───────────────
+        // ── B-10: unscoped manual evidence is NOT a pass ──────────────────
 
         [Test]
-        public void TickedManualCheckmark_ObservesPassButNoScopedProof()
+        public void UnscopedManualEvidence_CannotProduceAffirmativeOutcome()
         {
-            var state = new GreenlightManualChecklist.State();
-            state.Ticked[GreenlightManualChecklist.Item.GaPlatformRegistered] = true;
-
-            List<GateObservation> obs = GreenlightManualChecklist.ToObservations(state);
-            GateObservation ga = obs.Single(o => o.GateId == GateIds.ManualGaPlatformRegistered);
-            Assert.AreEqual(GateOutcome.Pass, ga.Outcome);
-            Assert.AreEqual(ProofScope.None, ga.ObservedProof, "A legacy tick carries no scoped proof.");
-        }
-
-        [Test]
-        public void TickedManualCheckmark_CannotProduceAffirmativeOutcome()
-        {
-            // The B-10 invariant end-to-end through the real evaluator: a ticked manual gate reports PASS
-            // but with no scoped proof, so the required-proof gate forces its row to INCOMPLETE - it can
-            // never become an affirmative PASS.
+            // The B-10 invariant through the real evaluator: a manual PASS with no scoped proof (what a
+            // legacy tick or a scope-less claim amounts to) is forced to INCOMPLETE by the required-proof
+            // gate - it can never become an affirmative PASS.
             var ctx = new EvaluationContext
             {
                 Mode = EvalMode.Full,
@@ -374,8 +362,7 @@ namespace Sorolla.Palette.Editor.Tests
             // the real shared evaluator, whatever the ambient editor mode/platform.
             GreenlightEvaluator.Report report = GreenlightEvaluator.Evaluate(
                 buildHealthResults: null,
-                snapshotState: new GreenlightDeviceSnapshot.State(),
-                checklist: new GreenlightManualChecklist.State());
+                snapshotState: new GreenlightDeviceSnapshot.State());
 
             Assert.AreEqual(GateOutcome.Incomplete, report.Outcome,
                 "A report with no run evidence must be INCOMPLETE, not HEALTHY.");

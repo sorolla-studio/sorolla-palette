@@ -45,12 +45,10 @@ namespace Sorolla.Palette.Editor
         bool _greenlightChecksExpanded;
         List<BuildValidator.ValidationResult> _validationResults = new List<BuildValidator.ValidationResult>();
         readonly GreenlightDeviceSnapshot.State _snapshotState = new GreenlightDeviceSnapshot.State();
-        GreenlightManualChecklist.State _checklistState;
 
         void OnEnable()
         {
             LoadOrCreateConfig();
-            _checklistState = GreenlightManualChecklist.Load();
             RunBuildValidation();
             Events.registeringPackages += OnPackagesRegistering;
             Events.registeredPackages += OnPackagesRegistered;
@@ -952,7 +950,7 @@ namespace Sorolla.Palette.Editor
 
             _greenlightContainer.Clear();
 
-            GreenlightEvaluator.Report report = GreenlightEvaluator.Evaluate(_validationResults, _snapshotState, _checklistState);
+            GreenlightEvaluator.Report report = GreenlightEvaluator.Evaluate(_validationResults, _snapshotState);
 
             var headerRow = new VisualElement();
             headerRow.style.flexDirection = FlexDirection.Row;
@@ -1040,41 +1038,24 @@ namespace Sorolla.Palette.Editor
                 container.Add(linkButton);
             }
 
-            GreenlightManualChecklist.Item? manualItem = ManualItemFor(row.Label);
-            if (manualItem.HasValue)
+            // Manual gates are satisfied by a SCOPED attestation recorded against the current build identity
+            // (Cycle 4b), not a legacy tick. The Attest button records who/when/which-build/what-proof; the
+            // gate only reads PASS while that attestation matches the current build and is fresh.
+            GreenlightManualChecklist.Descriptor manual = GreenlightManualChecklist.DescriptorForLabel(row.Label);
+            if (manual != null)
             {
-                bool ticked = _checklistState.Ticked.TryGetValue(manualItem.Value, out bool value) && value;
-                // Legacy check-off is NOT scoped evidence (B-10 / review C4-06): it carries no
-                // build/device/vendor scope, actor, or timestamp, so ticking it keeps the gate INCOMPLETE.
-                // Labelled honestly until scoped attestation lands; do not present it as verification.
-                var verifiedToggle = new Toggle("Mark reviewed (not scoped evidence - gate stays INCOMPLETE)") { value = ticked };
-                verifiedToggle.style.marginLeft = 24;
-                verifiedToggle.RegisterValueChangedCallback(evt =>
+                var attestButton = new Button(() =>
                 {
-                    _checklistState.Ticked[manualItem.Value] = evt.newValue;
-                    GreenlightManualChecklist.SetTicked(manualItem.Value, evt.newValue);
+                    GreenlightAdapter.AttestManualGate(manual.GateId);
                     RefreshGreenlightUI();
-                });
-                container.Add(verifiedToggle);
+                })
+                { text = "Attest for this build" };
+                attestButton.AddToClassList("sorolla-button-small");
+                attestButton.style.marginLeft = 24;
+                container.Add(attestButton);
             }
 
             return container;
-        }
-
-        /// <summary>Label -> checklist item lookup so the toggle only appears on manual rows -
-        /// label-matched rather than a second parallel row model, since GreenlightEvaluator.Row is
-        /// deliberately a flat display shape shared by every evidence class.</summary>
-        static GreenlightManualChecklist.Item? ManualItemFor(string label)
-        {
-            switch (label)
-            {
-                case "GA Platform Registered": return GreenlightManualChecklist.Item.GaPlatformRegistered;
-                case "Cross-Vendor Dashboard Drift": return GreenlightManualChecklist.Item.CrossVendorDashboardDrift;
-                case "Adjust Purchase Verification (Full mode)": return GreenlightManualChecklist.Item.AdjustPurchaseVerification;
-                case "Relaunch Persistence": return GreenlightManualChecklist.Item.RelaunchPersistence;
-                case "Background / Resume Cycle": return GreenlightManualChecklist.Item.BackgroundResumeCycle;
-                default: return null;
-            }
         }
 
         #endregion

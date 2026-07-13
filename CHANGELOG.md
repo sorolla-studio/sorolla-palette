@@ -71,6 +71,15 @@ signal it produces, and the fix.
   catalog/context, null gate id, corrupted enum values) produce a visible INCOMPLETE integrity report
   rather than an exception. The greenlight's requested phase follows the active Build Health profile, so
   release-only checks are reachable under the Release profile and never read as a QA-pass PASS.
+- **Scoped manual attestations replace the legacy checkbox**: a manual QA gate is now satisfied by an
+  attestation recorded against the current build - who attested, when, the game/build identity (application
+  id, platform, mode, app version), and the proof scope claimed - not an unscoped EditorPrefs tick. The
+  greenlight "Attest for this build" button writes the record (project-scoped, atomic, under
+  `UserSettings/`); the gate reads PASS only while that attestation matches the current build identity and is
+  fresh (14-day window). A stale (wrong game/build, expired) or invalid (unknown schema, wrong proof scope,
+  future timestamp, missing identity, duplicate-conflict) attestation resolves to INCOMPLETE, never PASS.
+  This makes a legitimate HEALTHY reachable once every gate is genuinely satisfied, while keeping the
+  no-false-green guarantee.
 - **Shared health-result contract (internal foundation)**: a new leaf assembly `Sorolla.Health`
   (`noEngineReferences`, internal types, no studio API) holds the neutral gate-result model and the
   single aggregation `HealthEvaluator.Evaluate(catalog, context, observations)`. It evaluates a

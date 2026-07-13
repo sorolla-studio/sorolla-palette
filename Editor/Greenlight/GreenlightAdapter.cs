@@ -102,6 +102,17 @@ namespace Sorolla.Palette.Editor.Greenlight
         internal static GatePhase RequestedPhaseFor(bool isRelease) =>
             isRelease ? GatePhase.ReleaseShip : GatePhase.QaPass;
 
+        /// <summary>Records a scoped attestation for a manual gate against the current build identity, claiming
+        /// the gate's catalog-defined required proof scope + version + the active phase (the greenlight
+        /// "Attest" action). Keeps the Health catalog access on the adapter side.</summary>
+        internal static void AttestManualGate(string gateId)
+        {
+            GateDefinition def = GateCatalog.Canonical.ById(gateId, throwIfMissing: false);
+            if (def == null) return;
+            string phase = RequestedPhaseFor(BuildValidationProfileSettings.IsRelease).ToString();
+            QaAttestationStore.AttestCurrent(gateId, def.Version, phase, def.RequiredProof);
+        }
+
         // ── Observations ──────────────────────────────────────────────
 
         /// <summary>
@@ -114,8 +125,7 @@ namespace Sorolla.Palette.Editor.Greenlight
         internal static List<GateObservation> BuildObservations(
             EvaluationContext context,
             List<BuildValidator.ValidationResult> buildHealthResults,
-            GreenlightDeviceSnapshot.State snapshotState,
-            GreenlightManualChecklist.State checklist)
+            GreenlightDeviceSnapshot.State snapshotState)
         {
             var observations = new List<GateObservation>();
             observations.AddRange(BuildHealthObservations(buildHealthResults, context.InstalledModules));
@@ -123,14 +133,48 @@ namespace Sorolla.Palette.Editor.Greenlight
             if (context.Platform == EvalPlatform.Android)
                 observations.AddRange(GreenlightDeviceSnapshot.ToObservations(snapshotState));
 
-            foreach (GateObservation manual in GreenlightManualChecklist.ToObservations(checklist))
-            {
-                if (manual.GateId == GateIds.ManualAdjustPurchaseVerification && context.Mode != EvalMode.Full)
-                    continue; // no Adjust in Prototype - the gate is NotApplicable there
-                observations.Add(manual);
-            }
-
+            observations.AddRange(ManualObservations(context));
             return observations;
+        }
+
+        /// <summary>
+        ///     One observation per applicable manual gate, sourced from scoped attestations (Cycle 4b). A
+        ///     valid, fresh, identity-matching attestation carries the gate's required proof scope → PASS; a
+        ///     stale (wrong build / expired) or invalid attestation → INCOMPLETE; an unattested gate →
+        ///     INCOMPLETE with its guidance. The Adjust gate is only relevant in Full mode.
+        /// </summary>
+        internal static IEnumerable<GateObservation> ManualObservations(EvaluationContext context)
+        {
+            List<QaAttestationRecord> records = QaAttestationStore.Load();
+            QaBuildIdentity identity = QaBuildIdentity.Current();
+            DateTime now = DateTime.UtcNow;
+
+            foreach (GreenlightManualChecklist.Descriptor d in GreenlightManualChecklist.Descriptors)
+            {
+                if (d.GateId == GateIds.ManualAdjustPurchaseVerification && context.Mode != EvalMode.Full)
+                    continue; // no Adjust in Prototype - the gate is NotApplicable there
+
+                GateDefinition def = GateCatalog.Canonical.ById(d.GateId, throwIfMissing: false);
+                ProofScope required = def?.RequiredProof ?? ProofScope.None;
+
+                QaAttestationRecord record = QaAttestationStore.ForGate(records, d.GateId);
+                AttestationValidity validity =
+                    QaAttestationValidator.Evaluate(record, identity, required, now, out string reason);
+
+                yield return validity == AttestationValidity.Valid
+                    ? new GateObservation
+                    {
+                        GateId = d.GateId, Outcome = GateOutcome.Pass, ObservedProof = required, Evidence = reason,
+                    }
+                    : new GateObservation
+                    {
+                        GateId = d.GateId,
+                        Outcome = GateOutcome.Incomplete,
+                        ObservedProof = ProofScope.None,
+                        Evidence = validity == AttestationValidity.Missing ? d.Why : reason,
+                        FixHint = validity == AttestationValidity.Missing ? d.Fix : "Re-attest against the current build.",
+                    };
+            }
         }
 
         /// <summary>Vendor-coherence categories whose "not installed" result is vendor ABSENCE, not evidence

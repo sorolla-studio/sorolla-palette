@@ -42,12 +42,11 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         internal static Report Evaluate(
             List<BuildValidator.ValidationResult> buildHealthResults,
-            GreenlightDeviceSnapshot.State snapshotState,
-            GreenlightManualChecklist.State checklist)
+            GreenlightDeviceSnapshot.State snapshotState)
         {
             EvaluationContext context = GreenlightAdapter.BuildContext();
             List<GateObservation> observations =
-                GreenlightAdapter.BuildObservations(context, buildHealthResults, snapshotState, checklist);
+                GreenlightAdapter.BuildObservations(context, buildHealthResults, snapshotState);
             HealthReport health = HealthEvaluator.Evaluate(GateCatalog.Canonical, context, observations);
             return ToReport(health);
         }
