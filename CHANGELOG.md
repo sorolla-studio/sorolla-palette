@@ -2,7 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [4.0.0] - Unreleased
+
+The 4.x development line. Master identifies as `4.0.0` from this point forward; the QA/health
+evaluator foundation work (trustworthy self-serve health reports) lands under this header as it is
+built. The version string stays `4.0.0` across the whole development line, so `4.0.0` alone cannot
+distinguish two development commits — snapshots and reports must additionally carry the exact SDK
+commit/build to be unambiguous. This line is unreleased until the eventual `v4.0.0` tag: do not
+treat master as a released `4.0.0`, do not use the Greenlight `HEALTHY` label as a release verdict,
+and do not pin a game to this development checkout as if it were a released version.
 
 Vendor platform truth (Phase 1 of the QA self-serve plan): closes the false-green class where a
 vendor is provisioned/configured for one platform only, every SDK indicator reads green, and the
