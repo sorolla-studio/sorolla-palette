@@ -285,8 +285,10 @@ All defines are auto-managed - never set manually. Runtime mode is not a scripti
 ## Mode System
 
 ### Prototype Mode
-- **Required for Sorolla prototype builds**: GameAnalytics, Facebook SDK, Firebase
-- **Optional**: AppLovin MAX
+- **Required for Sorolla prototype builds**: GameAnalytics, Facebook SDK
+- **Recommended (optional, kept if present)**: Firebase, AppLovin MAX — both are `SdkRequirement.FullRequired`,
+  so the installer does not add them in Prototype but never uninstalls them either. Install Firebase if you
+  want Analytics / Remote Config / Crashlytics in a prototype; a bare prototype without it is valid.
 - **Use case**: publisher review builds, CPI tests, gameplay iteration
 
 ### Full Mode

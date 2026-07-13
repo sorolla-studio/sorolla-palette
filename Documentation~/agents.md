@@ -10,16 +10,15 @@ Read this once per game repo before running QA. It assumes the SDK is already in
 
 **Editor menu: Palette > Configuration**, then the **Greenlight** section.
 
-It composes six evidence classes into one mechanical status — read the live status in the window, not this doc's paraphrase of what it checks (the checks evolve; this list can lag). Remember it is an interim self-check, not a final release verdict:
+It composes five evidence classes into one mechanical status — read the live status in the window, not this doc's paraphrase of what it checks (the checks evolve; this list can lag). Every row is evaluated as a gate against the mode requirement table (§3 below), and one shared aggregation produces the status. Remember it is an interim self-check, not a final release verdict:
 
-1. **Build Health** — ~24 static checks (mode, sandbox/dev flags, vendor config files present, keystore, manifest, SDK pin). Errors and warnings roll up into one summary row; expand the section for the individual rows.
+1. **Build Health** — ~24 static checks (mode, sandbox/dev flags, vendor config files present, keystore, manifest, SDK pin). Each check is its own gate: an error surfaces as a failing row, and a check that does not apply to the current mode/platform/installed-modules is excluded rather than forced (e.g. Adjust settings in Prototype, the Android keystore on an iOS build).
 2. **Editor probes** — live network calls that verify credentials against the vendor's own API, not just "a config file exists." Currently: Facebook Graph API platform probe, GameAnalytics credential probe. Each probe row states what it proved and what it didn't (see [dashboards/](dashboards/) for the scope of each).
-3. **Mode Intent** — compares the build's actual SDK mode against the `intendedMode` declared on the QA Expectations asset (§3 below). Only a genuine mismatch fails; being in Prototype mode is never itself a failure — Prototype is a first-class release path for Facebook UA tests and publisher review builds, not a "pre-release" state.
-4. **Device Snapshot** — optional; pulls live `/qa/snapshot` from a connected device (§2 below).
-5. **Manual / dashboard checklist** — rows a machine cannot check (§4 below). Every row carries fix text and a deep link where one exists; none render as a bare unchecked box.
-6. **Source-level integration review** — not rendered in the editor window. Run the `sorolla-sdk-integration-review` audit (source-only: event wiring, Palette API usage, config alignment) before the on-device pass, not instead of it. Ask your Sorolla contact if you don't have this skill/prompt.
+3. **Device Snapshot** — required on Android; pulls live `/qa/snapshot` from a connected device (§2 below). A build never confirmed on device reads `INCOMPLETE`, not green.
+4. **Manual / dashboard checklist** — rows a machine cannot check. Every row carries fix text and a deep link where one exists; none render as a bare unchecked box. A ticked box is not scoped evidence, so it maps to `INCOMPLETE` until scoped attestation exists (§3 below).
+5. **Source-level integration review** — not rendered in the editor window. Run the `sorolla-sdk-integration-review` audit (source-only: event wiring, Palette API usage, config alignment) before the on-device pass, not instead of it. Ask your Sorolla contact if you don't have this skill/prompt.
 
-The Greenlight status reads `HEALTHY`, `N ISSUES`, `INCOMPLETE`, or `FAILING` (§3 of `troubleshooting.md` covers the general debug flow; this doc covers the QA-specific surfaces only). Treat this as an interim self-check status, not a release verdict — it is the current safety floor, not the final QA gate. A single `FAILING` row anywhere fails the whole status. `INCOMPLETE` (a non-green badge) means required evidence is still missing, pending, or unverifiable — a probe that has not run, a device snapshot that never connected, an unticked manual gate, or a report with only neutral/informational rows — so the report cannot honestly claim `HEALTHY`; it outranks `N ISSUES` but not `FAILING`. Informational rows never fail and never block `HEALTHY` when real evidence exists, but on their own they cannot make a report `HEALTHY`. Work the `INCOMPLETE` rows down (run the checks, tick the manual gates) before treating the status as final; the collapsed rows list will not claim "rows checked" while the report is incomplete. The on-device Vitals overlay still renders the three confident states today; it gains `INCOMPLETE` when its evidence model catches up. Use **Copy Greenlight Report** for a pasteable plain-text version to attach to a PR or ticket.
+The Greenlight status reads `HEALTHY`, `N ISSUES`, `INCOMPLETE`, or `FAILING` (§3 of `troubleshooting.md` covers the general debug flow; this doc covers the QA-specific surfaces only). Treat this as an interim self-check status, not a release verdict — it is the current safety floor, not the final QA gate. A single `FAILING` row anywhere fails the whole status. `INCOMPLETE` (a non-green badge) means required evidence is still missing, pending, or unverifiable — a probe that has not run, a required gate with no observation, a device snapshot that never connected, or a manual gate lacking scoped attestation — so the report cannot honestly claim `HEALTHY`; it outranks `N ISSUES` but not `FAILING`. A gate that does not apply to this build (wrong mode, wrong platform, absent module) is excluded from the verdict rather than counted as a pass, so it can neither fail nor prop up a green status. Work the `INCOMPLETE` rows down (run the checks, connect a device, gather scoped attestation) before treating the status as final; the collapsed rows list will not claim "rows checked" while the report is incomplete. The on-device Vitals overlay still renders the three confident states today; it gains `INCOMPLETE` when its evidence model catches up. Use **Copy Greenlight Report** for a pasteable plain-text version to attach to a PR or ticket.
 
 ## 2. The QA bridge (device-level ground truth)
 
@@ -65,22 +64,16 @@ Error responses: `403` + `{"detail":"qa_password_required"}` (bad/missing passwo
 
 Test-generating actions (`track_test_event`, `level_*`, `economy_*`) run inside a tagged test-action scope: they are excluded from integration health counters and filterable out of Firebase, so running them repeatedly during QA does not pollute the game's real analytics.
 
-## 3. QA Expectations asset
+## 3. What the verdict applies to (the mode requirement table)
 
-**Assets/Resources/SorollaQaExpectations.asset** (create via **Assets > Create > Palette > QA Expectations**). Optional — a missing asset means "no expectations configured," never a hard failure, and nothing at SDK init time depends on it.
+There is no per-game QA declaration asset. Which gates are required, optional, or excluded is derived entirely from the trusted build context — the SDK mode (Prototype / Full, from `SorollaConfig`), the active build platform, and the installed modules — plus the exact-build facts the checks observe. This is the mode requirement table, and it is code-defined in the SDK, not something a studio configures.
 
-This is what turns the mechanical verdict from generic to game-specific. Fill it once per game repo:
+What that means in practice:
 
-| Field | Why it changes the verdict |
-|---|---|
-| `intendedMode` | Enables the Mode Intent check (§1.3) — set it once you know which mode this game ships in. Leave `Unspecified` if undecided; the row degrades to informational, never fails. |
-| `usesRewarded` / `usesInterstitial` / `hasEconomy` / `tracksEconomy` / `usesIap` / `usesAddressables` | Feature flags a source-level integration review checks against actual code usage. |
-| `iapPlatforms` + `expectedSkus[]` | Drives the "Store SKUs / Testing Track Configured" manual row — only appears if `usesIap` is set, and states the expected SKU count so a mismatch is visible at a glance. |
-| `knownExpectedFailures[]` (area, platform, note) | Prevents a known, accepted platform gap (e.g. IAP store-init failing on Android for an iOS-only game) from reading as a regression. Keep this list current or the verdict cries wolf. |
-| `firstInterstitialAtLevel` | Reference value for manual ad-cadence QA; not machine-checked today. |
-| `notes` | Free text for anything else a human reviewing the verdict should know. |
-
-Version this asset in the game repo. Changes should land via a normal PR your publisher can review — it is the reviewable substitute for the old "tribal knowledge in someone's head" model.
+- **Mode drives applicability.** GameAnalytics and Facebook are required in both modes. Firebase and AppLovin MAX are required in Full and optional in Prototype (installed if you want them, never force-flagged if absent — matching the installer). Adjust is Full-only. A gate that does not apply to the current mode is excluded, not failed.
+- **Platform drives applicability.** The Android keystore and the on-device snapshot gates apply on Android only; on an iOS build they are excluded (iOS device transport is not yet shipped).
+- **Manual gates need scoped attestation.** The dashboard/on-device rows (§1.4) require vendor-side or on-device proof. A legacy editor check-off carries no build/device/vendor scope, so it maps to `INCOMPLETE` — re-attest with scoped evidence rather than ticking a box. This is deliberate: the verdict never grandfathers an unscoped tick into a pass.
+- **Prototype is a first-class release path**, never a "pre-release" state. Being in Prototype is never itself a failure — Prototype ships for Facebook UA tests and publisher review builds.
 
 ## 4. The Vitals overlay (on-device, no bridge needed)
 
@@ -92,8 +85,8 @@ Use it when you don't have adb/usbmux set up, or as the human-facing companion t
 
 Not every red row is something an agent (or a studio engineer) can fix. Classify before acting:
 
-- **Studio-fixable, with the fix in the row itself** — Build Health errors/warnings, most probe failures (wrong app ID, mismatched client token), Mode Intent mismatches. The row's `Fix` text names the concrete change (usually: edit `SorollaConfig`, `FacebookSettings`, or the QA Expectations asset).
-- **Dashboard work, with a doc link** — every row in the manual checklist (§1.5) and the deeper procedures in [dashboards/](dashboards/). These are things the SDK cannot verify by design (see each vendor page for why) — go configure the vendor's dashboard, then re-run the verdict.
+- **Studio-fixable, with the fix in the row itself** — Build Health errors/warnings, most probe failures (wrong app ID, mismatched client token). The row's `Fix` text names the concrete change (usually: edit `SorollaConfig` or `FacebookSettings`).
+- **Dashboard work, with a doc link** — every row in the manual checklist (§1.4) and the deeper procedures in [dashboards/](dashboards/). These are things the SDK cannot verify by design (see each vendor page for why) — go configure the vendor's dashboard, then re-run the verdict.
 - **Contact Sorolla, with the copied SDK state** — cross-vendor drift that spans two dashboards Sorolla owns (see `dashboards/applovin-max.md`), anything that looks like a credential the studio doesn't hold, or a `FAILING` verdict that persists after working through every row above. Use **Copy Greenlight Report** and attach the raw text — do not paraphrase the verdict when escalating, the exact row text is the evidence.
 
 See also: [dashboards/](dashboards/) for the vendor-specific detail behind each manual row, [troubleshooting.md](troubleshooting.md) for build/runtime issues outside the QA surfaces, [known-issues.md](known-issues.md) for previously-seen field incidents.

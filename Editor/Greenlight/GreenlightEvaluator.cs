@@ -2,27 +2,21 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Sorolla.Palette.Editor.UI;
+using Sorolla.Palette.Health;
 
 namespace Sorolla.Palette.Editor.Greenlight
 {
     /// <summary>
-    ///     Composes every evidence class the studio self-serve greenlight plan defines (Build Health,
-    ///     editor probes, mode-intent, device snapshot, manual/dashboard checklist) into one mechanical
-    ///     verdict. Pure evaluator: takes already-computed inputs, never runs a probe or a build check
-    ///     itself - <see cref="BuildValidator.RunAllChecks"/> and the probe validators
-    ///     (<see cref="FacebookPlatformValidator"/>, <see cref="GameAnalyticsCredentialValidator"/>)
-    ///     already run as part of Build Health; this only reads their cached results.
+    ///     Routes the Editor greenlight through the ONE shared aggregation
+    ///     (<see cref="HealthEvaluator.Evaluate"/>): the <see cref="GreenlightAdapter"/> maps Build Health,
+    ///     device, and manual evidence onto neutral observations + a trusted evaluation context, the shared
+    ///     evaluator against the canonical <see cref="GateCatalog"/> produces the verdict, and this class only
+    ///     maps the resulting <see cref="GateOutcome"/> to display. There is deliberately no second precedence
+    ///     algorithm here - the label/badge/summary helpers MAP the aggregate outcome, they never recompute it
+    ///     (design note section 6).
     /// </summary>
     static class GreenlightEvaluator
     {
-        internal enum Verdict
-        {
-            Healthy,
-            Issues,
-            Incomplete,
-            Failing,
-        }
-
         internal sealed class Row
         {
             public string Label;
@@ -38,68 +32,126 @@ namespace Sorolla.Palette.Editor.Greenlight
         internal sealed class Report
         {
             public readonly List<Row> Rows = new List<Row>();
-            public Verdict Verdict;
+            public GateOutcome Outcome;
+            public IReadOnlyList<string> ValidationErrors = Array.Empty<string>();
             public int FailCount;
             public int WarnCount;
             public int WaitCount;
             public int PassCount;
-            public int InfoCount;
         }
 
-        /// <summary>
-        ///     Four-state verdict label (FAILING / INCOMPLETE / n ISSUES / HEALTHY). INCOMPLETE means
-        ///     required evidence is missing, stale, or unverifiable - the report cannot honestly claim
-        ///     HEALTHY, so it must never render green (the false-green this evaluator was hardened
-        ///     against). Sorolla Vitals is a separate surface; keep its wording in step when it gains
-        ///     the same state.
-        /// </summary>
-        internal static string VerdictLabel(Verdict verdict, int failCount, int warnCount)
+        internal static Report Evaluate(
+            List<BuildValidator.ValidationResult> buildHealthResults,
+            GreenlightDeviceSnapshot.State snapshotState,
+            GreenlightManualChecklist.State checklist)
         {
-            switch (verdict)
-            {
-                case Verdict.Failing: return "FAILING";
-                case Verdict.Incomplete: return "INCOMPLETE";
-                case Verdict.Issues: return $"{failCount + warnCount} ISSUES";
-                case Verdict.Healthy: return "HEALTHY";
-                default:
-                    // No permissive default - a future/unknown verdict must fail loud, never export as
-                    // HEALTHY through ToPlainText (the copy-report path). Mirrors BadgeSeverity.
-                    throw new ArgumentOutOfRangeException(
-                        nameof(verdict), verdict, "Unhandled greenlight verdict - add a label mapping.");
-            }
+            EvaluationContext context = GreenlightAdapter.BuildContext();
+            List<GateObservation> observations =
+                GreenlightAdapter.BuildObservations(buildHealthResults, snapshotState, checklist);
+            HealthReport health = HealthEvaluator.Evaluate(GateCatalog.Canonical, context, observations);
+            return ToReport(health);
         }
 
-        /// <summary>
-        ///     Verdict → badge severity. INCOMPLETE maps to the non-green Wait pill: missing evidence
-        ///     must look unresolved, not passing. No permissive default arm - a future verdict state
-        ///     throws here (fails loud) rather than silently rendering green.
-        /// </summary>
-        internal static StatusBadge.Severity BadgeSeverity(Verdict verdict)
+        /// <summary>Maps the shared <see cref="HealthReport"/> to the flat display shape the window renders.
+        /// NotApplicable rows are inert (excluded from the verdict) and not shown.</summary>
+        static Report ToReport(HealthReport health)
         {
-            switch (verdict)
+            var report = new Report
             {
-                case Verdict.Failing: return StatusBadge.Severity.Fail;
-                case Verdict.Incomplete: return StatusBadge.Severity.Wait;
-                case Verdict.Issues: return StatusBadge.Severity.Advisory;
-                case Verdict.Healthy: return StatusBadge.Severity.Pass;
-                default:
-                    throw new ArgumentOutOfRangeException(
-                        nameof(verdict), verdict, "Unhandled greenlight verdict - add a badge severity mapping.");
+                Outcome = health.Outcome,
+                ValidationErrors = health.ValidationErrors ?? Array.Empty<string>(),
+            };
+
+            foreach (GateResult r in health.Rows)
+            {
+                if (r.Applicability == Applicability.NotApplicable)
+                    continue;
+
+                CheckRow.Status status = ToStatus(r.Outcome);
+                (string url, string linkLabel) = GreenlightAdapter.DeepLinkFor(r.GateId);
+                report.Rows.Add(new Row
+                {
+                    Label = GreenlightAdapter.LabelFor(r.GateId),
+                    Status = status,
+                    Detail = DetailFor(r),
+                    Fix = r.FixHint,
+                    DeepLinkUrl = url,
+                    DeepLinkLabel = linkLabel,
+                });
+
+                switch (status)
+                {
+                    case CheckRow.Status.Fail: report.FailCount++; break;
+                    case CheckRow.Status.Warn: report.WarnCount++; break;
+                    case CheckRow.Status.Wait: report.WaitCount++; break;
+                    default: report.PassCount++; break;
+                }
             }
+
+            return report;
         }
+
+        static string DetailFor(GateResult r)
+        {
+            if (!string.IsNullOrEmpty(r.Evidence))
+                return r.Evidence;
+            if (r.Applicability == Applicability.Unknown)
+                return r.ApplicabilityReason ?? "Applicability could not be determined";
+            return r.Outcome == GateOutcome.Incomplete ? "Required evidence missing or not yet gathered" : "";
+        }
+
+        /// <summary>Aggregate/row outcome → display status. Pure mapping, not a precedence computation.</summary>
+        static CheckRow.Status ToStatus(GateOutcome outcome) => outcome switch
+        {
+            GateOutcome.Fail => CheckRow.Status.Fail,
+            GateOutcome.PassWithCaveats => CheckRow.Status.Warn,
+            GateOutcome.Incomplete => CheckRow.Status.Wait,
+            GateOutcome.Pass => CheckRow.Status.Pass,
+            _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Unhandled gate outcome."),
+        };
+
+        /// <summary>
+        ///     Four-state verdict label (FAILING / INCOMPLETE / n ISSUES / HEALTHY). Maps the aggregate
+        ///     outcome; INCOMPLETE means required evidence is missing, stale, or unverifiable - the report
+        ///     cannot honestly claim HEALTHY, so it never renders green. No permissive default arm - a
+        ///     future/unknown outcome fails loud, never exports as HEALTHY.
+        /// </summary>
+        internal static string VerdictLabel(GateOutcome outcome, int failCount, int warnCount) => outcome switch
+        {
+            GateOutcome.Fail => "FAILING",
+            GateOutcome.Incomplete => "INCOMPLETE",
+            GateOutcome.PassWithCaveats => $"{failCount + warnCount} ISSUES",
+            GateOutcome.Pass => "HEALTHY",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(outcome), outcome, "Unhandled greenlight outcome - add a label mapping."),
+        };
+
+        /// <summary>
+        ///     Outcome → badge severity. INCOMPLETE maps to the non-green Wait pill: missing evidence must
+        ///     look unresolved, not passing. No permissive default arm - a future outcome throws (fails
+        ///     loud) rather than silently rendering green.
+        /// </summary>
+        internal static StatusBadge.Severity BadgeSeverity(GateOutcome outcome) => outcome switch
+        {
+            GateOutcome.Fail => StatusBadge.Severity.Fail,
+            GateOutcome.Incomplete => StatusBadge.Severity.Wait,
+            GateOutcome.PassWithCaveats => StatusBadge.Severity.Advisory,
+            GateOutcome.Pass => StatusBadge.Severity.Pass,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(outcome), outcome, "Unhandled greenlight outcome - add a badge severity mapping."),
+        };
 
         /// <summary>
         ///     One-line summary for the collapsed rows foldout. Wait rows count as "need attention"
         ///     alongside Fail/Warn, and an INCOMPLETE report NEVER reads "rows checked" - a pending or
-        ///     evidence-less report must not imply its rows were affirmatively checked (the same
-        ///     honesty rule the badge enforces, applied to the foldout header).
+        ///     evidence-less report must not imply its rows were affirmatively checked.
         /// </summary>
         internal static string RowSummary(Report report)
         {
             int total = report.Rows.Count;
             int needsAttention = report.FailCount + report.WarnCount + report.WaitCount;
 
-            if (report.Verdict == Verdict.Incomplete)
+            if (report.Outcome == GateOutcome.Incomplete)
                 return needsAttention > 0
                     ? $"{needsAttention} of {total} rows need evidence or attention"
                     : $"{total} rows, evidence incomplete";
@@ -110,211 +162,12 @@ namespace Sorolla.Palette.Editor.Greenlight
             return $"{total} rows checked";
         }
 
-        internal static Report Evaluate(
-            List<BuildValidator.ValidationResult> buildHealthResults,
-            SorollaConfig config,
-            GreenlightDeviceSnapshot.State snapshotState,
-            GreenlightManualChecklist.State checklist)
-        {
-            var report = new Report();
-
-            AddBuildHealthSummaryRow(report, buildHealthResults);
-            AddProbeRow(report, "Facebook Platform (Graph API)", buildHealthResults, BuildValidator.CheckCategory.FacebookPlatformConfig);
-            AddProbeRow(report, "GameAnalytics Credentials", buildHealthResults, BuildValidator.CheckCategory.GameAnalyticsCredentialProbe);
-            AddModeIntentRow(report, config);
-            AddDeviceSnapshotRows(report, snapshotState);
-            AddManualRows(report, config, checklist);
-
-            ComputeVerdict(report);
-            return report;
-        }
-
-        // ── Build Health (a) ──────────────────────────────────────────
-
-        static void AddBuildHealthSummaryRow(Report report, List<BuildValidator.ValidationResult> results)
-        {
-            if (results == null)
-            {
-                report.Rows.Add(new Row
-                {
-                    Label = "Build Health",
-                    Status = CheckRow.Status.Wait,
-                    Detail = "Not run yet",
-                    Fix = "Click Refresh to run Build Health checks.",
-                });
-                return;
-            }
-
-            int errors = results.Count(r => r.Status == BuildValidator.ValidationStatus.Error);
-            int warnings = results.Count(r => r.Status == BuildValidator.ValidationStatus.Warning);
-
-            CheckRow.Status status = errors > 0 ? CheckRow.Status.Fail : warnings > 0 ? CheckRow.Status.Warn : CheckRow.Status.Pass;
-            string detail = errors > 0
-                ? $"{errors} failing check(s) - see Build Health section below"
-                : warnings > 0
-                    ? $"{warnings} warning(s) - see Build Health section below"
-                    : $"{results.Count} checks passing";
-
-            report.Rows.Add(new Row
-            {
-                Label = "Build Health",
-                Status = status,
-                Detail = detail,
-                Fix = errors > 0 || warnings > 0 ? "Expand the Build Health section below and fix the failing/warning rows." : null,
-            });
-        }
-
-        // ── Editor probes (b) ─────────────────────────────────────────
-
-        static void AddProbeRow(Report report, string label, List<BuildValidator.ValidationResult> results, BuildValidator.CheckCategory category)
-        {
-            BuildValidator.ValidationResult result = results?.FirstOrDefault(r => r.Category == category);
-            if (result == null)
-            {
-                report.Rows.Add(new Row { Label = label, Status = CheckRow.Status.Wait, Detail = "Not run yet" });
-                return;
-            }
-
-            switch (result.Status)
-            {
-                case BuildValidator.ValidationStatus.Error:
-                    report.Rows.Add(new Row { Label = label, Status = CheckRow.Status.Fail, Detail = FirstLine(result.Message), Fix = result.Fix });
-                    return;
-                case BuildValidator.ValidationStatus.Warning:
-                    report.Rows.Add(new Row { Label = label, Status = CheckRow.Status.Warn, Detail = FirstLine(result.Message), Fix = result.Fix });
-                    return;
-                case BuildValidator.ValidationStatus.Unverifiable:
-                    // Pending or offline - never rendered as a pass (Build Health's own honesty rule).
-                    report.Rows.Add(new Row { Label = label, Status = CheckRow.Status.Wait, Detail = FirstLine(result.Message) });
-                    return;
-                default:
-                    // A Pass can still carry a Fix (e.g. GA credential probe's "verify platform
-                    // registration manually" reminder) - the probe validated one narrower fact than
-                    // the row's label implies, and that residual gap belongs in Fix, not the message.
-                    report.Rows.Add(new Row { Label = label, Status = CheckRow.Status.Pass, Detail = FirstLine(result.Message), Fix = result.Fix });
-                    return;
-            }
-        }
-
-        static string FirstLine(string message) => string.IsNullOrEmpty(message) ? "" : message.Split('\n')[0];
-
-        // ── Mode intent (c) ───────────────────────────────────────────
-
-        static void AddModeIntentRow(Report report, SorollaConfig config)
-        {
-            SorollaQaExpectations expectations = SorollaQaExpectations.Current;
-            if (expectations == null || expectations.intendedMode == SorollaQaIntendedMode.Unspecified)
-            {
-                report.Rows.Add(new Row
-                {
-                    Label = "Mode Intent",
-                    Status = CheckRow.Status.Info,
-                    Detail = expectations == null
-                        ? "No QA Expectations asset - no mode-intent check"
-                        : "Intended mode not set on the QA Expectations asset - no mode-intent check",
-                    Fix = "Optional: set Intended Mode on Assets/Resources/SorollaQaExpectations.asset to catch a build shipping in the wrong mode for this game.",
-                });
-                return;
-            }
-
-            SorollaMode actualMode = SorollaSettings.Mode;
-            bool actualIsFull = actualMode == SorollaMode.Full;
-            bool intendedIsFull = expectations.intendedMode == SorollaQaIntendedMode.Full;
-
-            if (actualMode == SorollaMode.None)
-            {
-                report.Rows.Add(new Row
-                {
-                    Label = "Mode Intent",
-                    Status = CheckRow.Status.Fail,
-                    Detail = "Build mode is unknown (no SorollaConfig) - cannot compare against the declared intent",
-                    Fix = "Palette > Configuration, then create the config asset.",
-                });
-                return;
-            }
-
-            // Prototype is a first-class release path (FB UA tests) - only a genuine intended-vs-actual
-            // mismatch fails; being in Prototype is never itself a failure.
-            bool matches = actualIsFull == intendedIsFull;
-            report.Rows.Add(new Row
-            {
-                Label = "Mode Intent",
-                Status = matches ? CheckRow.Status.Pass : CheckRow.Status.Fail,
-                Detail = matches
-                    ? $"Build is in {actualMode}, matches the declared intent"
-                    : $"Build is in {actualMode}, but the QA Expectations asset declares {expectations.intendedMode}",
-                Fix = matches ? null : "Switch the SDK mode in Palette > Configuration to match the declared intent, or update Intended Mode on the QA Expectations asset if the intent changed.",
-            });
-        }
-
-        // ── Device snapshot (d) ───────────────────────────────────────
-
-        static void AddDeviceSnapshotRows(Report report, GreenlightDeviceSnapshot.State state)
-        {
-            report.Rows.AddRange(GreenlightDeviceSnapshot.ToRows(state));
-        }
-
-        // ── Manual / dashboard checklist (e) ──────────────────────────
-
-        static void AddManualRows(Report report, SorollaConfig config, GreenlightManualChecklist.State checklist)
-        {
-            report.Rows.AddRange(GreenlightManualChecklist.ToRows(config, checklist));
-        }
-
-        // ── Verdict ────────────────────────────────────────────────────
-
-        // INTERIM precedence - COEXISTS FOR ONE CYCLE (Cycle 3). The canonical, omission-aware aggregation
-        // now lives in Sorolla.Health (HealthEvaluator.Evaluate). DELETE this method in Cycle 4: populate
-        // GateCatalog, add the Editor adapter (rows -> GateObservation, mode/platform/modules ->
-        // EvaluationContext), route Greenlight through HealthEvaluator, and map HealthReport.Outcome to the
-        // display label. No second precedence algorithm may remain after that cutover (design note section 6).
-        internal static void ComputeVerdict(Report report)
-        {
-            foreach (Row row in report.Rows)
-            {
-                switch (row.Status)
-                {
-                    case CheckRow.Status.Fail: report.FailCount++; break;
-                    case CheckRow.Status.Warn: report.WarnCount++; break;
-                    case CheckRow.Status.Wait: report.WaitCount++; break;
-                    case CheckRow.Status.Info: report.InfoCount++; break;
-                    default: report.PassCount++; break;
-                }
-            }
-
-            // Precedence FAIL > INCOMPLETE > ISSUES > HEALTHY. This is an INTERIM Greenlight status,
-            // not a release verdict - it is the safety floor that stops the zero-evidence false-green
-            // until Cycle 4 lands the canonical per-row required/proof-scope requirement table. Two
-            // conditions force the non-green INCOMPLETE, and both OUTRANK warnings (a report cannot be
-            // "just issues" while required evidence is pending or absent):
-            //   1. Pending/unverifiable evidence - ANY Wait row (Build Health not run, a probe
-            //      pending/unverifiable, a device snapshot that came back NoDevice/Unreachable, an
-            //      unticked manual gate).
-            //   2. No affirmative evidence at all - zero Pass AND zero Warn rows (an empty report, or
-            //      one built only from Info rows). Info is NEUTRAL: it never fails, but it is not
-            //      affirmative evidence, so it can never carry a report to HEALTHY on its own. This is
-            //      why the optional device-not-connected Info row does not block HEALTHY when real
-            //      Pass evidence exists, yet an Info-only report still reads INCOMPLETE.
-            // Info must never become a channel for silently dropping a requirement - that is the
-            // canonical table's job (Cycle 4), not this floor's.
-            bool pendingEvidence = report.WaitCount > 0;
-            bool anyAffirmativeEvidence = report.PassCount > 0 || report.WarnCount > 0;
-
-            report.Verdict = report.FailCount > 0
-                ? Verdict.Failing
-                : pendingEvidence || !anyAffirmativeEvidence
-                    ? Verdict.Incomplete
-                    : report.WarnCount > 0
-                        ? Verdict.Issues
-                        : Verdict.Healthy;
-        }
-
         /// <summary>Plain-text report for the "Copy greenlight report" button - pasteable into chat.</summary>
         internal static string ToPlainText(Report report)
         {
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"Palette Greenlight: {VerdictLabel(report.Verdict, report.FailCount, report.WarnCount)}");
-            sb.AppendLine($"({report.FailCount} fail, {report.WarnCount} warn, {report.WaitCount} wait, {report.InfoCount} info, {report.PassCount} pass)");
+            sb.AppendLine($"Palette Greenlight: {VerdictLabel(report.Outcome, report.FailCount, report.WarnCount)}");
+            sb.AppendLine($"({report.FailCount} fail, {report.WarnCount} warn, {report.WaitCount} wait, {report.PassCount} pass)");
             sb.AppendLine();
             foreach (Row row in report.Rows)
             {

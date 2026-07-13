@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Sorolla.Palette.Editor.UI;
+using Sorolla.Palette.Health;
 using UnityEditor;
 using UnityEngine;
 
@@ -242,82 +242,96 @@ namespace Sorolla.Palette.Editor.Greenlight
             }
         }
 
-        internal static List<GreenlightEvaluator.Row> ToRows(State state)
+        /// <summary>
+        ///     Maps the connection state onto neutral device observations. The device gates require
+        ///     <see cref="ProofScope.DeviceDispatch"/>, so a not-connected/unreachable snapshot yields an
+        ///     observation with no observed proof - the required-proof gate resolves it to INCOMPLETE (a
+        ///     build we have never confirmed on device cannot pass), never a green skip. A parsed snapshot
+        ///     carries DeviceDispatch proof and the real outcomes.
+        /// </summary>
+        internal static List<GateObservation> ToObservations(State state)
         {
-            var rows = new List<GreenlightEvaluator.Row>();
+            var observations = new List<GateObservation>();
 
             switch (state.Phase == Phase.NotStarted ? Outcome.None : state.Outcome)
             {
                 case Outcome.None:
-                    rows.Add(new GreenlightEvaluator.Row
+                    observations.Add(new GateObservation
                     {
-                        Label = "Device Snapshot",
-                        Status = CheckRow.Status.Info,
-                        Detail = "Not connected - click Connect Device to pull live /qa/snapshot state.",
+                        GateId = GateIds.DeviceReady,
+                        Outcome = GateOutcome.Incomplete,
+                        ObservedProof = ProofScope.None,
+                        Evidence = "Not connected - click Connect Device to pull live /qa/snapshot state.",
+                        FixHint = "Connect an Android device with USB debugging enabled and re-run.",
                     });
-                    return rows;
+                    return observations;
 
                 case Outcome.AdbNotFound:
                 case Outcome.NoDevice:
-                    rows.Add(new GreenlightEvaluator.Row
+                    observations.Add(new GateObservation
                     {
-                        Label = "Device Snapshot",
-                        Status = CheckRow.Status.Wait,
-                        Detail = state.DetailMessage,
-                        Fix = "Connect an Android device with USB debugging enabled and re-run, or skip - this step is optional.",
+                        GateId = GateIds.DeviceReady,
+                        Outcome = GateOutcome.Incomplete,
+                        ObservedProof = ProofScope.None,
+                        Evidence = state.DetailMessage,
+                        FixHint = "Connect an Android device with USB debugging enabled and re-run.",
                     });
-                    return rows;
+                    return observations;
 
                 case Outcome.Unreachable:
-                    rows.Add(new GreenlightEvaluator.Row
+                    observations.Add(new GateObservation
                     {
-                        Label = "Device Snapshot",
-                        Status = CheckRow.Status.Wait,
-                        Detail = state.DetailMessage,
-                        Fix = "Confirm the app is installed, foregrounded, and the QA bridge is armed, then Connect Device again.",
+                        GateId = GateIds.DeviceReady,
+                        Outcome = GateOutcome.Incomplete,
+                        ObservedProof = ProofScope.None,
+                        Evidence = state.DetailMessage,
+                        FixHint = "Confirm the app is installed, foregrounded, and the QA bridge is armed, then Connect Device again.",
                     });
-                    return rows;
+                    return observations;
 
                 case Outcome.Parsed:
-                    AddParsedRows(rows, state.Snapshot);
-                    return rows;
+                    AddParsedObservations(observations, state.Snapshot);
+                    return observations;
 
                 default:
-                    return rows;
+                    return observations;
             }
         }
 
-        static void AddParsedRows(List<GreenlightEvaluator.Row> rows, Dictionary<string, object> snapshot)
+        static void AddParsedObservations(List<GateObservation> observations, Dictionary<string, object> snapshot)
         {
             bool ready = GetBool(snapshot, "ready");
-            rows.Add(new GreenlightEvaluator.Row
+            observations.Add(new GateObservation
             {
-                Label = "Device Snapshot: Ready",
-                Status = ready ? CheckRow.Status.Pass : CheckRow.Status.Fail,
-                Detail = ready ? $"mode={GetString(snapshot, "mode")}" : "SDK reports not ready",
-                Fix = ready ? null : "Open the in-app debug menu (Vitals) on this device for the full WHY/SIGNAL/FIX breakdown.",
+                GateId = GateIds.DeviceReady,
+                Outcome = ready ? GateOutcome.Pass : GateOutcome.Fail,
+                ObservedProof = ProofScope.DeviceDispatch,
+                Evidence = ready ? $"mode={GetString(snapshot, "mode")}" : "SDK reports not ready",
+                FixHint = ready ? null : "Open the in-app debug menu (Vitals) on this device for the full WHY/SIGNAL/FIX breakdown.",
             });
 
             if (TryGetObject(snapshot, "identity", out var identity))
             {
                 bool adPresent = GetBool(identity, "advertising_id_present");
-                rows.Add(new GreenlightEvaluator.Row
+                observations.Add(new GateObservation
                 {
-                    Label = "Device Snapshot: Advertising ID",
-                    Status = adPresent ? CheckRow.Status.Pass : CheckRow.Status.Warn,
-                    Detail = adPresent ? "Present" : "Not present (expected if ATT/consent denied, or zeroed by OS privacy settings)",
+                    GateId = GateIds.DeviceAdvertisingId,
+                    Outcome = adPresent ? GateOutcome.Pass : GateOutcome.PassWithCaveats,
+                    ObservedProof = ProofScope.DeviceDispatch,
+                    Evidence = adPresent ? "Present" : "Not present (expected if ATT/consent denied, or zeroed by OS privacy settings)",
                 });
             }
 
             if (TryGetObject(snapshot, "problems", out var problems))
             {
                 long errorCount = GetLong(problems, "sdk_errors");
-                rows.Add(new GreenlightEvaluator.Row
+                observations.Add(new GateObservation
                 {
-                    Label = "Device Snapshot: SDK Errors",
-                    Status = errorCount > 0 ? CheckRow.Status.Fail : CheckRow.Status.Pass,
-                    Detail = errorCount > 0 ? $"{errorCount} error(s) - last: {GetString(problems, "last_sdk_error")}" : "None observed this session",
-                    Fix = errorCount > 0 ? "Open the in-app debug menu (Vitals) Issues tab for WHY/SIGNAL/FIX on each error." : null,
+                    GateId = GateIds.DeviceNoSdkErrors,
+                    Outcome = errorCount > 0 ? GateOutcome.Fail : GateOutcome.Pass,
+                    ObservedProof = ProofScope.DeviceDispatch,
+                    Evidence = errorCount > 0 ? $"{errorCount} error(s) - last: {GetString(problems, "last_sdk_error")}" : "None observed this session",
+                    FixHint = errorCount > 0 ? "Open the in-app debug menu (Vitals) Issues tab for WHY/SIGNAL/FIX on each error." : null,
                 });
             }
         }

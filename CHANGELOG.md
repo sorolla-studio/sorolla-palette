@@ -22,6 +22,27 @@ check below warns rather than blocks the build. Each warning states the root cau
 signal it produces, and the fix.
 
 ### Added
+- **Mode requirement table + live Greenlight cutover to the shared evaluator**: the canonical
+  `Sorolla.Health` gate catalog is now populated with a stable id, per-gate version, phase, required
+  flag, proof scope, and a mode/platform/installed-modules applicability predicate for every Build
+  Health check (each row, not a collapsed summary), each device-snapshot fact, and each manual
+  attestation. The Editor Greenlight no longer runs its own precedence: an adapter maps Build Health
+  results, the device snapshot, and the manual checklist onto neutral observations plus a trusted
+  evaluation context, and the single `HealthEvaluator.Evaluate` produces the verdict; the badge, label,
+  summary and copy-report export only MAP the aggregate outcome. The interim per-row precedence and its
+  `Verdict` enum are deleted - there is now exactly one aggregation. Behaviour: a build with no run
+  evidence, or one whose required gates lack scoped proof, renders a non-green `INCOMPLETE`, unchanged
+  in spirit from the interim floor but now driven by the real requirement table.
+  - **Firebase-in-Prototype decided**: the SDK's source-of-truth `SdkRegistry` marks every Firebase
+    module `FullRequired` (required in Full, optional in Prototype and never uninstalled), so the mode
+    table makes the Firebase coherence gate required in Full and applicable in Prototype only when
+    Firebase is actually installed - a bare Prototype build without Firebase is not flagged. The
+    architecture doc, which had called Firebase "required for prototype builds," is corrected to match
+    the installer.
+  - **Legacy manual checkmarks are not evidence (B-10)**: a ticked greenlight checkbox now maps to an
+    observation with no scoped proof, so the manual gate's required vendor/device proof is unmet and the
+    row resolves to `INCOMPLETE` - a legacy check-off can no longer produce an affirmative pass. The
+    studio is prompted to re-attest with scoped evidence.
 - **Shared health-result contract (internal foundation)**: a new leaf assembly `Sorolla.Health`
   (`noEngineReferences`, internal types, no studio API) holds the neutral gate-result model and the
   single aggregation `HealthEvaluator.Evaluate(catalog, context, observations)`. It evaluates a
@@ -123,6 +144,17 @@ row, never an Error - existing checks (Adjust token, etc.) keep their current se
   Both the badge severity and the verdict label/plain-text export now map every state explicitly and
   throw on an unknown verdict instead of defaulting to a green `HEALTHY`, so a future state cannot
   leak a false-green through the copy-report path.
+
+### Removed
+- **`SorollaQaExpectations` asset and its types removed (breaking)**: the `SorollaQaExpectations`
+  ScriptableObject (and `SorollaQaIntendedMode`, `SorollaQaSku`, `SorollaQaSkuType`, `SorollaQaArea`,
+  `SorollaQaPlatform`, `SorollaQaExpectedFailure`, plus the **Assets > Create > Palette > QA
+  Expectations** menu) are deleted. Greenlight applicability now derives only from mode, platform,
+  installed modules, and observed exact-build facts - not from a per-game declaration asset. The
+  Mode Intent row and the expectations-driven Store SKUs manual row are gone. Migration for studios: a
+  leftover `Assets/Resources/SorollaQaExpectations.asset` is now an inert, unreferenced asset and can
+  be deleted; no code change is required. These types were internal-workflow surface and never appeared
+  in the generated `api-reference.md`, so that reference is unchanged.
 
 ### Documentation
 - **TikTok marked parked across the public docs and config source**: TikTok is not part of the active

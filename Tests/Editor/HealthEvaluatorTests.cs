@@ -8,8 +8,8 @@ namespace Sorolla.Palette.Editor.Tests
     ///     Truth table for the ONE shared aggregation (<see cref="HealthEvaluator.Evaluate"/>): omission of
     ///     a required gate, unknown/duplicate observations, tri-state applicability, the required-vs-observed
     ///     proof gate, the FAIL &gt; INCOMPLETE &gt; CAVEATS &gt; PASS precedence, and the no-affirmative
-    ///     floor. Plus the catalog validation. The live Greenlight keeps its interim ComputeVerdict for one
-    ///     cycle; its end-to-end coverage lives in GreenlightEvaluatorTests (untouched here).
+    ///     floor. Plus the catalog validation. The live Greenlight now routes through this evaluator
+    ///     (Cycle 4 cutover); its adapter + end-to-end coverage lives in GreenlightEvaluatorTests.
     /// </summary>
     public class HealthEvaluatorTests
     {

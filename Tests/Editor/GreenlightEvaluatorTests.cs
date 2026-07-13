@@ -1,227 +1,230 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using Sorolla.Palette.Editor.Greenlight;
 using Sorolla.Palette.Editor.UI;
-using UnityEngine;
+using Sorolla.Palette.Health;
+using UnityEditor;
 
 namespace Sorolla.Palette.Editor.Tests
 {
     /// <summary>
-    ///     Truth table for <see cref="GreenlightEvaluator.ComputeVerdict"/> - the aggregation that was
-    ///     the false-green: it used to only react to Fail/Warn, so a zero-evidence report (all Wait
-    ///     rows, only Info rows, or no rows) rendered HEALTHY/green. These pin the four-state
-    ///     precedence FAIL &gt; INCOMPLETE &gt; ISSUES &gt; HEALTHY, the "no affirmative evidence is
-    ///     never HEALTHY" rule, the badge mapping that keeps INCOMPLETE visibly non-green, and the
-    ///     foldout summary that never claims an incomplete report's rows were "checked". One test
-    ///     drives the real <see cref="GreenlightEvaluator.Evaluate"/> end-to-end so the
-    ///     evidence-producing rows can't silently misclassify while the synthetic-report tests pass.
+    ///     Covers the Cycle-4 cutover: the Editor greenlight now routes through the ONE shared
+    ///     <see cref="HealthEvaluator.Evaluate"/> via <see cref="GreenlightAdapter"/>. Tests the adapter's
+    ///     row-class → observation mapping, the B-10 rule that a ticked legacy checkmark cannot produce an
+    ///     affirmative outcome, the display-only mapping of the aggregate outcome (no recomputed precedence),
+    ///     and the end-to-end no-evidence → INCOMPLETE non-green invariant carried over from Cycle 2.
     /// </summary>
     [TestFixture]
     public class GreenlightEvaluatorTests
     {
-        static GreenlightEvaluator.Report ReportOf(params CheckRow.Status[] statuses)
+        // ── Adapter: context mapping ──────────────────────────────────────
+
+        [Test]
+        public void ToEvalMode_MapsEditorModes()
         {
-            var report = new GreenlightEvaluator.Report();
-            foreach (CheckRow.Status status in statuses)
-                report.Rows.Add(new GreenlightEvaluator.Row { Label = status.ToString(), Status = status });
-            GreenlightEvaluator.ComputeVerdict(report);
-            return report;
+            Assert.AreEqual(EvalMode.Unknown, GreenlightAdapter.ToEvalMode(SorollaMode.None));
+            Assert.AreEqual(EvalMode.Prototype, GreenlightAdapter.ToEvalMode(SorollaMode.Prototype));
+            Assert.AreEqual(EvalMode.Full, GreenlightAdapter.ToEvalMode(SorollaMode.Full));
         }
 
         [Test]
-        public void AllPass_IsHealthy()
+        public void ToEvalPlatform_MapsMobileTargets_ElseUnknown()
         {
-            GreenlightEvaluator.Report report = ReportOf(CheckRow.Status.Pass, CheckRow.Status.Pass);
-            Assert.AreEqual(GreenlightEvaluator.Verdict.Healthy, report.Verdict);
+            Assert.AreEqual(EvalPlatform.Android, GreenlightAdapter.ToEvalPlatform(BuildTarget.Android));
+            Assert.AreEqual(EvalPlatform.iOS, GreenlightAdapter.ToEvalPlatform(BuildTarget.iOS));
+            Assert.AreEqual(EvalPlatform.Unknown, GreenlightAdapter.ToEvalPlatform(BuildTarget.StandaloneOSX));
+        }
+
+        // ── Adapter: Build Health row-class → observation ─────────────────
+
+        [Test]
+        public void BuildHealth_StatusMapsToOutcome()
+        {
+            Assert.AreEqual(GateOutcome.Fail, GreenlightAdapter.ToOutcome(BuildValidator.ValidationStatus.Error));
+            Assert.AreEqual(GateOutcome.PassWithCaveats, GreenlightAdapter.ToOutcome(BuildValidator.ValidationStatus.Warning));
+            Assert.AreEqual(GateOutcome.Incomplete, GreenlightAdapter.ToOutcome(BuildValidator.ValidationStatus.Unverifiable));
+            Assert.AreEqual(GateOutcome.Pass, GreenlightAdapter.ToOutcome(BuildValidator.ValidationStatus.Valid));
         }
 
         [Test]
-        public void WarnOnly_NoMissingEvidence_IsIssues()
+        public void BuildHealth_EmitsOneObservationPerCategory_KeyedToGateId()
         {
-            GreenlightEvaluator.Report report = ReportOf(CheckRow.Status.Pass, CheckRow.Status.Warn);
-            Assert.AreEqual(GreenlightEvaluator.Verdict.Issues, report.Verdict);
-        }
-
-        [Test]
-        public void WarnPlusMissing_IncompleteBeatsIssues()
-        {
-            // B-01: missing/unverifiable required evidence outranks warnings.
-            GreenlightEvaluator.Report report = ReportOf(CheckRow.Status.Warn, CheckRow.Status.Wait);
-            Assert.AreEqual(GreenlightEvaluator.Verdict.Incomplete, report.Verdict);
-        }
-
-        [Test]
-        public void FailPlusMissing_IsFailing()
-        {
-            // Fail outranks everything, including missing evidence.
-            GreenlightEvaluator.Report report = ReportOf(CheckRow.Status.Fail, CheckRow.Status.Wait, CheckRow.Status.Warn);
-            Assert.AreEqual(GreenlightEvaluator.Verdict.Failing, report.Verdict);
-        }
-
-        [Test]
-        public void ZeroRows_IsIncomplete()
-        {
-            // Nothing evaluated at all must never read as HEALTHY.
-            GreenlightEvaluator.Report report = ReportOf();
-            Assert.AreEqual(GreenlightEvaluator.Verdict.Incomplete, report.Verdict);
-        }
-
-        [Test]
-        public void UnverifiableProbesOnly_IsIncomplete()
-        {
-            // Probes that came back pending/offline surface as Wait rows - never a silent pass.
-            GreenlightEvaluator.Report report = ReportOf(CheckRow.Status.Wait, CheckRow.Status.Wait);
-            Assert.AreEqual(GreenlightEvaluator.Verdict.Incomplete, report.Verdict);
-        }
-
-        [Test]
-        public void PassPlusUntickedManual_IsIncomplete()
-        {
-            // The zero-evidence-adjacent case: everything machine-checkable passes but a required
-            // manual gate is still unticked (Wait). Must not render HEALTHY.
-            GreenlightEvaluator.Report report = ReportOf(CheckRow.Status.Pass, CheckRow.Status.Pass, CheckRow.Status.Wait);
-            Assert.AreEqual(GreenlightEvaluator.Verdict.Incomplete, report.Verdict);
-        }
-
-        [Test]
-        public void InfoIsNeutral_PassPlusInfo_IsHealthy()
-        {
-            // Info (e.g. device-not-connected, optional-by-design) does not block HEALTHY when real
-            // affirmative (Pass) evidence exists alongside it.
-            GreenlightEvaluator.Report report = ReportOf(CheckRow.Status.Pass, CheckRow.Status.Info);
-            Assert.AreEqual(GreenlightEvaluator.Verdict.Healthy, report.Verdict);
-        }
-
-        [Test]
-        public void InfoOnly_IsIncomplete()
-        {
-            // Neutral rows are not affirmative evidence: an Info-only report has evaluated nothing, so
-            // it must read INCOMPLETE, not HEALTHY. Info never fails, but it can't carry a verdict.
-            GreenlightEvaluator.Report report = ReportOf(CheckRow.Status.Info, CheckRow.Status.Info);
-            Assert.AreEqual(GreenlightEvaluator.Verdict.Incomplete, report.Verdict);
-        }
-
-        [Test]
-        public void Evaluate_RealPathWithNoEvidence_IsIncompleteAndNonGreen()
-        {
-            // End-to-end through the REAL Evaluate: no Build Health results, a never-connected device
-            // snapshot, and no completed manual evidence. The evidence-producing rows (Build Health,
-            // probes, unticked manual gates) must land as Wait, forcing a non-green INCOMPLETE. A
-            // suite that only feeds synthetic Reports to the aggregator could pass while these rows
-            // silently misclassify.
-            var config = ScriptableObject.CreateInstance<SorollaConfig>();
-            try
+            var results = new List<BuildValidator.ValidationResult>
             {
-                GreenlightEvaluator.Report report = GreenlightEvaluator.Evaluate(
-                    buildHealthResults: null,
-                    config: config,
-                    snapshotState: new GreenlightDeviceSnapshot.State(),
-                    checklist: new GreenlightManualChecklist.State());
+                new BuildValidator.ValidationResult(BuildValidator.ValidationStatus.Error,
+                    "boom", "fix it", BuildValidator.CheckCategory.FacebookPlatformConfig),
+            };
 
-                Assert.AreEqual(GreenlightEvaluator.Verdict.Incomplete, report.Verdict,
-                    "A report with no run evidence must be INCOMPLETE, not HEALTHY.");
-                Assert.Greater(report.WaitCount, 0, "Unrun/unticked evidence rows must surface as Wait.");
-                Assert.AreNotEqual(StatusBadge.Severity.Pass, GreenlightEvaluator.BadgeSeverity(report.Verdict),
-                    "The badge for a no-evidence report must not be the green Pass pill.");
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(config);
-            }
+            List<GateObservation> obs = GreenlightAdapter.BuildObservations(
+                results, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+
+            GateObservation fb = obs.Single(o => o.GateId == GateIds.BuildFacebookPlatform);
+            Assert.AreEqual(GateOutcome.Fail, fb.Outcome);
+            Assert.AreEqual(ProofScope.Static, fb.ObservedProof);
+            Assert.AreEqual("fix it", fb.FixHint);
         }
 
         [Test]
-        public void BadgeSeverity_UnknownVerdict_ThrowsInsteadOfPass()
+        public void BuildHealth_CollapsesMultipleResultsPerCategory_WorstWins()
         {
-            // A future/unmapped verdict value must fail loud, never fall through to a green Pass.
+            var results = new List<BuildValidator.ValidationResult>
+            {
+                new BuildValidator.ValidationResult(BuildValidator.ValidationStatus.Valid, "ok", null, BuildValidator.CheckCategory.AndroidManifest),
+                new BuildValidator.ValidationResult(BuildValidator.ValidationStatus.Error, "bad", null, BuildValidator.CheckCategory.AndroidManifest),
+            };
+
+            List<GateObservation> obs = GreenlightAdapter.BuildObservations(
+                results, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+
+            GateObservation manifest = obs.Single(o => o.GateId == GateIds.BuildAndroidManifest);
+            Assert.AreEqual(GateOutcome.Fail, manifest.Outcome);
+        }
+
+        [Test]
+        public void BuildHealth_NullResults_EmitNoBuildObservations()
+        {
+            List<GateObservation> obs = GreenlightAdapter.BuildObservations(
+                null, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+
+            Assert.IsFalse(obs.Any(o => o.GateId.StartsWith("build.")),
+                "No Build Health results means the required core build gates omit -> INCOMPLETE, not silent pass.");
+        }
+
+        // ── Adapter: device row-class → observation ───────────────────────
+
+        [Test]
+        public void Device_NotConnected_EmitsIncompleteReadyWithNoProof()
+        {
+            List<GateObservation> obs = GreenlightDeviceSnapshot.ToObservations(new GreenlightDeviceSnapshot.State());
+            GateObservation ready = obs.Single(o => o.GateId == GateIds.DeviceReady);
+            Assert.AreEqual(GateOutcome.Incomplete, ready.Outcome);
+            Assert.AreEqual(ProofScope.None, ready.ObservedProof);
+        }
+
+        // ── B-10: a ticked legacy checkmark is NOT evidence ───────────────
+
+        [Test]
+        public void TickedManualCheckmark_ObservesPassButNoScopedProof()
+        {
+            var state = new GreenlightManualChecklist.State();
+            state.Ticked[GreenlightManualChecklist.Item.GaPlatformRegistered] = true;
+
+            List<GateObservation> obs = GreenlightManualChecklist.ToObservations(state);
+            GateObservation ga = obs.Single(o => o.GateId == GateIds.ManualGaPlatformRegistered);
+            Assert.AreEqual(GateOutcome.Pass, ga.Outcome);
+            Assert.AreEqual(ProofScope.None, ga.ObservedProof, "A legacy tick carries no scoped proof.");
+        }
+
+        [Test]
+        public void TickedManualCheckmark_CannotProduceAffirmativeOutcome()
+        {
+            // The B-10 invariant end-to-end through the real evaluator: a ticked manual gate reports PASS
+            // but with no scoped proof, so the required-proof gate forces its row to INCOMPLETE - it can
+            // never become an affirmative PASS.
+            var ctx = new EvaluationContext
+            {
+                Mode = EvalMode.Full,
+                Platform = EvalPlatform.Android,
+                InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook | SdkModule.Firebase |
+                                   SdkModule.AppLovinMax | SdkModule.Adjust,
+            };
+            var observations = new List<GateObservation>
+            {
+                new GateObservation
+                {
+                    GateId = GateIds.ManualGaPlatformRegistered,
+                    Outcome = GateOutcome.Pass,
+                    ObservedProof = ProofScope.None,
+                },
+            };
+
+            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, observations);
+            GateResult row = report.Rows.Single(r => r.GateId == GateIds.ManualGaPlatformRegistered);
+
+            Assert.AreEqual(GateOutcome.Incomplete, row.Outcome, "Ticked-but-unscoped must resolve to INCOMPLETE.");
+            Assert.AreNotEqual(GateOutcome.Pass, report.Outcome);
+            Assert.AreNotEqual(GateOutcome.PassWithCaveats, report.Outcome);
+        }
+
+        // ── Display mapping (maps the aggregate outcome, never recomputes) ─
+
+        [Test]
+        public void VerdictLabel_MapsEveryOutcome()
+        {
+            Assert.AreEqual("HEALTHY", GreenlightEvaluator.VerdictLabel(GateOutcome.Pass, 0, 0));
+            Assert.AreEqual("1 ISSUES", GreenlightEvaluator.VerdictLabel(GateOutcome.PassWithCaveats, 0, 1));
+            Assert.AreEqual("INCOMPLETE", GreenlightEvaluator.VerdictLabel(GateOutcome.Incomplete, 0, 0));
+            Assert.AreEqual("FAILING", GreenlightEvaluator.VerdictLabel(GateOutcome.Fail, 0, 0));
+        }
+
+        [Test]
+        public void VerdictLabel_UnknownOutcome_Throws()
+        {
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => GreenlightEvaluator.BadgeSeverity((GreenlightEvaluator.Verdict)999));
+                () => GreenlightEvaluator.VerdictLabel((GateOutcome)999, 0, 0));
+        }
+
+        [Test]
+        public void BadgeSeverity_MapsEveryOutcome_IncompleteIsNonGreen()
+        {
+            Assert.AreEqual(StatusBadge.Severity.Pass, GreenlightEvaluator.BadgeSeverity(GateOutcome.Pass));
+            Assert.AreEqual(StatusBadge.Severity.Advisory, GreenlightEvaluator.BadgeSeverity(GateOutcome.PassWithCaveats));
+            Assert.AreEqual(StatusBadge.Severity.Wait, GreenlightEvaluator.BadgeSeverity(GateOutcome.Incomplete));
+            Assert.AreEqual(StatusBadge.Severity.Fail, GreenlightEvaluator.BadgeSeverity(GateOutcome.Fail));
+        }
+
+        [Test]
+        public void BadgeSeverity_UnknownOutcome_ThrowsInsteadOfPass()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => GreenlightEvaluator.BadgeSeverity((GateOutcome)999));
         }
 
         [Test]
         public void RowSummary_Incomplete_NeverReadsRowsChecked()
         {
-            // R-05: an incomplete-only report's foldout must not claim its rows were "checked".
-            GreenlightEvaluator.Report waitOnly = ReportOf(CheckRow.Status.Wait, CheckRow.Status.Wait);
-            StringAssert.DoesNotContain("rows checked", GreenlightEvaluator.RowSummary(waitOnly));
-
-            GreenlightEvaluator.Report infoOnly = ReportOf(CheckRow.Status.Info, CheckRow.Status.Info);
-            StringAssert.DoesNotContain("rows checked", GreenlightEvaluator.RowSummary(infoOnly));
+            var report = new GreenlightEvaluator.Report { Outcome = GateOutcome.Incomplete, WaitCount = 2 };
+            report.Rows.Add(new GreenlightEvaluator.Row { Status = CheckRow.Status.Wait });
+            report.Rows.Add(new GreenlightEvaluator.Row { Status = CheckRow.Status.Wait });
+            StringAssert.DoesNotContain("rows checked", GreenlightEvaluator.RowSummary(report));
         }
 
         [Test]
-        public void RowSummary_Healthy_ReadsRowsChecked()
+        public void RowSummary_Pass_ReadsRowsChecked()
         {
-            GreenlightEvaluator.Report report = ReportOf(CheckRow.Status.Pass, CheckRow.Status.Pass);
+            var report = new GreenlightEvaluator.Report { Outcome = GateOutcome.Pass, PassCount = 2 };
+            report.Rows.Add(new GreenlightEvaluator.Row { Status = CheckRow.Status.Pass });
+            report.Rows.Add(new GreenlightEvaluator.Row { Status = CheckRow.Status.Pass });
             Assert.AreEqual("2 rows checked", GreenlightEvaluator.RowSummary(report));
         }
 
         [Test]
-        public void RowSummary_Issues_CountsWarnsAsNeedingAttention()
+        public void ToPlainText_UnknownOutcome_ThrowsInsteadOfExportingHealthy()
         {
-            GreenlightEvaluator.Report report = ReportOf(CheckRow.Status.Pass, CheckRow.Status.Warn);
-            Assert.AreEqual("1 of 2 rows need attention", GreenlightEvaluator.RowSummary(report));
-        }
-
-        [Test]
-        public void Counts_TallyEveryStatus()
-        {
-            GreenlightEvaluator.Report report = ReportOf(
-                CheckRow.Status.Fail,
-                CheckRow.Status.Warn, CheckRow.Status.Warn,
-                CheckRow.Status.Wait,
-                CheckRow.Status.Info,
-                CheckRow.Status.Pass, CheckRow.Status.Pass, CheckRow.Status.Pass);
-
-            Assert.AreEqual(1, report.FailCount);
-            Assert.AreEqual(2, report.WarnCount);
-            Assert.AreEqual(1, report.WaitCount);
-            Assert.AreEqual(1, report.InfoCount);
-            Assert.AreEqual(3, report.PassCount);
-        }
-
-        [Test]
-        public void BadgeSeverity_MapsEveryVerdict()
-        {
-            // Incomplete must be visibly non-green (Wait), and every verdict must map explicitly -
-            // no permissive default that could render an unknown state green.
-            Assert.AreEqual(StatusBadge.Severity.Pass, GreenlightEvaluator.BadgeSeverity(GreenlightEvaluator.Verdict.Healthy));
-            Assert.AreEqual(StatusBadge.Severity.Advisory, GreenlightEvaluator.BadgeSeverity(GreenlightEvaluator.Verdict.Issues));
-            Assert.AreEqual(StatusBadge.Severity.Wait, GreenlightEvaluator.BadgeSeverity(GreenlightEvaluator.Verdict.Incomplete));
-            Assert.AreEqual(StatusBadge.Severity.Fail, GreenlightEvaluator.BadgeSeverity(GreenlightEvaluator.Verdict.Failing));
-        }
-
-        [Test]
-        public void VerdictLabel_Incomplete_ReadsIncomplete()
-        {
-            Assert.AreEqual("INCOMPLETE", GreenlightEvaluator.VerdictLabel(GreenlightEvaluator.Verdict.Incomplete, 0, 0));
-        }
-
-        [Test]
-        public void VerdictLabel_MapsEveryVerdictExplicitly()
-        {
-            Assert.AreEqual("HEALTHY", GreenlightEvaluator.VerdictLabel(GreenlightEvaluator.Verdict.Healthy, 0, 0));
-            Assert.AreEqual("2 ISSUES", GreenlightEvaluator.VerdictLabel(GreenlightEvaluator.Verdict.Issues, 1, 1));
-            Assert.AreEqual("INCOMPLETE", GreenlightEvaluator.VerdictLabel(GreenlightEvaluator.Verdict.Incomplete, 0, 0));
-            Assert.AreEqual("FAILING", GreenlightEvaluator.VerdictLabel(GreenlightEvaluator.Verdict.Failing, 0, 0));
-        }
-
-        [Test]
-        public void VerdictLabel_UnknownVerdict_ThrowsInsteadOfHealthy()
-        {
-            // R2-01: the label had a permissive `default: return "HEALTHY"` - an unknown verdict must
-            // fail loud, not silently read HEALTHY.
-            Assert.Throws<ArgumentOutOfRangeException>(
-                () => GreenlightEvaluator.VerdictLabel((GreenlightEvaluator.Verdict)999, 0, 0));
-        }
-
-        [Test]
-        public void ToPlainText_UnknownVerdict_ThrowsInsteadOfExportingHealthy()
-        {
-            // The copy-report export goes through VerdictLabel; an unknown verdict must not export as
-            // a green HEALTHY header.
-            var report = new GreenlightEvaluator.Report { Verdict = (GreenlightEvaluator.Verdict)999 };
+            var report = new GreenlightEvaluator.Report { Outcome = (GateOutcome)999 };
             Assert.Throws<ArgumentOutOfRangeException>(() => GreenlightEvaluator.ToPlainText(report));
+        }
+
+        // ── End-to-end: no evidence must never render green ───────────────
+
+        [Test]
+        public void Evaluate_RealPathWithNoEvidence_IsIncompleteAndNonGreen()
+        {
+            // The whole reason the plan exists: no Build Health results, a never-connected device, and no
+            // completed manual evidence must land INCOMPLETE and a non-green badge - never HEALTHY - through
+            // the real shared evaluator, whatever the ambient editor mode/platform.
+            GreenlightEvaluator.Report report = GreenlightEvaluator.Evaluate(
+                buildHealthResults: null,
+                snapshotState: new GreenlightDeviceSnapshot.State(),
+                checklist: new GreenlightManualChecklist.State());
+
+            Assert.AreEqual(GateOutcome.Incomplete, report.Outcome,
+                "A report with no run evidence must be INCOMPLETE, not HEALTHY.");
+            Assert.Greater(report.WaitCount, 0, "Unrun/unticked required evidence must surface as Wait rows.");
+            Assert.AreNotEqual(StatusBadge.Severity.Pass, GreenlightEvaluator.BadgeSeverity(report.Outcome),
+                "The badge for a no-evidence report must not be the green Pass pill.");
         }
     }
 }

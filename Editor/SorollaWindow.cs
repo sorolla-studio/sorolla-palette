@@ -952,7 +952,7 @@ namespace Sorolla.Palette.Editor
 
             _greenlightContainer.Clear();
 
-            GreenlightEvaluator.Report report = GreenlightEvaluator.Evaluate(_validationResults, _config, _snapshotState, _checklistState);
+            GreenlightEvaluator.Report report = GreenlightEvaluator.Evaluate(_validationResults, _snapshotState, _checklistState);
 
             var headerRow = new VisualElement();
             headerRow.style.flexDirection = FlexDirection.Row;
@@ -967,12 +967,12 @@ namespace Sorolla.Palette.Editor
             headerSpacer.style.flexGrow = 1;
             headerRow.Add(headerSpacer);
 
-            StatusBadge.Severity badgeSeverity = GreenlightEvaluator.BadgeSeverity(report.Verdict);
-            headerRow.Add(StatusBadge.Create(GreenlightEvaluator.VerdictLabel(report.Verdict, report.FailCount, report.WarnCount), badgeSeverity));
+            StatusBadge.Severity badgeSeverity = GreenlightEvaluator.BadgeSeverity(report.Outcome);
+            headerRow.Add(StatusBadge.Create(GreenlightEvaluator.VerdictLabel(report.Outcome, report.FailCount, report.WarnCount), badgeSeverity));
 
             _greenlightContainer.Add(headerRow);
 
-            string countStrip = $"{report.FailCount} fail · {report.WarnCount} warn · {report.WaitCount} wait · {report.InfoCount} info · {report.PassCount} pass";
+            string countStrip = $"{report.FailCount} fail · {report.WarnCount} warn · {report.WaitCount} wait · {report.PassCount} pass";
             var countLabel = new Label(countStrip);
             countLabel.AddToClassList("sorolla-type-small");
             countLabel.style.marginBottom = 8;
@@ -1068,7 +1068,6 @@ namespace Sorolla.Palette.Editor
                 case "GA Platform Registered": return GreenlightManualChecklist.Item.GaPlatformRegistered;
                 case "Cross-Vendor Dashboard Drift": return GreenlightManualChecklist.Item.CrossVendorDashboardDrift;
                 case "Adjust Purchase Verification (Full mode)": return GreenlightManualChecklist.Item.AdjustPurchaseVerification;
-                case "Store SKUs / Testing Track Configured": return GreenlightManualChecklist.Item.StoreSkusConfigured;
                 case "Relaunch Persistence": return GreenlightManualChecklist.Item.RelaunchPersistence;
                 case "Background / Resume Cycle": return GreenlightManualChecklist.Item.BackgroundResumeCycle;
                 default: return null;
