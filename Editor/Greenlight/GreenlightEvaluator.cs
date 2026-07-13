@@ -263,6 +263,11 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         // ── Verdict ────────────────────────────────────────────────────
 
+        // INTERIM precedence - COEXISTS FOR ONE CYCLE (Cycle 3). The canonical, omission-aware aggregation
+        // now lives in Sorolla.Health (HealthEvaluator.Evaluate). DELETE this method in Cycle 4: populate
+        // GateCatalog, add the Editor adapter (rows -> GateObservation, mode/platform/modules ->
+        // EvaluationContext), route Greenlight through HealthEvaluator, and map HealthReport.Outcome to the
+        // display label. No second precedence algorithm may remain after that cutover (design note section 6).
         internal static void ComputeVerdict(Report report)
         {
             foreach (Row row in report.Rows)

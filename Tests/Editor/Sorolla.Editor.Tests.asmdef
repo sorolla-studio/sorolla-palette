@@ -5,6 +5,7 @@
         "Sorolla.Editor",
         "Sorolla.Runtime",
         "Sorolla.Adapters",
+        "Sorolla.Health",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

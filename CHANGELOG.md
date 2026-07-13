@@ -22,6 +22,17 @@ check below warns rather than blocks the build. Each warning states the root cau
 signal it produces, and the fix.
 
 ### Added
+- **Shared health-result contract (internal foundation)**: a new leaf assembly `Sorolla.Health`
+  (`noEngineReferences`, internal types, no studio API) holds the neutral gate-result model and the
+  single aggregation `HealthEvaluator.Evaluate(catalog, context, observations)`. It evaluates a
+  canonical gate catalog against a trusted evaluation context and the producer's observations, so an
+  applicable required gate with no observation resolves to INCOMPLETE (omission is detectable, not a
+  silent pass); unknown gate ids and duplicate observations are validation errors; applicability is
+  definition-derived and tri-state (Unknown → INCOMPLETE); required vs observed proof scopes are
+  separate flag sets (missing required proof → INCOMPLETE). The canonical catalog ships as a
+  code-defined registry with duplicate/unreachable validation; ids are assigned in a later cycle. The
+  Editor greenlight keeps its existing interim precedence for one cycle until it is routed through this
+  evaluator. No behavior change to shipped greenlight output yet.
 - **GameAnalytics per-platform key validation** (closes #8): Build Health now warns when the active
   build target has no game key + secret key pair in `Assets/Resources/GameAnalytics/Settings.asset`,
   instead of passing on any key existing for any platform. The SDK Overview row shows a per-platform
