@@ -9,6 +9,10 @@ namespace Sorolla.Palette
     /// </summary>
     internal static class QaSnapshot
     {
+        /// <summary>Snapshot JSON schema version (review C4-08). An Editor consumer must reject an unknown
+        /// schema rather than parse it permissively. Bump when the shape changes incompatibly.</summary>
+        internal const string SchemaVersion = "1";
+
         /// <summary>Captures live SDK state (must run on the Unity main thread) and returns the snapshot JSON.</summary>
         internal static string Build()
         {
@@ -24,12 +28,17 @@ namespace Sorolla.Palette
             bool first = true;
             sb.Append('{');
 
+            QaJson.StringMember(sb, ref first, "snapshot_schema", SchemaVersion);
             QaJson.StringMember(sb, ref first, "sdk", state.SdkVersion);
             QaJson.StringMember(sb, ref first, "mode", state.Mode);
             QaJson.BoolMember(sb, ref first, "development_build", state.DevelopmentBuild);
             QaJson.BoolMember(sb, ref first, "armed", state.BridgeArmed);
             QaJson.BoolMember(sb, ref first, "ready", state.Ready);
             QaJson.StringMember(sb, ref first, "device_wall_clock", state.DeviceWallClock);
+
+            QaJson.Comma(sb, ref first);
+            QaJson.Key(sb, "build");
+            WriteBuild(state, sb);
 
             QaJson.Comma(sb, ref first);
             QaJson.Key(sb, "consent");
@@ -63,6 +72,19 @@ namespace Sorolla.Palette
             QaJson.Key(sb, "problems");
             WriteProblems(state, sb);
 
+            sb.Append('}');
+        }
+
+        // Build identity (review C4-03): lets an Editor consumer confirm the snapshot came from the game and
+        // build it expects. `mode` stays at the top level; this block adds the discriminating identity.
+        static void WriteBuild(in SorollaQaState state, StringBuilder sb)
+        {
+            bool first = true;
+            sb.Append('{');
+            QaJson.StringMember(sb, ref first, "application_id", state.ApplicationId);
+            QaJson.StringMember(sb, ref first, "platform", state.Platform);
+            QaJson.StringMember(sb, ref first, "app_version", state.AppVersion);
+            QaJson.StringMember(sb, ref first, "build_guid", state.BuildGuid);
             sb.Append('}');
         }
 

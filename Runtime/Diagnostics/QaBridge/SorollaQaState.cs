@@ -17,6 +17,13 @@ namespace Sorolla.Palette
         public bool Ready;
         internal string DeviceWallClock; // ISO-8601 local time with UTC offset, captured with the snapshot
 
+        // Build identity (review C4-03/08): binds a snapshot to the exact game/build so a wrong-game or
+        // wrong-binary snapshot cannot satisfy device readiness. Emitted under "build" in the snapshot JSON.
+        public string ApplicationId;     // Application.identifier (bundle id)
+        public string Platform;          // Application.platform (RuntimePlatform name)
+        public string AppVersion;        // Application.version
+        public string BuildGuid;         // Application.buildGUID (empty in editor; changes per player build)
+
         // Consent
         public string ConsentStatus;     // Unknown | NotApplicable | Required | Obtained | Denied
         public string ConsentGeography;  // gdpr | non_gdpr | unknown (derived from consent status)

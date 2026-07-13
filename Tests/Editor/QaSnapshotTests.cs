@@ -82,6 +82,28 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
+        public void WriteJson_EmitsSchemaAndBuildIdentity()
+        {
+            // C4-03/08: the snapshot must carry a schema version + a build-identity block so a wrong-game or
+            // wrong-build snapshot can be rejected editor-side.
+            object state = NewState();
+            Set(state, "ApplicationId", "com.sorolla.hungrysnake");
+            Set(state, "Platform", "Android");
+            Set(state, "AppVersion", "1.4.2");
+            Set(state, "BuildGuid", "abc123");
+
+            string json = Serialize(state);
+
+            Assert.That(json, Does.Contain("\"snapshot_schema\":\"1\""));
+            Assert.That(json, Does.Contain("\"build\":{"));
+            Assert.That(json, Does.Contain("\"application_id\":\"com.sorolla.hungrysnake\""));
+            Assert.That(json, Does.Contain("\"platform\":\"Android\""));
+            Assert.That(json, Does.Contain("\"app_version\":\"1.4.2\""));
+            Assert.That(json, Does.Contain("\"build_guid\":\"abc123\""));
+            AssertBalanced(json);
+        }
+
+        [Test]
         public void WriteJson_RemoteConfigValues_SerializesPerKeyValueAndSource()
         {
             Type rcType = RequiredType("Sorolla.Palette.SorollaQaRcValue");

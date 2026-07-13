@@ -152,6 +152,51 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(ProofScope.None, ready.ObservedProof);
         }
 
+        // ── C4-03: build/game identity binding ────────────────────────────
+
+        static Dictionary<string, object> SnapshotWithIdentity(string appId, string platform, string appVersion, string mode) =>
+            new Dictionary<string, object>
+            {
+                ["mode"] = mode,
+                ["build"] = new Dictionary<string, object>
+                {
+                    ["application_id"] = appId, ["platform"] = platform, ["app_version"] = appVersion,
+                },
+            };
+
+        [Test]
+        public void CompareIdentity_MatchingBuild_IsMatch()
+        {
+            Dictionary<string, object> snap = SnapshotWithIdentity("com.sorolla.game", "Android", "1.0", "full");
+            Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Match,
+                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", out _));
+        }
+
+        [Test]
+        public void CompareIdentity_WrongGame_IsMismatch()
+        {
+            Dictionary<string, object> snap = SnapshotWithIdentity("com.other.game", "Android", "1.0", "full");
+            Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Mismatch,
+                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", out string detail));
+            StringAssert.Contains("Wrong game", detail);
+        }
+
+        [Test]
+        public void CompareIdentity_WrongBuildVersion_IsMismatch()
+        {
+            Dictionary<string, object> snap = SnapshotWithIdentity("com.sorolla.game", "Android", "0.9", "full");
+            Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Mismatch,
+                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", out _));
+        }
+
+        [Test]
+        public void CompareIdentity_NoBuildBlock_IsMissing()
+        {
+            var snap = new Dictionary<string, object> { ["mode"] = "full" };
+            Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Missing,
+                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", out _));
+        }
+
         // ── B-10: a ticked legacy checkmark is NOT evidence ───────────────
 
         [Test]

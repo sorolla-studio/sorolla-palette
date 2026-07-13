@@ -132,6 +132,11 @@ namespace Sorolla.Palette
                 Ready = Palette.IsInitialized || snap.ReadySeen,
                 DeviceWallClock = CurrentDeviceWallClock(),
 
+                ApplicationId = Application.identifier,
+                Platform = Application.platform.ToString(),
+                AppVersion = Application.version,
+                BuildGuid = Application.buildGUID,
+
                 ConsentStatus = Palette.ConsentStatus.ToString(),
                 ConsentGeography = ConsentGeography(Palette.ConsentStatus),
                 Att = Palette.AttString(Palette.AttStatus),

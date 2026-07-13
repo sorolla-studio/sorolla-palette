@@ -60,7 +60,10 @@ signal it produces, and the fix.
   reads a profile-"Skipped" result as a pass. In-app-purchase coverage is represented as its own gate
   (Required when Unity IAP is installed, its store-console proof unavailable to the SDK → INCOMPLETE;
   NotApplicable otherwise) so it did not vanish with the QA-expectations removal. The legacy manual
-  checkboxes are relabelled as non-evidence until scoped attestation lands.
+  checkboxes are relabelled as non-evidence until scoped attestation lands. The device snapshot now
+  carries a schema version and a build-identity block (application id, platform, mode, app version, Unity
+  build GUID); the greenlight rejects an unsupported schema or a wrong-game / wrong-build snapshot instead
+  of trusting it for device readiness, and requires the snapshot's SDK-error evidence to be present.
 - **Shared health-result contract (internal foundation)**: a new leaf assembly `Sorolla.Health`
   (`noEngineReferences`, internal types, no studio API) holds the neutral gate-result model and the
   single aggregation `HealthEvaluator.Evaluate(catalog, context, observations)`. It evaluates a

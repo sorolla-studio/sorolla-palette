@@ -298,17 +298,41 @@ namespace Sorolla.Palette.Editor.Greenlight
             }
         }
 
+        internal enum IdentityResult { Match, Mismatch, Missing }
+
         static void AddParsedObservations(List<GateObservation> observations, Dictionary<string, object> snapshot)
         {
-            bool ready = GetBool(snapshot, "ready");
-            observations.Add(new GateObservation
+            // C4-08: an unknown/absent snapshot schema is not parseable with confidence - degrade, never guess.
+            string schema = GetString(snapshot, "snapshot_schema");
+            if (schema != QaSnapshot.SchemaVersion)
             {
-                GateId = GateIds.DeviceReady,
-                Outcome = ready ? GateOutcome.Pass : GateOutcome.Fail,
-                ObservedProof = ProofScope.DeviceDispatch,
-                Evidence = ready ? $"mode={GetString(snapshot, "mode")}" : "SDK reports not ready",
-                FixHint = ready ? null : "Open the in-app debug menu (Vitals) on this device for the full WHY/SIGNAL/FIX breakdown.",
-            });
+                observations.Add(DeviceReady(GateOutcome.Incomplete,
+                    $"Snapshot schema '{schema ?? "(absent)"}' is unsupported (expected {QaSnapshot.SchemaVersion}) - the device build predates identity binding.",
+                    "Rebuild and reinstall the game from the current SDK so the snapshot carries build identity."));
+                return;
+            }
+
+            // C4-03: a snapshot from the wrong game or wrong build must NOT satisfy device readiness.
+            IdentityResult identityResult = CompareIdentity(
+                snapshot, Application.identifier, ExpectedMode(), Application.version, ExpectedPlatform(), out string identityDetail);
+            if (identityResult == IdentityResult.Mismatch)
+            {
+                observations.Add(DeviceReady(GateOutcome.Fail, identityDetail,
+                    "Connect the device running THIS game/build, or rebuild and reinstall from the current source."));
+                return;
+            }
+            if (identityResult == IdentityResult.Missing)
+            {
+                observations.Add(DeviceReady(GateOutcome.Incomplete, identityDetail,
+                    "Rebuild and reinstall the game from the current SDK so the snapshot carries build identity."));
+                return;
+            }
+
+            bool ready = GetBool(snapshot, "ready");
+            observations.Add(DeviceReady(
+                ready ? GateOutcome.Pass : GateOutcome.Fail,
+                ready ? $"Ready - identity matches ({GetString(snapshot, "mode")}, {Application.identifier})" : "SDK reports not ready",
+                ready ? null : "Open the in-app debug menu (Vitals) on this device for the full WHY/SIGNAL/FIX breakdown."));
 
             if (TryGetObject(snapshot, "identity", out var identity))
             {
@@ -322,6 +346,8 @@ namespace Sorolla.Palette.Editor.Greenlight
                 });
             }
 
+            // C4-08: device-error evidence must be present for the supported schema. A reduced snapshot with
+            // no "problems" section has not demonstrated that SDK errors were checked → INCOMPLETE, not a pass.
             if (TryGetObject(snapshot, "problems", out var problems))
             {
                 long errorCount = GetLong(problems, "sdk_errors");
@@ -334,7 +360,94 @@ namespace Sorolla.Palette.Editor.Greenlight
                     FixHint = errorCount > 0 ? "Open the in-app debug menu (Vitals) Issues tab for WHY/SIGNAL/FIX on each error." : null,
                 });
             }
+            else
+            {
+                observations.Add(new GateObservation
+                {
+                    GateId = GateIds.DeviceNoSdkErrors,
+                    Outcome = GateOutcome.Incomplete,
+                    ObservedProof = ProofScope.None,
+                    Evidence = "Snapshot has no 'problems' section - SDK-error evidence was not demonstrated.",
+                });
+            }
         }
+
+        static GateObservation DeviceReady(GateOutcome outcome, string evidence, string fix) => new GateObservation
+        {
+            GateId = GateIds.DeviceReady,
+            Outcome = outcome,
+            ObservedProof = outcome == GateOutcome.Pass || outcome == GateOutcome.Fail ? ProofScope.DeviceDispatch : ProofScope.None,
+            Evidence = evidence,
+            FixHint = fix,
+        };
+
+        /// <summary>
+        ///     Compares the snapshot's build identity against the project's expected identity (review C4-03).
+        ///     Missing identity fields (an old snapshot) → Missing (INCOMPLETE); any disagreement → Mismatch
+        ///     (FAIL). Pure over its inputs so it is unit-testable without ambient editor state.
+        /// </summary>
+        internal static IdentityResult CompareIdentity(
+            Dictionary<string, object> snapshot,
+            string expectedAppId, string expectedMode, string expectedAppVersion, string expectedPlatform,
+            out string detail)
+        {
+            detail = null;
+            if (!TryGetObject(snapshot, "build", out var build))
+            {
+                detail = "Snapshot has no build-identity block (device build predates identity binding).";
+                return IdentityResult.Missing;
+            }
+
+            string appId = GetString(build, "application_id");
+            string platform = GetString(build, "platform");
+            string appVersion = GetString(build, "app_version");
+            string mode = GetString(snapshot, "mode");
+
+            if (string.IsNullOrEmpty(appId) || string.IsNullOrEmpty(appVersion) || string.IsNullOrEmpty(mode))
+            {
+                detail = "Snapshot build identity is incomplete (missing application id / version / mode).";
+                return IdentityResult.Missing;
+            }
+
+            if (!string.IsNullOrEmpty(expectedAppId) && appId != expectedAppId)
+            {
+                detail = $"Wrong game: snapshot application id '{appId}' != project '{expectedAppId}'.";
+                return IdentityResult.Mismatch;
+            }
+            if (!string.IsNullOrEmpty(expectedMode) && mode != expectedMode)
+            {
+                detail = $"Wrong mode: snapshot mode '{mode}' != project '{expectedMode}'.";
+                return IdentityResult.Mismatch;
+            }
+            if (!string.IsNullOrEmpty(expectedAppVersion) && appVersion != expectedAppVersion)
+            {
+                detail = $"Wrong build: snapshot app version '{appVersion}' != project '{expectedAppVersion}'.";
+                return IdentityResult.Mismatch;
+            }
+            if (!string.IsNullOrEmpty(expectedPlatform) && !string.IsNullOrEmpty(platform) && platform != expectedPlatform)
+            {
+                detail = $"Wrong platform: snapshot platform '{platform}' != expected '{expectedPlatform}'.";
+                return IdentityResult.Mismatch;
+            }
+
+            detail = "identity matches";
+            return IdentityResult.Match;
+        }
+
+        static string ExpectedMode() => SorollaSettings.Mode switch
+        {
+            SorollaMode.Full => "full",
+            SorollaMode.Prototype => "prototype",
+            _ => "unknown",
+        };
+
+        // Map the active build target to the RuntimePlatform name the device reports (Application.platform).
+        static string ExpectedPlatform() => EditorUserBuildSettings.activeBuildTarget switch
+        {
+            BuildTarget.Android => "Android",
+            BuildTarget.iOS => "IPhonePlayer",
+            _ => null, // don't constrain platform for unsupported targets
+        };
 
         static bool GetBool(Dictionary<string, object> dict, string key) =>
             dict != null && dict.TryGetValue(key, out object v) && v is bool b && b;
