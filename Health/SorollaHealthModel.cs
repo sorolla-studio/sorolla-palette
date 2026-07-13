@@ -51,11 +51,15 @@ namespace Sorolla.Palette.Health
         Required,
     }
 
-    /// <summary>What actually happened to a gate in a report row: whether it counted toward the verdict,
-    /// was an applicable-but-optional skip, or was excluded as not applicable (review C3-04).</summary>
+    /// <summary>What actually happened to a gate in a report row (review C3-04): it was evaluated against an
+    /// observation, a required gate was omitted (no observation), an applicable-but-optional gate was
+    /// skipped, or it was excluded as not applicable. Only OptionalSkipped and NotApplicable are excluded from
+    /// aggregation; Evaluated and Omitted both participate (an omitted required row still resolves to
+    /// INCOMPLETE), and any unknown disposition fails closed by participating.</summary>
     internal enum GateDisposition
     {
         Evaluated,
+        Omitted,
         OptionalSkipped,
         NotApplicable,
     }

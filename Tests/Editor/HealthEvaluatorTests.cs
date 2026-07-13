@@ -58,6 +58,21 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
+        public void OmittedRequiredGate_HasOmittedDisposition_AndParticipatesInAggregation()
+        {
+            // The omission hole: a required gate with no observation must be a distinct Omitted disposition
+            // that still resolves to INCOMPLETE and is NOT excluded from aggregation alongside a real Pass.
+            HealthReport r = HealthEvaluator.Evaluate(
+                Catalog(Def("missing"), Def("ok")), Ctx(),
+                new List<GateObservation> { Obs("ok", GateOutcome.Pass) });
+
+            GateResult omitted = Row(r, "missing");
+            Assert.AreEqual(GateDisposition.Omitted, omitted.Disposition);
+            Assert.AreEqual(GateOutcome.Incomplete, omitted.Outcome);
+            Assert.AreEqual(GateOutcome.Incomplete, r.Outcome, "an omitted required gate must not be aggregated away by a sibling Pass");
+        }
+
+        [Test]
         public void UnknownObservationId_IsValidationErrorAndIncomplete()
         {
             HealthReport r = HealthEvaluator.Evaluate(Catalog(Def("a")), Ctx(),

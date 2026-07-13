@@ -64,7 +64,8 @@ namespace Sorolla.Palette.Editor.Greenlight
 
             foreach (GateResult r in health.Rows)
             {
-                if (r.Disposition != GateDisposition.Evaluated)
+                // Show evaluated + omitted-required rows; hide the inert ones (optional skips, not-applicable).
+                if (r.Disposition == GateDisposition.OptionalSkipped || r.Disposition == GateDisposition.NotApplicable)
                     continue;
 
                 CheckRow.Status status = ToStatus(r.Outcome);

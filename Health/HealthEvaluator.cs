@@ -116,10 +116,19 @@ namespace Sorolla.Palette.Health
                         break;
 
                     default: // Required
-                        row.Disposition = GateDisposition.Evaluated;
-                        row.Outcome = count == 0
-                            ? GateOutcome.Incomplete // omission (R3-01)
-                            : ResolveObserved(def, matches, row);
+                        if (count == 0)
+                        {
+                            // Omission (R3-01): a distinct disposition (not "Evaluated") so the comparison
+                            // sheet can tell an unmet-required gate from an assessed one; it still resolves to
+                            // INCOMPLETE and participates in aggregation.
+                            row.Disposition = GateDisposition.Omitted;
+                            row.Outcome = GateOutcome.Incomplete;
+                        }
+                        else
+                        {
+                            row.Disposition = GateDisposition.Evaluated;
+                            row.Outcome = ResolveObserved(def, matches, row);
+                        }
                         break;
                 }
 
@@ -186,8 +195,12 @@ namespace Sorolla.Palette.Health
         /// </summary>
         static GateOutcome Aggregate(IReadOnlyList<GateResult> rows, bool anyValidationError)
         {
-            List<GateResult> considered =
-                rows.Where(r => r.Disposition == GateDisposition.Evaluated).ToList();
+            // Fail closed: aggregate EVERY disposition except the two explicitly-excluded ones. An omitted
+            // required row (Incomplete) participates, and an unknown/future disposition is included rather
+            // than silently dropped into an excluded default branch (review challenge, point 3).
+            List<GateResult> considered = rows.Where(r =>
+                r.Disposition != GateDisposition.OptionalSkipped &&
+                r.Disposition != GateDisposition.NotApplicable).ToList();
 
             if (considered.Any(r => r.Outcome == GateOutcome.Fail))
                 return GateOutcome.Fail;
