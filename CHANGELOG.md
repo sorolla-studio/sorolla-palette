@@ -35,14 +35,25 @@ signal it produces, and the fix.
   in spirit from the interim floor but now driven by the real requirement table.
   - **Firebase-in-Prototype decided**: the SDK's source-of-truth `SdkRegistry` marks every Firebase
     module `FullRequired` (required in Full, optional in Prototype and never uninstalled), so the mode
-    table makes the Firebase coherence gate required in Full and applicable in Prototype only when
-    Firebase is actually installed - a bare Prototype build without Firebase is not flagged. The
-    architecture doc, which had called Firebase "required for prototype builds," is corrected to match
-    the installer.
+    table makes the Firebase coherence gate **required in Full and optional in Prototype** - a prototype
+    that ships Firebase has its coherence evaluated, a bare prototype skips it cleanly with no penalty,
+    and no real Firebase observation is ever discarded. The architecture doc, which had called Firebase
+    "required for prototype builds," is corrected to match the installer.
   - **Legacy manual checkmarks are not evidence (B-10)**: a ticked greenlight checkbox now maps to an
     observation with no scoped proof, so the manual gate's required vendor/device proof is unmet and the
     row resolves to `INCOMPLETE` - a legacy check-off can no longer produce an affirmative pass. The
     studio is prompted to re-attest with scoped evidence.
+- **Health model integrity hardening (independent-review repairs)**: the shared evaluator no longer hides
+  a known-broken requirement - an observed `FAIL` stays `FAIL` even when extra proof is missing (missing
+  required proof downgrades only affirmative claims). Requirement is one context-derived four-state
+  decision (`Required | Optional | NotApplicable | Unknown`, with a reason) instead of a fixed flag, so a
+  gate can be required in Full and optional in Prototype without duplicating its id; the requested phase
+  lives in the evaluation context and the evaluator - not the caller - selects the gates for that phase.
+  An applicable-but-unobserved optional gate is an explicit skip, never relabelled `NotApplicable`; an
+  observation supplied for a `NotApplicable` gate is a context-mismatch validation error (not silently
+  dropped); corrupted/undefined enum or flag values are validated at the boundary and cannot fail open to
+  a pass; the catalog is frozen on construction with strict validation. A machine-readable gate-catalog
+  export (`Palette > QA > Export Gate Catalog`) feeds a private one-source divergence check.
 - **Shared health-result contract (internal foundation)**: a new leaf assembly `Sorolla.Health`
   (`noEngineReferences`, internal types, no studio API) holds the neutral gate-result model and the
   single aggregation `HealthEvaluator.Evaluate(catalog, context, observations)`. It evaluates a

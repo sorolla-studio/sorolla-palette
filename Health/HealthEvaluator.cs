@@ -20,11 +20,23 @@ namespace Sorolla.Palette.Health
             var rows = new List<GateResult>();
             var validationErrors = new List<string>();
 
-            // 1. Index observations by gate id. Unknown ids and duplicates are validation errors - never
-            //    ignored, never last-write-wins.
+            // 0. Boundary-validate the trusted context (review C3-06). A corrupt/undefined context value must
+            //    not silently pass; the whole report degrades to INCOMPLETE via a validation error.
+            ValidateContext(context, validationErrors);
+            bool contextUsable =
+                HealthEnums.IsSinglePhase(context.RequestedPhase); // a defined, single, non-None phase (C3-03)
+
+            // 1. Index observations by gate id, validating each value at the boundary (C3-06). Unknown ids and
+            //    duplicates are validation errors - never ignored, never last-write-wins.
             var byId = new Dictionary<string, List<GateObservation>>();
             foreach (GateObservation obs in observations ?? Array.Empty<GateObservation>())
             {
+                if (obs == null) { validationErrors.Add("Null observation supplied."); continue; }
+                if (!HealthEnums.IsDefinedOutcome(obs.Outcome))
+                    validationErrors.Add($"Observation for '{obs.GateId}' has an undefined outcome value.");
+                if (!HealthEnums.HasOnlyDefinedBits(obs.ObservedProof))
+                    validationErrors.Add($"Observation for '{obs.GateId}' has undefined proof-scope bits.");
+
                 if (!byId.TryGetValue(obs.GateId, out List<GateObservation> list))
                 {
                     list = new List<GateObservation>();
@@ -41,78 +53,76 @@ namespace Sorolla.Palette.Health
                     validationErrors.Add($"Duplicate observations ({pair.Value.Count}) for gate id: '{pair.Key}'");
             }
 
-            // 2. Definitions drive the report, not the observations - that is what makes omission detectable.
-            foreach (GateDefinition def in catalog.All)
+            // 2. The evaluator - not the caller - selects the definitions that belong to the requested phase
+            //    (review C3-03). An unusable phase means no definitions can be trusted → INCOMPLETE.
+            IEnumerable<GateDefinition> selected = contextUsable
+                ? catalog.All.Where(d => (d.Phases & context.RequestedPhase) != 0)
+                : Array.Empty<GateDefinition>();
+
+            foreach (GateDefinition def in selected)
             {
-                ApplicabilityVerdict av = def.Applicability != null
-                    ? def.Applicability(context)
-                    : new ApplicabilityVerdict(Applicability.Unknown, "No applicability predicate defined");
+                RequirementDecision rd = def.Requirement != null
+                    ? def.Requirement(context)
+                    : new RequirementDecision(Requirement.Unknown, "No requirement predicate defined");
+
+                if (!HealthEnums.IsDefinedRequirement(rd.Value))
+                {
+                    validationErrors.Add($"Gate '{def.Id}' produced an undefined requirement value.");
+                    rd = new RequirementDecision(Requirement.Unknown, "Undefined requirement value");
+                }
 
                 var row = new GateResult
                 {
                     GateId = def.Id,
                     DefinitionVersion = def.Version,
-                    Applicability = av.Value,
-                    ApplicabilityReason = av.Reason,
+                    Requirement = rd.Value,
+                    RequirementReason = rd.Reason,
                     RequiredProof = def.RequiredProof,
                 };
 
-                if (av.Value == Applicability.Unknown)
-                {
-                    // Could not decide applicability from trusted context - must not silently pass.
-                    row.Outcome = GateOutcome.Incomplete;
-                    rows.Add(row);
-                    continue;
-                }
-
-                if (av.Value == Applicability.NotApplicable)
-                {
-                    // Excluded from aggregation; carries its reason. Outcome is inert for excluded rows.
-                    row.Outcome = GateOutcome.Pass;
-                    rows.Add(row);
-                    continue;
-                }
-
-                // Applicable.
                 byId.TryGetValue(def.Id, out List<GateObservation> matches);
                 int count = matches?.Count ?? 0;
 
-                if (count == 0)
+                switch (rd.Value)
                 {
-                    if (def.Required)
-                    {
-                        // The omission case (R3-01): a required gate with no evidence is not a pass.
+                    case Requirement.Unknown:
+                        // Could not decide from trusted context - must not silently pass.
+                        row.Disposition = GateDisposition.Evaluated;
                         row.Outcome = GateOutcome.Incomplete;
-                    }
-                    else
-                    {
-                        // Optional + unobserved is a skip, not evidence: exclude it so it can neither block
-                        // nor become affirmative.
-                        row.Applicability = Applicability.NotApplicable;
-                        row.ApplicabilityReason = "Optional gate, no observation supplied";
-                        row.Outcome = GateOutcome.Pass;
-                    }
-                    rows.Add(row);
-                    continue;
+                        break;
+
+                    case Requirement.NotApplicable:
+                        row.Disposition = GateDisposition.NotApplicable;
+                        row.Outcome = GateOutcome.Pass; // inert; excluded from aggregation
+                        // C3-05: an observation for a NotApplicable gate signals stale/wrong-context evidence.
+                        if (count > 0)
+                            validationErrors.Add(
+                                $"Context mismatch: observation supplied for NotApplicable gate '{def.Id}'.");
+                        break;
+
+                    case Requirement.Optional:
+                        if (count == 0)
+                        {
+                            // A real optional skip (C3-04) - NEVER rewritten to NotApplicable, excluded from
+                            // affirmative evidence.
+                            row.Disposition = GateDisposition.OptionalSkipped;
+                            row.Outcome = GateOutcome.Pass; // inert; excluded
+                        }
+                        else
+                        {
+                            row.Disposition = GateDisposition.Evaluated;
+                            row.Outcome = ResolveObserved(def, matches, row);
+                        }
+                        break;
+
+                    default: // Required
+                        row.Disposition = GateDisposition.Evaluated;
+                        row.Outcome = count == 0
+                            ? GateOutcome.Incomplete // omission (R3-01)
+                            : ResolveObserved(def, matches, row);
+                        break;
                 }
 
-                if (count > 1)
-                {
-                    // Duplicate already recorded as a validation error; the gate itself is unresolved.
-                    row.Outcome = GateOutcome.Incomplete;
-                    rows.Add(row);
-                    continue;
-                }
-
-                GateObservation only = matches[0];
-                row.ObservedProof = only.ObservedProof;
-                row.Evidence = only.Evidence;
-                row.FixHint = only.FixHint;
-
-                // Proof gate (R3-05): missing any required proof class → INCOMPLETE, regardless of the
-                // observed outcome. This is an aggregation rule, not a producer courtesy.
-                ProofScope missing = def.RequiredProof & ~only.ObservedProof;
-                row.Outcome = missing != ProofScope.None ? GateOutcome.Incomplete : only.Outcome;
                 rows.Add(row);
             }
 
@@ -124,16 +134,60 @@ namespace Sorolla.Palette.Health
             };
         }
 
+        static void ValidateContext(EvaluationContext context, List<string> errors)
+        {
+            if (context == null) { errors.Add("Null evaluation context."); return; }
+            if (!HealthEnums.IsDefinedMode(context.Mode))
+                errors.Add("Evaluation context has an undefined mode value.");
+            if (!HealthEnums.IsDefinedPlatform(context.Platform))
+                errors.Add("Evaluation context has an undefined platform value.");
+            if (!HealthEnums.HasOnlyDefinedBits(context.InstalledModules))
+                errors.Add("Evaluation context has undefined installed-module bits.");
+            if (!HealthEnums.IsSinglePhase(context.RequestedPhase))
+                errors.Add("Evaluation context requests an unknown/unsupported phase.");
+            if (!context.ModulesResolved)
+                errors.Add("Installed-module state could not be resolved from the manifest (unknown ≠ absent).");
+        }
+
+        /// <summary>
+        ///     Resolve a single observation against the definition's required proof (review C3-01). An
+        ///     observed FAIL stays FAIL and an observed INCOMPLETE stays INCOMPLETE regardless of missing
+        ///     proof - a known-broken requirement is not hidden behind missing extra proof. Missing required
+        ///     proof downgrades ONLY affirmative claims (Pass / PassWithCaveats) to INCOMPLETE. A duplicate is
+        ///     already a validation error and cannot resolve to a pass.
+        /// </summary>
+        static GateOutcome ResolveObserved(GateDefinition def, List<GateObservation> matches, GateResult row)
+        {
+            if (matches.Count > 1)
+                return GateOutcome.Incomplete;
+
+            GateObservation only = matches[0];
+            row.ObservedProof = only.ObservedProof;
+            row.Evidence = only.Evidence;
+            row.FixHint = only.FixHint;
+
+            switch (only.Outcome)
+            {
+                case GateOutcome.Fail:
+                    return GateOutcome.Fail;
+                case GateOutcome.Incomplete:
+                    return GateOutcome.Incomplete;
+                default: // Pass / PassWithCaveats - affirmative claims need their proof
+                    ProofScope missing = def.RequiredProof & ~only.ObservedProof;
+                    return missing != ProofScope.None ? GateOutcome.Incomplete : only.Outcome;
+            }
+        }
+
         /// <summary>
         ///     Precedence FAIL &gt; INCOMPLETE &gt; PASS_WITH_CAVEATS &gt; PASS, plus the no-affirmative-
         ///     evidence floor (no Pass/PassWithCaveats among considered rows → INCOMPLETE) that stops the
-        ///     false-green. NotApplicable rows are excluded; Unknown rows (Outcome == Incomplete) are
-        ///     included so an unresolved applicability cannot be silently dropped.
+        ///     false-green. Only <see cref="GateDisposition.Evaluated"/> rows are considered; NotApplicable
+        ///     and OptionalSkipped rows are excluded. Any validation error forces at least INCOMPLETE.
         /// </summary>
         static GateOutcome Aggregate(IReadOnlyList<GateResult> rows, bool anyValidationError)
         {
             List<GateResult> considered =
-                rows.Where(r => r.Applicability != Applicability.NotApplicable).ToList();
+                rows.Where(r => r.Disposition == GateDisposition.Evaluated).ToList();
 
             if (considered.Any(r => r.Outcome == GateOutcome.Fail))
                 return GateOutcome.Fail;

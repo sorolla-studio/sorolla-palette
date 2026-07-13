@@ -47,14 +47,14 @@ namespace Sorolla.Palette.Editor.Greenlight
         {
             EvaluationContext context = GreenlightAdapter.BuildContext();
             List<GateObservation> observations =
-                GreenlightAdapter.BuildObservations(buildHealthResults, snapshotState, checklist);
+                GreenlightAdapter.BuildObservations(context, buildHealthResults, snapshotState, checklist);
             HealthReport health = HealthEvaluator.Evaluate(GateCatalog.Canonical, context, observations);
             return ToReport(health);
         }
 
         /// <summary>Maps the shared <see cref="HealthReport"/> to the flat display shape the window renders.
-        /// NotApplicable rows are inert (excluded from the verdict) and not shown.</summary>
-        static Report ToReport(HealthReport health)
+        /// Inert rows (NotApplicable, OptionalSkipped) are excluded from the verdict and not shown.</summary>
+        internal static Report ToReport(HealthReport health)
         {
             var report = new Report
             {
@@ -64,7 +64,7 @@ namespace Sorolla.Palette.Editor.Greenlight
 
             foreach (GateResult r in health.Rows)
             {
-                if (r.Applicability == Applicability.NotApplicable)
+                if (r.Disposition != GateDisposition.Evaluated)
                     continue;
 
                 CheckRow.Status status = ToStatus(r.Outcome);
@@ -88,6 +88,21 @@ namespace Sorolla.Palette.Editor.Greenlight
                 }
             }
 
+            // Contract/schema validation errors force the aggregate to INCOMPLETE; render each as an explicit,
+            // visible row (review C4-07) so a studio sees the actionable reason instead of a silent non-green
+            // badge over passing-looking rows. Included in the copied plain-text report via report.Rows.
+            foreach (string error in report.ValidationErrors)
+            {
+                report.Rows.Add(new Row
+                {
+                    Label = "Report Integrity",
+                    Status = CheckRow.Status.Wait,
+                    Detail = error,
+                    Fix = "This is an SDK/report contract error, not a studio config issue - report it to Sorolla.",
+                });
+                report.WaitCount++;
+            }
+
             return report;
         }
 
@@ -95,8 +110,8 @@ namespace Sorolla.Palette.Editor.Greenlight
         {
             if (!string.IsNullOrEmpty(r.Evidence))
                 return r.Evidence;
-            if (r.Applicability == Applicability.Unknown)
-                return r.ApplicabilityReason ?? "Applicability could not be determined";
+            if (r.Requirement == Requirement.Unknown)
+                return r.RequirementReason ?? "Requirement could not be determined";
             return r.Outcome == GateOutcome.Incomplete ? "Required evidence missing or not yet gathered" : "";
         }
 

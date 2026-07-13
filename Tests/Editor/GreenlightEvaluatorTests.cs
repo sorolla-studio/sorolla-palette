@@ -19,6 +19,14 @@ namespace Sorolla.Palette.Editor.Tests
     [TestFixture]
     public class GreenlightEvaluatorTests
     {
+        static EvaluationContext Ctx() => new EvaluationContext
+        {
+            Mode = EvalMode.Full,
+            Platform = EvalPlatform.Android,
+            InstalledModules = HealthEnums.AllModuleBits,
+            RequestedPhase = GatePhase.QaPass,
+        };
+
         // ── Adapter: context mapping ──────────────────────────────────────
 
         [Test]
@@ -58,7 +66,7 @@ namespace Sorolla.Palette.Editor.Tests
             };
 
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                results, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+                Ctx(), results, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
 
             GateObservation fb = obs.Single(o => o.GateId == GateIds.BuildFacebookPlatform);
             Assert.AreEqual(GateOutcome.Fail, fb.Outcome);
@@ -76,7 +84,7 @@ namespace Sorolla.Palette.Editor.Tests
             };
 
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                results, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+                Ctx(), results, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
 
             GateObservation manifest = obs.Single(o => o.GateId == GateIds.BuildAndroidManifest);
             Assert.AreEqual(GateOutcome.Fail, manifest.Outcome);
@@ -86,10 +94,51 @@ namespace Sorolla.Palette.Editor.Tests
         public void BuildHealth_NullResults_EmitNoBuildObservations()
         {
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                null, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+                Ctx(), null, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
 
             Assert.IsFalse(obs.Any(o => o.GateId.StartsWith("build.")),
                 "No Build Health results means the required core build gates omit -> INCOMPLETE, not silent pass.");
+        }
+
+        [Test]
+        public void EveryBuildValidatorCategory_MapsToACanonicalGate()
+        {
+            // C4-09: no BuildValidator category may silently disappear - every one maps to a canonical gate.
+            foreach (BuildValidator.CheckCategory cat in
+                     System.Enum.GetValues(typeof(BuildValidator.CheckCategory)))
+            {
+                var results = new List<BuildValidator.ValidationResult>
+                {
+                    new BuildValidator.ValidationResult(BuildValidator.ValidationStatus.Valid, "x", null, cat),
+                };
+                List<GateObservation> obs = GreenlightAdapter.BuildObservations(
+                    Ctx(), results, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+                Assert.IsFalse(obs.Any(o => o.GateId.StartsWith("unmapped:")), $"CheckCategory {cat} is unmapped.");
+            }
+        }
+
+        [Test]
+        public void ToOutcome_UndefinedStatus_ThrowsInsteadOfPass()
+        {
+            // C4-09: an invalid ValidationStatus must fail closed, not map to a silent PASS.
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => GreenlightAdapter.ToOutcome((BuildValidator.ValidationStatus)999));
+        }
+
+        [Test]
+        public void ValidationErrors_AreRenderedAsVisibleRows()
+        {
+            // C4-07: a contract/schema validation error must produce a visible, non-green row, not just flip
+            // the badge silently.
+            var health = new HealthReport
+            {
+                Rows = new List<GateResult>(),
+                Outcome = GateOutcome.Incomplete,
+                ValidationErrors = new[] { "Unknown gate id in observations: 'ghost'" },
+            };
+            GreenlightEvaluator.Report report = GreenlightEvaluator.ToReport(health);
+            Assert.IsTrue(report.Rows.Any(r => r.Status == CheckRow.Status.Wait && r.Detail.Contains("ghost")),
+                "The validation error must be a visible Wait row.");
         }
 
         // ── Adapter: device row-class → observation ───────────────────────
@@ -127,8 +176,8 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full,
                 Platform = EvalPlatform.Android,
-                InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook | SdkModule.Firebase |
-                                   SdkModule.AppLovinMax | SdkModule.Adjust,
+                InstalledModules = HealthEnums.AllModuleBits,
+                RequestedPhase = GatePhase.QaPass,
             };
             var observations = new List<GateObservation>
             {

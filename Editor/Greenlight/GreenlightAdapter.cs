@@ -1,7 +1,10 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Sorolla.Palette.Health;
 using UnityEditor;
+using UnityEngine;
 
 namespace Sorolla.Palette.Editor.Greenlight
 {
@@ -32,38 +35,92 @@ namespace Sorolla.Palette.Editor.Greenlight
             _ => EvalPlatform.Unknown,
         };
 
-        /// <summary>Installed modules from the SDK's own installation detection (manifest/assembly aware),
-        /// the same source Build Health's own checks consult.</summary>
-        internal static SdkModule DetectInstalledModules()
+        /// <summary>
+        ///     Installed modules from the package manifest (the SDK's source of truth for package state -
+        ///     assembly detection is unsafe during domain reloads, review C4-02). Returns false when the
+        ///     manifest is missing/unreadable so the caller can force INCOMPLETE rather than treat a
+        ///     temporarily-absent package as uninstalled.
+        /// </summary>
+        internal static bool TryDetectInstalledModules(out SdkModule modules)
         {
-            SdkModule modules = SdkModule.None;
-            if (SdkDetector.IsInstalled(SdkId.GameAnalytics)) modules |= SdkModule.GameAnalytics;
-            if (SdkDetector.IsInstalled(SdkId.Facebook)) modules |= SdkModule.Facebook;
-            if (SdkDetector.IsInstalled(SdkId.AppLovinMAX)) modules |= SdkModule.AppLovinMax;
-            if (SdkDetector.IsInstalled(SdkId.Adjust)) modules |= SdkModule.Adjust;
-            if (SdkDetector.IsInstalled(SdkId.FirebaseApp) || SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
+            modules = SdkModule.None;
+            Dictionary<string, object> dependencies = ReadManifestDependencies();
+            if (dependencies == null)
+                return false;
+
+            if (HasPackage(dependencies, SdkId.GameAnalytics)) modules |= SdkModule.GameAnalytics;
+            if (HasPackage(dependencies, SdkId.Facebook)) modules |= SdkModule.Facebook;
+            if (HasPackage(dependencies, SdkId.AppLovinMAX)) modules |= SdkModule.AppLovinMax;
+            if (HasPackage(dependencies, SdkId.Adjust)) modules |= SdkModule.Adjust;
+            if (HasPackage(dependencies, SdkId.FirebaseApp) || HasPackage(dependencies, SdkId.FirebaseAnalytics) ||
+                HasPackage(dependencies, SdkId.FirebaseCrashlytics) || HasPackage(dependencies, SdkId.FirebaseRemoteConfig))
                 modules |= SdkModule.Firebase;
-            return modules;
+            return true;
         }
 
-        internal static EvaluationContext BuildContext() => new EvaluationContext
+        static bool HasPackage(Dictionary<string, object> dependencies, SdkId id) =>
+            SdkRegistry.All.TryGetValue(id, out SdkInfo info) && dependencies.ContainsKey(info.PackageId);
+
+        static Dictionary<string, object> ReadManifestDependencies()
         {
-            Mode = ToEvalMode(SorollaSettings.Mode),
-            Platform = ToEvalPlatform(EditorUserBuildSettings.activeBuildTarget),
-            InstalledModules = DetectInstalledModules(),
-        };
+            try
+            {
+                string path = Path.Combine(Application.dataPath, "..", "Packages", "manifest.json");
+                if (!File.Exists(path))
+                    return null;
+                return MiniJson.Deserialize(File.ReadAllText(path)) is Dictionary<string, object> manifest &&
+                       manifest.TryGetValue("dependencies", out object deps) && deps is Dictionary<string, object> d
+                    ? d
+                    : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        internal static EvaluationContext BuildContext()
+        {
+            bool resolved = TryDetectInstalledModules(out SdkModule modules);
+            return new EvaluationContext
+            {
+                Mode = ToEvalMode(SorollaSettings.Mode),
+                Platform = ToEvalPlatform(EditorUserBuildSettings.activeBuildTarget),
+                InstalledModules = modules,
+                ModulesResolved = resolved,
+                // The greenlight is the studio's QA-pass self-check; the evaluator selects gates for this phase.
+                RequestedPhase = GatePhase.QaPass,
+            };
+        }
 
         // ── Observations ──────────────────────────────────────────────
 
+        /// <summary>
+        ///     Builds the neutral observations. Producer-side context guards ensure it never fabricates
+        ///     evidence for a gate the context makes NotApplicable (which would be a C3-05 context mismatch):
+        ///     device observations are emitted only on Android (the adb bridge is Android-only), and the
+        ///     Adjust purchase-verification manual row only in Full mode (no Adjust in Prototype). These are
+        ///     facts about which evidence EXISTS, not requirement decisions - the catalog still owns those.
+        /// </summary>
         internal static List<GateObservation> BuildObservations(
+            EvaluationContext context,
             List<BuildValidator.ValidationResult> buildHealthResults,
             GreenlightDeviceSnapshot.State snapshotState,
             GreenlightManualChecklist.State checklist)
         {
             var observations = new List<GateObservation>();
             observations.AddRange(BuildHealthObservations(buildHealthResults));
-            observations.AddRange(GreenlightDeviceSnapshot.ToObservations(snapshotState));
-            observations.AddRange(GreenlightManualChecklist.ToObservations(checklist));
+
+            if (context.Platform == EvalPlatform.Android)
+                observations.AddRange(GreenlightDeviceSnapshot.ToObservations(snapshotState));
+
+            foreach (GateObservation manual in GreenlightManualChecklist.ToObservations(checklist))
+            {
+                if (manual.GateId == GateIds.ManualAdjustPurchaseVerification && context.Mode != EvalMode.Full)
+                    continue; // no Adjust in Prototype - the gate is NotApplicable there
+                observations.Add(manual);
+            }
+
             return observations;
         }
 
@@ -80,8 +137,11 @@ namespace Sorolla.Palette.Editor.Greenlight
 
             foreach (var group in byCategory)
             {
-                if (!CategoryToGateId.TryGetValue(group.Key, out string gateId))
-                    continue;
+                // An unmapped category must not silently disappear (review C4-09): emit it under a sentinel
+                // id so the evaluator flags it as an unknown-id validation error, visible + fail-closed.
+                bool mapped = CategoryToGateId.TryGetValue(group.Key, out string gateId);
+                if (!mapped)
+                    gateId = "unmapped:" + group.Key;
 
                 BuildValidator.ValidationResult worst = group
                     .OrderBy(r => StatusPriority(r.Status))
@@ -98,13 +158,15 @@ namespace Sorolla.Palette.Editor.Greenlight
             }
         }
 
-        // Error is the most severe row we surface, then unverifiable (missing evidence), then warning, then valid.
+        // Error is the most severe row we surface, then unverifiable (missing evidence), then warning, then
+        // valid. No permissive default - an undefined ValidationStatus fails closed (review C4-09).
         static int StatusPriority(BuildValidator.ValidationStatus status) => status switch
         {
             BuildValidator.ValidationStatus.Error => 0,
             BuildValidator.ValidationStatus.Unverifiable => 1,
             BuildValidator.ValidationStatus.Warning => 2,
-            _ => 3, // Valid
+            BuildValidator.ValidationStatus.Valid => 3,
+            _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Undefined ValidationStatus."),
         };
 
         internal static GateOutcome ToOutcome(BuildValidator.ValidationStatus status) => status switch
@@ -112,7 +174,8 @@ namespace Sorolla.Palette.Editor.Greenlight
             BuildValidator.ValidationStatus.Error => GateOutcome.Fail,
             BuildValidator.ValidationStatus.Warning => GateOutcome.PassWithCaveats,
             BuildValidator.ValidationStatus.Unverifiable => GateOutcome.Incomplete,
-            _ => GateOutcome.Pass, // Valid
+            BuildValidator.ValidationStatus.Valid => GateOutcome.Pass,
+            _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Undefined ValidationStatus."),
         };
 
         static string FirstLine(string message) => string.IsNullOrEmpty(message) ? "" : message.Split('\n')[0];

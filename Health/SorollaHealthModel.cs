@@ -30,13 +30,34 @@ namespace Sorolla.Palette.Health
         VendorAccepted = 1 << 2,
     }
 
-    /// <summary>Whether a gate applies to a given build. Tri-state: Unknown means the evaluator could not
-    /// decide from the trusted context and MUST resolve to Incomplete, never a silent skip.</summary>
-    internal enum Applicability
+    /// <summary>
+    ///     The context-derived requirement decision for a gate (review C3-02). ONE four-state decision
+    ///     replaces the old fixed <c>bool Required</c> + separate applicability predicate, so a gate can be
+    ///     required in one mode/platform and optional in another without duplicating its id.
+    ///     <list type="bullet">
+    ///         <item><c>Required</c> - must be observed; omission → INCOMPLETE.</item>
+    ///         <item><c>Optional</c> - evaluated if observed; unobserved is a real skip (OptionalSkipped),
+    ///         not a pass and not a lie about applicability (C3-04).</item>
+    ///         <item><c>NotApplicable</c> - excluded; an observation supplied anyway is a context mismatch
+    ///         (C3-05).</item>
+    ///         <item><c>Unknown</c> - the evaluator could not decide from trusted context → INCOMPLETE.</item>
+    ///     </list>
+    /// </summary>
+    internal enum Requirement
     {
-        Applicable,
-        NotApplicable,
         Unknown,
+        NotApplicable,
+        Optional,
+        Required,
+    }
+
+    /// <summary>What actually happened to a gate in a report row: whether it counted toward the verdict,
+    /// was an applicable-but-optional skip, or was excluded as not applicable (review C3-04).</summary>
+    internal enum GateDisposition
+    {
+        Evaluated,
+        OptionalSkipped,
+        NotApplicable,
     }
 
     /// <summary>Which validation phase(s) a gate belongs to. A definition with no phase is unreachable.</summary>
@@ -76,14 +97,14 @@ namespace Sorolla.Palette.Health
         Adjust = 1 << 4,
     }
 
-    /// <summary>An applicability decision plus the reason/predicate-trace that produced it. The reason is
-    /// required whenever the value is not <see cref="Applicability.Applicable"/>.</summary>
-    internal readonly struct ApplicabilityVerdict
+    /// <summary>A requirement decision plus the reason/predicate-trace that produced it. The reason is
+    /// required whenever the value is not <see cref="Requirement.Required"/> (validated by the catalog).</summary>
+    internal readonly struct RequirementDecision
     {
-        public readonly Applicability Value;
+        public readonly Requirement Value;
         public readonly string Reason;
 
-        public ApplicabilityVerdict(Applicability value, string reason = null)
+        public RequirementDecision(Requirement value, string reason = null)
         {
             Value = value;
             Reason = reason;
@@ -91,26 +112,40 @@ namespace Sorolla.Palette.Health
     }
 
     /// <summary>
-    ///     A canonical gate definition (registry-owned). Applicability and required proof live HERE, on the
-    ///     definition, evaluated from trusted context - a producer cannot self-exempt by declaring its own
-    ///     applicability or proof (review R3-02/R3-04). <see cref="Version"/> is a per-gate semantic version
-    ///     stamped onto every report row so the comparison instrument can restart exactly one gate's
-    ///     agreement count when its definition changes (R3-03).
+    ///     A canonical gate definition (registry-owned) - immutable after construction (review C3-07): all
+    ///     fields are get-only and set via the constructor so a definition cannot mutate after the catalog is
+    ///     built. The single <see cref="Requirement"/> predicate owns applicability AND required-ness,
+    ///     evaluated from trusted context - a producer cannot self-exempt. <see cref="Version"/> is a per-gate
+    ///     semantic version stamped onto every report row so the comparison instrument can restart exactly one
+    ///     gate's agreement count when its definition changes (R3-03).
     /// </summary>
     internal sealed class GateDefinition
     {
-        public string Id;
-        public string Version;
-        public GatePhase Phases;
-        public bool Required;
-        public ProofScope RequiredProof;
-        public Func<EvaluationContext, ApplicabilityVerdict> Applicability;
+        public string Id { get; }
+        public string Version { get; }
+        public GatePhase Phases { get; }
+        public ProofScope RequiredProof { get; }
+        public Func<EvaluationContext, RequirementDecision> Requirement { get; }
+
+        public GateDefinition(
+            string id,
+            string version,
+            GatePhase phases,
+            ProofScope requiredProof,
+            Func<EvaluationContext, RequirementDecision> requirement)
+        {
+            Id = id;
+            Version = version;
+            Phases = phases;
+            RequiredProof = requiredProof;
+            Requirement = requirement;
+        }
     }
 
     /// <summary>
-    ///     A producer's report of what it observed for one gate. Deliberately carries NO applicability and
-    ///     NO required-proof: those are the definition's, not the producer's. The evaluator, not the
-    ///     producer, decides whether the observed proof satisfies what the definition requires.
+    ///     A producer's report of what it observed for one gate. Deliberately carries NO requirement and NO
+    ///     required-proof: those are the definition's, not the producer's. The evaluator, not the producer,
+    ///     decides whether the observed proof satisfies what the definition requires.
     /// </summary>
     internal sealed class GateObservation
     {
@@ -121,13 +156,20 @@ namespace Sorolla.Palette.Health
         public string FixHint;
     }
 
-    /// <summary>The trusted facts a definition's applicability predicate reads. Provenance is a later
-    /// (Cycle 7) addition; this slot is intentionally left undefined here.</summary>
+    /// <summary>The trusted facts a definition's requirement predicate reads. Provenance is a later
+    /// (Cycle 7) addition; that slot is intentionally left undefined here.</summary>
     internal sealed class EvaluationContext
     {
         public EvalMode Mode;
         public EvalPlatform Platform;
         public SdkModule InstalledModules;
+        /// <summary>The phase this report is for (review C3-03). The evaluator - not the caller - selects the
+        /// definitions that belong to this phase. A single defined phase bit is expected.</summary>
+        public GatePhase RequestedPhase;
+        /// <summary>Whether the installed-module set was resolved from the trusted source (the package
+        /// manifest, review C4-02). Unknown manifest state must NOT be treated as an empty module set - it
+        /// forces INCOMPLETE. Defaults true; a producer that cannot read the manifest sets it false.</summary>
+        public bool ModulesResolved = true;
     }
 
     /// <summary>One resolved gate = one row of a <see cref="HealthReport"/>. The evaluator's output, not a
@@ -136,9 +178,10 @@ namespace Sorolla.Palette.Health
     {
         public string GateId;
         public string DefinitionVersion;
+        public Requirement Requirement;
+        public string RequirementReason;
+        public GateDisposition Disposition;
         public GateOutcome Outcome;
-        public Applicability Applicability;
-        public string ApplicabilityReason;
         public ProofScope RequiredProof;
         public ProofScope ObservedProof;
         public string Evidence;
@@ -150,5 +193,37 @@ namespace Sorolla.Palette.Health
         public IReadOnlyList<GateResult> Rows;
         public GateOutcome Outcome;
         public IReadOnlyList<string> ValidationErrors;
+    }
+
+    /// <summary>Boundary validation helpers (review C3-06): enum type-safety does NOT protect deserialized or
+    /// corrupted values, so every value crossing into the evaluator is checked for definedness.</summary>
+    internal static class HealthEnums
+    {
+        internal const ProofScope AllProofBits = ProofScope.Static | ProofScope.DeviceDispatch | ProofScope.VendorAccepted;
+        internal const GatePhase AllPhaseBits = GatePhase.PreBuild | GatePhase.QaPass | GatePhase.ReleaseShip;
+        internal const SdkModule AllModuleBits = SdkModule.GameAnalytics | SdkModule.Facebook |
+                                                 SdkModule.Firebase | SdkModule.AppLovinMax | SdkModule.Adjust;
+
+        internal static bool IsDefinedOutcome(GateOutcome v) =>
+            v == GateOutcome.Incomplete || v == GateOutcome.Fail ||
+            v == GateOutcome.PassWithCaveats || v == GateOutcome.Pass;
+
+        internal static bool IsDefinedRequirement(Requirement v) =>
+            v == Requirement.Unknown || v == Requirement.NotApplicable ||
+            v == Requirement.Optional || v == Requirement.Required;
+
+        internal static bool IsDefinedMode(EvalMode v) =>
+            v == EvalMode.Unknown || v == EvalMode.Prototype || v == EvalMode.Full;
+
+        internal static bool IsDefinedPlatform(EvalPlatform v) =>
+            v == EvalPlatform.Unknown || v == EvalPlatform.Android || v == EvalPlatform.iOS;
+
+        /// <summary>A single, defined, non-None phase bit (the shape a request must take).</summary>
+        internal static bool IsSinglePhase(GatePhase v) =>
+            v == GatePhase.PreBuild || v == GatePhase.QaPass || v == GatePhase.ReleaseShip;
+
+        internal static bool HasOnlyDefinedBits(ProofScope v) => (v & ~AllProofBits) == 0;
+        internal static bool HasOnlyDefinedBits(GatePhase v) => (v & ~AllPhaseBits) == 0;
+        internal static bool HasOnlyDefinedBits(SdkModule v) => (v & ~AllModuleBits) == 0;
     }
 }

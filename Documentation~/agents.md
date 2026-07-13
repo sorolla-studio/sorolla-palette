@@ -66,7 +66,7 @@ Test-generating actions (`track_test_event`, `level_*`, `economy_*`) run inside 
 
 ## 3. What the verdict applies to (the mode requirement table)
 
-There is no per-game QA declaration asset. Which gates are required, optional, or excluded is derived entirely from the trusted build context — the SDK mode (Prototype / Full, from `SorollaConfig`), the active build platform, and the installed modules — plus the exact-build facts the checks observe. This is the mode requirement table, and it is code-defined in the SDK, not something a studio configures.
+There is no per-game QA declaration asset. Which gates are required, optional, or excluded is derived entirely from the trusted build context — the SDK mode (Prototype / Full, from `SorollaConfig`), the active build platform, and the installed modules (read from the package manifest) — plus the facts the checks observe. This is the mode requirement table, and it is code-defined in the SDK, not something a studio configures. (Exact-build identity binding of on-device evidence — proving a snapshot came from *this* build — is not yet emitted; a connected snapshot is trusted for the current session only.)
 
 What that means in practice:
 
