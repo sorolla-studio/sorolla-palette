@@ -83,6 +83,28 @@ namespace Sorolla.Palette.Editor.Greenlight
             }
         }
 
+        /// <summary>
+        ///     One-line summary for the collapsed rows foldout. Wait rows count as "need attention"
+        ///     alongside Fail/Warn, and an INCOMPLETE report NEVER reads "rows checked" - a pending or
+        ///     evidence-less report must not imply its rows were affirmatively checked (the same
+        ///     honesty rule the badge enforces, applied to the foldout header).
+        /// </summary>
+        internal static string RowSummary(Report report)
+        {
+            int total = report.Rows.Count;
+            int needsAttention = report.FailCount + report.WarnCount + report.WaitCount;
+
+            if (report.Verdict == Verdict.Incomplete)
+                return needsAttention > 0
+                    ? $"{needsAttention} of {total} rows need evidence or attention"
+                    : $"{total} rows, evidence incomplete";
+
+            if (needsAttention > 0)
+                return $"{needsAttention} of {total} rows need attention";
+
+            return $"{total} rows checked";
+        }
+
         internal static Report Evaluate(
             List<BuildValidator.ValidationResult> buildHealthResults,
             SorollaConfig config,
@@ -250,20 +272,27 @@ namespace Sorolla.Palette.Editor.Greenlight
                 }
             }
 
-            // Precedence FAIL > INCOMPLETE > ISSUES > HEALTHY. Missing/stale/unverifiable required
-            // evidence OUTRANKS warnings: a report cannot be "just issues" while a required gate has
-            // never produced evidence. Interim "required" definition is deliberately a broad safety
-            // floor - ANY Wait row (Build Health not run, a probe pending/unverifiable, a device
-            // snapshot that came back NoDevice/Unreachable, an unticked manual gate) plus the
-            // zero-rows case (nothing evaluated at all) forces INCOMPLETE. Info stays neutral by
-            // policy: the device-not-connected row is Info and optional-by-design, so it does not
-            // itself block HEALTHY - the unticked manual gates (Wait) already do. Cycle 4 replaces
-            // this floor with a per-row required/proof-scope model on the shared contract.
-            bool missingRequiredEvidence = report.Rows.Count == 0 || report.WaitCount > 0;
+            // Precedence FAIL > INCOMPLETE > ISSUES > HEALTHY. This is an INTERIM Greenlight status,
+            // not a release verdict - it is the safety floor that stops the zero-evidence false-green
+            // until Cycle 4 lands the canonical per-row required/proof-scope requirement table. Two
+            // conditions force the non-green INCOMPLETE, and both OUTRANK warnings (a report cannot be
+            // "just issues" while required evidence is pending or absent):
+            //   1. Pending/unverifiable evidence - ANY Wait row (Build Health not run, a probe
+            //      pending/unverifiable, a device snapshot that came back NoDevice/Unreachable, an
+            //      unticked manual gate).
+            //   2. No affirmative evidence at all - zero Pass AND zero Warn rows (an empty report, or
+            //      one built only from Info rows). Info is NEUTRAL: it never fails, but it is not
+            //      affirmative evidence, so it can never carry a report to HEALTHY on its own. This is
+            //      why the optional device-not-connected Info row does not block HEALTHY when real
+            //      Pass evidence exists, yet an Info-only report still reads INCOMPLETE.
+            // Info must never become a channel for silently dropping a requirement - that is the
+            // canonical table's job (Cycle 4), not this floor's.
+            bool pendingEvidence = report.WaitCount > 0;
+            bool anyAffirmativeEvidence = report.PassCount > 0 || report.WarnCount > 0;
 
             report.Verdict = report.FailCount > 0
                 ? Verdict.Failing
-                : missingRequiredEvidence
+                : pendingEvidence || !anyAffirmativeEvidence
                     ? Verdict.Incomplete
                     : report.WarnCount > 0
                         ? Verdict.Issues

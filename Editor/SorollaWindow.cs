@@ -1005,16 +1005,10 @@ namespace Sorolla.Palette.Editor
             _greenlightContainer.Add(actionsRow);
 
             var rowElements = new List<VisualElement>();
-            int issueCount = 0;
             foreach (GreenlightEvaluator.Row row in report.Rows)
-            {
-                if (row.Status == CheckRow.Status.Fail || row.Status == CheckRow.Status.Warn)
-                    issueCount++;
-
                 rowElements.Add(BuildGreenlightRow(row));
-            }
 
-            string summary = issueCount > 0 ? $"{issueCount} of {rowElements.Count} rows need attention" : $"{rowElements.Count} rows checked";
+            string summary = GreenlightEvaluator.RowSummary(report);
             Foldout rowGroup = CollapsibleCheckGroup.Create(summary, rowElements, _greenlightChecksExpanded);
             rowGroup.RegisterValueChangedCallback(evt => _greenlightChecksExpanded = evt.newValue);
             _greenlightContainer.Add(rowGroup);

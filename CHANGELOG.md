@@ -94,17 +94,21 @@ row, never an Error - existing checks (Adjust token, etc.) keep their current se
   `Library/PackageCache` as an informational row. Skew judgment stays human - this never warns.
 
 ### Changed
-- **Greenlight verdict is now four-state - closes the false-green class**: the verdict adds
+- **Greenlight status is now four-state - closes the false-green class**: the status adds
   `INCOMPLETE` between `N ISSUES` and `FAILING`, with precedence `FAILING` > `INCOMPLETE` >
   `N ISSUES` > `HEALTHY`. Previously the aggregation only reacted to failing and warning rows, and
   the badge fell through to a green default, so a report with no evidence at all (every gate pending
-  or unticked, or no rows evaluated) rendered a green `HEALTHY`. Now any missing, pending, or
-  unverifiable required evidence - a probe that never ran, a device snapshot that never connected, an
-  unticked manual gate, or an empty report - forces a non-green `INCOMPLETE` that outranks warnings.
-  A fresh report (nothing checked yet) reads `INCOMPLETE`, not `HEALTHY`. Interim scope: "required" is
-  a deliberately broad safety floor (any `wait` row or zero rows); `info` rows stay neutral, so the
-  optional device-snapshot-not-connected row does not by itself block `HEALTHY`. A later cycle
-  replaces this floor with a per-row required/proof-scope model on the shared result contract.
+  or unticked, only neutral rows, or no rows evaluated) rendered a green `HEALTHY`. Now `INCOMPLETE`
+  (a non-green badge) fires whenever evidence is pending/unverifiable - a probe that never ran, a
+  device snapshot that never connected, an unticked manual gate - OR when there is no affirmative
+  evidence at all (an empty report, or one built only from neutral `info` rows). `info` never fails
+  and never blocks `HEALTHY` when real evidence exists, but it can never carry a report to `HEALTHY`
+  on its own. The collapsed rows foldout follows suit: an incomplete report never reads "rows
+  checked". A fresh report (nothing checked yet) reads `INCOMPLETE`, not `HEALTHY`. This is an INTERIM
+  Greenlight status, not a release verdict: the current rule is a deliberately broad safety floor
+  (any `wait` row, or no affirmative evidence) that stops the false-green until a later cycle lands
+  the canonical per-row required/proof-scope requirement table. `info` is not a mechanism for
+  silently excluding a requirement - that is the requirement table's job, not this floor's.
 
 ## [3.18.3] - 2026-07-08
 
