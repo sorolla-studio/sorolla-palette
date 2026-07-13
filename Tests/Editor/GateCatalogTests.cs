@@ -161,6 +161,34 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
+        public void ReleaseShipPhase_ReachesReleaseOnlyGatesAndCore_QaPassExcludesReleaseOnly()
+        {
+            // Item 7 end-to-end: the Release profile makes release-only gates reachable through the real
+            // evaluator, while QA Pass excludes them; and ReleaseShip keeps the core prerequisites.
+            var release = new EvaluationContext
+            {
+                Mode = EvalMode.Full, Platform = EvalPlatform.Android,
+                InstalledModules = HealthEnums.AllModuleBits, RequestedPhase = GatePhase.ReleaseShip,
+            };
+            HealthReport releaseReport = HealthEvaluator.Evaluate(
+                GateCatalog.Canonical, release, new System.Collections.Generic.List<GateObservation>());
+            Assert.IsTrue(releaseReport.Rows.Any(r => r.GateId == GateIds.BuildAndroidKeystore),
+                "release-only keystore reachable under ReleaseShip");
+            Assert.IsTrue(releaseReport.Rows.Any(r => r.GateId == GateIds.BuildRequiredSdks),
+                "core prerequisite present under ReleaseShip");
+
+            var qa = new EvaluationContext
+            {
+                Mode = EvalMode.Full, Platform = EvalPlatform.Android,
+                InstalledModules = HealthEnums.AllModuleBits, RequestedPhase = GatePhase.QaPass,
+            };
+            HealthReport qaReport = HealthEvaluator.Evaluate(
+                GateCatalog.Canonical, qa, new System.Collections.Generic.List<GateObservation>());
+            Assert.IsFalse(qaReport.Rows.Any(r => r.GateId == GateIds.BuildAndroidKeystore),
+                "release-only keystore excluded under QaPass");
+        }
+
+        [Test]
         public void IapGate_RequiredWhenUnityIapInstalled_NotApplicableOtherwise()
         {
             // C4-10: IAP coverage is represented; unavailable proof (VendorAccepted, not SDK-readable) →

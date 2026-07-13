@@ -90,11 +90,17 @@ namespace Sorolla.Palette.Editor.Greenlight
                 Platform = ToEvalPlatform(EditorUserBuildSettings.activeBuildTarget),
                 InstalledModules = modules,
                 ModulesResolved = resolved,
-                // Follow the active Build Health profile so release-only gates are reachable under Release and a
-                // profile-"Skipped" check maps to the right phase, instead of hard-coding QaPass (review).
-                RequestedPhase = BuildValidationProfileSettings.IsRelease ? GatePhase.ReleaseShip : GatePhase.QaPass,
+                // Follow the active Build Health profile (the "Validation Profile" QaPass/Release selector in
+                // the window, SorollaWindow's Build Health section) so ReleaseShip-tagged gates are reachable
+                // under Release and a profile-"Skipped" check maps to the right phase, not hard-coded QaPass.
+                RequestedPhase = RequestedPhaseFor(BuildValidationProfileSettings.IsRelease),
             };
         }
+
+        /// <summary>Maps the Build Health validation profile to the health phase the greenlight requests.
+        /// QaPass by default; Release makes the ReleaseShip-tagged gates reachable.</summary>
+        internal static GatePhase RequestedPhaseFor(bool isRelease) =>
+            isRelease ? GatePhase.ReleaseShip : GatePhase.QaPass;
 
         // ── Observations ──────────────────────────────────────────────
 

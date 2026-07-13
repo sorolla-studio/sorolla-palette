@@ -45,6 +45,15 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(EvalPlatform.Unknown, GreenlightAdapter.ToEvalPlatform(BuildTarget.StandaloneOSX));
         }
 
+        [Test]
+        public void RequestedPhaseFor_MapsProfileToPhase()
+        {
+            // The window's "Validation Profile" (QaPass/Release) selector drives this, making ReleaseShip
+            // gates reachable when the studio switches to the Release profile (review point 7).
+            Assert.AreEqual(GatePhase.ReleaseShip, GreenlightAdapter.RequestedPhaseFor(true));
+            Assert.AreEqual(GatePhase.QaPass, GreenlightAdapter.RequestedPhaseFor(false));
+        }
+
         // ── Adapter: Build Health row-class → observation ─────────────────
 
         [Test]
