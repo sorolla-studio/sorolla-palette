@@ -124,6 +124,16 @@ row, never an Error - existing checks (Adjust token, etc.) keep their current se
   throw on an unknown verdict instead of defaulting to a green `HEALTHY`, so a future state cannot
   leak a false-green through the copy-report path.
 
+### Documentation
+- **TikTok marked parked across the public docs**: TikTok is not part of the active vendor set (no
+  current title uses it), but the adapter still ships and the `SorollaConfig` TikTok fields remain for
+  existing configs. Every doc that presented TikTok as a normal integration step now carries a
+  consistent "parked" marker pointing at `guides/tiktok.md` (guide banner, `guides/toc.yml` label,
+  `index.md`, `switching-to-full.md`, `dashboard-setup.md`, `validation.md`, `quick-start.md`). Nothing
+  removed: parked is not deprecated and not removed. The generated `api-reference.md` TikTok config
+  fields are unchanged here because that file is generated from source XML comments; marking them
+  belongs in the source tooltips + a docs regen.
+
 ## [3.18.3] - 2026-07-08
 
 Editor UI overhaul on top of 3.18.2. Editor-side: the Palette window (SorollaWindow) is fully rebuilt on UI Toolkit with a shared design-token system; runtime-side changes are confined to the debug console overlay's draw code/theme (no init, consent, analytics, ads, or QA-bridge logic touched). Design pass reviewed and accepted screen-by-screen by Arthur on 2026-07-08.

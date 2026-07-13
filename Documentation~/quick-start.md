@@ -116,7 +116,7 @@ Confirm:
 - Firebase is installed and config files are present.
 - **Build Health** has no blocking issues.
 
-Keep Prototype mode lean. Do not configure MAX, Adjust, TikTok, IAP, consent, or store privacy yet.
+Keep Prototype mode lean. Do not configure MAX, Adjust, IAP, consent, or store privacy yet.
 
 ---
 

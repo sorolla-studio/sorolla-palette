@@ -17,7 +17,7 @@ Before touching any dashboard, get these from the studio:
 | Test APK/AAB (Android) | - | Signed with debug or release key |
 | Test IPA / TestFlight build (iOS) | - | For on-device QA |
 | Android debug key hash | SHA-1 from `keytool` | Needed for Facebook Android |
-| TikTok credentials (optional) | App ID + EM App ID + Access Token, per platform | Skip if no TikTok campaign tracking |
+| TikTok credentials (parked, optional) | App ID + EM App ID + Access Token, per platform | TikTok is a parked vendor; skip unless the studio already runs a TikTok setup |
 | Studio contact for dashboard invites | email | They'll receive admin invites |
 
 **Lock the package name and bundle ID before proceeding.** Firebase, Facebook, AppLovin ad units, and Play-linked Crashlytics all depend on exact identifier matches. Changing it later means recreating every vendor app.
@@ -117,7 +117,10 @@ Purchase dashboard note:
 
 ---
 
-### 6. TikTok
+### 6. TikTok (parked)
+
+> **Parked vendor.** TikTok is not part of the active vendor set (see [TikTok Setup](guides/tiktok.md)).
+> Skip this section unless the game already has a TikTok configuration to preserve.
 
 **Dashboard:** TikTok Events Manager ([ads.tiktok.com](https://ads.tiktok.com))
 

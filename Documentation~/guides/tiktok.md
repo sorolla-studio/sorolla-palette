@@ -1,5 +1,10 @@
 # TikTok Setup
 
+> **Parked vendor.** TikTok is not part of the active vendor set as of 2026-06 and is not a normal
+> integration step. No current Sorolla title uses it. The adapter still ships and the `SorollaConfig`
+> TikTok fields remain, so an existing TikTok configuration keeps working. This guide stays for
+> studios that already have a TikTok setup; new integrations can skip it.
+
 Event tracking for TikTok ad campaigns.
 
 > TikTok is **mode-independent**. It activates when config fields are populated, regardless of Prototype/Full mode.

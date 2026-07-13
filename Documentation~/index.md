@@ -56,7 +56,7 @@ Use these only when you need dashboard-level detail:
 - [Firebase](guides/firebase.md)
 - [AppLovin MAX Ads](guides/ads.md)
 - [Adjust Attribution](guides/adjust.md)
-- [TikTok](guides/tiktok.md)
+- [TikTok](guides/tiktok.md) (parked, not part of the active vendor set)
 - [GDPR / ATT Consent](guides/gdpr.md)
 
 ## Self-serve integration QA

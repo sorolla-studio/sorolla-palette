@@ -29,8 +29,8 @@ Start only after the [Prototype Checklist](quick-start.md#prototype-checklist) p
 
 ### Identifier Lock
 
-- [ ] Unity Android package name matches Google Play, Firebase, Facebook, AppLovin MAX, Adjust, and TikTok if used.
-- [ ] Unity iOS bundle ID matches App Store Connect, Firebase, Facebook, AppLovin MAX, Adjust, and TikTok if used.
+- [ ] Unity Android package name matches Google Play, Firebase, Facebook, AppLovin MAX, Adjust, and TikTok (parked) if a TikTok setup is already configured.
+- [ ] Unity iOS bundle ID matches App Store Connect, Firebase, Facebook, AppLovin MAX, Adjust, and TikTok (parked) if a TikTok setup is already configured.
 - [ ] Ad unit IDs belong to the same app and platform as the Unity build.
 - [ ] Adjust app tokens belong to the same app and platform as the Unity build.
 
@@ -44,7 +44,7 @@ If any identifier points to a different app, stop and fix the dashboard before t
 - [ ] AppLovin MAX SDK Key and ad unit IDs are configured.
 - [ ] Adjust App Token and Purchase Event Token are configured.
 - [ ] `adjustSandboxMode` is **true** during QA.
-- [ ] TikTok fields are configured only if TikTok campaign tracking is needed.
+- [ ] TikTok fields are configured only for an existing parked TikTok setup (see the [TikTok guide](guides/tiktok.md)); TikTok is not part of the active vendor set.
 
 ### Game Code
 
