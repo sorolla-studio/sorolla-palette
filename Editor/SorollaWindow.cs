@@ -337,8 +337,10 @@ namespace Sorolla.Palette.Editor
             // dispatch, and the re-attach fired ChangeEvent/SerializedPropertyChangeEvent straight back into the
             // callback (depth-501 storm). A display-only toggle dispatches no SerializedPropertyChangeEvent, and
             // the transition guard makes even repeated same-state events inert.
+            // Plain, jargon-free copy per the studio-facing UX rule (no verdict/contract terms in the default
+            // view): say what to do, not "gates INCOMPLETE".
             var undeclaredWarning = new HelpBox(
-                "Distribution platforms undeclared - device/QA gates stay INCOMPLETE until you declare where this game ships.",
+                "Set where this game ships (below) so QA can check the right platform's on-device tests.",
                 HelpBoxMessageType.Warning);
             _configContainer.Add(undeclaredWarning);
             bool prevUndeclared = _serializedConfig.FindProperty("distributionPlatforms").intValue == 0;
