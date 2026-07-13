@@ -19,6 +19,7 @@ namespace Sorolla.Palette.Editor.Greenlight
         {
             Healthy,
             Issues,
+            Incomplete,
             Failing,
         }
 
@@ -46,16 +47,39 @@ namespace Sorolla.Palette.Editor.Greenlight
         }
 
         /// <summary>
-        ///     Same verdict semantics as Sorolla Vitals (FAILING / n ISSUES / HEALTHY) - the two
-        ///     surfaces speak one language, see the studio-self-serve-greenlight plan.
+        ///     Four-state verdict label (FAILING / INCOMPLETE / n ISSUES / HEALTHY). INCOMPLETE means
+        ///     required evidence is missing, stale, or unverifiable - the report cannot honestly claim
+        ///     HEALTHY, so it must never render green (the false-green this evaluator was hardened
+        ///     against). Sorolla Vitals is a separate surface; keep its wording in step when it gains
+        ///     the same state.
         /// </summary>
         internal static string VerdictLabel(Verdict verdict, int failCount, int warnCount)
         {
             switch (verdict)
             {
                 case Verdict.Failing: return "FAILING";
+                case Verdict.Incomplete: return "INCOMPLETE";
                 case Verdict.Issues: return $"{failCount + warnCount} ISSUES";
                 default: return "HEALTHY";
+            }
+        }
+
+        /// <summary>
+        ///     Verdict → badge severity. INCOMPLETE maps to the non-green Wait pill: missing evidence
+        ///     must look unresolved, not passing. No permissive default arm - a future verdict state
+        ///     throws here (fails loud) rather than silently rendering green.
+        /// </summary>
+        internal static StatusBadge.Severity BadgeSeverity(Verdict verdict)
+        {
+            switch (verdict)
+            {
+                case Verdict.Failing: return StatusBadge.Severity.Fail;
+                case Verdict.Incomplete: return StatusBadge.Severity.Wait;
+                case Verdict.Issues: return StatusBadge.Severity.Advisory;
+                case Verdict.Healthy: return StatusBadge.Severity.Pass;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(verdict), verdict, "Unhandled greenlight verdict - add a badge severity mapping.");
             }
         }
 
@@ -212,7 +236,7 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         // ── Verdict ────────────────────────────────────────────────────
 
-        static void ComputeVerdict(Report report)
+        internal static void ComputeVerdict(Report report)
         {
             foreach (Row row in report.Rows)
             {
@@ -226,11 +250,24 @@ namespace Sorolla.Palette.Editor.Greenlight
                 }
             }
 
+            // Precedence FAIL > INCOMPLETE > ISSUES > HEALTHY. Missing/stale/unverifiable required
+            // evidence OUTRANKS warnings: a report cannot be "just issues" while a required gate has
+            // never produced evidence. Interim "required" definition is deliberately a broad safety
+            // floor - ANY Wait row (Build Health not run, a probe pending/unverifiable, a device
+            // snapshot that came back NoDevice/Unreachable, an unticked manual gate) plus the
+            // zero-rows case (nothing evaluated at all) forces INCOMPLETE. Info stays neutral by
+            // policy: the device-not-connected row is Info and optional-by-design, so it does not
+            // itself block HEALTHY - the unticked manual gates (Wait) already do. Cycle 4 replaces
+            // this floor with a per-row required/proof-scope model on the shared contract.
+            bool missingRequiredEvidence = report.Rows.Count == 0 || report.WaitCount > 0;
+
             report.Verdict = report.FailCount > 0
                 ? Verdict.Failing
-                : report.WarnCount > 0
-                    ? Verdict.Issues
-                    : Verdict.Healthy;
+                : missingRequiredEvidence
+                    ? Verdict.Incomplete
+                    : report.WarnCount > 0
+                        ? Verdict.Issues
+                        : Verdict.Healthy;
         }
 
         /// <summary>Plain-text report for the "Copy greenlight report" button - pasteable into chat.</summary>

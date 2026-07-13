@@ -967,12 +967,7 @@ namespace Sorolla.Palette.Editor
             headerSpacer.style.flexGrow = 1;
             headerRow.Add(headerSpacer);
 
-            StatusBadge.Severity badgeSeverity = report.Verdict switch
-            {
-                GreenlightEvaluator.Verdict.Failing => StatusBadge.Severity.Fail,
-                GreenlightEvaluator.Verdict.Issues => StatusBadge.Severity.Advisory,
-                _ => StatusBadge.Severity.Pass,
-            };
+            StatusBadge.Severity badgeSeverity = GreenlightEvaluator.BadgeSeverity(report.Verdict);
             headerRow.Add(StatusBadge.Create(GreenlightEvaluator.VerdictLabel(report.Verdict, report.FailCount, report.WarnCount), badgeSeverity));
 
             _greenlightContainer.Add(headerRow);

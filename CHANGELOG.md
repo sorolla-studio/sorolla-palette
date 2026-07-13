@@ -93,6 +93,19 @@ row, never an Error - existing checks (Adjust token, etc.) keep their current se
 - **Adjust resolved version info row** (when Adjust is installed): surfaces the version resolved into
   `Library/PackageCache` as an informational row. Skew judgment stays human - this never warns.
 
+### Changed
+- **Greenlight verdict is now four-state - closes the false-green class**: the verdict adds
+  `INCOMPLETE` between `N ISSUES` and `FAILING`, with precedence `FAILING` > `INCOMPLETE` >
+  `N ISSUES` > `HEALTHY`. Previously the aggregation only reacted to failing and warning rows, and
+  the badge fell through to a green default, so a report with no evidence at all (every gate pending
+  or unticked, or no rows evaluated) rendered a green `HEALTHY`. Now any missing, pending, or
+  unverifiable required evidence - a probe that never ran, a device snapshot that never connected, an
+  unticked manual gate, or an empty report - forces a non-green `INCOMPLETE` that outranks warnings.
+  A fresh report (nothing checked yet) reads `INCOMPLETE`, not `HEALTHY`. Interim scope: "required" is
+  a deliberately broad safety floor (any `wait` row or zero rows); `info` rows stay neutral, so the
+  optional device-snapshot-not-connected row does not by itself block `HEALTHY`. A later cycle
+  replaces this floor with a per-row required/proof-scope model on the shared result contract.
+
 ## [3.18.3] - 2026-07-08
 
 Editor UI overhaul on top of 3.18.2. Editor-side: the Palette window (SorollaWindow) is fully rebuilt on UI Toolkit with a shared design-token system; runtime-side changes are confined to the debug console overlay's draw code/theme (no init, consent, analytics, ads, or QA-bridge logic touched). Design pass reviewed and accepted screen-by-screen by Arthur on 2026-07-08.
