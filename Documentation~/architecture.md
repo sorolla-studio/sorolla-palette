@@ -6,7 +6,7 @@ Technical reference for contributors working on the Sorolla SDK.
 
 ## Overview
 
-**Sorolla SDK** is a plug-and-play mobile publisher SDK for Unity. It wraps GameAnalytics, Facebook, AppLovin MAX, Adjust, Firebase, and TikTok behind a unified `Palette` API.
+**Sorolla SDK** is a plug-and-play mobile publisher SDK for Unity. It wraps GameAnalytics, Facebook, AppLovin MAX, Adjust, Firebase, and TikTok (parked compatibility adapter) behind a unified `Palette` API.
 
 ### Design Principles
 

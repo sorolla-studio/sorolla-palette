@@ -154,9 +154,9 @@ How Palette.cs initializes in Full mode:
 2. On MAX initialized callback:
    - Adjust initializes (reads consent state set by MAX)
    - MAX ad loading begins (rewarded, interstitial, banner)
-   - ILRD callback registered (ad revenue -> Adjust + TikTok)
+   - ILRD callback registered (ad revenue -> Adjust, and TikTok only if a parked TikTok config is present)
 3. Firebase initializes (Analytics, Crashlytics, Remote Config)
-4. TikTok initializes (if config fields populated)
+4. TikTok initializes (parked vendor; only if an existing TikTok config is populated)
 5. GameAnalytics initializes
 6. Facebook initializes (if `SOROLLA_FACEBOOK_ENABLED`)
 

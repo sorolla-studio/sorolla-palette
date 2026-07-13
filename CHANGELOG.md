@@ -125,14 +125,18 @@ row, never an Error - existing checks (Adjust token, etc.) keep their current se
   leak a false-green through the copy-report path.
 
 ### Documentation
-- **TikTok marked parked across the public docs**: TikTok is not part of the active vendor set (no
-  current title uses it), but the adapter still ships and the `SorollaConfig` TikTok fields remain for
-  existing configs. Every doc that presented TikTok as a normal integration step now carries a
-  consistent "parked" marker pointing at `guides/tiktok.md` (guide banner, `guides/toc.yml` label,
-  `index.md`, `switching-to-full.md`, `dashboard-setup.md`, `validation.md`, `quick-start.md`). Nothing
-  removed: parked is not deprecated and not removed. The generated `api-reference.md` TikTok config
-  fields are unchanged here because that file is generated from source XML comments; marking them
-  belongs in the source tooltips + a docs regen.
+- **TikTok marked parked across the public docs and config source**: TikTok is not part of the active
+  supported vendor set; compatibility remains for existing integrations. The adapter still ships and the
+  `SorollaConfig` TikTok fields remain, so existing setups keep working. Every doc that presented TikTok
+  as a normal integration step now carries a consistent "parked" marker pointing at `guides/tiktok.md`
+  (guide banner, `guides/toc.yml` label, `index.md`, `switching-to-full.md`, `dashboard-setup.md`
+  including the Full-mode init-order reference, `validation.md`, `quick-start.md`, and the
+  `architecture.md` vendor list). The `SorollaConfig` TikTok field XML doc comments and the inspector
+  `[Header]` are updated to parked wording at the source. Nothing removed: parked is not deprecated and
+  not removed. The generated `api-reference.md` will pick up the parked field wording on the next docs
+  regen; that regen is currently blocked by an unrelated pre-existing compile failure in the docs shadow
+  project (the `Runtime/Diagnostics/*` debug-menu subsystem is not covered by the DocFX reference/exclude
+  set), tracked separately.
 
 ## [3.18.3] - 2026-07-08
 

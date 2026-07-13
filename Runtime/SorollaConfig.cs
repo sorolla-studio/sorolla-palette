@@ -80,22 +80,25 @@ namespace Sorolla.Palette
 
         /// <summary>
         ///     Master switch for TikTok Business SDK integration.
+        ///     Parked vendor: TikTok is not part of the active supported vendor set. The adapter still
+        ///     ships and these fields remain so existing integrations keep working; new integrations
+        ///     should not configure TikTok. See the TikTok guide.
         ///     TikTok is also disabled if <see cref="tiktokAppId"/> is empty for the current platform.
         /// </summary>
-        [Header("TikTok (Optional)")]
+        [Header("TikTok (Parked)")]
         [Tooltip("Enable TikTok Business SDK integration")]
         public bool enableTikTok;
 
 
-        /// <summary>TikTok App ID from Events Manager (long numeric ID). Empty = disabled for that platform.</summary>
+        /// <summary>Parked vendor field. TikTok App ID from Events Manager (long numeric ID). Empty = disabled for that platform.</summary>
         [Tooltip("TikTok App ID from Events Manager (long numeric ID). Leave empty to disable.")]
         public PlatformAdUnitId tiktokAppId;
 
-        /// <summary>TikTok Events Manager App ID (maps to the SDK's <c>appId</c> parameter).</summary>
+        /// <summary>Parked vendor field. TikTok Events Manager App ID (maps to the SDK's <c>appId</c> parameter).</summary>
         [Tooltip("App ID from TikTok Events Manager (maps to SDK appId parameter)")]
         public PlatformAdUnitId tiktokEmAppId;
 
-        /// <summary>TikTok Events Manager Access Token used by the server-side event API.</summary>
+        /// <summary>Parked vendor field. TikTok Events Manager Access Token used by the server-side event API.</summary>
         [Tooltip("App Secret (Access Token) from Events Manager.")]
         public PlatformAdUnitId tiktokAccessToken;
 
