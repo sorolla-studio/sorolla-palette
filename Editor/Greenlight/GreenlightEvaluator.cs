@@ -60,7 +60,12 @@ namespace Sorolla.Palette.Editor.Greenlight
                 case Verdict.Failing: return "FAILING";
                 case Verdict.Incomplete: return "INCOMPLETE";
                 case Verdict.Issues: return $"{failCount + warnCount} ISSUES";
-                default: return "HEALTHY";
+                case Verdict.Healthy: return "HEALTHY";
+                default:
+                    // No permissive default - a future/unknown verdict must fail loud, never export as
+                    // HEALTHY through ToPlainText (the copy-report path). Mirrors BadgeSeverity.
+                    throw new ArgumentOutOfRangeException(
+                        nameof(verdict), verdict, "Unhandled greenlight verdict - add a label mapping.");
             }
         }
 

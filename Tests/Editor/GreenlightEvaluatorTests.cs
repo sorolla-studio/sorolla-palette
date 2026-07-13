@@ -196,5 +196,32 @@ namespace Sorolla.Palette.Editor.Tests
         {
             Assert.AreEqual("INCOMPLETE", GreenlightEvaluator.VerdictLabel(GreenlightEvaluator.Verdict.Incomplete, 0, 0));
         }
+
+        [Test]
+        public void VerdictLabel_MapsEveryVerdictExplicitly()
+        {
+            Assert.AreEqual("HEALTHY", GreenlightEvaluator.VerdictLabel(GreenlightEvaluator.Verdict.Healthy, 0, 0));
+            Assert.AreEqual("2 ISSUES", GreenlightEvaluator.VerdictLabel(GreenlightEvaluator.Verdict.Issues, 1, 1));
+            Assert.AreEqual("INCOMPLETE", GreenlightEvaluator.VerdictLabel(GreenlightEvaluator.Verdict.Incomplete, 0, 0));
+            Assert.AreEqual("FAILING", GreenlightEvaluator.VerdictLabel(GreenlightEvaluator.Verdict.Failing, 0, 0));
+        }
+
+        [Test]
+        public void VerdictLabel_UnknownVerdict_ThrowsInsteadOfHealthy()
+        {
+            // R2-01: the label had a permissive `default: return "HEALTHY"` - an unknown verdict must
+            // fail loud, not silently read HEALTHY.
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => GreenlightEvaluator.VerdictLabel((GreenlightEvaluator.Verdict)999, 0, 0));
+        }
+
+        [Test]
+        public void ToPlainText_UnknownVerdict_ThrowsInsteadOfExportingHealthy()
+        {
+            // The copy-report export goes through VerdictLabel; an unknown verdict must not export as
+            // a green HEALTHY header.
+            var report = new GreenlightEvaluator.Report { Verdict = (GreenlightEvaluator.Verdict)999 };
+            Assert.Throws<ArgumentOutOfRangeException>(() => GreenlightEvaluator.ToPlainText(report));
+        }
     }
 }

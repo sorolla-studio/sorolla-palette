@@ -10,7 +10,7 @@ Read this once per game repo before running QA. It assumes the SDK is already in
 
 **Editor menu: Palette > Configuration**, then the **Greenlight** section.
 
-It composes six evidence classes into one mechanical verdict — the verdict is the source of truth, not this doc's description of it:
+It composes six evidence classes into one mechanical status — read the live status in the window, not this doc's paraphrase of what it checks (the checks evolve; this list can lag). Remember it is an interim self-check, not a final release verdict:
 
 1. **Build Health** — ~24 static checks (mode, sandbox/dev flags, vendor config files present, keystore, manifest, SDK pin). Errors and warnings roll up into one summary row; expand the section for the individual rows.
 2. **Editor probes** — live network calls that verify credentials against the vendor's own API, not just "a config file exists." Currently: Facebook Graph API platform probe, GameAnalytics credential probe. Each probe row states what it proved and what it didn't (see [dashboards/](dashboards/) for the scope of each).

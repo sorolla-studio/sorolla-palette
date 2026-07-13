@@ -109,6 +109,9 @@ row, never an Error - existing checks (Adjust token, etc.) keep their current se
   (any `wait` row, or no affirmative evidence) that stops the false-green until a later cycle lands
   the canonical per-row required/proof-scope requirement table. `info` is not a mechanism for
   silently excluding a requirement - that is the requirement table's job, not this floor's.
+  Both the badge severity and the verdict label/plain-text export now map every state explicitly and
+  throw on an unknown verdict instead of defaulting to a green `HEALTHY`, so a future state cannot
+  leak a false-green through the copy-report path.
 
 ## [3.18.3] - 2026-07-08
 
