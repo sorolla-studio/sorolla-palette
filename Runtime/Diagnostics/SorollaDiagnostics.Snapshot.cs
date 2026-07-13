@@ -50,6 +50,7 @@ namespace Sorolla.Palette
                     RemoteConfigFetchSuccess = s_remoteConfigFetchSuccess,
                     RemoteConfigDetail = s_remoteConfigDetail,
                     PurchaseTrackingAttached = s_purchaseTrackingAttached,
+                    PurchaseAttachAttempted = s_purchaseAttachAttempted,
                     PurchaseAcceptedCount = s_purchaseAcceptedCount,
                     PurchaseDuplicateCount = s_purchaseDuplicateCount,
                     PurchaseIssue = s_purchaseIssue,
@@ -120,6 +121,7 @@ namespace Sorolla.Palette
             {
                 Events = events.ToArray(),
                 IapTrackingAttached = snap.PurchaseTrackingAttached,
+                IapAttachAttempted = snap.PurchaseAttachAttempted,
                 IapPurchaseCount = snap.PurchaseAcceptedCount,
                 IapDuplicateCount = snap.PurchaseDuplicateCount,
                 IapVerification = snap.PurchaseVerification,

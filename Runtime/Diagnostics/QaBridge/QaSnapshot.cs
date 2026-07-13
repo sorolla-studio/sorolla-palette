@@ -132,6 +132,7 @@ namespace Sorolla.Palette
             bool first = true;
             sb.Append('{');
             QaJson.BoolMember(sb, ref first, "tracking_attached", state.IapTrackingAttached);
+            QaJson.BoolMember(sb, ref first, "attach_attempted", state.IapAttachAttempted);
             QaJson.IntMember(sb, ref first, "purchase_count", state.IapPurchaseCount);
             QaJson.IntMember(sb, ref first, "duplicate_count", state.IapDuplicateCount);
             QaJson.StringMember(sb, ref first, "verification", state.IapVerification);

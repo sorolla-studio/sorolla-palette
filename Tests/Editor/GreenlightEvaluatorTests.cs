@@ -187,12 +187,14 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void NonShippingPlatform_DeviceAndStoreGates_AreNotApplicableWithReason()
         {
-            // F2: building Android for an iOS-only game - Android device/store gates are NotApplicable WITH a
-            // recorded reason (we don't validate a store the game does not ship on), never silently Required.
+            // F2/B2: building Android for a game that ships and sells only on iOS - Android device gates
+            // (distribution) and store gate (commerce) are both NotApplicable WITH a recorded reason, never
+            // silently Required.
             var ctx = new EvaluationContext
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
-                InstalledModules = SdkModule.UnityIap, IntendedTargets = DistributionTargets.iOS,
+                InstalledModules = SdkModule.UnityIap,
+                IntendedTargets = DistributionTargets.iOS, CommerceTargets = DistributionTargets.iOS,
                 RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
             };
             HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, new List<GateObservation>());
@@ -211,7 +213,8 @@ namespace Sorolla.Palette.Editor.Tests
             var ctx = new EvaluationContext
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
-                InstalledModules = SdkModule.UnityIap, IntendedTargets = DistributionTargets.Android,
+                InstalledModules = SdkModule.UnityIap,
+                IntendedTargets = DistributionTargets.Android, CommerceTargets = DistributionTargets.Android,
                 RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
             };
             // Store config attested at its vendor scope; NOTHING supplied for the wiring gate.
@@ -248,6 +251,64 @@ namespace Sorolla.Palette.Editor.Tests
                 Snapshot = new Dictionary<string, object> { ["snapshot_schema"] = "999" },
             };
             Assert.IsNull(GreenlightDeviceSnapshot.TrackingAttachedObservation(state));
+        }
+
+        // ── C2: tracking scenario provenance (attempted vs not-run) ───────
+
+        // Builds a parsed snapshot whose identity matches the ambient project so TrackingAttachedObservation
+        // passes the identity gate. Ignores when the ambient build target/mode can't produce a match.
+        static GreenlightDeviceSnapshot.State AmbientTrackingSnapshot(bool attached, bool attempted)
+        {
+            string platform = EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android ? "Android"
+                : EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS ? "IPhonePlayer" : null;
+            string mode = SorollaSettings.Mode == SorollaMode.Full ? "full"
+                : SorollaSettings.Mode == SorollaMode.Prototype ? "prototype" : null;
+            if (platform == null || mode == null)
+                Assert.Ignore("C2 tracking-provenance test needs an Android/iOS target and a configured mode (ambient).");
+            return new GreenlightDeviceSnapshot.State
+            {
+                Phase = GreenlightDeviceSnapshot.Phase.Done,
+                Outcome = GreenlightDeviceSnapshot.Outcome.Parsed,
+                Snapshot = new Dictionary<string, object>
+                {
+                    ["snapshot_schema"] = "1",
+                    ["mode"] = mode,
+                    ["build"] = new Dictionary<string, object>
+                    {
+                        ["application_id"] = UnityEngine.Application.identifier, ["platform"] = platform,
+                        ["app_version"] = UnityEngine.Application.version, ["build_guid"] = "test-guid",
+                    },
+                    ["iap"] = new Dictionary<string, object>
+                    {
+                        ["tracking_attached"] = attached, ["attach_attempted"] = attempted,
+                    },
+                },
+            };
+        }
+
+        [Test]
+        public void Tracking_Wired_IsPass()
+        {
+            GateObservation obs = GreenlightDeviceSnapshot.TrackingAttachedObservation(AmbientTrackingSnapshot(attached: true, attempted: true));
+            Assert.AreEqual(GateOutcome.Pass, obs.Outcome);
+            Assert.AreEqual(ProofScope.DeviceDispatch, obs.ObservedProof);
+        }
+
+        [Test]
+        public void Tracking_AttemptedButNotWired_IsFail()
+        {
+            // C2: the store-init scenario ran (attach_attempted) but tracking is not wired → a real FAIL, not
+            // the conservative INCOMPLETE used before the scenario runs.
+            GateObservation obs = GreenlightDeviceSnapshot.TrackingAttachedObservation(AmbientTrackingSnapshot(attached: false, attempted: true));
+            Assert.AreEqual(GateOutcome.Fail, obs.Outcome);
+        }
+
+        [Test]
+        public void Tracking_ScenarioNotRun_IsIncomplete()
+        {
+            // Not wired AND the attach scenario never ran → INCOMPLETE (nothing exercised yet), not FAIL.
+            GateObservation obs = GreenlightDeviceSnapshot.TrackingAttachedObservation(AmbientTrackingSnapshot(attached: false, attempted: false));
+            Assert.AreEqual(GateOutcome.Incomplete, obs.Outcome);
         }
 
         // ── C4-03: build/game identity binding ────────────────────────────

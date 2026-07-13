@@ -91,13 +91,15 @@ namespace Sorolla.Palette.Health
     }
 
     /// <summary>
-    ///     The store platforms a game DECLARES it ships to (F1/F2 - Arthur's one-store decision). This is
-    ///     distinct from the single active <see cref="EvalPlatform"/> the editor is currently building for:
-    ///     a game may ship to only one store and must be testable on only that platform. Applicability of the
-    ///     device/store gates is decided against THIS set (is the active platform an intended target?), NOT
-    ///     against which evidence COLLECTOR happens to exist - a missing collector on an intended platform is
-    ///     an INCOMPLETE capability gap, never a NotApplicable exemption. <c>None</c> means undeclared and
-    ///     fails closed (→ Unknown → INCOMPLETE); a studio must declare its targets.
+    ///     A set of declared target store platforms (F1/F2/B2 - Arthur's one-store decision). Distinct from the
+    ///     single active <see cref="EvalPlatform"/> the editor is building for: a game may ship to one store and
+    ///     be testable on only that platform. Used on the context for TWO independent axes - distribution
+    ///     (<see cref="EvaluationContext.IntendedTargets"/>, drives device gates) and commerce
+    ///     (<see cref="EvaluationContext.CommerceTargets"/>, drives the store-config gate) - because a game can
+    ///     ship its app on one platform while selling IAP on another. Applicability is decided against the
+    ///     relevant set (is the active platform in it?), NOT against which evidence COLLECTOR exists - a missing
+    ///     collector on an intended platform is an INCOMPLETE capability gap, never a NotApplicable exemption.
+    ///     <c>None</c> means undeclared and fails closed (→ Unknown → INCOMPLETE).
     /// </summary>
     [Flags]
     internal enum DistributionTargets
@@ -186,11 +188,16 @@ namespace Sorolla.Palette.Health
         public EvalMode Mode;
         public EvalPlatform Platform;
         public SdkModule InstalledModules;
-        /// <summary>The store platforms this game declares it ships to (F1/F2). Applicability of the
-        /// device/store gates is decided against this set, not against collector availability. Defaults
+        /// <summary>The store platforms this game declares it is DISTRIBUTED on (F1/F2). Applicability of the
+        /// device gates is decided against this set, not against collector availability. Defaults
         /// <see cref="DistributionTargets.None"/> = undeclared, which the predicates fail closed to Unknown →
         /// INCOMPLETE. A producer that can read the studio's release-target declaration sets it.</summary>
         public DistributionTargets IntendedTargets;
+        /// <summary>The store platforms this game declares it SELLS in-app purchases on (B2). Distinct from
+        /// <see cref="IntendedTargets"/>: the store-config gate keys on THIS set, so a game distributing on
+        /// Android but selling IAP only on iOS makes the Android store gate NotApplicable (not Required). Defaults
+        /// <see cref="DistributionTargets.None"/> = undeclared, failing the store gate closed to INCOMPLETE.</summary>
+        public DistributionTargets CommerceTargets;
         /// <summary>The phase this report is for (review C3-03). The evaluator - not the caller - selects the
         /// definitions that belong to this phase. A single defined phase bit is expected.</summary>
         public GatePhase RequestedPhase;

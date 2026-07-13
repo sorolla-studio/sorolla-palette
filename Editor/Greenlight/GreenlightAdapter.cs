@@ -90,9 +90,11 @@ namespace Sorolla.Palette.Editor.Greenlight
                 Platform = ToEvalPlatform(EditorUserBuildSettings.activeBuildTarget),
                 InstalledModules = modules,
                 ModulesResolved = resolved,
-                // Studio-declared release targets (F2). Undeclared (None) fails the device/store gates closed
-                // to INCOMPLETE - applicability is NOT inferred from which packages happen to be installed.
+                // Studio-declared targets (B2). Distribution drives device gates, commerce drives the store
+                // gate; undeclared (None) fails them closed to INCOMPLETE - applicability is NOT inferred from
+                // which packages happen to be installed.
                 IntendedTargets = SorollaSettings.IntendedTargets,
+                CommerceTargets = SorollaSettings.CommerceTargets,
                 // Follow the active Build Health profile (the "Validation Profile" QaPass/Release selector in
                 // the window, SorollaWindow's Build Health section) so ReleaseShip-tagged gates are reachable
                 // under Release and a profile-"Skipped" check maps to the right phase, not hard-coded QaPass.
@@ -107,12 +109,13 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         /// <summary>
         ///     Records a scoped attestation for a manual gate against the current build identity + gate version
-        ///     + active phase + required proof scope, plus the human evidence note and (for device-session
-        ///     gates) the connected build GUID (the greenlight "Attest" action, C45-06/05). Returns false if
-        ///     the gate is unknown, a device gate has no connected build to bind to, or a vendor gate has no
-        ///     evidence note - the affirmation must be honest.
+        ///     + active phase + required proof scope, plus the tester identity, the human evidence note and (for
+        ///     device-session gates) the connected build GUID (the greenlight "Attest" action, C45-06/05/C1).
+        ///     <paramref name="actor"/> is the exported tester identity - null/blank falls back to the machine
+        ///     username. Returns false if the gate is unknown, a device gate has no connected build to bind to,
+        ///     or a vendor gate has no evidence note - the affirmation must be honest.
         /// </summary>
-        internal static bool AttestManualGate(string gateId, string evidenceNote, string deviceBuildGuid)
+        internal static bool AttestManualGate(string gateId, string actor, string evidenceNote, string deviceBuildGuid)
         {
             GateDefinition def = GateCatalog.Canonical.ById(gateId, throwIfMissing: false);
             if (def == null) return false;
@@ -129,7 +132,7 @@ namespace Sorolla.Palette.Editor.Greenlight
                 gateId = gateId,
                 gateVersion = def.Version,
                 phase = RequestedPhaseFor(BuildValidationProfileSettings.IsRelease).ToString(),
-                actor = Environment.UserName,
+                actor = string.IsNullOrWhiteSpace(actor) ? Environment.UserName : actor.Trim(),
                 timestampUtc = DateTime.UtcNow.ToString("o"),
                 applicationId = id.ApplicationId,
                 platform = id.Platform,

@@ -91,6 +91,10 @@ namespace Sorolla.Palette
         static string s_remoteConfigDetail = "Not observed yet";
 
         static bool s_purchaseTrackingAttached;
+        // Whether Palette.AttachPurchaseTracking ran this session AT ALL (wired, or skipped on null/duplicate) -
+        // scenario provenance (C2): distinguishes "store-init scenario not run" from "ran but not wired", so a
+        // parsed not-wired result AFTER the scenario ran can FAIL instead of collapsing to INCOMPLETE.
+        static bool s_purchaseAttachAttempted;
         static int s_purchaseAcceptedCount;
         static int s_purchaseDuplicateCount;
         static string s_purchaseIssue = "No issue observed";
@@ -486,6 +490,7 @@ namespace Sorolla.Palette
             public bool RemoteConfigFetchSuccess;
             public string RemoteConfigDetail;
             public bool PurchaseTrackingAttached;
+            public bool PurchaseAttachAttempted;
             public int PurchaseAcceptedCount;
             public int PurchaseDuplicateCount;
             public string PurchaseIssue;

@@ -230,9 +230,11 @@ namespace Sorolla.Palette.Health
                     Mode = mode,
                     Platform = platform,
                     InstalledModules = HealthEnums.AllModuleBits,
-                    // Both stores declared so the active platform is always an intended target: this makes the
-                    // target-gated device/store gates reachable (Required/Optional) in the reachability check.
+                    // Both stores declared for BOTH axes so the active platform is always a distribution and a
+                    // commerce target: this makes the target-gated device and store gates reachable
+                    // (Required/Optional) in the reachability check.
                     IntendedTargets = HealthEnums.AllTargetBits,
+                    CommerceTargets = HealthEnums.AllTargetBits,
                     RequestedPhase = GatePhase.QaPass,
                 });
             return contexts;
@@ -368,14 +370,16 @@ namespace Sorolla.Palette.Health
                 ? Opt("device fact on an intended release platform")
                 : Na("active platform is not an intended release target");
 
-        // ── F2: store config is Required only when Unity IAP is installed AND the active platform is an
-        // intended commerce/release target; else NotApplicable (or Unknown when targets are undeclared). ──
+        // ── F2/B2: store config is Required only when Unity IAP is installed AND the active platform is a
+        // declared COMMERCE target (distinct from distribution: a game can ship the app on Android but sell IAP
+        // only on iOS). Keys on CommerceTargets, not IntendedTargets. NotApplicable when the active platform
+        // sells no IAP; Unknown when commerce targets are undeclared. ──
         internal static readonly Func<EvaluationContext, RequirementDecision> IapStoreConfiguredRequirement = ctx =>
             (ctx.InstalledModules & SdkModule.UnityIap) == 0 ? Na("Unity IAP not installed")
-            : ctx.IntendedTargets == DistributionTargets.None ? Unk("intended release targets are not declared")
+            : ctx.CommerceTargets == DistributionTargets.None ? Unk("commerce (IAP) targets are not declared")
             : ctx.Platform == EvalPlatform.Unknown ? Unk("build platform is unknown")
-            : HealthEnums.TargetsInclude(ctx.IntendedTargets, ctx.Platform)
-                ? Req("Unity IAP installed and active platform is an intended commerce target")
-                : Na("active platform is not an intended commerce target");
+            : HealthEnums.TargetsInclude(ctx.CommerceTargets, ctx.Platform)
+                ? Req("Unity IAP installed and active platform is a declared commerce target")
+                : Na("active platform is not a declared commerce target");
     }
 }

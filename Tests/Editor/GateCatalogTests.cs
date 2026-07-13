@@ -14,11 +14,12 @@ namespace Sorolla.Palette.Editor.Tests
     public class GateCatalogTests
     {
         static EvaluationContext Ctx(EvalMode mode, EvalPlatform platform, SdkModule modules = SdkModule.None,
-            DistributionTargets targets = HealthEnums.AllTargetBits) =>
+            DistributionTargets targets = HealthEnums.AllTargetBits,
+            DistributionTargets commerce = HealthEnums.AllTargetBits) =>
             new EvaluationContext
             {
                 Mode = mode, Platform = platform, InstalledModules = modules, IntendedTargets = targets,
-                RequestedPhase = GatePhase.QaPass,
+                CommerceTargets = commerce, RequestedPhase = GatePhase.QaPass,
             };
 
         static Requirement ReqOf(string gateId, EvaluationContext ctx) =>
@@ -204,22 +205,24 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
-        public void IapStoreGate_RequiredWhenIapInstalledAndPlatformIsTarget_NotApplicableOtherwise()
+        public void IapStoreGate_KeysOnCommerceTargets_NotDistribution()
         {
-            // F2: store config is Required only when Unity IAP is installed AND the active platform is an
-            // intended commerce target. A game shipping on only one store is never forced to prove the other.
+            // B2: store config is Required only when Unity IAP is installed AND the active platform is a
+            // declared COMMERCE target - independent of distribution. A game distributing its app on Android
+            // (distribution=Android) while selling IAP only on iOS (commerce=iOS) has a NotApplicable Android
+            // store gate, even though its Android device gates apply.
             Assert.AreEqual(Requirement.Required, ReqOf(GateIds.IapStoreConfigured,
-                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap, DistributionTargets.Android)));
-            // installed, but the active platform is not a declared target → NotApplicable with a reason.
-            Requirement offTarget = GateCatalog.Canonical.ById(GateIds.IapStoreConfigured)
-                .Requirement(Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap, DistributionTargets.iOS)).Value;
-            Assert.AreEqual(Requirement.NotApplicable, offTarget);
-            // Unity IAP absent → NotApplicable regardless of platform/targets.
+                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap, targets: DistributionTargets.Android, commerce: DistributionTargets.Android)));
+            // app ships on Android but sells IAP only on iOS → Android store gate NotApplicable with a reason.
+            Requirement shipsAndroidSellsIos = GateCatalog.Canonical.ById(GateIds.IapStoreConfigured)
+                .Requirement(Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap, targets: DistributionTargets.Android, commerce: DistributionTargets.iOS)).Value;
+            Assert.AreEqual(Requirement.NotApplicable, shipsAndroidSellsIos);
+            // Unity IAP absent → NotApplicable regardless of commerce.
             Assert.AreEqual(Requirement.NotApplicable, ReqOf(GateIds.IapStoreConfigured,
-                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.None, DistributionTargets.Android)));
-            // installed + on-target but targets undeclared → Unknown (fail closed), not a silent skip.
+                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.None, commerce: DistributionTargets.Android)));
+            // installed + on-platform but commerce undeclared → Unknown (fail closed), not a silent skip.
             Assert.AreEqual(Requirement.Unknown, ReqOf(GateIds.IapStoreConfigured,
-                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap, DistributionTargets.None)));
+                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap, commerce: DistributionTargets.None)));
             Assert.AreEqual(ProofScope.VendorAccepted, GateCatalog.Canonical.ById(GateIds.IapStoreConfigured).RequiredProof);
         }
 

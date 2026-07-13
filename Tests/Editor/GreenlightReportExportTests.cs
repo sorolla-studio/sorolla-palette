@@ -57,9 +57,23 @@ namespace Sorolla.Palette.Editor.Tests
             StringAssert.Contains("fingerprint", json);
             StringAssert.Contains("device-guid-xyz", json);
             StringAssert.Contains(Sorolla.Palette.Palette.SdkVersion, json);
+            StringAssert.Contains("sdk_commit", json);          // B3: exact-source provenance field present
+            StringAssert.Contains("distribution_targets", json); // B2: both target axes exported
+            StringAssert.Contains("commerce_targets", json);
             StringAssert.Contains("required_proof", json);
             StringAssert.Contains("disposition", json);
             StringAssert.Contains("requirement_reason", json);
+        }
+
+        [Test]
+        public void Fingerprint_ResolvesAConcreteSdkCommit()
+        {
+            // B3: the export must carry the exact source commit (or an honest "unknown"), never imply 4.0.0
+            // identifies the build. In this embedded package it resolves to a real hash.
+            string commit = SdkProvenance.ResolveSdkCommit();
+            Assert.IsFalse(string.IsNullOrEmpty(commit));
+            var fp = GreenlightReportExport.Fingerprint.Capture(MixedContext(), null);
+            Assert.AreEqual(commit, fp.SdkCommit);
         }
 
         [Test]

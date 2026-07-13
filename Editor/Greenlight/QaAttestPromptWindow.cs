@@ -19,6 +19,7 @@ namespace Sorolla.Palette.Editor.Greenlight
         bool _noteRequired;
         bool _deviceGate;
         string _note = "";
+        string _tester = "";
         Action _onDone;
 
         internal static void Show(GreenlightManualChecklist.Descriptor descriptor, string deviceBuildGuid, Action onDone)
@@ -32,8 +33,9 @@ namespace Sorolla.Palette.Editor.Greenlight
             window._deviceBuildGuid = deviceBuildGuid;
             window._noteRequired = (required & ProofScope.VendorAccepted) != 0;
             window._deviceGate = (required & ProofScope.DeviceDispatch) != 0;
+            window._tester = Environment.UserName; // default; editable, exported (C1)
             window._onDone = onDone;
-            window.minSize = new Vector2(480, 300);
+            window.minSize = new Vector2(480, 340);
             window.ShowUtility();
         }
 
@@ -42,7 +44,9 @@ namespace Sorolla.Palette.Editor.Greenlight
             EditorGUILayout.LabelField(_descriptor.Label, EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
                 "This records a HUMAN attestation, not machine-observed proof. Attest only what you actually " +
-                "performed and observed on THIS build. Your name and time are recorded.", MessageType.Warning);
+                "performed and observed on THIS build. The tester name, time, and evidence note below are " +
+                "EXPORTED into the greenlight report (meant for PRs/tickets/chat) - do NOT enter secrets, " +
+                "tokens, private URLs, or personal data.", MessageType.Warning);
 
             EditorGUILayout.LabelField("What to verify:", EditorStyles.miniBoldLabel);
             EditorGUILayout.LabelField(_descriptor.Fix, EditorStyles.wordWrappedLabel);
@@ -58,8 +62,12 @@ namespace Sorolla.Palette.Editor.Greenlight
             }
 
             EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Tester (exported - use a team handle, not personal data):", EditorStyles.miniBoldLabel);
+            _tester = EditorGUILayout.TextField(_tester);
+
+            EditorGUILayout.Space();
             EditorGUILayout.LabelField(
-                _noteRequired ? "Evidence note (required - what you did and observed):" : "Evidence note (optional):",
+                _noteRequired ? "Evidence note (required - what you did and observed; no secrets):" : "Evidence note (optional; no secrets):",
                 EditorStyles.miniBoldLabel);
             _note = EditorGUILayout.TextArea(_note, GUILayout.Height(64));
 
@@ -75,7 +83,7 @@ namespace Sorolla.Palette.Editor.Greenlight
                 {
                     if (GUILayout.Button("I performed this — Attest", GUILayout.Width(200)))
                     {
-                        if (GreenlightAdapter.AttestManualGate(_descriptor.GateId, _note, _deviceBuildGuid))
+                        if (GreenlightAdapter.AttestManualGate(_descriptor.GateId, _tester, _note, _deviceBuildGuid))
                         {
                             _onDone?.Invoke();
                             Close();

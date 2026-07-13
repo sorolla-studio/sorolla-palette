@@ -78,6 +78,9 @@ namespace Sorolla.Palette
         // event aggregation ("purchase" event). Store-init / product-count is deferred: Unity IAP v5
         // games own the StoreController, so that needs a game-side hook (Phase 3), not an SDK surface.
         public bool IapTrackingAttached;
+        // Scenario provenance (C2): AttachPurchaseTracking ran this session (wired or skipped). A device reader
+        // uses this to FAIL a not-wired result only AFTER the wiring scenario was actually attempted.
+        public bool IapAttachAttempted;
         public int IapPurchaseCount;
         public int IapDuplicateCount;
         public string IapVerification;

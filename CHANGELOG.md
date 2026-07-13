@@ -108,6 +108,22 @@ signal it produces, and the fix.
   attestation provenance), plus a build/context fingerprint, so a pasted result is unambiguous about which
   game/build/mode/platform/phase produced it. Affected gate versions are bumped (device gates and
   `iap.store_configured` → v2) so the comparison instrument restarts only their agreement counts.
+- **Commerce/distribution target split, live SDK-commit provenance, and privacy UX (Cycle 5R.1)**: the
+  studio-declared release targets are now TWO curated flags values on `SorollaConfig` -
+  `distributionPlatforms` (where the app ships, drives device gates) and `commercePlatforms` (where IAP
+  sells, drives the store-config gate), replacing the interim per-store booleans. A game distributing on
+  Android while selling IAP only on iOS now has a NotApplicable Android store gate (not Required-deferred),
+  while its Android device gates still apply. Both are surfaced as a "Release Targets" control in the
+  Palette configuration window with an undeclared-state warning, so studios can discover and set this
+  mandatory state without editing the raw asset. The copied report's fingerprint now resolves the EXACT
+  SDK source commit at export time (embedded/local package via git; git-URL package via the resolved
+  lock hash; otherwise an explicit "unknown"), because SDK version `4.0.0` alone cannot identify a
+  development build; both target axes are recorded too. The attest prompt takes an explicit, editable
+  tester identity (defaulting to the machine username) and warns - at entry and at copy time - that the
+  tester name and evidence note are exported into shared reports, so no secrets/tokens/personal data
+  should be entered. `iap.tracking_attached` gains scenario provenance: a parsed snapshot showing tracking
+  not wired now FAILs when the store-init/attach scenario actually ran this session, and stays INCOMPLETE
+  only when it has not run yet.
 - **Shared health-result contract (internal foundation)**: a new leaf assembly `Sorolla.Health`
   (`noEngineReferences`, internal types, no studio API) holds the neutral gate-result model and the
   single aggregation `HealthEvaluator.Evaluate(catalog, context, observations)`. It evaluates a
@@ -214,12 +230,15 @@ row, never an Error - existing checks (Adjust token, etc.) keep their current se
 - **`SorollaQaExpectations` asset and its types removed (breaking)**: the `SorollaQaExpectations`
   ScriptableObject (and `SorollaQaIntendedMode`, `SorollaQaSku`, `SorollaQaSkuType`, `SorollaQaArea`,
   `SorollaQaPlatform`, `SorollaQaExpectedFailure`, plus the **Assets > Create > Palette > QA
-  Expectations** menu) are deleted. Greenlight applicability now derives only from mode, platform,
-  installed modules, and observed exact-build facts - not from a per-game declaration asset. The
-  Mode Intent row and the expectations-driven Store SKUs manual row are gone. Migration for studios: a
-  leftover `Assets/Resources/SorollaQaExpectations.asset` is now an inert, unreferenced asset and can
-  be deleted; no code change is required. These types were internal-workflow surface and never appeared
-  in the generated `api-reference.md`, so that reference is unchanged.
+  Expectations** menu) are deleted. Greenlight applicability derives from mode, platform, installed
+  modules, and observed exact-build facts, plus the studio-declared distribution/commerce target sets on
+  `SorollaConfig` (functional product config added in Cycle 5R/5R.1, NOT a resurrected QA-expectations
+  asset). The Mode Intent row and the expectations-driven Store SKUs manual row are gone. Migration for
+  studios: a leftover `Assets/Resources/SorollaQaExpectations.asset` is now inert and can be deleted;
+  additionally, declare `distributionPlatforms` and `commercePlatforms` on your `SorollaConfig` (Palette
+  window → Release Targets) - an existing asset predating these fields reads them as undeclared, which
+  keeps the device/store QA gates `INCOMPLETE` until you set them. These removed types were
+  internal-workflow surface and never appeared in the generated `api-reference.md`.
 
 ### Documentation
 - **TikTok marked parked across the public docs and config source**: TikTok is not part of the active

@@ -24,30 +24,35 @@ namespace Sorolla.Palette.Editor.Greenlight
         internal readonly struct Fingerprint
         {
             public readonly string SdkVersion;
+            public readonly string SdkCommit;
             public readonly string ApplicationId;
             public readonly string Platform;
             public readonly string Mode;
             public readonly string AppVersion;
             public readonly string DeviceBuildGuid;
-            public readonly string IntendedTargets;
+            public readonly string DistributionTargets;
+            public readonly string CommerceTargets;
             public readonly string Phase;
             public readonly string GeneratedAtUtc;
 
-            Fingerprint(string sdk, string appId, string platform, string mode, string appVersion,
-                string deviceBuildGuid, string intendedTargets, string phase, string generatedAtUtc)
+            Fingerprint(string sdk, string sdkCommit, string appId, string platform, string mode, string appVersion,
+                string deviceBuildGuid, string distributionTargets, string commerceTargets, string phase,
+                string generatedAtUtc)
             {
-                SdkVersion = sdk; ApplicationId = appId; Platform = platform; Mode = mode; AppVersion = appVersion;
-                DeviceBuildGuid = deviceBuildGuid; IntendedTargets = intendedTargets; Phase = phase;
-                GeneratedAtUtc = generatedAtUtc;
+                SdkVersion = sdk; SdkCommit = sdkCommit; ApplicationId = appId; Platform = platform; Mode = mode;
+                AppVersion = appVersion; DeviceBuildGuid = deviceBuildGuid; DistributionTargets = distributionTargets;
+                CommerceTargets = commerceTargets; Phase = phase; GeneratedAtUtc = generatedAtUtc;
             }
 
             internal static Fingerprint Capture(EvaluationContext context, string deviceBuildGuid)
             {
                 QaBuildIdentity id = QaBuildIdentity.Current();
                 return new Fingerprint(
-                    Palette.SdkVersion, id.ApplicationId, id.Platform, id.Mode, id.AppVersion,
+                    Palette.SdkVersion, SdkProvenance.ResolveSdkCommit(),
+                    id.ApplicationId, id.Platform, id.Mode, id.AppVersion,
                     string.IsNullOrEmpty(deviceBuildGuid) ? "(no device connected)" : deviceBuildGuid,
                     context?.IntendedTargets.ToString() ?? "(none)",
+                    context?.CommerceTargets.ToString() ?? "(none)",
                     context?.RequestedPhase.ToString() ?? "(none)",
                     DateTime.UtcNow.ToString("o"));
             }
@@ -94,9 +99,11 @@ namespace Sorolla.Palette.Editor.Greenlight
             var sb = new StringBuilder();
             sb.AppendLine($"Palette Greenlight Report ({Schema})");
             sb.AppendLine($"outcome: {(health?.Outcome ?? GateOutcome.Incomplete)}");
-            sb.AppendLine($"sdk: {fingerprint.SdkVersion} | app: {fingerprint.ApplicationId} {fingerprint.AppVersion} | " +
+            sb.AppendLine($"sdk: {fingerprint.SdkVersion} (commit {fingerprint.SdkCommit}) | " +
+                          $"app: {fingerprint.ApplicationId} {fingerprint.AppVersion} | " +
                           $"platform: {fingerprint.Platform} | mode: {fingerprint.Mode} | phase: {fingerprint.Phase}");
-            sb.AppendLine($"intended targets: {fingerprint.IntendedTargets} | device build: {fingerprint.DeviceBuildGuid}");
+            sb.AppendLine($"distribution targets: {fingerprint.DistributionTargets} | commerce targets: {fingerprint.CommerceTargets} | " +
+                          $"device build: {fingerprint.DeviceBuildGuid}");
             sb.AppendLine($"generated: {fingerprint.GeneratedAtUtc}");
             sb.AppendLine();
 
@@ -122,12 +129,14 @@ namespace Sorolla.Palette.Editor.Greenlight
         static Dictionary<string, object> FingerprintObject(Fingerprint f) => new Dictionary<string, object>
         {
             ["sdk_version"] = f.SdkVersion,
+            ["sdk_commit"] = f.SdkCommit,
             ["application_id"] = f.ApplicationId,
             ["platform"] = f.Platform,
             ["mode"] = f.Mode,
             ["app_version"] = f.AppVersion,
             ["device_build_guid"] = f.DeviceBuildGuid,
-            ["intended_targets"] = f.IntendedTargets,
+            ["distribution_targets"] = f.DistributionTargets,
+            ["commerce_targets"] = f.CommerceTargets,
             ["phase"] = f.Phase,
             ["generated_at_utc"] = f.GeneratedAtUtc,
         };

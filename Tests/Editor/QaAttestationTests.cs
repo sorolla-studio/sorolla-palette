@@ -152,11 +152,12 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = HealthEnums.AllModuleBits, // includes UnityIap
-                IntendedTargets = HealthEnums.AllTargetBits,  // Android is a declared commerce target (F2)
+                IntendedTargets = HealthEnums.AllTargetBits,  // distribution (device gates)
+                CommerceTargets = HealthEnums.AllTargetBits,  // commerce (store gate) - Android declared (B2)
                 RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
             };
             Assert.AreEqual(Requirement.Required, GateCatalog.Canonical.ById(GateIds.IapStoreConfigured).Requirement(ctx).Value,
-                "with Unity IAP installed and the active platform an intended target, the store gate is Required");
+                "with Unity IAP installed and the active platform a declared commerce target, the store gate is Required");
 
             var observations = new List<GateObservation>();
             foreach (GateDefinition def in GateCatalog.Canonical.All)
@@ -190,7 +191,7 @@ namespace Sorolla.Palette.Editor.Tests
 
             // Attest each manual gate through the REAL producer against the current identity (isolated store).
             foreach (string gid in manualGateIds)
-                Assert.IsTrue(GreenlightAdapter.AttestManualGate(gid, "verified on this build", deviceGuid),
+                Assert.IsTrue(GreenlightAdapter.AttestManualGate(gid, "qa-bot", "verified on this build", deviceGuid),
                     $"attesting {gid} should succeed with a note + connected build");
 
             var ctx = new EvaluationContext
@@ -198,7 +199,7 @@ namespace Sorolla.Palette.Editor.Tests
                 Mode = mode, Platform = platform,
                 InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook | SdkModule.Firebase |
                                    SdkModule.AppLovinMax | SdkModule.Adjust | SdkModule.UnityIap,
-                IntendedTargets = HealthEnums.AllTargetBits, // Android is a declared target (F1/F2)
+                IntendedTargets = HealthEnums.AllTargetBits, CommerceTargets = HealthEnums.AllTargetBits, // B2
                 RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
             };
 
@@ -234,7 +235,7 @@ namespace Sorolla.Palette.Editor.Tests
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = SdkModule.None, RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
             };
-            Assert.IsTrue(GreenlightAdapter.AttestManualGate(gate, "did the dashboard check", null));
+            Assert.IsTrue(GreenlightAdapter.AttestManualGate(gate, "qa-bot", "did the dashboard check", null));
 
             GateObservation obs = GreenlightAdapter.ManualObservations(ctx, null).Single(o => o.GateId == gate);
             Assert.AreEqual(GateOutcome.Pass, obs.Outcome, "a matching attestation must emit PASS");

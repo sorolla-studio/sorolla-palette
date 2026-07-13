@@ -317,6 +317,27 @@ namespace Sorolla.Palette.Editor
             bool showMax = SdkDetector.IsInstalled(SdkId.AppLovinMAX);
             bool showAdjust = !isPrototype && SdkDetector.IsInstalled(SdkId.Adjust);
 
+            // Release targets (B5): mandatory, studio-owned applicability declaration - surfaced in the normal
+            // Palette UI so studios can discover and set it, not only by editing the raw asset. Distribution
+            // drives the device/QA gates; commerce drives the store-config gate; undeclared keeps them INCOMPLETE.
+            _configContainer.Add(SectionHeader.Create("Release Targets"));
+            var distributionField = new PropertyField(_serializedConfig.FindProperty("distributionPlatforms"), "Distribution Platforms")
+            {
+                tooltip = "Platforms this game's app SHIPS on. Drives device/QA gate applicability.",
+            };
+            _configContainer.Add(distributionField);
+            var commerceField = new PropertyField(_serializedConfig.FindProperty("commercePlatforms"), "Commerce Platforms (IAP)")
+            {
+                tooltip = "Platforms where this game SELLS in-app purchases (store-console products). Drives the store-config gate only.",
+            };
+            _configContainer.Add(commerceField);
+            if (_config.distributionPlatforms == Sorolla.Palette.SorollaPlatforms.None)
+                _configContainer.Add(new HelpBox(
+                    "Distribution platforms undeclared - device/QA gates stay INCOMPLETE until you declare where this game ships.",
+                    HelpBoxMessageType.Warning));
+            // Re-render so the undeclared warning tracks edits without needing a manual refresh.
+            distributionField.RegisterCallback<SerializedPropertyChangeEvent>(_ => RefreshConfigUI());
+
             _configContainer.Add(SectionHeader.Create("SDK Keys"));
 
             // MAX Ad Units. Arthur's follow-up: the struct-level revert (plain PropertyField for
@@ -1012,6 +1033,14 @@ namespace Sorolla.Palette.Editor
             actionsRow.Add(copyJsonButton);
 
             _greenlightContainer.Add(actionsRow);
+
+            // Privacy caution at copy time (C1): the report embeds tester names + evidence notes and is meant
+            // for PRs/tickets/chat - warn before it leaves the editor.
+            var privacyNote = new HelpBox(
+                "Copied reports include tester names and evidence notes. Do not paste secrets, tokens, private URLs, or personal data.",
+                HelpBoxMessageType.Info);
+            privacyNote.style.marginBottom = 6;
+            _greenlightContainer.Add(privacyNote);
 
             var rowElements = new List<VisualElement>();
             foreach (GreenlightEvaluator.Row row in report.Rows)

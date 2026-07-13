@@ -146,6 +146,10 @@ namespace Sorolla.Palette
                 s_remoteConfigDetail = SafeDetail(message);
             }
 
+            // Any AttachPurchaseTracking log (wired, or a skip on null/duplicate store) means the wiring
+            // scenario ran this session (C2 scenario provenance); only the "wired" variant proves success.
+            if (message.Contains("[Palette:Purchasing] AttachPurchaseTracking"))
+                s_purchaseAttachAttempted = true;
             if (message.Contains("[Palette:Purchasing] AttachPurchaseTracking: wired"))
                 s_purchaseTrackingAttached = true;
             if (message.Contains("TrackPurchase: accepted")) s_purchaseAcceptedCount++;
