@@ -331,12 +331,20 @@ namespace Sorolla.Palette.Editor
                 tooltip = "Platforms where this game SELLS in-app purchases (store-console products). Drives the store-config gate only.",
             };
             _configContainer.Add(commerceField);
-            if (_config.distributionPlatforms == Sorolla.Palette.SorollaPlatforms.None)
-                _configContainer.Add(new HelpBox(
-                    "Distribution platforms undeclared - device/QA gates stay INCOMPLETE until you declare where this game ships.",
-                    HelpBoxMessageType.Warning));
-            // Re-render so the undeclared warning tracks edits without needing a manual refresh.
-            distributionField.RegisterCallback<SerializedPropertyChangeEvent>(_ => RefreshConfigUI());
+            // Undeclared warning tracks the field WITHOUT rebuilding/rebinding the UI. The callback only
+            // toggles this element's visibility - it never writes the serialized property or re-Binds the
+            // container, so it cannot feed a SerializedPropertyChangeEvent back into itself (the recursive
+            // event loop a RefreshConfigUI-on-change would cause).
+            var undeclaredWarning = new HelpBox(
+                "Distribution platforms undeclared - device/QA gates stay INCOMPLETE until you declare where this game ships.",
+                HelpBoxMessageType.Warning);
+            _configContainer.Add(undeclaredWarning);
+            void SyncUndeclaredWarning() =>
+                undeclaredWarning.style.display =
+                    _serializedConfig.FindProperty("distributionPlatforms").intValue == 0
+                        ? DisplayStyle.Flex : DisplayStyle.None;
+            SyncUndeclaredWarning();
+            distributionField.RegisterCallback<SerializedPropertyChangeEvent>(_ => SyncUndeclaredWarning());
 
             _configContainer.Add(SectionHeader.Create("SDK Keys"));
 
