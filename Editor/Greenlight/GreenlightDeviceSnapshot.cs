@@ -347,20 +347,9 @@ namespace Sorolla.Palette.Editor.Greenlight
             }
 
             // C4-08: device-error evidence must be present for the supported schema. A reduced snapshot with
-            // no "problems" section has not demonstrated that SDK errors were checked → INCOMPLETE, not a pass.
-            if (TryGetObject(snapshot, "problems", out var problems))
-            {
-                long errorCount = GetLong(problems, "sdk_errors");
-                observations.Add(new GateObservation
-                {
-                    GateId = GateIds.DeviceNoSdkErrors,
-                    Outcome = errorCount > 0 ? GateOutcome.Fail : GateOutcome.Pass,
-                    ObservedProof = ProofScope.DeviceDispatch,
-                    Evidence = errorCount > 0 ? $"{errorCount} error(s) - last: {GetString(problems, "last_sdk_error")}" : "None observed this session",
-                    FixHint = errorCount > 0 ? "Open the in-app debug menu (Vitals) Issues tab for WHY/SIGNAL/FIX on each error." : null,
-                });
-            }
-            else
+            // no "problems" section, or a malformed sdk_errors value, has not demonstrated that SDK errors
+            // were checked → INCOMPLETE, not a permissive false/zero pass.
+            if (!TryGetObject(snapshot, "problems", out var problems))
             {
                 observations.Add(new GateObservation
                 {
@@ -368,6 +357,27 @@ namespace Sorolla.Palette.Editor.Greenlight
                     Outcome = GateOutcome.Incomplete,
                     ObservedProof = ProofScope.None,
                     Evidence = "Snapshot has no 'problems' section - SDK-error evidence was not demonstrated.",
+                });
+            }
+            else if (!TryGetLong(problems, "sdk_errors", out long errorCount))
+            {
+                observations.Add(new GateObservation
+                {
+                    GateId = GateIds.DeviceNoSdkErrors,
+                    Outcome = GateOutcome.Incomplete,
+                    ObservedProof = ProofScope.None,
+                    Evidence = "Snapshot 'sdk_errors' is missing or malformed - SDK-error evidence could not be read.",
+                });
+            }
+            else
+            {
+                observations.Add(new GateObservation
+                {
+                    GateId = GateIds.DeviceNoSdkErrors,
+                    Outcome = errorCount > 0 ? GateOutcome.Fail : GateOutcome.Pass,
+                    ObservedProof = ProofScope.DeviceDispatch,
+                    Evidence = errorCount > 0 ? $"{errorCount} error(s) - last: {GetString(problems, "last_sdk_error")}" : "None observed this session",
+                    FixHint = errorCount > 0 ? "Open the in-app debug menu (Vitals) Issues tab for WHY/SIGNAL/FIX on each error." : null,
                 });
             }
         }
@@ -452,8 +462,22 @@ namespace Sorolla.Palette.Editor.Greenlight
         static bool GetBool(Dictionary<string, object> dict, string key) =>
             dict != null && dict.TryGetValue(key, out object v) && v is bool b && b;
 
-        static long GetLong(Dictionary<string, object> dict, string key) =>
-            dict != null && dict.TryGetValue(key, out object v) ? Convert.ToInt64(v) : 0;
+        // Strict integer read: a missing key or a non-numeric value returns false rather than a permissive
+        // zero (review F4-03) so a malformed sdk_errors cannot silently read as "no errors".
+        static bool TryGetLong(Dictionary<string, object> dict, string key, out long value)
+        {
+            value = 0;
+            if (dict == null || !dict.TryGetValue(key, out object v) || v == null)
+                return false;
+            switch (v)
+            {
+                case long l: value = l; return true;
+                case int i: value = i; return true;
+                case double d: value = (long)d; return true;
+                case string s when long.TryParse(s, out long parsed): value = parsed; return true;
+                default: return false;
+            }
+        }
 
         static string GetString(Dictionary<string, object> dict, string key) =>
             dict != null && dict.TryGetValue(key, out object v) ? v as string : null;

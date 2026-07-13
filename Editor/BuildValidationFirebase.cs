@@ -71,21 +71,22 @@ namespace Sorolla.Palette.Editor
 
             BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
 
-            // Awareness-first severity ruling (Arthur, via supervisor): a studio may intentionally ship
-            // one platform at a time, so a missing per-platform config file is not a build blocker - it
-            // is a warning with a clear root cause, signal, and fix.
+            // In Full mode Firebase is required, so a missing active-platform config file that makes Firebase
+            // initialization fail must BLOCK, not merely warn (review F4-05) - otherwise the "Required" label
+            // on the config gate is decoration. In Prototype Firebase is optional, so it stays a warning
+            // (awareness-first: a studio may intentionally ship one platform at a time).
+            bool required = !SorollaSettings.IsPrototype;
+
             if (target == BuildTarget.Android && !SdkConfigDetector.IsFirebaseAndroidConfigured())
             {
-                results.Add(Warning(
-                    category,
+                results.Add(MissingConfig(category, required,
                     "Assets/google-services.json not found.\n" +
                     "  Firebase Android (Analytics/Crashlytics/Remote Config) will fail to initialize on this platform.",
                     "Download from Firebase Console > Project Settings > Android app and place in Assets/"));
             }
             else if (target == BuildTarget.iOS && !SdkConfigDetector.IsFirebaseIOSConfigured())
             {
-                results.Add(Warning(
-                    category,
+                results.Add(MissingConfig(category, required,
                     "Assets/GoogleService-Info.plist not found.\n" +
                     "  Firebase iOS (Analytics/Crashlytics/Remote Config) will fail to initialize on this platform.",
                     "Download from Firebase Console > Project Settings > iOS app and place in Assets/"));
@@ -96,6 +97,9 @@ namespace Sorolla.Palette.Editor
             }
 
             return results;
+
+            ValidationResult MissingConfig(CheckCategory cat, bool block, string message, string fix) =>
+                block ? Error(cat, message, fix) : Warning(cat, message, fix);
         }
     }
 }

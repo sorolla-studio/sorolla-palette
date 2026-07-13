@@ -197,6 +197,60 @@ namespace Sorolla.Palette.Editor.Tests
                 GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", out _));
         }
 
+        [Test]
+        public void DeviceSnapshot_UnknownSchema_IsIncomplete()
+        {
+            // C4-08: an unknown snapshot schema is not parsed permissively.
+            var state = new GreenlightDeviceSnapshot.State
+            {
+                Phase = GreenlightDeviceSnapshot.Phase.Done,
+                Outcome = GreenlightDeviceSnapshot.Outcome.Parsed,
+                Snapshot = new Dictionary<string, object> { ["snapshot_schema"] = "999" },
+            };
+            List<GateObservation> obs = GreenlightDeviceSnapshot.ToObservations(state);
+            Assert.AreEqual(GateOutcome.Incomplete, obs.Single(o => o.GateId == GateIds.DeviceReady).Outcome);
+        }
+
+        // ── F4-02: bare-vendor absence is not an affirmative observation ───
+
+        [Test]
+        public void BareVendorAbsence_EmitsNoObservation()
+        {
+            var results = new List<BuildValidator.ValidationResult>
+            {
+                new BuildValidator.ValidationResult(BuildValidator.ValidationStatus.Valid,
+                    "Firebase not installed (optional in Prototype)", null, BuildValidator.CheckCategory.FirebaseCoherence),
+            };
+            var protoCtx = new EvaluationContext
+            {
+                Mode = EvalMode.Prototype, Platform = EvalPlatform.Android,
+                InstalledModules = SdkModule.None, RequestedPhase = GatePhase.QaPass,
+            };
+            List<GateObservation> obs = GreenlightAdapter.BuildObservations(
+                protoCtx, results, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+            Assert.IsFalse(obs.Any(o => o.GateId == GateIds.BuildFirebaseCoherence),
+                "vendor absence must not become an affirmative PASS observation.");
+        }
+
+        [Test]
+        public void PresentVendor_EmitsObservation()
+        {
+            var results = new List<BuildValidator.ValidationResult>
+            {
+                new BuildValidator.ValidationResult(BuildValidator.ValidationStatus.Valid,
+                    "Firebase modules OK", null, BuildValidator.CheckCategory.FirebaseCoherence),
+            };
+            var ctx = new EvaluationContext
+            {
+                Mode = EvalMode.Full, Platform = EvalPlatform.Android,
+                InstalledModules = SdkModule.Firebase, RequestedPhase = GatePhase.QaPass,
+            };
+            List<GateObservation> obs = GreenlightAdapter.BuildObservations(
+                ctx, results, new GreenlightDeviceSnapshot.State(), new GreenlightManualChecklist.State());
+            Assert.IsTrue(obs.Any(o => o.GateId == GateIds.BuildFirebaseCoherence),
+                "a present vendor's coherence result must be evaluated.");
+        }
+
         // ── B-10: a ticked legacy checkmark is NOT evidence ───────────────
 
         [Test]

@@ -103,7 +103,8 @@ namespace Sorolla.Palette.Health
     }
 
     /// <summary>A requirement decision plus the reason/predicate-trace that produced it. The reason is
-    /// required whenever the value is not <see cref="Requirement.Required"/> (validated by the catalog).</summary>
+    /// mandatory for ALL four states (validated by the catalog) - an audit trail must not go silent exactly
+    /// when a gate is Required.</summary>
     internal readonly struct RequirementDecision
     {
         public readonly Requirement Value;

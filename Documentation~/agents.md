@@ -66,7 +66,7 @@ Test-generating actions (`track_test_event`, `level_*`, `economy_*`) run inside 
 
 ## 3. What the verdict applies to (the mode requirement table)
 
-There is no per-game QA declaration asset. Which gates are required, optional, or excluded is derived entirely from the trusted build context — the SDK mode (Prototype / Full, from `SorollaConfig`), the active build platform, and the installed modules (read from the package manifest) — plus the facts the checks observe. This is the mode requirement table, and it is code-defined in the SDK, not something a studio configures. (A connected device snapshot is bound to the game/build: it carries a schema version plus application id, platform, mode, app version and Unity build GUID, and the greenlight rejects a wrong-game or wrong-build snapshot rather than trusting it. Full exact-commit fingerprinting comes later.)
+There is no per-game QA declaration asset. Which gates are required, optional, or excluded is derived entirely from the trusted build context — the SDK mode (Prototype / Full, from `SorollaConfig`), the active build platform, and the installed modules (read from the package manifest) — plus the facts the checks observe. This is the mode requirement table, and it is code-defined in the SDK, not something a studio configures. (A connected device snapshot is bound to the game/build by a minimum identity: it carries a schema version plus application id, platform, mode and app version, and the greenlight rejects a wrong-game or wrong-build snapshot rather than trusting it. The snapshot also carries a Unity build GUID for provenance; full exact-commit fingerprinting, including the platform build number, comes later.)
 
 What that means in practice:
 

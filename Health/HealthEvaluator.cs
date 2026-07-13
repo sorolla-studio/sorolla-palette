@@ -20,11 +20,20 @@ namespace Sorolla.Palette.Health
             var rows = new List<GateResult>();
             var validationErrors = new List<string>();
 
+            // A null catalog is a malformed boundary input, not a crash (review F4-03): a report with a
+            // visible integrity error, never an exception.
+            if (catalog == null)
+            {
+                validationErrors.Add("Null gate catalog supplied.");
+                return new HealthReport { Rows = rows, ValidationErrors = validationErrors, Outcome = GateOutcome.Incomplete };
+            }
+
             // 0. Boundary-validate the trusted context (review C3-06). A corrupt/undefined context value must
             //    not silently pass; the whole report degrades to INCOMPLETE via a validation error.
             ValidateContext(context, validationErrors);
+            // Null-safe: a null context is recorded above; do NOT dereference it (review F4-03).
             bool contextUsable =
-                HealthEnums.IsSinglePhase(context.RequestedPhase); // a defined, single, non-None phase (C3-03)
+                context != null && HealthEnums.IsSinglePhase(context.RequestedPhase); // defined single phase (C3-03)
 
             // 1. Index observations by gate id, validating each value at the boundary (C3-06). Unknown ids and
             //    duplicates are validation errors - never ignored, never last-write-wins.
@@ -32,6 +41,7 @@ namespace Sorolla.Palette.Health
             foreach (GateObservation obs in observations ?? Array.Empty<GateObservation>())
             {
                 if (obs == null) { validationErrors.Add("Null observation supplied."); continue; }
+                if (obs.GateId == null) { validationErrors.Add("Observation with a null gate id."); continue; }
                 if (!HealthEnums.IsDefinedOutcome(obs.Outcome))
                     validationErrors.Add($"Observation for '{obs.GateId}' has an undefined outcome value.");
                 if (!HealthEnums.HasOnlyDefinedBits(obs.ObservedProof))
@@ -86,9 +96,23 @@ namespace Sorolla.Palette.Health
                 switch (rd.Value)
                 {
                     case Requirement.Unknown:
-                        // Could not decide from trusted context - must not silently pass.
+                        // Could not decide applicability from trusted context - must not silently pass. But a
+                        // real observed FAIL survives even here (review F4-06): FAIL is weakened by nothing but
+                        // a louder FAIL, so preserve it and its evidence rather than flattening to INCOMPLETE.
                         row.Disposition = GateDisposition.Evaluated;
-                        row.Outcome = GateOutcome.Incomplete;
+                        if (count == 1)
+                        {
+                            row.ObservedProof = matches[0].ObservedProof;
+                            row.Evidence = matches[0].Evidence;
+                            row.FixHint = matches[0].FixHint;
+                            row.Outcome = matches[0].Outcome == GateOutcome.Fail
+                                ? GateOutcome.Fail
+                                : GateOutcome.Incomplete;
+                        }
+                        else
+                        {
+                            row.Outcome = GateOutcome.Incomplete;
+                        }
                         break;
 
                     case Requirement.NotApplicable:
@@ -181,9 +205,15 @@ namespace Sorolla.Palette.Health
                     return GateOutcome.Fail;
                 case GateOutcome.Incomplete:
                     return GateOutcome.Incomplete;
-                default: // Pass / PassWithCaveats - affirmative claims need their proof
+                case GateOutcome.Pass:
+                case GateOutcome.PassWithCaveats:
+                    // Affirmative claims need their proof; missing required proof downgrades to INCOMPLETE.
                     ProofScope missing = def.RequiredProof & ~only.ObservedProof;
                     return missing != ProofScope.None ? GateOutcome.Incomplete : only.Outcome;
+                default:
+                    // An undefined/corrupted outcome (already recorded as a validation error) must never reach
+                    // the Editor row mapper as an invalid value (review F4-03) - coerce it to INCOMPLETE.
+                    return GateOutcome.Incomplete;
             }
         }
 

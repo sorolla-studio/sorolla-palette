@@ -90,8 +90,9 @@ namespace Sorolla.Palette.Editor.Greenlight
                 Platform = ToEvalPlatform(EditorUserBuildSettings.activeBuildTarget),
                 InstalledModules = modules,
                 ModulesResolved = resolved,
-                // The greenlight is the studio's QA-pass self-check; the evaluator selects gates for this phase.
-                RequestedPhase = GatePhase.QaPass,
+                // Follow the active Build Health profile so release-only gates are reachable under Release and a
+                // profile-"Skipped" check maps to the right phase, instead of hard-coding QaPass (review).
+                RequestedPhase = BuildValidationProfileSettings.IsRelease ? GatePhase.ReleaseShip : GatePhase.QaPass,
             };
         }
 
@@ -111,7 +112,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             GreenlightManualChecklist.State checklist)
         {
             var observations = new List<GateObservation>();
-            observations.AddRange(BuildHealthObservations(buildHealthResults));
+            observations.AddRange(BuildHealthObservations(buildHealthResults, context.InstalledModules));
 
             if (context.Platform == EvalPlatform.Android)
                 observations.AddRange(GreenlightDeviceSnapshot.ToObservations(snapshotState));
@@ -126,10 +127,27 @@ namespace Sorolla.Palette.Editor.Greenlight
             return observations;
         }
 
+        /// <summary>Vendor-coherence categories whose "not installed" result is vendor ABSENCE, not evidence
+        /// of health. When the manifest says the module is absent, the review requires that absence to be an
+        /// OptionalSkipped (bare Prototype), not an affirmative PASS (F4-02) - so the adapter emits no
+        /// observation for these when the module is not installed, letting the Optional gate skip and the
+        /// Required (Full) gate omit → INCOMPLETE.</summary>
+        static readonly Dictionary<BuildValidator.CheckCategory, SdkModule> VendorCategoryModule =
+            new Dictionary<BuildValidator.CheckCategory, SdkModule>
+            {
+                [BuildValidator.CheckCategory.FirebaseCoherence] = SdkModule.Firebase,
+                [BuildValidator.CheckCategory.FirebaseConfig] = SdkModule.Firebase,
+                [BuildValidator.CheckCategory.MaxSettings] = SdkModule.AppLovinMax,
+                [BuildValidator.CheckCategory.AdjustSettings] = SdkModule.Adjust,
+                [BuildValidator.CheckCategory.AdjustResolvedVersion] = SdkModule.Adjust,
+                [BuildValidator.CheckCategory.AdjustSandboxMode] = SdkModule.Adjust,
+            };
+
         /// <summary>One observation per Build Health category actually produced (worst status wins when a
         /// category emits several results), keyed to the per-category gate id. Categories with no gate id
         /// are skipped. Proof scope is Static - Build Health is an editor-time check.</summary>
-        static IEnumerable<GateObservation> BuildHealthObservations(List<BuildValidator.ValidationResult> results)
+        static IEnumerable<GateObservation> BuildHealthObservations(
+            List<BuildValidator.ValidationResult> results, SdkModule installedModules)
         {
             if (results == null)
                 yield break; // Build Health never ran: the required core gates omit -> INCOMPLETE.
@@ -139,6 +157,12 @@ namespace Sorolla.Palette.Editor.Greenlight
 
             foreach (var group in byCategory)
             {
+                // F4-02: a vendor "not installed" result is absence, not affirmative evidence - drop it so the
+                // gate skips (Optional) or omits (Required) instead of passing on absence.
+                if (VendorCategoryModule.TryGetValue(group.Key, out SdkModule module) &&
+                    (installedModules & module) == 0)
+                    continue;
+
                 // An unmapped category must not silently disappear (review C4-09): emit it under a sentinel
                 // id so the evaluator flags it as an unknown-id validation error, visible + fail-closed.
                 bool mapped = CategoryToGateId.TryGetValue(group.Key, out string gateId);

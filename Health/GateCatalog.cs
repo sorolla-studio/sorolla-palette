@@ -109,9 +109,12 @@ namespace Sorolla.Palette.Health
 
         static IReadOnlyList<GateDefinition> BuildCanonical()
         {
-            const GatePhase buildPhase = GatePhase.PreBuild | GatePhase.QaPass;
-            const GatePhase qaPhase = GatePhase.QaPass;
-            // Release-only checks: NOT tagged QaPass, so a QA-pass report never selects them and a validator
+            // Core + advisory build checks and the device/manual/iap gates are prerequisites at RELEASE too,
+            // so they carry ReleaseShip - a release report must not drop them (review: ReleaseShip includes
+            // core prerequisites, not only release-only checks).
+            const GatePhase buildPhase = GatePhase.PreBuild | GatePhase.QaPass | GatePhase.ReleaseShip;
+            const GatePhase qaPhase = GatePhase.QaPass | GatePhase.ReleaseShip;
+            // Release-ONLY checks: NOT tagged QaPass, so a QA-pass report never selects them and a validator
             // "Skipped (QA Pass profile)" Valid result can never masquerade as a PASS (review C4-04).
             const GatePhase releasePhase = GatePhase.PreBuild | GatePhase.ReleaseShip;
             var defs = new List<GateDefinition>();

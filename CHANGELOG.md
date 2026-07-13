@@ -61,9 +61,16 @@ signal it produces, and the fix.
   (Required when Unity IAP is installed, its store-console proof unavailable to the SDK → INCOMPLETE;
   NotApplicable otherwise) so it did not vanish with the QA-expectations removal. The legacy manual
   checkboxes are relabelled as non-evidence until scoped attestation lands. The device snapshot now
-  carries a schema version and a build-identity block (application id, platform, mode, app version, Unity
-  build GUID); the greenlight rejects an unsupported schema or a wrong-game / wrong-build snapshot instead
-  of trusting it for device readiness, and requires the snapshot's SDK-error evidence to be present.
+  carries a schema version and a minimum build-identity binding (application id, platform, mode, app
+  version); the greenlight rejects an unsupported schema or a wrong-game / wrong-build snapshot instead of
+  trusting it for device readiness, and requires the snapshot's SDK-error evidence (a missing or malformed
+  `problems`/`sdk_errors` value is INCOMPLETE, not a permissive zero). A vendor's "not installed" Build
+  Health result is no longer treated as an affirmative pass - vendor absence in Prototype is a penalty-free
+  skip, and a missing active-platform Firebase config in Full now blocks (Error) instead of only warning.
+  An `Unknown` requirement can no longer flatten an observed FAIL, and malformed evaluator inputs (null
+  catalog/context, null gate id, corrupted enum values) produce a visible INCOMPLETE integrity report
+  rather than an exception. The greenlight's requested phase follows the active Build Health profile, so
+  release-only checks are reachable under the Release profile and never read as a QA-pass PASS.
 - **Shared health-result contract (internal foundation)**: a new leaf assembly `Sorolla.Health`
   (`noEngineReferences`, internal types, no studio API) holds the neutral gate-result model and the
   single aggregation `HealthEvaluator.Evaluate(catalog, context, observations)`. It evaluates a

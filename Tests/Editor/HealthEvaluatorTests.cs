@@ -406,5 +406,91 @@ namespace Sorolla.Palette.Editor.Tests
         {
             Assert.Throws<KeyNotFoundException>(() => Catalog(Def("a")).ById("missing"));
         }
+
+        // ── F4-06: Unknown requirement must not weaken an observed FAIL ────
+
+        [Test]
+        public void UnknownRequirement_WithObservedFail_StaysFail_AndKeepsEvidence()
+        {
+            var obs = new GateObservation
+            {
+                GateId = "a", Outcome = GateOutcome.Fail, ObservedProof = ProofScope.Static,
+                Evidence = "boom", FixHint = "fix",
+            };
+            HealthReport r = HealthEvaluator.Evaluate(
+                Catalog(Def("a", Requirement.Unknown)), Ctx(), new List<GateObservation> { obs });
+
+            GateResult row = Row(r, "a");
+            Assert.AreEqual(GateOutcome.Fail, row.Outcome, "an Unknown requirement must not flatten an observed FAIL");
+            Assert.AreEqual("boom", row.Evidence);
+            Assert.AreEqual(GateOutcome.Fail, r.Outcome);
+        }
+
+        // ── F4-03: malformed boundary inputs produce INCOMPLETE, never throw ─
+
+        [Test]
+        public void NullCatalog_IsIncomplete_NotThrow()
+        {
+            HealthReport r = HealthEvaluator.Evaluate(null, Ctx(), new List<GateObservation>());
+            Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
+            Assert.IsNotEmpty(r.ValidationErrors);
+        }
+
+        [Test]
+        public void NullContext_IsIncomplete_NotThrow()
+        {
+            HealthReport r = HealthEvaluator.Evaluate(Catalog(Def("a")), null, new List<GateObservation>());
+            Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
+            Assert.IsNotEmpty(r.ValidationErrors);
+        }
+
+        [Test]
+        public void NullGateIdObservation_IsValidationError_NotThrow()
+        {
+            var obs = new GateObservation { GateId = null, Outcome = GateOutcome.Pass, ObservedProof = ProofScope.Static };
+            HealthReport r = HealthEvaluator.Evaluate(Catalog(Def("a")), Ctx(), new List<GateObservation> { obs });
+            Assert.IsNotEmpty(r.ValidationErrors);
+            Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
+        }
+
+        [Test]
+        public void InvalidOutcomeWithValidProof_RowIsIncomplete_NotInvalid()
+        {
+            var obs = new GateObservation { GateId = "a", Outcome = (GateOutcome)999, ObservedProof = ProofScope.Static };
+            HealthReport r = HealthEvaluator.Evaluate(
+                Catalog(Def("a", Requirement.Required, ProofScope.Static)), Ctx(), new List<GateObservation> { obs });
+            Assert.AreEqual(GateOutcome.Incomplete, Row(r, "a").Outcome, "an invalid outcome must be coerced, not passed to the UI mapper");
+        }
+
+        // ── F4-04: reason mandatory for all four states ───────────────────
+
+        [Test]
+        public void Validate_AnyStateWithoutReason_IsProblem()
+        {
+            foreach (Requirement req in new[]
+            {
+                Requirement.Required, Requirement.Optional, Requirement.NotApplicable, Requirement.Unknown,
+            })
+            {
+                var def = DefReq("a", _ => new RequirementDecision(req, null));
+                Assert.IsNotEmpty(GateCatalog.Validate(new[] { def }, Grid), $"{req} without a reason must fail Validate.");
+            }
+        }
+
+        // ── IAP gate: installed + no proof → INCOMPLETE by evaluator policy ─
+
+        [Test]
+        public void IapModuleRequirement_InstalledButUnobserved_IsOmittedIncomplete()
+        {
+            var def = DefReq("iap", Requirements.UnityIapRequiredElseNotApplicable, ProofScope.VendorAccepted);
+            var ctx = new EvaluationContext
+            {
+                Mode = EvalMode.Full, Platform = EvalPlatform.Android,
+                InstalledModules = SdkModule.UnityIap, RequestedPhase = GatePhase.QaPass,
+            };
+            HealthReport r = HealthEvaluator.Evaluate(Catalog(def), ctx, new List<GateObservation>());
+            Assert.AreEqual(GateDisposition.Omitted, Row(r, "iap").Disposition);
+            Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
+        }
     }
 }
