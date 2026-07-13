@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using Sorolla.Palette.Editor.Greenlight;
 using Sorolla.Palette.Health;
@@ -105,6 +106,76 @@ namespace Sorolla.Palette.Editor.Tests
             HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, observations);
             Assert.IsEmpty(report.ValidationErrors);
             Assert.AreEqual(GateOutcome.Pass, report.Outcome, "a fully-satisfied build must be able to reach HEALTHY");
+        }
+
+        [Test]
+        public void AttestedManualGates_ThroughRealAttestationPath_ReachHealthy()
+        {
+            // The added 4b DoD: prove HEALTHY end-to-end through the REAL attestation path - attest all five
+            // manual gates against the current build identity so the adapter emits scoped PASS observations
+            // for them, supply full other evidence, and the aggregate must be HEALTHY.
+            QaBuildIdentity id = QaBuildIdentity.Current();
+            EvalMode mode = id.Mode == "full" ? EvalMode.Full : id.Mode == "prototype" ? EvalMode.Prototype : EvalMode.Unknown;
+            EvalPlatform platform = id.Platform == "Android" ? EvalPlatform.Android
+                : id.Platform == "IPhonePlayer" ? EvalPlatform.iOS : EvalPlatform.Unknown;
+            if (mode == EvalMode.Unknown || platform != EvalPlatform.Android)
+                Assert.Ignore("HEALTHY control requires a configured SDK mode + Android build target (ambient).");
+
+            string[] manualGateIds =
+            {
+                GateIds.ManualGaPlatformRegistered, GateIds.ManualCrossVendorDashboardDrift,
+                GateIds.ManualAdjustPurchaseVerification, GateIds.ManualRelaunchPersistence,
+                GateIds.ManualBackgroundResumeCycle,
+            };
+
+            try
+            {
+                foreach (string gid in manualGateIds)
+                    GreenlightAdapter.AttestManualGate(gid); // real attestation against the current identity
+
+                var ctx = new EvaluationContext
+                {
+                    Mode = mode,
+                    Platform = platform,
+                    InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook | SdkModule.Firebase |
+                                       SdkModule.AppLovinMax | SdkModule.Adjust, // no UnityIap → iap NotApplicable
+                    RequestedPhase = GatePhase.QaPass,
+                    ModulesResolved = true,
+                };
+
+                var observations = new List<GateObservation>();
+                // Real manual observations, sourced from the attestations just written.
+                observations.AddRange(GreenlightAdapter.ManualObservations(ctx));
+                // Full other evidence: synthetic PASS at the required proof scope for every non-manual required gate.
+                foreach (GateDefinition def in GateCatalog.Canonical.All)
+                {
+                    if ((def.Phases & GatePhase.QaPass) == 0) continue;
+                    if (def.Id.StartsWith("manual.")) continue;
+                    if (def.Requirement(ctx).Value != Requirement.Required) continue;
+                    observations.Add(new GateObservation
+                    {
+                        GateId = def.Id, Outcome = GateOutcome.Pass, ObservedProof = def.RequiredProof,
+                    });
+                }
+
+                HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, observations);
+                Assert.IsEmpty(report.ValidationErrors);
+                Assert.AreEqual(GateOutcome.Pass, report.Outcome,
+                    "all five manual gates attested against a matching identity + full evidence must reach HEALTHY");
+
+                // The manual gates specifically came back PASS via the attestation path (not skipped/omitted).
+                foreach (string gid in manualGateIds)
+                {
+                    if (gid == GateIds.ManualAdjustPurchaseVerification && mode != EvalMode.Full) continue;
+                    GateResult row = report.Rows.Single(r => r.GateId == gid);
+                    Assert.AreEqual(GateOutcome.Pass, row.Outcome, $"{gid} should be a scoped-attestation PASS");
+                }
+            }
+            finally
+            {
+                foreach (string gid in manualGateIds)
+                    QaAttestationStore.Clear(gid);
+            }
         }
     }
 }
