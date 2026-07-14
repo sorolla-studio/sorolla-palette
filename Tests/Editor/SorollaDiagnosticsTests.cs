@@ -19,8 +19,10 @@ namespace Sorolla.Palette.Editor.Tests
 
             InvokeStatic(diagnosticsType, "ClearEventLog");
 
+            // Activator.CreateInstance does not fill optional ctor params, so pass all seven
+            // (adUnitIdentifier/placement were added to MaxAdRevenueInfo after this test).
             object info = Activator.CreateInstance(revenueInfoType,
-                "unit_test_network", 0.42d, "USD", "rewarded", "exact");
+                "unit_test_network", 0.42d, "USD", "rewarded", "exact", "unit_test_ad_unit", null);
             InvokeStatic(maxAdapterType, "RecordAdRevenue", info);
 
             IList events = CopyDiagnosticsEvents(diagnosticsType);
