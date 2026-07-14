@@ -26,7 +26,6 @@ namespace Sorolla.Palette.Editor.Greenlight
         // local 18765 → device 8765 exactly like the adb forward above, landing on the same SnapshotUrl.
         const string IproxyForwardArgs = "18765 8765";
         const string SnapshotUrl = "http://127.0.0.1:18765/qa/snapshot";
-        const string PasswordHeader = "X-Sorolla-QA-Password";
         static readonly TimeSpan HttpTimeout = TimeSpan.FromSeconds(5);
         // iproxy runs in the foreground until killed; wait for it to bind the local port before the fetch.
         static readonly TimeSpan IproxyBindDelay = TimeSpan.FromMilliseconds(1200);
@@ -67,20 +66,16 @@ namespace Sorolla.Palette.Editor.Greenlight
             state.DetailMessage = "Connecting...";
             onSettled?.Invoke();
 
-            // Same resolution the bridge itself uses (config override else built-in default) -
-            // QaBridgeAuth.EffectivePassword() is internal + InternalsVisibleTo("Sorolla.Editor"),
-            // see Runtime/Diagnostics/QaBridge/QaBridgeAuth.cs. Always resolves to a non-empty value.
-            string password = QaBridgeAuth.EffectivePassword();
-
+            // The bridge is passwordless (loopback-only is the boundary), so the editor sends no auth header.
             if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS)
-                await RunIosFlow(password, state);
+                await RunIosFlow(state);
             else
-                await RunAndroidFlow(password, state);
+                await RunAndroidFlow(state);
 
             onSettled?.Invoke();
         }
 
-        static async Task RunAndroidFlow(string password, State state)
+        static async Task RunAndroidFlow(State state)
         {
             string adbPath = ResolveAdbPath();
             if (adbPath == null)
@@ -90,10 +85,10 @@ namespace Sorolla.Palette.Editor.Greenlight
             }
 
             if (await RunAdbForward(adbPath, state)) // sets NoDevice on failure
-                await FetchSnapshot(password, state);
+                await FetchSnapshot(state);
         }
 
-        static async Task RunIosFlow(string password, State state)
+        static async Task RunIosFlow(State state)
         {
             string iproxyPath = ResolveMacToolPath("iproxy");
             if (iproxyPath == null)
@@ -117,7 +112,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             try
             {
                 await Task.Delay(IproxyBindDelay);
-                await FetchSnapshot(password, state);
+                await FetchSnapshot(state);
             }
             finally
             {
@@ -334,12 +329,11 @@ namespace Sorolla.Palette.Editor.Greenlight
             process.Dispose();
         }
 
-        static async Task FetchSnapshot(string password, State state)
+        static async Task FetchSnapshot(State state)
         {
             try
             {
                 using var client = new HttpClient { Timeout = HttpTimeout };
-                client.DefaultRequestHeaders.Add(PasswordHeader, password);
                 HttpResponseMessage response = await client.GetAsync(SnapshotUrl);
                 string body = await response.Content.ReadAsStringAsync();
 
@@ -348,7 +342,7 @@ namespace Sorolla.Palette.Editor.Greenlight
                     state.Phase = Phase.Done;
                     state.Outcome = Outcome.Unreachable;
                     state.DetailMessage = string.IsNullOrEmpty(body)
-                        ? "Empty reply - app may not be booted/foregrounded yet, not necessarily an auth failure."
+                        ? "Empty reply - the app may not be booted/foregrounded yet."
                         : $"Snapshot request failed (HTTP {(int)response.StatusCode}).";
                     return;
                 }

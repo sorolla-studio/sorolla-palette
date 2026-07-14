@@ -806,28 +806,28 @@ TikTok is also disabled if `tiktokAppId` is empty for the current platform.
 
 ```csharp title="Declaration"
 [Header("TikTok (Parked)")]
-[Tooltip("Enable TikTok Business SDK integration")]
+[Tooltip("Parked vendor. Enable TikTok Business SDK integration (not part of the active supported vendor set).")]
 public bool enableTikTok
 ```
 #### tiktokAppId
 Parked vendor field. TikTok App ID from Events Manager (long numeric ID). Empty = disabled for that platform.
 
 ```csharp title="Declaration"
-[Tooltip("TikTok App ID from Events Manager (long numeric ID). Leave empty to disable.")]
+[Tooltip("Parked vendor. TikTok App ID from Events Manager (long numeric ID). Leave empty to disable.")]
 public PlatformAdUnitId tiktokAppId
 ```
 #### tiktokEmAppId
 Parked vendor field. TikTok Events Manager App ID (maps to the SDK's `appId` parameter).
 
 ```csharp title="Declaration"
-[Tooltip("App ID from TikTok Events Manager (maps to SDK appId parameter)")]
+[Tooltip("Parked vendor. App ID from TikTok Events Manager (maps to SDK appId parameter).")]
 public PlatformAdUnitId tiktokEmAppId
 ```
 #### tiktokAccessToken
 Parked vendor field. TikTok Events Manager Access Token used by the server-side event API.
 
 ```csharp title="Declaration"
-[Tooltip("App Secret (Access Token) from Events Manager.")]
+[Tooltip("Parked vendor. App Secret (Access Token) from Events Manager.")]
 public PlatformAdUnitId tiktokAccessToken
 ```
 #### verboseLogging
@@ -839,18 +839,6 @@ Production-safe SDK health markers, warnings, and errors are always logged even 
 [Header("Logging")]
 [Tooltip("Enable detailed SDK diagnostics and vendor debug logs. Forced OFF in release builds; production-safe health logs remain on.")]
 public bool verboseLogging
-```
-#### qaBridgePassword
-Per-game override for the QA bridge password. Empty = the SDK's built-in default stays
-active (zero migration for existing games). Set here so a leaked password only exposes
-one game instead of the whole portfolio. Lives on this asset (not the QA-expectations
-asset) because `Config` is guaranteed loaded by the time the QA
-bridge can arm; nothing about bridge auth should depend on an optional asset.
-
-```csharp title="Declaration"
-[Header("QA Bridge (optional)")]
-[Tooltip("Per-game QA bridge password override. Leave empty to keep the SDK's built-in default password.")]
-public string qaBridgePassword
 ```
 
 ---

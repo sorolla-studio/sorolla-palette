@@ -122,20 +122,20 @@ namespace Sorolla.Palette
         ///     TikTok is also disabled if <see cref="tiktokAppId"/> is empty for the current platform.
         /// </summary>
         [Header("TikTok (Parked)")]
-        [Tooltip("Enable TikTok Business SDK integration")]
+        [Tooltip("Parked vendor. Enable TikTok Business SDK integration (not part of the active supported vendor set).")]
         public bool enableTikTok;
 
 
         /// <summary>Parked vendor field. TikTok App ID from Events Manager (long numeric ID). Empty = disabled for that platform.</summary>
-        [Tooltip("TikTok App ID from Events Manager (long numeric ID). Leave empty to disable.")]
+        [Tooltip("Parked vendor. TikTok App ID from Events Manager (long numeric ID). Leave empty to disable.")]
         public PlatformAdUnitId tiktokAppId;
 
         /// <summary>Parked vendor field. TikTok Events Manager App ID (maps to the SDK's <c>appId</c> parameter).</summary>
-        [Tooltip("App ID from TikTok Events Manager (maps to SDK appId parameter)")]
+        [Tooltip("Parked vendor. App ID from TikTok Events Manager (maps to SDK appId parameter).")]
         public PlatformAdUnitId tiktokEmAppId;
 
         /// <summary>Parked vendor field. TikTok Events Manager Access Token used by the server-side event API.</summary>
-        [Tooltip("App Secret (Access Token) from Events Manager.")]
+        [Tooltip("Parked vendor. App Secret (Access Token) from Events Manager.")]
         public PlatformAdUnitId tiktokAccessToken;
 
         /// <summary>
@@ -146,17 +146,6 @@ namespace Sorolla.Palette
         [Header("Logging")]
         [Tooltip("Enable detailed SDK diagnostics and vendor debug logs. Forced OFF in release builds; production-safe health logs remain on.")]
         public bool verboseLogging;
-
-        /// <summary>
-        ///     Per-game override for the QA bridge password. Empty = the SDK's built-in default stays
-        ///     active (zero migration for existing games). Set here so a leaked password only exposes
-        ///     one game instead of the whole portfolio. Lives on this asset (not the QA-expectations
-        ///     asset) because <see cref="Palette.Config"/> is guaranteed loaded by the time the QA
-        ///     bridge can arm; nothing about bridge auth should depend on an optional asset.
-        /// </summary>
-        [Header("QA Bridge (optional)")]
-        [Tooltip("Per-game QA bridge password override. Leave empty to keep the SDK's built-in default password.")]
-        public string qaBridgePassword;
 
         // Note: Firebase modules (Analytics, Crashlytics, Remote Config) are always enabled
         // when Firebase is installed. No toggles needed as of v3.1.0.

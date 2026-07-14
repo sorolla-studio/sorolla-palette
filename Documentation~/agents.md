@@ -27,14 +27,14 @@ A loopback-only HTTP server compiled into every build (Editor, development, and 
 **Android:**
 ```
 adb forward tcp:18765 tcp:8765
-curl -H "X-Sorolla-QA-Password: <password>" http://127.0.0.1:18765/qa/snapshot
+curl http://127.0.0.1:18765/qa/snapshot
 ```
 
-**iOS:** no `adb` equivalent ships with the SDK. Forward the port yourself over usbmux (e.g. `iproxy`) before curling the same loopback URL.
+**iOS:** no `adb` equivalent ships with the SDK. Forward the port yourself over usbmux (e.g. `iproxy 18765 8765`) before curling the same loopback URL.
 
-**Password**: `X-Sorolla-QA-Password` header (also accepted as `Authorization: Bearer <password>` or a `?qa_password=` query param). Resolution order: `SorollaConfig.qaBridgePassword` if set on the game's config asset, else the SDK's built-in default. **Do not hardcode the default into your own scripts or commit it anywhere** — read it from the config asset at runtime, or ask Sorolla for the current value. Treat anything returned by the bridge as potentially externally readable; it is a QA convenience surface, not a hardened one (see `known-issues.md` / the SDK's internal audit notes if you have access).
+**No password.** The bridge requires no auth: the loopback-only bind is the boundary, so only someone who can already USB-forward the port reaches it. Treat anything returned by the bridge as potentially readable and don't send secrets to it — it is a QA convenience surface, not a hardened one (see `known-issues.md` / the SDK's internal audit notes if you have access). A shared PIN for the mutating `/qa/exec` endpoint may be added later; there is none today.
 
-An empty reply is **not** an auth failure — it means the app has not booted or is not foregrounded yet. Wait ~20-30s after launch and retry before concluding the bridge is down.
+An empty reply means the app has not booted or is not foregrounded yet. Wait ~20-30s after launch and retry before concluding the bridge is down.
 
 ### `GET /qa/snapshot`
 
@@ -60,7 +60,7 @@ Body: `{"action": "<name>"}`. Fire-and-ack: the response only confirms dispatch 
 
 Action names: `show_rewarded`, `show_interstitial`, `open_privacy_options`, `reset_consent`, `refresh_consent`, `track_test_event`, `level_start`, `level_complete`, `economy_earn`, `economy_spend`.
 
-Error responses: `403` + `{"detail":"qa_password_required"}` (bad/missing password), `400` + `{"detail":"unknown_action"}` (typo'd action name) or `{"detail":"bad_request"}` (malformed body), `404` + `{"detail":"unknown_endpoint"}` (wrong path), `411`/`413` (missing/oversized request body).
+Error responses: `400` + `{"detail":"unknown_action"}` (typo'd action name) or `{"detail":"bad_request"}` (malformed body), `404` + `{"detail":"unknown_endpoint"}` (wrong path), `411`/`413` (missing/oversized request body).
 
 Test-generating actions (`track_test_event`, `level_*`, `economy_*`) run inside a tagged test-action scope: they are excluded from integration health counters and filterable out of Firebase, so running them repeatedly during QA does not pollute the game's real analytics.
 

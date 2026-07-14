@@ -234,6 +234,16 @@ row, never an Error - existing checks (Adjust token, etc.) keep their current se
   leak a false-green through the copy-report path.
 
 ### Removed
+- **QA bridge password gate removed (KISS security posture)**: the `/qa/*` bridge no longer requires a
+  password. `QaBridgeAuth` (header / `Authorization: Bearer` / `qa_password=` resolution) and the public
+  `SorollaConfig.qaBridgePassword` field are deleted; the server no longer emits `403
+  qa_password_required`. The bridge still binds loopback (`127.0.0.1`) only, which is the actual
+  boundary - reads are open by design, reachable only by someone who can already USB-forward the port,
+  and studios no longer manage a per-game secret. Editor Greenlight's Connect Device step sends no auth
+  header. Snapshot output should be treated as potentially readable; the mutating `/qa/exec` endpoint is
+  the future insertion point for a single shared PIN if one is ever needed (none today). Migration:
+  remove any `X-Sorolla-QA-Password` header / `qa_password` param from your own scripts (a stale header
+  is simply ignored); a value previously set in `SorollaConfig.qaBridgePassword` is now inert.
 - **`SorollaQaExpectations` asset and its types removed (breaking)**: the `SorollaQaExpectations`
   ScriptableObject (and `SorollaQaIntendedMode`, `SorollaQaSku`, `SorollaQaSkuType`, `SorollaQaArea`,
   `SorollaQaPlatform`, `SorollaQaExpectedFailure`, plus the **Assets > Create > Palette > QA
@@ -265,8 +275,7 @@ row, never an Error - existing checks (Adjust token, etc.) keep their current se
   separate `Sorolla.Runtime.InputSystem` assembly the compile glob wrongly pulled in. The debug-menu
   overlay itself cannot be excluded: it is reachable from the public `Palette.ShowDebugger` /
   `HideDebugger` / `ToggleDebugger` API, so it is part of the documented surface. `api-reference.md` is
-  regenerated (picks up SDK version `4.0.0`, the parked-TikTok wording, and the `qaBridgePassword` field
-  the broken pipeline never published). `docs-check.yml` now fails on a zero/partial extraction and on
+  regenerated (picks up SDK version `4.0.0` and the parked-TikTok wording). `docs-check.yml` now fails on a zero/partial extraction and on
   staleness: it regenerates in CI and diffs against the committed file with the Unity-IAP-conditional
   surface (`#if UNITY_PURCHASING_INSTALLED`; `Unity.Purchasing.dll` is not present in the CI image)
   masked from both sides via `Tools~/api-reference-mask.awk`, so a newly added purchasing-gated member

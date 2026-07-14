@@ -14,8 +14,11 @@ namespace Sorolla.Palette
     ///     trips the iOS Local Network prompt and is not reachable off-device.
     ///
     ///     Trusted-studio support surface: compiled into ALL builds and auto-started in Editor,
-    ///     development, and release builds. The bridge still binds loopback only, and every
-    ///     <c>/qa/*</c> request must present the hardcoded QA bridge password.
+    ///     development, and release builds. The bridge binds loopback only and requires no password:
+    ///     reads (<c>GET /qa/snapshot</c>) are open by design - the loopback bind is the boundary, so only
+    ///     someone who can already USB-forward the port reaches it. Treat snapshot output as potentially
+    ///     readable and do not widen it. A shared PIN for mutating <c>/qa/exec</c> may be added later
+    ///     (see <see cref="HandleRequest"/>); none exists today.
     ///
     ///     Threading: HttpListener callbacks run on worker threads. They only enqueue the context;
     ///     every Unity/SDK read and the response write happen on the main thread in <see cref="Update"/>
@@ -198,18 +201,18 @@ namespace Sorolla.Palette
                     return;
                 }
 
-                if (!QaBridgeAuth.IsAuthorized(ctx.Request))
-                {
-                    WriteJson(ctx, 403, QaBridgeAuth.ForbiddenJson);
-                    return;
-                }
-
+                // No auth gate by design (KISS posture, 2026-07-13): the loopback bind is the boundary,
+                // so reads are open to anyone who can already USB-forward the port. Do not re-add a
+                // per-request password here.
                 if (path == "/qa/snapshot" && method == "GET")
                 {
                     WriteJson(ctx, 200, QaSnapshot.Build());
                     return;
                 }
 
+                // Mutating surface. Reads above are deliberately open; if the accepted mutation risk of an
+                // open /qa/exec ever needs closing, a single shared PIN check goes HERE (one rule, not a
+                // per-game secret). No such PIN exists today - exec is open like the reads.
                 if (path == "/qa/exec" && method == "POST")
                 {
                     HandleExec(ctx);
