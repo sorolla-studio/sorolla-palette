@@ -84,8 +84,13 @@ namespace Sorolla.Palette.Editor
                 while (true)
                 {
                     SkipWhitespace();
+                    // EOF inside an object = truncated/malformed JSON. Return the partial table instead of
+                    // spinning forever: PeekChar() returns (char)-1 at EOF, which never equals '}' or ',', so
+                    // without this guard the loop re-parses "" keys endlessly at 100% CPU (a truncated
+                    // google-services.json would hang the editor - surfaced by the Firebase config check).
+                    if (json.Peek() == -1) return table;
                     char nextChar = PeekChar();
-                    
+
                     if (nextChar == '}')
                     {
                         json.Read();
@@ -113,8 +118,11 @@ namespace Sorolla.Palette.Editor
                 while (true)
                 {
                     SkipWhitespace();
+                    // EOF inside an array = truncated/malformed JSON - return the partial array rather than
+                    // spinning on (char)-1, which never equals ']' or ',' (same infinite-loop class as ParseObject).
+                    if (json.Peek() == -1) return array;
                     char nextChar = PeekChar();
-                    
+
                     if (nextChar == ']')
                     {
                         json.Read();

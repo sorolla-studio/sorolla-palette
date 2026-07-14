@@ -109,8 +109,9 @@ namespace Sorolla.Palette.Health
         // ── The mode requirement table ────────────────────────────────────
 
         const string Version = "1"; // per-gate semantic version (R3-03); bump a single gate when its meaning changes.
-        // Gates whose MEANING changed this cycle carry a bumped version so the comparison instrument restarts
-        // exactly their agreement counts (F1 device applicability now targets-based; F5 store/tracking split).
+        // Gates whose MEANING changed carry a bumped version so the comparison instrument restarts exactly
+        // their agreement counts (F1 device applicability now targets-based; F5 store/tracking split; F9
+        // Firebase config now active-app matching, not mere presence).
         const string V2 = "2";
 
         static IReadOnlyList<GateDefinition> BuildCanonical()
@@ -145,8 +146,11 @@ namespace Sorolla.Palette.Health
 
             // Firebase config files follow the SAME requirement as Firebase itself (review C4-05): when
             // Firebase is required (Full), a missing active-platform google-services.json / plist must block
-            // release confidence, not sit as a non-blocking advisory warning. Optional in Prototype.
-            AddBuild(defs, GateIds.BuildFirebaseConfig, Requirements.FullRequiredElseOptional);
+            // release confidence, not sit as a non-blocking advisory warning. Optional in Prototype. V2 (F9):
+            // the check now also fails when a PRESENT config is for the wrong app id (active-app matching), a
+            // stricter meaning than mere presence, so its comparison-agreement count restarts.
+            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfig, V2, buildPhase, ProofScope.Static,
+                Requirements.FullRequiredElseOptional));
 
             // Release-only checks (review C4-04) - PreBuild|ReleaseShip, NOT QaPass. BuildValidator emits a
             // "Skipped (QA Pass profile)" Valid for these in a QA-pass run; because they are not selected in a

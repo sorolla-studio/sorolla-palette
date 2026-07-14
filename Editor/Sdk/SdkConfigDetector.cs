@@ -290,6 +290,40 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
+        ///     Existing google-services.json paths for the active Android config (exact locations only, so the
+        ///     auto-generated google-services-desktop.json can never false-positive). Zero/one/many is
+        ///     meaningful to the caller: many means the shipping config is ambiguous, not a silent pick.
+        /// </summary>
+        public static System.Collections.Generic.List<string> FirebaseAndroidConfigPaths()
+        {
+            var paths = new System.Collections.Generic.List<string>();
+            foreach (string p in new[] { "Assets/google-services.json", "Assets/StreamingAssets/google-services.json" })
+                if (System.IO.File.Exists(p))
+                    paths.Add(p);
+            return paths;
+        }
+
+        /// <summary>
+        ///     Existing GoogleService-Info.plist paths for the active iOS config: the exact locations plus any
+        ///     project-wide matches, deduped (a file at an exact path is also returned by the project search).
+        ///     Reports zero/one/many so the caller never silently picks one of several plists.
+        /// </summary>
+        public static System.Collections.Generic.List<string> FirebaseIosConfigPaths()
+        {
+            var paths = new System.Collections.Generic.HashSet<string>();
+            foreach (string p in new[] { "Assets/GoogleService-Info.plist", "Assets/StreamingAssets/GoogleService-Info.plist" })
+                if (System.IO.File.Exists(p))
+                    paths.Add(p);
+            foreach (string guid in AssetDatabase.FindAssets("GoogleService-Info"))
+            {
+                string p = AssetDatabase.GUIDToAssetPath(guid);
+                if (!string.IsNullOrEmpty(p) && p.EndsWith(".plist", StringComparison.OrdinalIgnoreCase))
+                    paths.Add(p);
+            }
+            return new System.Collections.Generic.List<string>(paths);
+        }
+
+        /// <summary>
         ///     Checks if Firebase is fully configured (config files present).
         /// </summary>
         public static ConfigStatus GetFirebaseStatus(SorollaConfig config)

@@ -22,6 +22,18 @@ check below warns rather than blocks the build. Each warning states the root cau
 signal it produces, and the fix.
 
 ### Added
+- **Firebase config active-app matching (Build Health)**: the Firebase config check no longer only asks
+  "is a google-services.json / GoogleService-Info.plist present?" - it parses the file and confirms it
+  carries the ACTIVE application id (Android `package_name` read as a set of clients; iOS `BUNDLE_ID`).
+  A copied wrong-game config now FAILs with both identifiers named, instead of passing silently and
+  breaking Firebase only at runtime. Missing-file severity is unchanged (blocks in Full, warns in
+  Prototype). Several candidate files, an unreadable file, or a file that will not parse resolve to
+  INCOMPLETE (never a false pass), and the iOS search reports zero/one/many rather than silently picking
+  one plist. The parser is Unity-free and unit-tested (match, mismatch, malformed, multi-client,
+  duplicate clients, whitespace/BOM, wrong file type, same-id-different-project). Honest limit: matching
+  the bundle id catches a wrong-GAME file but does NOT prove Firebase PROJECT identity - a config for the
+  right bundle id but the wrong Firebase project still passes (project-identity verification stays an
+  open item until an authoritative expected project id is defined).
 - **iOS device snapshot ingest in the Editor Greenlight**: the Connect Device button now pulls the
   live `/qa/snapshot` from a USB-connected iOS device over `iproxy` (libimobiledevice), the direct
   analog of the existing Android `adb forward` path - both land on the same loopback bridge and share
@@ -175,6 +187,11 @@ signal it produces, and the fix.
   header health summary, honest unverified states) off the same underlying snapshot data.
 
 ### Fixed
+- **`MiniJson` no longer hangs on truncated JSON**: `ParseObject`/`ParseArray` looped forever at 100% CPU
+  when input ended mid-object/array (EOF reads as `(char)-1`, which never matches `}`/`]`/`,`), so a
+  truncated config file could wedge the editor. Both loops now return the partial structure on EOF. Found
+  via the new Firebase config parser, which feeds `MiniJson` a real `google-services.json` that may be
+  truncated.
 - **`google-services.json` detection no longer false-positives on the desktop file**: the Firebase
   Android config check required exactly `Assets/google-services.json` (or the StreamingAssets copy);
   the fuzzy `AssetDatabase.FindAssets("google-services")` fallback that matched the auto-generated
