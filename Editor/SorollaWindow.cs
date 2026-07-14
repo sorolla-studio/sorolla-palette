@@ -1026,7 +1026,10 @@ namespace Sorolla.Palette.Editor
                 Repaint();
             }))
             {
-                text = _snapshotState.Phase == GreenlightDeviceSnapshot.Phase.Running ? "Connecting..." : "Connect Device",
+                text = _snapshotState.Phase == GreenlightDeviceSnapshot.Phase.Running ? "Connecting..." : "Connect Device (Android/iOS USB)",
+                tooltip = "Pulls the live QA snapshot from the connected device over USB. "
+                    + "Android uses adb (USB debugging on); iOS uses iproxy from libimobiledevice (device unlocked + trusted). "
+                    + "Keep the game foregrounded on the device while connecting.",
             };
             connectButton.AddToClassList("sorolla-button-small");
             connectButton.SetEnabled(_snapshotState.Phase != GreenlightDeviceSnapshot.Phase.Running);

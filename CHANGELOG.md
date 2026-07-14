@@ -22,6 +22,13 @@ check below warns rather than blocks the build. Each warning states the root cau
 signal it produces, and the fix.
 
 ### Added
+- **iOS device snapshot ingest in the Editor Greenlight**: the Connect Device button now pulls the
+  live `/qa/snapshot` from a USB-connected iOS device over `iproxy` (libimobiledevice), the direct
+  analog of the existing Android `adb forward` path - both land on the same loopback bridge and share
+  identity/schema validation. The Greenlight adapter emits device-readiness and purchase-tracking-wiring
+  observations on iOS as well as Android, and binds device-session manual attestations (relaunch /
+  background-resume) to the connected build's Unity build GUID on iOS. An iOS build's device gates and
+  device-backed attestations are now reachable instead of permanently `INCOMPLETE`.
 - **Mode requirement table + live Greenlight cutover to the shared evaluator**: the canonical
   `Sorolla.Health` gate catalog is now populated with a stable id, per-gate version, phase, required
   flag, proof scope, and a mode/platform/installed-modules applicability predicate for every Build

@@ -165,11 +165,13 @@ namespace Sorolla.Palette.Editor.Tests
         // ── F1: applicability vs collector availability ───────────────────
 
         [Test]
-        public void IntendedIosPlatform_NoCollector_DeviceGatesAreIncomplete_NotNotApplicable()
+        public void IntendedIosPlatform_NoDeviceEvidence_DeviceGatesAreIncomplete_NotNotApplicable()
         {
-            // F1's core repair: on an iOS-only game the absence of an iOS collector is a CAPABILITY GAP - the
-            // required device gates omit → INCOMPLETE, they do NOT drop out as NotApplicable (which would let
-            // an iOS build read HEALTHY without ever running on its only shipping platform).
+            // On an iOS-only game with NO device evidence supplied, the required device gates omit → INCOMPLETE,
+            // they do NOT drop out as NotApplicable (which would let an iOS build read HEALTHY without ever
+            // running on its only shipping platform). This is the catalog-level requiredness; the adapter now
+            // supplies real iOS evidence over iproxy (see the F10 tests below), but "never connected" must still
+            // land INCOMPLETE, exactly like Android.
             var ctx = new EvaluationContext
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
@@ -369,6 +371,136 @@ namespace Sorolla.Palette.Editor.Tests
             };
             List<GateObservation> obs = GreenlightDeviceSnapshot.ToObservations(state);
             Assert.AreEqual(GateOutcome.Incomplete, obs.Single(o => o.GateId == GateIds.DeviceReady).Outcome);
+        }
+
+        [Test]
+        public void CompareIdentity_WrongPlatform_IsMismatch()
+        {
+            // C45-05: an iOS snapshot pulled while the project targets Android (or vice-versa) has not proven
+            // which build it came from - the platform is part of the required identity.
+            Dictionary<string, object> snap = SnapshotWithIdentity("com.sorolla.game", "IPhonePlayer", "1.0", "full");
+            Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Mismatch,
+                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", out string detail));
+            StringAssert.Contains("Wrong platform", detail);
+        }
+
+        // ── F10: iOS device transport (iproxy) - un-gated collector + GUID binding ───
+
+        [Test]
+        public void BuildObservations_IosIntended_NeverConnected_EmitsIncompleteDeviceReady()
+        {
+            // F10: iOS now has a shipping collector (iproxy), so the device path is un-gated for iOS. A
+            // never-connected iOS build must emit an explicit not-connected DeviceReady (INCOMPLETE) - the same
+            // row Android emits - instead of the old behavior where iOS emitted nothing at all.
+            var ctx = new EvaluationContext
+            {
+                Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
+                InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
+                IntendedTargets = DistributionTargets.iOS,
+                RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+            };
+            List<GateObservation> obs = GreenlightAdapter.BuildObservations(
+                ctx, null, new GreenlightDeviceSnapshot.State());
+            GateObservation ready = obs.Single(o => o.GateId == GateIds.DeviceReady);
+            Assert.AreEqual(GateOutcome.Incomplete, ready.Outcome);
+            Assert.AreEqual(ProofScope.None, ready.ObservedProof);
+        }
+
+        [Test]
+        public void BuildObservations_IosNotIntended_OmitsDeviceReady()
+        {
+            // Building iOS for a game that ships only on Android: iOS device gates are NotApplicable, so the
+            // adapter must emit NO iOS device observation (emitting would be a C3-05 context mismatch).
+            var ctx = new EvaluationContext
+            {
+                Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
+                InstalledModules = SdkModule.GameAnalytics,
+                IntendedTargets = DistributionTargets.Android,
+                RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+            };
+            List<GateObservation> obs = GreenlightAdapter.BuildObservations(
+                ctx, null, new GreenlightDeviceSnapshot.State());
+            Assert.IsFalse(obs.Any(o => o.GateId == GateIds.DeviceReady),
+                "an unintended iOS platform must not emit a device observation.");
+        }
+
+        [Test]
+        public void BuildObservations_IosPlatform_UnityIap_EmitsTrackingObservation()
+        {
+            // F10/F5: the purchase-tracking observation was Android-only; with the iOS collector it must be
+            // emitted for iOS too when Unity IAP is installed and a parsed snapshot is present.
+            GreenlightDeviceSnapshot.State snapshot = AmbientTrackingSnapshot(attached: true, attempted: true);
+            var ctx = new EvaluationContext
+            {
+                Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
+                InstalledModules = SdkModule.UnityIap,
+                IntendedTargets = DistributionTargets.iOS, CommerceTargets = DistributionTargets.iOS,
+                RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+            };
+            List<GateObservation> obs = GreenlightAdapter.BuildObservations(ctx, null, snapshot);
+            Assert.IsTrue(obs.Any(o => o.GateId == GateIds.IapTrackingAttached),
+                "iOS + Unity IAP + a parsed snapshot must emit the tracking-wiring observation.");
+        }
+
+        // Parsed iOS snapshot carrying an explicit build GUID, for the attestation-binding tests below.
+        static GreenlightDeviceSnapshot.State ParsedIosSnapshot(string buildGuid) => new GreenlightDeviceSnapshot.State
+        {
+            Phase = GreenlightDeviceSnapshot.Phase.Done,
+            Outcome = GreenlightDeviceSnapshot.Outcome.Parsed,
+            Snapshot = new Dictionary<string, object>
+            {
+                ["snapshot_schema"] = "1",
+                ["mode"] = "full",
+                ["build"] = new Dictionary<string, object>
+                {
+                    ["application_id"] = "com.sorolla.hungrysnake3d", ["platform"] = "IPhonePlayer",
+                    ["app_version"] = "2.8.2", ["build_guid"] = buildGuid,
+                },
+            },
+        };
+
+        static QaAttestationRecord IosDeviceAttestation(string gateId, string deviceBuildGuid) => new QaAttestationRecord
+        {
+            schema = "1", gateId = gateId, gateVersion = "1", phase = GatePhase.QaPass.ToString(),
+            actor = "tester", timestampUtc = DateTime.UtcNow.ToString("o"),
+            applicationId = "com.sorolla.hungrysnake3d", platform = "IPhonePlayer", mode = "full", appVersion = "2.8.2",
+            outcome = "Pass", proofScope = ProofScope.DeviceDispatch.ToString(),
+            evidenceNote = "killed + relaunched; consent and progress persisted", deviceBuildGuid = deviceBuildGuid,
+        };
+
+        [Test]
+        public void IosSnapshotBuildGuid_BindsDeviceManualAttestation()
+        {
+            // Blocker 3: the iOS snapshot's build_guid must flow into the device-manual attestation expectation
+            // so a device-backed gate can be attested (not Stale-forever). Matching GUID → Valid.
+            string guid = GreenlightDeviceSnapshot.BuildGuidOf(ParsedIosSnapshot("6f5d5572536a40db9136bbf61a3bcd89"));
+            Assert.AreEqual("6f5d5572536a40db9136bbf61a3bcd89", guid, "BuildGuidOf must read the iOS snapshot's build GUID.");
+
+            var identity = new QaBuildIdentity("com.sorolla.hungrysnake3d", "IPhonePlayer", "full", "2.8.2");
+            var expectation = new QaAttestationExpectation(
+                GateIds.ManualRelaunchPersistence, "1", GatePhase.QaPass.ToString(),
+                ProofScope.DeviceDispatch, identity, guid);
+            QaAttestationRecord record = IosDeviceAttestation(GateIds.ManualRelaunchPersistence, guid);
+
+            Assert.AreEqual(AttestationValidity.Valid,
+                QaAttestationValidator.Evaluate(record, expectation, DateTime.UtcNow, out _),
+                "an iOS device attestation bound to the connected build GUID must validate.");
+        }
+
+        [Test]
+        public void IosDeviceAttestation_GuidMismatch_IsStale_NeverPass()
+        {
+            // A device attestation made against a DIFFERENT iOS build (GUID mismatch) must be Stale → INCOMPLETE,
+            // never inherited by a different binary at the same app-version.
+            string guid = GreenlightDeviceSnapshot.BuildGuidOf(ParsedIosSnapshot("6f5d5572536a40db9136bbf61a3bcd89"));
+            var identity = new QaBuildIdentity("com.sorolla.hungrysnake3d", "IPhonePlayer", "full", "2.8.2");
+            var expectation = new QaAttestationExpectation(
+                GateIds.ManualRelaunchPersistence, "1", GatePhase.QaPass.ToString(),
+                ProofScope.DeviceDispatch, identity, "a-different-build-guid");
+            QaAttestationRecord record = IosDeviceAttestation(GateIds.ManualRelaunchPersistence, guid);
+
+            Assert.AreEqual(AttestationValidity.Stale,
+                QaAttestationValidator.Evaluate(record, expectation, DateTime.UtcNow, out _));
         }
 
         // ── F4-02: bare-vendor absence is not an affirmative observation ───

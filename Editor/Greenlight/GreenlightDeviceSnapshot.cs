@@ -11,18 +11,25 @@ using UnityEngine;
 namespace Sorolla.Palette.Editor.Greenlight
 {
     /// <summary>
-    ///     Optional "connect device" step: forwards the QA bridge port over adb and pulls
-    ///     <c>/qa/snapshot</c>. Never blocks the verdict - no device, no adb, or an unauthenticated
-    ///     bridge all degrade to WAIT/Info rows, never a Fail. See the studio self-serve greenlight
-    ///     plan §Editor window restructure.
+    ///     Optional "connect device" step: forwards the QA bridge port over USB and pulls
+    ///     <c>/qa/snapshot</c>. The transport follows the active build target - Android over
+    ///     <c>adb forward</c>, iOS over <c>iproxy</c> (libimobiledevice usbmux) - but both land on the same
+    ///     loopback URL, so the fetch/parse path is shared. Never blocks the verdict: no device, no transport
+    ///     tool, or an unauthenticated bridge all degrade to WAIT/Info rows, never a Fail. See the studio
+    ///     self-serve greenlight plan §Editor window restructure.
     /// </summary>
     static class GreenlightDeviceSnapshot
     {
         const string DeviceForwardSpec = "tcp:18765";
         const string BridgeForwardSpec = "tcp:8765";
+        // iproxy takes bare "<localPort> <devicePort>"; the device bridge binds loopback on 8765, so we map
+        // local 18765 → device 8765 exactly like the adb forward above, landing on the same SnapshotUrl.
+        const string IproxyForwardArgs = "18765 8765";
         const string SnapshotUrl = "http://127.0.0.1:18765/qa/snapshot";
         const string PasswordHeader = "X-Sorolla-QA-Password";
         static readonly TimeSpan HttpTimeout = TimeSpan.FromSeconds(5);
+        // iproxy runs in the foreground until killed; wait for it to bind the local port before the fetch.
+        static readonly TimeSpan IproxyBindDelay = TimeSpan.FromMilliseconds(1200);
 
         internal enum Phase
         {
@@ -34,7 +41,7 @@ namespace Sorolla.Palette.Editor.Greenlight
         internal enum Outcome
         {
             None,
-            AdbNotFound,
+            TransportNotFound, // adb (Android) or iproxy (iOS) not installed on this machine
             NoDevice,
             Unreachable,
             Parsed,
@@ -49,8 +56,9 @@ namespace Sorolla.Palette.Editor.Greenlight
         }
 
         /// <summary>
-        ///     Kicks off the adb-forward + HTTP GET flow. Fire-and-forget from a button click;
-        ///     <paramref name="onSettled"/> is invoked on completion so the caller can repaint.
+        ///     Kicks off the USB-forward + HTTP GET flow, picking the transport from the active build target
+        ///     (adb for Android, iproxy for iOS). Fire-and-forget from a button click; <paramref name="onSettled"/>
+        ///     is invoked once on completion so the caller can repaint.
         /// </summary>
         internal static async void Run(State state, Action onSettled)
         {
@@ -64,25 +72,64 @@ namespace Sorolla.Palette.Editor.Greenlight
             // see Runtime/Diagnostics/QaBridge/QaBridgeAuth.cs. Always resolves to a non-empty value.
             string password = QaBridgeAuth.EffectivePassword();
 
+            if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS)
+                await RunIosFlow(password, state);
+            else
+                await RunAndroidFlow(password, state);
+
+            onSettled?.Invoke();
+        }
+
+        static async Task RunAndroidFlow(string password, State state)
+        {
             string adbPath = ResolveAdbPath();
             if (adbPath == null)
             {
-                state.Phase = Phase.Done;
-                state.Outcome = Outcome.AdbNotFound;
-                state.DetailMessage = "adb not found on PATH or in standard Android SDK locations.";
-                onSettled?.Invoke();
+                Settle(state, Outcome.TransportNotFound, "adb not found on PATH or in standard Android SDK locations.");
                 return;
             }
 
-            bool forwarded = await RunAdbForward(adbPath, state);
-            if (!forwarded)
+            if (await RunAdbForward(adbPath, state)) // sets NoDevice on failure
+                await FetchSnapshot(password, state);
+        }
+
+        static async Task RunIosFlow(string password, State state)
+        {
+            string iproxyPath = ResolveMacToolPath("iproxy");
+            if (iproxyPath == null)
             {
-                onSettled?.Invoke();
+                Settle(state, Outcome.TransportNotFound,
+                    "iproxy not found. Install libimobiledevice (brew install libimobiledevice) to connect an iOS device over USB.");
                 return;
             }
 
-            await FetchSnapshot(password, state);
-            onSettled?.Invoke();
+            if (!IosDeviceConnected())
+            {
+                Settle(state, Outcome.NoDevice,
+                    "No iOS device detected over USB. Connect the iPhone/iPad, unlock it, and tap Trust This Computer, then re-run.");
+                return;
+            }
+
+            Process forward = StartIproxyForward(iproxyPath, state); // sets NoDevice on failure
+            if (forward == null)
+                return;
+
+            try
+            {
+                await Task.Delay(IproxyBindDelay);
+                await FetchSnapshot(password, state);
+            }
+            finally
+            {
+                KillQuietly(forward);
+            }
+        }
+
+        static void Settle(State state, Outcome outcome, string detail)
+        {
+            state.Phase = Phase.Done;
+            state.Outcome = outcome;
+            state.DetailMessage = detail;
         }
 
         static string ResolveAdbPath()
@@ -202,6 +249,91 @@ namespace Sorolla.Palette.Editor.Greenlight
             }
         }
 
+        // iOS transport tools (iproxy/idevice_id) ship via homebrew's libimobiledevice, and iOS development
+        // only happens on macOS. A GUI-launched Unity does not inherit a login shell's PATH, so a bare "iproxy"
+        // is invisible even when it works from a terminal - resolve the two brew prefixes explicitly (Apple
+        // Silicon then Intel), same lesson as the adb resolver above.
+        static string ResolveMacToolPath(string tool)
+        {
+            foreach (string dir in new[] { "/opt/homebrew/bin", "/usr/local/bin" })
+            {
+                string candidate = Path.Combine(dir, tool);
+                if (File.Exists(candidate)) return candidate;
+            }
+            return null;
+        }
+
+        // A quick usbmux presence check so "no device" reads as NoDevice with a clear fix, not a downstream
+        // "bridge unreachable". A missing probe tool is not treated as "no device" - fall through to the
+        // forward+fetch, which will surface the real reason.
+        static bool IosDeviceConnected()
+        {
+            string ideviceId = ResolveMacToolPath("idevice_id");
+            if (ideviceId == null)
+                return true;
+            try
+            {
+                var probe = new Process
+                {
+                    StartInfo = new ProcessStartInfo(ideviceId, "-l")
+                    {
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true,
+                    },
+                };
+                probe.Start();
+                string output = probe.StandardOutput.ReadToEnd();
+                probe.WaitForExit(3000);
+                return !string.IsNullOrWhiteSpace(output);
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        // Starts the long-running iproxy usbmux forward. Unlike `adb forward` (which returns once the forward is
+        // registered in the adb server), iproxy stays in the foreground until killed, so we return the handle and
+        // the caller tears it down after the fetch rather than waiting on exit.
+        static Process StartIproxyForward(string iproxyPath, State state)
+        {
+            try
+            {
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo(iproxyPath, IproxyForwardArgs)
+                    {
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true,
+                    },
+                };
+                process.Start();
+                return process;
+            }
+            catch (Exception e)
+            {
+                Settle(state, Outcome.NoDevice, $"iproxy USB forward failed: {e.Message}");
+                return null;
+            }
+        }
+
+        static void KillQuietly(Process process)
+        {
+            try
+            {
+                if (!process.HasExited) process.Kill();
+            }
+            catch
+            {
+                // Already gone (e.g. the local port was busy so iproxy exited on its own) - nothing to tear down.
+            }
+            process.Dispose();
+        }
+
         static async Task FetchSnapshot(string password, State state)
         {
             try
@@ -262,11 +394,11 @@ namespace Sorolla.Palette.Editor.Greenlight
                         Outcome = GateOutcome.Incomplete,
                         ObservedProof = ProofScope.None,
                         Evidence = "Not connected - click Connect Device to pull live /qa/snapshot state.",
-                        FixHint = "Connect an Android device with USB debugging enabled and re-run.",
+                        FixHint = "Connect the device running this build over USB (Android USB debugging / iOS trusted + paired) and re-run.",
                     });
                     return observations;
 
-                case Outcome.AdbNotFound:
+                case Outcome.TransportNotFound:
                 case Outcome.NoDevice:
                     observations.Add(new GateObservation
                     {
@@ -274,7 +406,7 @@ namespace Sorolla.Palette.Editor.Greenlight
                         Outcome = GateOutcome.Incomplete,
                         ObservedProof = ProofScope.None,
                         Evidence = state.DetailMessage,
-                        FixHint = "Connect an Android device with USB debugging enabled and re-run.",
+                        FixHint = "Connect the device running this build over USB (Android USB debugging / iOS trusted + paired) and re-run.",
                     });
                     return observations;
 
