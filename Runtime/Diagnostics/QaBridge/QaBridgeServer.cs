@@ -269,7 +269,7 @@ namespace Sorolla.Palette
             return reader.ReadToEnd();
         }
 
-        // Loopback + password already gate the bridge; this only bounds what the exec parser will read.
+        // The loopback bind already gates the bridge (passwordless by design); this only bounds what the exec parser will read.
         // An undeclared length (chunked transfer-encoding) is refused with 411 so it is not conflated with
         // an oversized body; a declared length over the cap is refused with 413. Returns true (and has
         // already written the response) when the request was rejected.
