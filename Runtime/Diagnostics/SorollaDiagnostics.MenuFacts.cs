@@ -126,9 +126,11 @@ namespace Sorolla.Palette
             rows.Add(new SorollaMenuMatrixRow("Progression", progressionSeen,
                 $"{snap.ProgressionStartCount} start · {snap.ProgressionEndCount} end", "Play one level to completion"));
 
-            bool economySeen = snap.EconomyEarnCount > 0 && snap.EconomySpendCount > 0;
+            // One observed flow proves the economy family dispatches; earn-without-spend is normal
+            // player behavior, not missing coverage (minimum-evidence rule: earn-only owes no spend test).
+            bool economySeen = snap.EconomyEarnCount > 0 || snap.EconomySpendCount > 0;
             rows.Add(new SorollaMenuMatrixRow("Economy", economySeen,
-                $"{snap.EconomyEarnCount} earn · {snap.EconomySpendCount} spend", "Earn and spend soft currency once each"));
+                $"{snap.EconomyEarnCount} earn · {snap.EconomySpendCount} spend", "Earn or spend soft currency once"));
 
             // Hint verified live (team-lead tier-2 follow-up): Actions -> "Fire test event" does NOT
             // flip this row - DoTrackTestEvent tags the event with the QA-test marker and runs inside

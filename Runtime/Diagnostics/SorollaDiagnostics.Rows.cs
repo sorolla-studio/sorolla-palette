@@ -196,7 +196,13 @@ namespace Sorolla.Palette
 
             AddObserved(rows, "Activity", "Progression start/end", CountPairSeverity(snapshot.ProgressionStartCount, snapshot.ProgressionEndCount),
                 $"{snapshot.ProgressionStartCount} start / {snapshot.ProgressionEndCount} end observed");
-            AddObserved(rows, "Activity", "Economy earn/spend", CountPairSeverity(snapshot.EconomyEarnCount, snapshot.EconomySpendCount),
+            // Economy is one integration family with two optional flows: a single observed flow already
+            // proves dispatch, and earn-without-spend is normal player behavior (hungrysnake 2026-07-14
+            // false-warn on a live green game). Zero activity stays Info; never Warning.
+            AddObserved(rows, "Activity", "Economy earn/spend",
+                snapshot.EconomyEarnCount + snapshot.EconomySpendCount > 0
+                    ? SorollaDiagnosticSeverity.Pass
+                    : SorollaDiagnosticSeverity.Info,
                 $"{snapshot.EconomyEarnCount} earn / {snapshot.EconomySpendCount} spend observed");
             AddObserved(rows, "Activity", "Custom events", snapshot.CustomEventCount > 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
                 snapshot.CustomEventCount > 0 ? $"{snapshot.CustomEventCount} observed, last={snapshot.LastCustomEvent}" : "None observed");
