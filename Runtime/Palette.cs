@@ -268,19 +268,19 @@ namespace Sorolla.Palette
         /// <summary>Shows the code-only Sorolla Vitals debug console. No prefab or sample scene is required.</summary>
         public static void ShowDebugger()
         {
-            SorollaDiagnosticsConsole.Show();
+            SorollaDebugMenuOverlay.Open();
         }
 
         /// <summary>Hides the code-only Sorolla Vitals debug console.</summary>
         public static void HideDebugger()
         {
-            SorollaDiagnosticsConsole.Hide();
+            SorollaDebugMenuOverlay.Close();
         }
 
         /// <summary>Toggles the code-only Sorolla Vitals debug console visibility.</summary>
         public static void ToggleDebugger()
         {
-            SorollaDiagnosticsConsole.Toggle();
+            SorollaDebugMenuOverlay.Toggle();
         }
 
         #endregion

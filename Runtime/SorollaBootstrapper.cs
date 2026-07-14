@@ -23,7 +23,7 @@ namespace Sorolla.Palette
                 s_instance = null;
         }
 
-        // R1 (DR-129): returning to the foreground can mean the user changed ATT in iOS Settings while
+        // Returning to the foreground can mean the user changed ATT in iOS Settings while
         // we were backgrounded. Re-resolve consent so the new status reaches every vendor. Guarded on
         // IsInitialized so the pre-consent window is skipped (nothing to re-fan yet), and on the
         // singleton so a duplicate bootstrapper about to be destroyed never triggers it.
@@ -37,7 +37,7 @@ namespace Sorolla.Palette
         {
             // Only the AutoInit-created instance drives initialization. A second bootstrapper
             // (e.g. one manually dropped into a scene) would otherwise call Palette.Initialize
-            // a second time and double-subscribe MAX callbacks during the CMP window (DR-02).
+            // a second time and double-subscribe MAX callbacks during the CMP window.
             if (s_instance != this)
             {
                 PaletteLog.Warning("[Palette] Extra SorollaBootstrapper found - the SDK auto-creates its own. Destroying this duplicate.");
@@ -58,7 +58,7 @@ namespace Sorolla.Palette
 
             var go = new GameObject("[Palette SDK]");
             MakePersistent(go);
-            SorollaDiagnosticsConsole.Ensure(go);
+            SorollaDebugMenuLauncher.Ensure(go);
             QaBridgeServer.Ensure(go);
             s_instance = go.AddComponent<SorollaBootstrapper>();
 
@@ -144,7 +144,7 @@ namespace Sorolla.Palette
             var finalStatus = ATTBridge.GetStatus();
             PaletteLog.Vital($"[Palette] Standalone ATT resolved: {finalStatus}");
             // Resolve ATT BEFORE Initialize so Palette.ResolveBootSignals reads the final status.
-            // No-MAX boot keeps analytics ON regardless of ATT (no ads to gate) - FIX 1.
+            // No-MAX boot keeps analytics ON regardless of ATT (no ads to gate).
             Palette.Initialize();
             // Ship ATT decision to analytics. Palette.Initialize set IsInitialized=true
             // on the non-MAX path so this fires immediately (not queued).
