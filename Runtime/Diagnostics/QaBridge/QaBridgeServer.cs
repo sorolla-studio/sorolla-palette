@@ -14,11 +14,11 @@ namespace Sorolla.Palette
     ///     trips the iOS Local Network prompt and is not reachable off-device.
     ///
     ///     Trusted-studio support surface: compiled into ALL builds and auto-started in Editor,
-    ///     development, and release builds. The bridge binds loopback only and requires no password:
-    ///     reads (<c>GET /qa/snapshot</c>) are open by design - the loopback bind is the boundary, so only
-    ///     someone who can already USB-forward the port reaches it. Treat snapshot output as potentially
-    ///     readable and do not widen it. A shared PIN for mutating <c>/qa/exec</c> may be added later
-    ///     (see <see cref="HandleRequest"/>); none exists today.
+    ///     development, and release builds. Both endpoints are passwordless. The loopback bind blocks direct
+    ///     LAN access, but device loopback is device-global: another app/process on the device can connect; a
+    ///     host computer needs USB forwarding. Treat snapshot output as potentially readable and do not widen
+    ///     it. A shared PIN for mutating <c>/qa/exec</c> may be added later (see <see cref="HandleRequest"/>);
+    ///     none exists today.
     ///
     ///     Threading: HttpListener callbacks run on worker threads. They only enqueue the context;
     ///     every Unity/SDK read and the response write happen on the main thread in <see cref="Update"/>
@@ -201,9 +201,9 @@ namespace Sorolla.Palette
                     return;
                 }
 
-                // No auth gate by design (KISS posture, 2026-07-13): the loopback bind is the boundary,
-                // so reads are open to anyone who can already USB-forward the port. Do not re-add a
-                // per-request password here.
+                // No auth gate by design (KISS posture, 2026-07-13): reads are reachable from another
+                // app/process on the device, or from a host after USB forwarding. Do not re-add a per-request
+                // password here.
                 if (path == "/qa/snapshot" && method == "GET")
                 {
                     WriteJson(ctx, 200, QaSnapshot.Build());
