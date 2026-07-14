@@ -4,21 +4,15 @@ using UnityEngine.UIElements;
 
 namespace Sorolla.Palette
 {
-    // Phase-1 spike proved the injected-UIDocument bootstrap gate (inert parallel code, opened only
-    // via the existing IMGUI console's "Open new menu (preview)" action button; the IMGUI console
-    // itself stays untouched and shipping). Phase 2 (debug-menu overhaul) fills in the design system,
-    // the real header (verdict/counts/context/coverage), and the Issues tab - see
-    // SorollaDebugMenuOverlay.Issues.cs. Zero scene setup - GameObject + UIDocument + PanelSettings
-    // are created entirely from code on open, DontDestroyOnLoad, and fully torn down on close.
-    // Display-only: all facts are read straight off the existing diagnostics/snapshot pipeline
-    // (BuildRows, CaptureQaState, Application.*) - no new fact pipeline. Overview/Console/Actions
-    // tabs stay empty placeholders until phase 3+.
+    // Code-created runtime debug menu: no prefab or scene setup. All facts come from the existing
+    // diagnostics/snapshot pipeline, and all runtime UI objects are torn down when the menu closes.
     internal sealed partial class SorollaDebugMenuOverlay : MonoBehaviour
     {
         const string HostName = "[Palette SDK Debug Menu]";
         const string ThemeResourcePath = "SorollaDebugMenuTheme";
         const string UssResourcePath = "SorollaDebugMenuRuntime";
         const int PanelSortingOrder = 32000;
+        const float LiveRefreshIntervalSeconds = 0.2f;
 
         // The design source (Sorolla Vitals Mobile.dc.html) authors its 11-13px type scale as phone
         // POINTS on a 392-wide phone frame. ScaleWithScreenSize's width/height blend (`match`) breaks
@@ -38,9 +32,13 @@ namespace Sorolla.Palette
 
         PanelSettings _panelSettings;
         GameObject _createdEventSystem;
+        VisualElement _root;
+        VisualElement _header;
+        VisualElement _content;
         readonly VisualElement[] _tabPanes = new VisualElement[4];
         readonly Button[] _tabButtons = new Button[4];
         int _activeTabIndex;
+        float _nextLiveRefreshTime;
 
         // Computed once per Build() (menu open), never per frame - rebuilt tree, not rebuilt rows.
         readonly List<SorollaDiagnosticRow> _rows = new List<SorollaDiagnosticRow>(64);
@@ -51,6 +49,9 @@ namespace Sorolla.Palette
         {
             if (s_instance != null) return;
 
+            SorollaDiagnostics.EnsureLogBridge();
+            SorollaDiagnostics.InstallUnityLogSink();
+
             var host = new GameObject(HostName);
             try
             {
@@ -58,8 +59,7 @@ namespace Sorolla.Palette
             }
             catch
             {
-                // Matches SorollaDiagnosticsConsole.EnsureStandalone: tolerate very-early calls
-                // before the scene is ready for DontDestroyOnLoad.
+                // Very-early calls can occur before the scene is ready for DontDestroyOnLoad.
             }
 
             s_instance = host.AddComponent<SorollaDebugMenuOverlay>();
@@ -91,39 +91,37 @@ namespace Sorolla.Palette
 
             StyleSheet runtimeUss = Resources.Load<StyleSheet>(UssResourcePath);
 
-            VisualElement root = document.rootVisualElement;
-            root.AddToClassList("sorolla-debugmenu-root");
+            _root = document.rootVisualElement;
+            _root.AddToClassList("sorolla-debugmenu-root");
             if (runtimeUss != null)
-                root.styleSheets.Add(runtimeUss);
+                _root.styleSheets.Add(runtimeUss);
             else
-                Debug.LogWarning("[Palette] Debug menu spike: runtime USS not found at Resources/" + UssResourcePath);
+                Debug.LogWarning("[Palette] Debug menu runtime USS not found at Resources/" + UssResourcePath);
 
             SorollaDiagnostics.BuildRows(_rows);
             int issueCount = CountIssueRows(_rows);
 
-            root.Add(BuildHeader());
-            root.Add(BuildTabBar(issueCount, CountConsoleEntries()));
+            _header = BuildHeader();
+            _root.Add(_header);
+            _root.Add(BuildTabBar(issueCount, CountConsoleEntries()));
 
-            VisualElement content = new VisualElement();
-            content.AddToClassList("sorolla-debugmenu-content");
+            _content = new VisualElement();
+            _content.AddToClassList("sorolla-debugmenu-content");
             for (int i = 0; i < _tabPanes.Length; i++)
             {
                 switch (i)
                 {
-                    // Phase 6 (spec section 11): Overview is now the DEFAULT landing tab - moved
-                    // to index 0 (leftmost + initially active) instead of Issues.
                     case 0: _tabPanes[i] = BuildOverviewTab(_rows); break;
                     case 1: _tabPanes[i] = BuildIssuesTab(_rows); break;
                     case 2: _tabPanes[i] = BuildConsoleTab(); break;
                     case 3: _tabPanes[i] = BuildActionsTab(); break;
-                    default: _tabPanes[i] = BuildPlaceholderPane(TabLabel(i)); break;
                 }
                 _tabPanes[i].style.display = i == 0 ? DisplayStyle.Flex : DisplayStyle.None;
-                content.Add(_tabPanes[i]);
+                _content.Add(_tabPanes[i]);
             }
-            root.Add(content);
+            _root.Add(_content);
 
-            SetActiveTab(0); // Overview, now index 0 - the default landing tab (spec section 11)
+            SetActiveTab(0);
 
             _createdEventSystem = SorollaDebugMenuEventSystemFactory.CreateIfMissing();
         }
@@ -136,11 +134,7 @@ namespace Sorolla.Palette
             var titleRow = new VisualElement();
             titleRow.AddToClassList("sorolla-debugmenu-header-row");
 
-            // Phase 6 (Overview redesign, spec section 11 item 1): the big verdict badge + severity
-            // count strip MOVE to the Overview hero. The always-visible header keeps only a COMPACT
-            // verdict chip (word only, no dot, no count strip) so every tab's header stays slim -
-            // this was the "FAILING too big" note. Full counts are one tap away (Overview, the
-            // default landing tab) or in the coverage line below.
+            // The header stays compact; full verdict counts live on the default Overview tab.
             (int fail, int warn, int wait, int pass) = SorollaDiagnostics.ComputeMenuHealthCounts(_rows);
             titleRow.Add(BuildCompactVerdictChip(fail, warn, wait));
 
@@ -148,12 +142,6 @@ namespace Sorolla.Palette
             title.AddToClassList("sorolla-debugmenu-title");
             titleRow.Add(title);
 
-            // Phase 4 (Actions tab parity ruling): "Legacy console" removed now that every
-            // QaActionRegistry action the IMGUI console exposed has a home here (ads, consent incl.
-            // refresh, QA bridge, report, and all 5 event triggers incl. the phase-4 chip row).
-            // Restores the mockups' one-line header as a side effect. The IMGUI console CODE stays
-            // (SorollaDiagnosticsConsole*.cs untouched) - only this button is gone; deletion is
-            // gated on Arthur's later device confirmation, not this phase.
             var close = new Button(Close) { text = "Close" };
             close.AddToClassList("sorolla-debugmenu-close");
             titleRow.Add(close);
@@ -164,12 +152,7 @@ namespace Sorolla.Palette
             contextLine.AddToClassList("sorolla-debugmenu-context-line");
             header.Add(contextLine);
 
-            // Tier-3 fix (Arthur, phase 6 fix round): margin-nudging two SEPARATE Labels never
-            // actually put them on one baseline (two different font sizes each lay out from their
-            // own line box top, so any fixed nudge is a guess, not a fix - confirmed by Arthur still
-            // seeing misalignment after the 1px->2.5px nudge tier-2 had accepted). Structural fix:
-            // ONE Label with UITK rich text, so the caption and sentence share the SAME line box and
-            // therefore the same baseline by construction - no manual metric-matching required.
+            // Rich text keeps the caption and sentence in one line box and on one baseline.
             string coverageText = SorollaDiagnostics.BuildMenuCoverageLine(out bool thin);
             string captionColor = thin ? "d9a636" : "7d8694";
             string sentenceColor = thin ? "d9a636" : "7d8694";
@@ -182,9 +165,7 @@ namespace Sorolla.Palette
             return header;
         }
 
-        // Compact header chip (phase 6): word-only, no dot, no count strip - roughly a third the
-        // footprint of the Overview hero badge below. Same verdict thresholds as BuildVerdictBadge
-        // so the header and the hero never disagree.
+        // Uses the same thresholds as the Overview verdict badge.
         static VisualElement BuildCompactVerdictChip(int fail, int warn, int wait)
         {
             string verdictClass;
@@ -286,15 +267,32 @@ namespace Sorolla.Palette
             return events.Count + problems.Count;
         }
 
-        // Goal C (tab badge live-update): called whenever Console/Issues-affecting actions run inside
-        // an already-open menu (currently: Console tab's Clear). Re-derives both counts from the same
-        // sources BuildTabBar used and rewrites just the button text - no full Build() rebuild needed.
         void RefreshTabBadgeCounts()
         {
             int issueCount = CountIssueRows(_rows);
             int consoleCount = CountConsoleEntries();
             _tabButtons[1].text = TabBarLabel(1, issueCount, consoleCount);
             _tabButtons[2].text = TabBarLabel(2, issueCount, consoleCount);
+        }
+
+        void RefreshDiagnosticViews()
+        {
+            SorollaDiagnostics.BuildRows(_rows);
+
+            VisualElement nextHeader = BuildHeader();
+            _root.Remove(_header);
+            _root.Insert(0, nextHeader);
+            _header = nextHeader;
+
+            _content.Remove(_tabPanes[0]);
+            _content.Remove(_tabPanes[1]);
+            _tabPanes[0] = BuildOverviewTab(_rows);
+            _tabPanes[1] = BuildIssuesTab(_rows);
+            _tabPanes[0].style.display = _activeTabIndex == 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            _tabPanes[1].style.display = _activeTabIndex == 1 ? DisplayStyle.Flex : DisplayStyle.None;
+            _content.Insert(0, _tabPanes[0]);
+            _content.Insert(1, _tabPanes[1]);
+            RefreshTabBadgeCounts();
         }
 
         /// <summary>Issues tab count: every row (Required or Observed) at FAIL/WARN/WAIT, matching
@@ -312,15 +310,6 @@ namespace Sorolla.Palette
             return count;
         }
 
-        static VisualElement BuildPlaceholderPane(string tabLabel)
-        {
-            var pane = new VisualElement();
-            var label = new Label($"{tabLabel} (placeholder - phase 2+ fills this in)");
-            label.AddToClassList("sorolla-debugmenu-placeholder");
-            pane.Add(label);
-            return pane;
-        }
-
         void SetActiveTab(int index)
         {
             _activeTabIndex = index;
@@ -331,6 +320,25 @@ namespace Sorolla.Palette
                 if (i == index)
                     _tabButtons[i].AddToClassList("sorolla-debugmenu-tab-active");
             }
+
+            if (index == 2)
+                RefreshConsoleList(true);
+            else if (index == 3)
+                RefreshActionState();
+        }
+
+        void Update()
+        {
+            if (_panelSettings != null)
+                _panelSettings.scale = ComputePanelScale();
+
+            if (Time.unscaledTime < _nextLiveRefreshTime) return;
+            _nextLiveRefreshTime = Time.unscaledTime + LiveRefreshIntervalSeconds;
+
+            if (_activeTabIndex == 2)
+                RefreshConsoleList();
+            else if (_activeTabIndex == 3)
+                RefreshActionState();
         }
 
         static string TabLabel(int index)

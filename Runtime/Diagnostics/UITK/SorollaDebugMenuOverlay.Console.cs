@@ -1,34 +1,36 @@
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Sorolla.Palette
 {
-    // Console tab (mockup 04, spec 2.4): ports the event/problem stream from the SAME data source
-    // the IMGUI console's Console tab reads (SorollaDiagnostics event log + runtime problems) - no
-    // second log, no new fact pipeline. Copy/Clear reuse the existing plumbing
-    // (SorollaDiagnostics.BuildConsoleSummary/ClearEventLog/ClearRuntimeProblems), matching the IMGUI
-    // Console toolbar 1:1 so both surfaces stay in sync.
-    //
-    // Judgment call (stated for the report): a merged badge-by-kind stream (mockup 04) is built by
-    // wrapping both source lists in one lightweight display record and sorting by time, rather than
-    // keeping the IMGUI console's two-section "Runtime problems" / "SDK events" layout - the mockup
-    // explicitly shows one interleaved stacked list with a per-row kind badge (DROPPED/ECONOMY/LEVEL/
-    // CUSTOM), and spec 2.4 says "existing console behavior, kept" for the DATA (newest-first, Copy,
-    // Clear), not the two-section layout, which was never part of the approved visual.
+    // The Console tab renders the diagnostics event ring and runtime-problem list directly. It keeps
+    // the legacy ordering, filters, copy/clear controls, expansion details, and scrolling behavior.
     internal sealed partial class SorollaDebugMenuOverlay
     {
+        enum ConsoleFilter
+        {
+            All,
+            Problems,
+            Events,
+        }
+
         readonly struct ConsoleEntry
         {
+            public readonly int Id;
+            public readonly bool IsProblem;
             public readonly float TimeSeconds;
             public readonly string BadgeText;
             public readonly string BadgeClass;
             public readonly string Title;
-            public readonly List<SorollaDiagnosticPayloadLine> Payload;
+            public readonly SorollaDiagnosticPayloadLine[] Payload;
 
-            public ConsoleEntry(float timeSeconds, string badgeText, string badgeClass, string title,
-                List<SorollaDiagnosticPayloadLine> payload)
+            public ConsoleEntry(int id, bool isProblem, float timeSeconds, string badgeText, string badgeClass,
+                string title, SorollaDiagnosticPayloadLine[] payload)
             {
+                Id = id;
+                IsProblem = isProblem;
                 TimeSeconds = timeSeconds;
                 BadgeText = badgeText;
                 BadgeClass = badgeClass;
@@ -38,15 +40,21 @@ namespace Sorolla.Palette
         }
 
         bool _consoleNewestFirst = true;
+        ConsoleFilter _consoleFilter;
+        Label _consoleSummaryLabel;
         VisualElement _consoleListHost;
+        readonly Button[] _consoleFilterButtons = new Button[3];
         readonly List<SorollaDiagnosticEventLogEntry> _consoleEvents = new List<SorollaDiagnosticEventLogEntry>(40);
         readonly List<SorollaRuntimeProblem> _consoleProblems = new List<SorollaRuntimeProblem>(20);
+        readonly List<ConsoleEntry> _consoleEntries = new List<ConsoleEntry>(60);
+        readonly HashSet<int> _expandedConsoleEvents = new HashSet<int>();
+        readonly HashSet<int> _expandedConsoleProblems = new HashSet<int>();
+        int _consoleContentVersion = int.MinValue;
 
         internal VisualElement BuildConsoleTab()
         {
             var pane = new VisualElement();
             pane.AddToClassList("sorolla-debugmenu-console-pane");
-
             pane.Add(BuildConsoleToolbar());
 
             var scroll = new ScrollView(ScrollViewMode.Vertical);
@@ -55,8 +63,7 @@ namespace Sorolla.Palette
             scroll.Add(_consoleListHost);
             pane.Add(scroll);
 
-            RefreshConsoleList();
-
+            RefreshConsoleList(true);
             return pane;
         }
 
@@ -65,10 +72,9 @@ namespace Sorolla.Palette
             var bar = new VisualElement();
             bar.AddToClassList("sorolla-debugmenu-console-toolbar");
 
-            var summary = new Label();
-            summary.AddToClassList("sorolla-debugmenu-console-summary");
-            bar.Add(summary);
-            _consoleSummaryLabel = summary;
+            _consoleSummaryLabel = new Label();
+            _consoleSummaryLabel.AddToClassList("sorolla-debugmenu-console-summary");
+            bar.Add(_consoleSummaryLabel);
 
             var controls = new VisualElement();
             controls.AddToClassList("sorolla-debugmenu-console-controls");
@@ -78,7 +84,7 @@ namespace Sorolla.Palette
             newest.RegisterValueChangedCallback(evt =>
             {
                 _consoleNewestFirst = evt.newValue;
-                RefreshConsoleList();
+                RefreshConsoleList(true);
             });
             controls.Add(newest);
 
@@ -89,108 +95,199 @@ namespace Sorolla.Palette
             copy.AddToClassList("sorolla-debugmenu-console-toolbar-button");
             controls.Add(copy);
 
-            var clear = new Button(() =>
-            {
-                SorollaDiagnostics.ClearEventLog();
-                SorollaDiagnostics.ClearRuntimeProblems();
-                RefreshConsoleList();
-                RefreshTabBadgeCounts();
-            })
-            {
-                text = "Clear",
-            };
+            var clear = new Button(ClearConsole) { text = "Clear" };
             clear.AddToClassList("sorolla-debugmenu-console-toolbar-button");
             controls.Add(clear);
-
             bar.Add(controls);
+
+            AddConsoleFilterButton(bar, ConsoleFilter.All, "All");
+            AddConsoleFilterButton(bar, ConsoleFilter.Problems, "Problems");
+            AddConsoleFilterButton(bar, ConsoleFilter.Events, "Events");
+            RefreshConsoleFilterButtons();
+
             return bar;
         }
 
-        Label _consoleSummaryLabel;
-
-        void RefreshConsoleList()
+        void AddConsoleFilterButton(VisualElement parent, ConsoleFilter filter, string label)
         {
+            var button = new Button(() => SetConsoleFilter(filter)) { text = label };
+            button.AddToClassList("sorolla-debugmenu-console-toolbar-button");
+            _consoleFilterButtons[(int)filter] = button;
+            parent.Add(button);
+        }
+
+        void SetConsoleFilter(ConsoleFilter filter)
+        {
+            if (_consoleFilter == filter) return;
+            _consoleFilter = filter;
+            RefreshConsoleFilterButtons();
+            RefreshConsoleList(true);
+        }
+
+        void RefreshConsoleFilterButtons()
+        {
+            for (int i = 0; i < _consoleFilterButtons.Length; i++)
+            {
+                Button button = _consoleFilterButtons[i];
+                if (button != null)
+                    button.EnableInClassList("sorolla-debugmenu-tab-active", i == (int)_consoleFilter);
+            }
+        }
+
+        void ClearConsole()
+        {
+            SorollaDiagnostics.ClearEventLog();
+            SorollaDiagnostics.ClearRuntimeProblems();
+            _expandedConsoleEvents.Clear();
+            _expandedConsoleProblems.Clear();
+            RefreshConsoleList(true);
+            RefreshTabBadgeCounts();
+        }
+
+        void RefreshConsoleList(bool force = false)
+        {
+            if (_consoleListHost == null) return;
+
             SorollaDiagnostics.CopyEventLog(_consoleEvents);
             SorollaDiagnostics.CopyRuntimeProblems(_consoleProblems);
 
-            if (_consoleSummaryLabel != null)
+            int version = ComputeConsoleContentVersion();
+            if (!force && version == _consoleContentVersion) return;
+            _consoleContentVersion = version;
+
+            _consoleSummaryLabel.text =
+                $"{_consoleProblems.Count} {Pluralize("problem", _consoleProblems.Count)} · "
+                + $"{_consoleEvents.Count} {Pluralize("event", _consoleEvents.Count)}";
+            RefreshTabBadgeCounts();
+
+            PruneExpandedRows();
+            _consoleEntries.Clear();
+            if (_consoleFilter != ConsoleFilter.Problems)
             {
-                _consoleSummaryLabel.text =
-                    $"{_consoleProblems.Count} {Pluralize("problem", _consoleProblems.Count)} · "
-                    + $"{_consoleEvents.Count} {Pluralize("event", _consoleEvents.Count)}";
+                foreach (SorollaDiagnosticEventLogEntry entry in _consoleEvents)
+                    _consoleEntries.Add(ToConsoleEntry(entry));
+            }
+            if (_consoleFilter != ConsoleFilter.Events)
+            {
+                foreach (SorollaRuntimeProblem problem in _consoleProblems)
+                    _consoleEntries.Add(ToConsoleEntry(problem));
             }
 
-            var entries = new List<ConsoleEntry>(_consoleEvents.Count + _consoleProblems.Count);
-            foreach (SorollaDiagnosticEventLogEntry e in _consoleEvents)
-                entries.Add(ToConsoleEntry(e));
-            foreach (SorollaRuntimeProblem p in _consoleProblems)
-                entries.Add(ToConsoleEntry(p));
-
-            entries.Sort((a, b) => a.TimeSeconds.CompareTo(b.TimeSeconds));
+            _consoleEntries.Sort((a, b) => a.TimeSeconds.CompareTo(b.TimeSeconds));
             if (_consoleNewestFirst)
-                entries.Reverse();
+                _consoleEntries.Reverse();
 
             _consoleListHost.Clear();
-
-            if (entries.Count == 0)
+            if (_consoleEntries.Count == 0)
             {
-                var empty = new Label("No SDK events or runtime problems observed yet.");
+                var empty = new Label(ConsoleEmptyMessage());
                 empty.AddToClassList("sorolla-debugmenu-placeholder");
                 _consoleListHost.Add(empty);
                 return;
             }
 
-            foreach (ConsoleEntry entry in entries)
+            foreach (ConsoleEntry entry in _consoleEntries)
                 _consoleListHost.Add(BuildConsoleRow(entry));
         }
 
-        static ConsoleEntry ToConsoleEntry(SorollaDiagnosticEventLogEntry e)
+        int ComputeConsoleContentVersion()
         {
-            (string badgeText, string badgeClass) = BadgeForEventSource(e.Source);
-            return new ConsoleEntry(e.TimeSeconds, badgeText, badgeClass,
-                $"{SorollaDiagnostics.FormatEventTime(e.TimeSeconds)}  {e.Name}",
-                new List<SorollaDiagnosticPayloadLine>(e.PayloadLines));
-        }
-
-        static ConsoleEntry ToConsoleEntry(SorollaRuntimeProblem p)
-        {
-            // DROPPED rows cross-reference Issues instead of re-explaining (design-tokens.md copy
-            // rule) - the full WHY/SIGNAL/FIX for the underlying fact already lives there.
-            var payload = new List<SorollaDiagnosticPayloadLine>(4)
+            unchecked
             {
-                new SorollaDiagnosticPayloadLine("source", p.Source),
-                new SorollaDiagnosticPayloadLine("count", p.Count.ToString()),
-                new SorollaDiagnosticPayloadLine("message", p.Message),
-            };
-            if (!string.IsNullOrEmpty(p.TopFrame))
-                payload.Add(new SorollaDiagnosticPayloadLine("top frame", p.TopFrame));
-
-            return new ConsoleEntry(p.LastTimeSeconds, "DROPPED", "sorolla-debugmenu-badge-fail",
-                $"{SorollaDiagnostics.FormatEventTime(p.LastTimeSeconds)}  {p.Type} (see Issues) x{p.Count}", payload);
+                int version = 17;
+                foreach (SorollaDiagnosticEventLogEntry entry in _consoleEvents)
+                    version = version * 31 + entry.Id;
+                foreach (SorollaRuntimeProblem problem in _consoleProblems)
+                {
+                    version = version * 31 + problem.Id;
+                    version = version * 31 + problem.Count;
+                }
+                return version;
+            }
         }
 
-        static string Pluralize(string noun, int count) => count == 1 ? noun : noun + "s";
-
-        static string BuildConsoleRowCopyText(ConsoleEntry entry)
+        void PruneExpandedRows()
         {
-            var sb = new System.Text.StringBuilder(128);
-            sb.AppendLine(entry.Title);
-            foreach (SorollaDiagnosticPayloadLine line in entry.Payload)
-                sb.Append(line.Key).Append(": ").AppendLine(line.Value);
-            return sb.ToString();
+            _expandedConsoleEvents.RemoveWhere(id => !ContainsEvent(id));
+            _expandedConsoleProblems.RemoveWhere(id => !ContainsProblem(id));
+        }
+
+        bool ContainsEvent(int id)
+        {
+            for (int i = 0; i < _consoleEvents.Count; i++)
+            {
+                if (_consoleEvents[i].Id == id) return true;
+            }
+            return false;
+        }
+
+        bool ContainsProblem(int id)
+        {
+            for (int i = 0; i < _consoleProblems.Count; i++)
+            {
+                if (_consoleProblems[i].Id == id) return true;
+            }
+            return false;
+        }
+
+        string ConsoleEmptyMessage()
+        {
+            switch (_consoleFilter)
+            {
+                case ConsoleFilter.Problems: return "No runtime problems observed yet.";
+                case ConsoleFilter.Events: return "No SDK events observed yet.";
+                default: return "No SDK events or runtime problems observed yet.";
+            }
+        }
+
+        static ConsoleEntry ToConsoleEntry(SorollaDiagnosticEventLogEntry entry)
+        {
+            (string badgeText, string badgeClass) = BadgeForEventSource(entry.Source);
+            return new ConsoleEntry(
+                entry.Id,
+                false,
+                entry.TimeSeconds,
+                badgeText,
+                badgeClass,
+                $"{SorollaDiagnostics.FormatEventTime(entry.TimeSeconds)}  {entry.Name}",
+                entry.PayloadLines);
+        }
+
+        static ConsoleEntry ToConsoleEntry(SorollaRuntimeProblem problem)
+        {
+            var payload = new[]
+            {
+                new SorollaDiagnosticPayloadLine("source", problem.Source),
+                new SorollaDiagnosticPayloadLine("severity", SorollaDiagnostics.SeverityLabel(problem.Severity)),
+                new SorollaDiagnosticPayloadLine("message", problem.Message),
+                new SorollaDiagnosticPayloadLine("top frame", problem.TopFrame),
+                new SorollaDiagnosticPayloadLine("first seen", SorollaDiagnostics.FormatEventTime(problem.FirstTimeSeconds)),
+                new SorollaDiagnosticPayloadLine("last seen", SorollaDiagnostics.FormatEventTime(problem.LastTimeSeconds)),
+                new SorollaDiagnosticPayloadLine("stack", problem.StackTrace),
+            };
+            return new ConsoleEntry(
+                problem.Id,
+                true,
+                problem.LastTimeSeconds,
+                SorollaDiagnostics.SeverityLabel(problem.Severity),
+                BadgeSeverityClass(problem.Severity),
+                $"{SorollaDiagnostics.FormatEventTime(problem.LastTimeSeconds)}  {problem.Type} x{problem.Count}",
+                payload);
         }
 
         static (string text, string cssClass) BadgeForEventSource(string source)
         {
+            string label = string.IsNullOrEmpty(source) ? "EVENT" : source.ToUpperInvariant();
             switch (source)
             {
-                case "level": return ("LEVEL", "sorolla-debugmenu-badge-wait");
-                case "economy": return ("ECONOMY", "sorolla-debugmenu-badge-pass");
-                default: return ("CUSTOM", "sorolla-debugmenu-badge-info");
+                case "level": return (label, "sorolla-debugmenu-badge-wait");
+                case "economy": return (label, "sorolla-debugmenu-badge-pass");
+                case "ads": return (label, "sorolla-debugmenu-badge-warn");
+                default: return (label, "sorolla-debugmenu-badge-info");
             }
         }
 
-        static VisualElement BuildConsoleRow(ConsoleEntry entry)
+        VisualElement BuildConsoleRow(ConsoleEntry entry)
         {
             var row = new VisualElement();
             row.AddToClassList("sorolla-debugmenu-console-row");
@@ -207,41 +304,14 @@ namespace Sorolla.Palette
             title.AddToClassList("sorolla-debugmenu-console-row-title");
             collapsed.Add(title);
 
-            var chevron = new Label("›");
+            bool isExpanded = IsConsoleEntryExpanded(entry);
+            var chevron = new Label(isExpanded ? "⌄" : "›");
             chevron.AddToClassList("sorolla-debugmenu-issue-chevron");
             collapsed.Add(chevron);
-
             row.Add(collapsed);
 
-            var expanded = new VisualElement();
-            expanded.AddToClassList("sorolla-debugmenu-console-payload");
-            expanded.style.display = DisplayStyle.None;
-            foreach (SorollaDiagnosticPayloadLine line in entry.Payload)
-            {
-                var lineEl = new VisualElement();
-                lineEl.AddToClassList("sorolla-debugmenu-console-payload-line");
-
-                var key = new Label(line.Key);
-                key.AddToClassList("sorolla-debugmenu-console-payload-key");
-                lineEl.Add(key);
-
-                var value = new Label(line.Value);
-                value.AddToClassList("sorolla-debugmenu-console-payload-value");
-                lineEl.Add(value);
-
-                expanded.Add(lineEl);
-            }
-
-            // Punch list item 3 (Arthur): per-log Copy button, same pattern/logic as the Issues
-            // per-row "Copy diagnosis" button - copies the title + every payload line as plain text.
-            var copyRow = new Button(() => GUIUtility.systemCopyBuffer = BuildConsoleRowCopyText(entry))
-            {
-                text = "Copy",
-            };
-            copyRow.AddToClassList("sorolla-debugmenu-action-button");
-            copyRow.AddToClassList("sorolla-debugmenu-action-button-ghost");
-            expanded.Add(copyRow);
-
+            VisualElement expanded = BuildConsolePayload(entry);
+            expanded.style.display = isExpanded ? DisplayStyle.Flex : DisplayStyle.None;
             row.Add(expanded);
 
             collapsed.RegisterCallback<ClickEvent>(_ =>
@@ -249,9 +319,72 @@ namespace Sorolla.Palette
                 bool nowExpanded = expanded.style.display == DisplayStyle.None;
                 expanded.style.display = nowExpanded ? DisplayStyle.Flex : DisplayStyle.None;
                 chevron.text = nowExpanded ? "⌄" : "›";
+                SetConsoleEntryExpanded(entry, nowExpanded);
             });
 
             return row;
         }
+
+        static VisualElement BuildConsolePayload(ConsoleEntry entry)
+        {
+            var expanded = new VisualElement();
+            expanded.AddToClassList("sorolla-debugmenu-console-payload");
+
+            if (entry.Payload.Length == 0)
+            {
+                var empty = new Label("No payload");
+                empty.AddToClassList("sorolla-debugmenu-placeholder");
+                expanded.Add(empty);
+            }
+            else
+            {
+                foreach (SorollaDiagnosticPayloadLine payload in entry.Payload)
+                {
+                    var line = new VisualElement();
+                    line.AddToClassList("sorolla-debugmenu-console-payload-line");
+
+                    var key = new Label(payload.Key);
+                    key.AddToClassList("sorolla-debugmenu-console-payload-key");
+                    line.Add(key);
+
+                    var value = new Label(string.IsNullOrEmpty(payload.Value) ? "None" : payload.Value);
+                    value.AddToClassList("sorolla-debugmenu-console-payload-value");
+                    line.Add(value);
+                    expanded.Add(line);
+                }
+            }
+
+            var copy = new Button(() => GUIUtility.systemCopyBuffer = BuildConsoleRowCopyText(entry))
+            {
+                text = "Copy",
+            };
+            copy.AddToClassList("sorolla-debugmenu-action-button");
+            copy.AddToClassList("sorolla-debugmenu-action-button-ghost");
+            expanded.Add(copy);
+            return expanded;
+        }
+
+        bool IsConsoleEntryExpanded(ConsoleEntry entry) =>
+            entry.IsProblem
+                ? _expandedConsoleProblems.Contains(entry.Id)
+                : _expandedConsoleEvents.Contains(entry.Id);
+
+        void SetConsoleEntryExpanded(ConsoleEntry entry, bool expanded)
+        {
+            HashSet<int> set = entry.IsProblem ? _expandedConsoleProblems : _expandedConsoleEvents;
+            if (expanded) set.Add(entry.Id);
+            else set.Remove(entry.Id);
+        }
+
+        static string BuildConsoleRowCopyText(ConsoleEntry entry)
+        {
+            var sb = new StringBuilder(256);
+            sb.AppendLine(entry.Title);
+            foreach (SorollaDiagnosticPayloadLine line in entry.Payload)
+                sb.Append(line.Key).Append(": ").AppendLine(line.Value);
+            return sb.ToString();
+        }
+
+        static string Pluralize(string noun, int count) => count == 1 ? noun : noun + "s";
     }
 }

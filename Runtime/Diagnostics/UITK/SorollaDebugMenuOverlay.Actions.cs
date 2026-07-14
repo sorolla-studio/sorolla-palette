@@ -1,30 +1,46 @@
+using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Sorolla.Palette
 {
-    // Actions tab (mockup 05, spec 2.5 + section 5). Every button's BEHAVIOR ports from the existing
-    // IMGUI console's Actions implementation (SorollaDiagnosticsConsole.Actions.cs / .UI.cs DrawActions)
-    // via QaActionRegistry - one core, two frontends (console + QA bridge), now three. This file adds
-    // no new SDK behavior, only a state-aware UI Toolkit presentation of the same registry calls.
-    //
-    // Judgment call (stated for the report): the mockup's Events group shows exactly one button,
-    // "Fire test event", with illustrative sub-copy "palette_debug_ping". The registry's actual test
-    // event name is "sorolla_vitals_test" (QaActionRegistry.DoTrackTestEvent) - "palette_debug_ping"
-    // does not exist anywhere in the SDK. Per section 8's message-rewriting rule ("counts, ids are
-    // literal and copyable, never paraphrased"), the sub line uses the REAL event name, not the
-    // mockup's placeholder string.
-    //
-    // Team-lead tier-2 parity ruling: port every IMGUI action, don't accept the mockup's narrower
-    // Events group as a ceiling. The 4 extra event triggers (Level Start/Complete, Economy Earn/
-    // Spend) ship as a compact chip row under "Fire test event" - #1c222d bg / #c3cad6 text /
-    // #252c38 border, per the ruling's token spec (from the design project's earlier, non-approved
-    // concept; the approved mockup 05 has no chip-row precedent, so this is a team-lead-directed
-    // extrapolation, not a source-of-truth screen). CONSENT gets a third row, "Refresh consent
-    // status", porting IMGUI's Consent -> Refresh. Once both land, every registry action the IMGUI
-    // console exposes has a home here - Legacy console can come out (separate commit).
+    // The registry owns the action catalog and invocation. This partial only supplies presentation
+    // metadata and the two local diagnostics utilities that are not bridge actions.
     internal sealed partial class SorollaDebugMenuOverlay
     {
+        enum ActionGroup
+        {
+            Ads,
+            Consent,
+            Events,
+        }
+
+        enum ActionButtonStyle
+        {
+            Primary,
+            Normal,
+        }
+
+        readonly struct ActionPresentation
+        {
+            public readonly ActionGroup Group;
+            public readonly string Label;
+            public readonly string Detail;
+
+            public ActionPresentation(ActionGroup group, string label, string detail)
+            {
+                Group = group;
+                Label = label;
+                Detail = detail;
+            }
+        }
+
+        Label _rewardedActionDetail;
+        Label _interstitialActionDetail;
+        Label _consentActionDetail;
+        Label _bridgeActionLabel;
+        Label _bridgeActionDetail;
+
         internal VisualElement BuildActionsTab()
         {
             var pane = new VisualElement();
@@ -38,74 +54,113 @@ namespace Sorolla.Palette
 
             host.Add(BuildActionGroupTitle("REPORT"));
             host.Add(BuildActionButton(
+                "Refresh diagnostics",
+                "Refresh identifiers and rebuild the Overview and Issues facts",
+                ActionButtonStyle.Normal,
+                RefreshDiagnostics).Root);
+            host.Add(BuildActionButton(
+                "Copy diagnostics summary",
+                "Complete diagnostic rows, runtime problems, and recent events",
+                ActionButtonStyle.Normal,
+                () => GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildSummary()).Root);
+            host.Add(BuildActionButton(
                 "Copy SDK state",
                 "Full report: context, consent, adapters, config, events, problems",
                 ActionButtonStyle.Primary,
-                () => GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildQaStateSummary()));
+                () => GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildQaStateSummary()).Root);
 
-            host.Add(BuildActionGroupTitle("ADS TEST"));
-            bool rewardedReady = Palette.IsRewardedAdReady;
-            host.Add(BuildActionButton(
-                "Show rewarded",
-                rewardedReady ? "Loaded — ready to show" : "Not loaded yet — waiting for fill",
-                rewardedReady ? ActionButtonStyle.Normal : ActionButtonStyle.Disabled,
-                () => RunActionAndRefresh(QaActionRegistry.ShowRewarded)));
-            bool interstitialReady = Palette.IsInterstitialAdReady;
-            host.Add(BuildActionButton(
-                "Show interstitial",
-                interstitialReady ? "Loaded — ready to show" : "Not loaded yet — waiting for fill",
-                interstitialReady ? ActionButtonStyle.Normal : ActionButtonStyle.Disabled,
-                () => RunActionAndRefresh(QaActionRegistry.ShowInterstitial)));
+            ActionGroup? currentGroup = null;
+            foreach (string actionName in QaActionRegistry.ActionNames)
+            {
+                ActionPresentation presentation = PresentationFor(actionName);
+                if (currentGroup != presentation.Group)
+                {
+                    if (presentation.Group == ActionGroup.Events)
+                        AddBridgeUtility(host);
 
-            host.Add(BuildActionGroupTitle("CONSENT"));
-            host.Add(BuildActionButton(
-                "Show privacy options",
-                "Re-opens the consent form (UMP)",
-                ActionButtonStyle.Normal,
-                () => RunActionAndRefresh(QaActionRegistry.OpenPrivacyOptions)));
-            host.Add(BuildActionButton(
-                "Reset consent",
-                "Clears the stored choice; CMP runs again on restart",
-                ActionButtonStyle.Normal,
-                () => RunActionAndRefresh(QaActionRegistry.ResetConsent)));
-            host.Add(BuildActionButton(
-                "Refresh consent status",
-                Palette.ConsentStatus + (Palette.CanRequestAds ? " · can request ads" : " · cannot request ads"),
-                ActionButtonStyle.Normal,
-                () => RunActionAndRefresh(QaActionRegistry.RefreshConsent)));
+                    host.Add(BuildActionGroupTitle(GroupLabel(presentation.Group)));
+                    currentGroup = presentation.Group;
+                }
 
-            host.Add(BuildActionGroupTitle("QA BRIDGE"));
-            bool bridgeArmed = QaBridgeServer.IsArmed;
-            host.Add(BuildActionButton(
-                bridgeArmed ? "Bridge running" : "Bridge not running",
-                bridgeArmed
-                    ? $"127.0.0.1:{QaBridgeServer.Port} — serves this same data as JSON"
-                    : "Bind failed or unavailable — tap to retry",
-                ActionButtonStyle.Normal,
-                RestartQaBridgeAndRefresh));
+                ActionCard card = BuildActionButton(
+                    presentation.Label,
+                    presentation.Detail,
+                    ActionButtonStyle.Normal,
+                    () => RunActionAndRefresh(actionName));
+                BindDynamicActionDetail(actionName, card.Detail);
+                host.Add(card.Root);
+            }
 
-            host.Add(BuildActionGroupTitle("EVENTS"));
-            host.Add(BuildActionButton(
-                "Fire test event",
-                "sorolla_vitals_test — visible in Console + vendor dashboards",
-                ActionButtonStyle.Normal,
-                () => RunActionAndRefresh(QaActionRegistry.TrackTestEvent)));
-
-            // Punch list item 4 (Arthur): the 4 event-trigger chips restyle to the SAME full-size
-            // action-card style as every other button on this tab - the earlier compact chip-row
-            // treatment (team-lead tier-2 concept) read as visually inconsistent next to the cards
-            // above it. Same registry calls, same RunActionAndRefresh wiring, just BuildActionButton
-            // instead of a bespoke chip.
-            host.Add(BuildActionButton("Level start", "Fires level_start (test level)", ActionButtonStyle.Normal,
-                () => RunActionAndRefresh(QaActionRegistry.LevelStart)));
-            host.Add(BuildActionButton("Level complete", "Fires level_end (test level, win)", ActionButtonStyle.Normal,
-                () => RunActionAndRefresh(QaActionRegistry.LevelComplete)));
-            host.Add(BuildActionButton("Economy earn", "Fires an economy earn event", ActionButtonStyle.Normal,
-                () => RunActionAndRefresh(QaActionRegistry.EconomyEarn)));
-            host.Add(BuildActionButton("Economy spend", "Fires an economy spend event", ActionButtonStyle.Normal,
-                () => RunActionAndRefresh(QaActionRegistry.EconomySpend)));
-
+            RefreshActionState();
             return pane;
+        }
+
+        void AddBridgeUtility(VisualElement host)
+        {
+            host.Add(BuildActionGroupTitle("QA BRIDGE"));
+            ActionCard bridge = BuildActionButton(
+                "Bridge",
+                string.Empty,
+                ActionButtonStyle.Normal,
+                RestartQaBridgeAndRefresh);
+            _bridgeActionLabel = bridge.Label;
+            _bridgeActionDetail = bridge.Detail;
+            host.Add(bridge.Root);
+        }
+
+        void BindDynamicActionDetail(string actionName, Label detail)
+        {
+            switch (actionName)
+            {
+                case QaActionRegistry.ShowRewarded:
+                    _rewardedActionDetail = detail;
+                    break;
+                case QaActionRegistry.ShowInterstitial:
+                    _interstitialActionDetail = detail;
+                    break;
+                case QaActionRegistry.RefreshConsent:
+                    _consentActionDetail = detail;
+                    break;
+            }
+        }
+
+        static ActionPresentation PresentationFor(string actionName)
+        {
+            switch (actionName)
+            {
+                case QaActionRegistry.ShowRewarded:
+                    return new ActionPresentation(ActionGroup.Ads, "Show rewarded", string.Empty);
+                case QaActionRegistry.ShowInterstitial:
+                    return new ActionPresentation(ActionGroup.Ads, "Show interstitial", string.Empty);
+                case QaActionRegistry.OpenPrivacyOptions:
+                    return new ActionPresentation(ActionGroup.Consent, "Show privacy options", "Re-opens the consent form");
+                case QaActionRegistry.ResetConsent:
+                    return new ActionPresentation(ActionGroup.Consent, "Reset consent", "Re-opens the CMP and records a consent reset");
+                case QaActionRegistry.RefreshConsent:
+                    return new ActionPresentation(ActionGroup.Consent, "Refresh consent status", string.Empty);
+                case QaActionRegistry.TrackTestEvent:
+                    return new ActionPresentation(ActionGroup.Events, "Fire test event", "sorolla_vitals_test — visible in Console + vendor dashboards");
+                case QaActionRegistry.LevelStart:
+                    return new ActionPresentation(ActionGroup.Events, "Level start", "Fires level_start for the test level");
+                case QaActionRegistry.LevelComplete:
+                    return new ActionPresentation(ActionGroup.Events, "Level complete", "Fires level_end for the test level");
+                case QaActionRegistry.EconomyEarn:
+                    return new ActionPresentation(ActionGroup.Events, "Economy earn", "Fires an economy earn event");
+                case QaActionRegistry.EconomySpend:
+                    return new ActionPresentation(ActionGroup.Events, "Economy spend", "Fires an economy spend event");
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(actionName), actionName, "QA action has no debug-menu presentation.");
+            }
+        }
+
+        static string GroupLabel(ActionGroup group)
+        {
+            switch (group)
+            {
+                case ActionGroup.Ads: return "ADS TEST";
+                case ActionGroup.Consent: return "CONSENT";
+                default: return "EVENTS";
+            }
         }
 
         void RunActionAndRefresh(string registryAction)
@@ -121,22 +176,40 @@ namespace Sorolla.Palette
             RefreshAfterAction();
         }
 
-        // Goal C: tab badge counts (Issues/Console) and the Console tab's own row list must live-update
-        // after an action - a fired test event or an ad-show attempt lands in the event log immediately.
-        // Rebuilding all four tab panes on every tap would be wasteful (and would blow away the Overview
-        // tab's per-section expand memory); Console's row list + both badge counts is the surface an
-        // Actions-tab tap can actually change.
+        void RefreshDiagnostics()
+        {
+            SorollaDiagnostics.RefreshIdentifiers();
+            RefreshDiagnosticViews();
+            RefreshAfterAction();
+        }
+
         void RefreshAfterAction()
         {
-            RefreshConsoleList();
+            RefreshActionState();
+            RefreshConsoleList(true);
             RefreshTabBadgeCounts();
         }
 
-        enum ActionButtonStyle
+        void RefreshActionState()
         {
-            Primary,
-            Normal,
-            Disabled,
+            if (_rewardedActionDetail != null)
+                _rewardedActionDetail.text = Palette.IsRewardedAdReady
+                    ? "Loaded — ready to show"
+                    : "Not loaded — tap to probe";
+            if (_interstitialActionDetail != null)
+                _interstitialActionDetail.text = Palette.IsInterstitialAdReady
+                    ? "Loaded — ready to show"
+                    : "Not loaded — tap to probe";
+            if (_consentActionDetail != null)
+                _consentActionDetail.text = Palette.ConsentStatus
+                    + (Palette.CanRequestAds ? " · can request ads" : " · cannot request ads");
+
+            if (_bridgeActionLabel == null || _bridgeActionDetail == null) return;
+            bool bridgeArmed = QaBridgeServer.IsArmed;
+            _bridgeActionLabel.text = bridgeArmed ? "Bridge running" : "Bridge not running";
+            _bridgeActionDetail.text = bridgeArmed
+                ? $"127.0.0.1:{QaBridgeServer.Port} — serves this same data as JSON"
+                : "Bind failed or unavailable — tap to retry";
         }
 
         static VisualElement BuildActionGroupTitle(string title)
@@ -146,49 +219,49 @@ namespace Sorolla.Palette
             return label;
         }
 
-        static VisualElement BuildActionButton(string label, string sub, ActionButtonStyle style, System.Action onClick)
+        readonly struct ActionCard
         {
-            var button = new VisualElement();
-            button.AddToClassList("sorolla-debugmenu-action-card");
-            button.AddToClassList(ActionCardClass(style));
+            public readonly VisualElement Root;
+            public readonly Label Label;
+            public readonly Label Detail;
+
+            public ActionCard(VisualElement root, Label label, Label detail)
+            {
+                Root = root;
+                Label = label;
+                Detail = detail;
+            }
+        }
+
+        static ActionCard BuildActionButton(string label, string detail, ActionButtonStyle style, Action onClick)
+        {
+            var root = new VisualElement();
+            root.AddToClassList("sorolla-debugmenu-action-card");
+            root.AddToClassList(ActionCardClass(style));
 
             var textColumn = new VisualElement();
             textColumn.AddToClassList("sorolla-debugmenu-action-card-text");
 
-            var labelEl = new Label(label);
-            labelEl.AddToClassList("sorolla-debugmenu-action-card-label");
-            textColumn.Add(labelEl);
+            var labelElement = new Label(label);
+            labelElement.AddToClassList("sorolla-debugmenu-action-card-label");
+            textColumn.Add(labelElement);
 
-            var subEl = new Label(sub);
-            subEl.AddToClassList("sorolla-debugmenu-action-card-sub");
-            textColumn.Add(subEl);
+            var detailElement = new Label(detail);
+            detailElement.AddToClassList("sorolla-debugmenu-action-card-sub");
+            textColumn.Add(detailElement);
+            root.Add(textColumn);
 
-            button.Add(textColumn);
+            var arrow = new Label("→");
+            arrow.AddToClassList("sorolla-debugmenu-action-card-arrow");
+            root.Add(arrow);
+            root.RegisterCallback<ClickEvent>(_ => onClick?.Invoke());
 
-            if (style != ActionButtonStyle.Disabled)
-            {
-                // Tier-2 fix: the design source's ⧉ "copy" glyph is not in the runtime font and
-                // rendered as an empty tofu box on the primary card. → IS confirmed rendering
-                // correctly elsewhere in this same font (every Normal-skin card, pixel-verified in
-                // prior captures), so reuse it here instead of trusting a second, unverified glyph.
-                var arrow = new Label("→");
-                arrow.AddToClassList("sorolla-debugmenu-action-card-arrow");
-                button.Add(arrow);
-
-                button.RegisterCallback<ClickEvent>(_ => onClick?.Invoke());
-            }
-
-            return button;
+            return new ActionCard(root, labelElement, detailElement);
         }
 
-        static string ActionCardClass(ActionButtonStyle style)
-        {
-            switch (style)
-            {
-                case ActionButtonStyle.Primary: return "sorolla-debugmenu-action-card-primary";
-                case ActionButtonStyle.Disabled: return "sorolla-debugmenu-action-card-disabled";
-                default: return "sorolla-debugmenu-action-card-normal";
-            }
-        }
+        static string ActionCardClass(ActionButtonStyle style) =>
+            style == ActionButtonStyle.Primary
+                ? "sorolla-debugmenu-action-card-primary"
+                : "sorolla-debugmenu-action-card-normal";
     }
 }

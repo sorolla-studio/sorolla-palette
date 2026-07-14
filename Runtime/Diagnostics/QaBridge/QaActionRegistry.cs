@@ -5,11 +5,10 @@ using UnityEngine;
 namespace Sorolla.Palette
 {
     /// <summary>
-    ///     The single QA action registry: one core, two frontends. The on-screen debug console renders
-    ///     these as buttons and the bridge exposes them over <c>POST /qa/exec</c>, so both invoke the
-    ///     exact same code. v1 ships the generic SDK actions (ads, consent, SDK-smoke events) as
-    ///     parameterless delegations to existing SDK surfaces. The delegate signature already accepts an
-    ///     args bag so game-registered actions (Phase 3) slot in without re-shaping the registry.
+    ///     The single QA action registry. The on-screen debug menu renders its ordered catalog and the
+    ///     bridge exposes the same actions over <c>POST /qa/exec</c>, so both invoke the exact same code.
+    ///     Actions are parameterless delegations to existing SDK surfaces; the delegate signature accepts
+    ///     an args bag without exposing any additional action surface.
     ///
     ///     Actions MUST be invoked on the Unity main thread (the bridge drains exec on its Update pump).
     /// </summary>
@@ -26,20 +25,36 @@ namespace Sorolla.Palette
         internal const string EconomyEarn = "economy_earn";
         internal const string EconomySpend = "economy_spend";
 
-        static readonly Dictionary<string, Action<IDictionary<string, object>>> s_actions =
-            new Dictionary<string, Action<IDictionary<string, object>>>
+        readonly struct Registration
+        {
+            public readonly string Name;
+            public readonly Action<IDictionary<string, object>> Invoke;
+
+            public Registration(string name, Action<IDictionary<string, object>> invoke)
             {
-                { ShowRewarded, _ => DoShowRewarded() },
-                { ShowInterstitial, _ => DoShowInterstitial() },
-                { OpenPrivacyOptions, _ => DoOpenPrivacyOptions() },
-                { ResetConsent, _ => DoResetConsent() },
-                { RefreshConsent, _ => DoRefreshConsent() },
-                { TrackTestEvent, _ => DoTrackTestEvent() },
-                { LevelStart, _ => DoLevelStart() },
-                { LevelComplete, _ => DoLevelComplete() },
-                { EconomyEarn, _ => DoEconomyEarn() },
-                { EconomySpend, _ => DoEconomySpend() },
-            };
+                Name = name;
+                Invoke = invoke;
+            }
+        }
+
+        static readonly Registration[] s_actions =
+        {
+            new Registration(ShowRewarded, _ => DoShowRewarded()),
+            new Registration(ShowInterstitial, _ => DoShowInterstitial()),
+            new Registration(OpenPrivacyOptions, _ => DoOpenPrivacyOptions()),
+            new Registration(ResetConsent, _ => DoResetConsent()),
+            new Registration(RefreshConsent, _ => DoRefreshConsent()),
+            new Registration(TrackTestEvent, _ => DoTrackTestEvent()),
+            new Registration(LevelStart, _ => DoLevelStart()),
+            new Registration(LevelComplete, _ => DoLevelComplete()),
+            new Registration(EconomyEarn, _ => DoEconomyEarn()),
+            new Registration(EconomySpend, _ => DoEconomySpend()),
+        };
+
+        static readonly string[] s_actionNames = BuildActionNames();
+
+        /// <summary>The complete ordered action catalog shared by the debug menu and bridge dispatcher.</summary>
+        internal static IReadOnlyList<string> ActionNames => s_actionNames;
 
         /// <summary>
         ///     Dispatches the named action on the calling (main) thread and returns immediately
@@ -48,15 +63,29 @@ namespace Sorolla.Palette
         /// </summary>
         internal static bool TryInvoke(string name, IDictionary<string, object> args, out string detail)
         {
-            if (string.IsNullOrEmpty(name) || !s_actions.TryGetValue(name, out Action<IDictionary<string, object>> action))
+            if (!string.IsNullOrEmpty(name))
             {
-                detail = "unknown_action";
-                return false;
+                for (int i = 0; i < s_actions.Length; i++)
+                {
+                    Registration registration = s_actions[i];
+                    if (registration.Name != name) continue;
+
+                    registration.Invoke(args);
+                    detail = null;
+                    return true;
+                }
             }
 
-            action(args);
-            detail = null;
-            return true;
+            detail = "unknown_action";
+            return false;
+        }
+
+        static string[] BuildActionNames()
+        {
+            var names = new string[s_actions.Length];
+            for (int i = 0; i < s_actions.Length; i++)
+                names[i] = s_actions[i].Name;
+            return names;
         }
 
         // Generic SDK actions. Ad and consent actions drive SDK/MAX mechanics and are recorded via the
