@@ -21,6 +21,45 @@ Awareness-first, not a gate: a studio may intentionally ship one platform at a t
 check below warns rather than blocks the build. Each warning states the root cause, the on-device
 signal it produces, and the fix.
 
+### Changed (2026-07-20 hungrysnake verification-run fixes)
+- **Studio platform declarations deleted.** A game no longer declares which stores it ships on or
+  sells on. The active build target is the studio's intent, and the presence of Unity IAP is the
+  commerce declaration, so both `SorollaConfig.distributionPlatforms` and `commercePlatforms` (and
+  the `SorollaPlatforms` enum, the Release Targets section of the Palette window, and the
+  fail-closed "targets not declared" paths behind them) are gone. Device checks now apply on the
+  active mobile build target and are NotApplicable off mobile; the store-config check is required
+  exactly when Unity IAP is installed. Consumer games with the two fields serialized keep dead YAML
+  lines Unity ignores - clean them on the repin commit.
+- **A user's privacy choice is no longer reported as a problem.** ATT denied/restricted and a zeroed
+  advertising id are informational, not warning/failure. This removes the case where a fresh,
+  fully-configured session on a correct build reported issues, and removes a row that flapped
+  between amber and red depending on where the 4-second advertising-id fetch landed.
+- **The headline count and the listed problems always agree.** One rule now decides both, so a red
+  row that nothing counted can no longer render above a headline that says otherwise, and coverage
+  to-dos (progression, economy) stay in the TEST YOUR GAME list instead of appearing as problems.
+- **No problem is reported without a fix.** Row producers supply the diagnosis; the remaining generic
+  fallback points at affordances a studio can actually reach (the send-to-Sorolla copy button, the
+  5-tap gesture) instead of a tab that is hidden in the studio view. A remote-config key that exists
+  in neither the console nor the registered in-app defaults now gets a real diagnosis and routes to
+  the studio's own list.
+- **Coverage survives a relaunch.** Verified coverage is remembered per build (keyed to app version,
+  Unity build GUID and SDK version) instead of resetting on every launch: a studio cannot exercise
+  every path in one session. Any rebuild starts from an empty ledger.
+- **The invariant set narrows to what is genuinely SDK-only.** Consent persistence across a
+  force-quit and the SDK-session half of the background/resume cycle stay certified once per
+  release; the game-quality clauses that rode along with them are deleted. Cross-vendor dashboard
+  drift and on-device SDK errors become per-game checks, and the advertising-id check is deleted
+  outright. A certified invariant now renders nothing on a studio screen - the certification line is
+  gone from the Palette window; certificate status remains in the report export.
+
+### Fixed (2026-07-20 hungrysnake verification-run fixes)
+- **The duplicate-purchase counter could never fire.** It watched for wording the drop site never
+  logged; it is now recorded where the duplicate is actually dropped. A replayed purchase increments
+  it again.
+- **QA bridge actions were only attributable after the fact.** Every accepted or refused `/qa/exec`
+  now logs a receipt, so an agent-triggered ad or consent reset is visible in the console stream
+  rather than only in the next snapshot's counters.
+
 ### Added
 - **Firebase config active-app matching (Build Health)**: the Firebase config check no longer only asks
   "is a google-services.json / GoogleService-Info.plist present?" - it parses the file and confirms it
