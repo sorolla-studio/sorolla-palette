@@ -185,11 +185,11 @@ namespace Sorolla.Palette
                     Palette.CanRequestAds ? "True" : "Not applicable");
             }
 
-            SorollaDiagnosticSeverity attSeverity = AttSeverity();
-            if (attSeverity == SorollaDiagnosticSeverity.Warning)
-                AddDiagnosed(rows, "Consent", "ATT", attSeverity, Palette.AttStatus.ToString(), AttDeniedDiagnosis());
+            (SorollaDiagnosticSeverity severity, bool denied) att = AttState();
+            if (att.denied)
+                AddDiagnosed(rows, "Consent", "ATT", att.severity, Palette.AttStatus.ToString(), AttDeniedDiagnosis());
             else
-                Add(rows, "Consent", "ATT", attSeverity, Palette.AttStatus.ToString());
+                Add(rows, "Consent", "ATT", att.severity, Palette.AttStatus.ToString());
             AddObserved(rows, "Identity", AdvertisingIdLabel(), AdvertisingIdSeverity(snapshot), AdvertisingIdDetail(snapshot));
             AddObserved(rows, "Identity", "Adjust ADID", AdjustIdSeverity(snapshot, fullMode), AdjustIdDetail(snapshot, fullMode));
             AddObserved(rows, "Identity", "Attribution", AttributionSeverity(snapshot, fullMode), AttributionDetail(snapshot));
@@ -225,8 +225,7 @@ namespace Sorolla.Palette
             Add(rows, "Ads", "Ad issues", snapshot.LastAdIssue == "No issue observed" ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
                 snapshot.LastAdIssue);
 
-            Add(rows, "Red flags", "SDK warnings", snapshot.PaletteWarningCount == 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
-                snapshot.PaletteWarningCount == 0 ? "None" : $"{snapshot.PaletteWarningCount}, last={snapshot.LastPaletteWarning}");
+            AddSdkWarningsRow(rows, snapshot);
             Add(rows, "Red flags", "SDK errors", snapshot.PaletteErrorCount == 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Fail,
                 snapshot.PaletteErrorCount == 0 ? "None" : $"{snapshot.PaletteErrorCount}, last={snapshot.LastPaletteError}");
             Add(rows, "Red flags", RuntimeProblemsRowName, RuntimeProblemSeverity(snapshot), RuntimeProblemDetail(snapshot));
@@ -391,19 +390,24 @@ namespace Sorolla.Palette
             return SorollaDiagnosticSeverity.Waiting;
         }
 
-        static SorollaDiagnosticSeverity AttSeverity()
+        /// <summary>
+        ///     The ATT row's severity, plus whether the status is a tracking DENIAL (denied or restricted).
+        ///     A user's privacy choice is never a studio issue, so a denial is Info, not a warning - but it is
+        ///     the one status a tester needs explained, so it still carries the WHY/SIGNAL/FIX depth.
+        /// </summary>
+        static (SorollaDiagnosticSeverity severity, bool denied) AttState()
         {
 #if UNITY_IOS
             return Palette.AttStatus switch
             {
-                ATT.ATTBridge.AuthorizationStatus.Authorized => SorollaDiagnosticSeverity.Pass,
-                ATT.ATTBridge.AuthorizationStatus.NotDetermined => SorollaDiagnosticSeverity.Waiting,
-                ATT.ATTBridge.AuthorizationStatus.Denied => SorollaDiagnosticSeverity.Warning,
-                ATT.ATTBridge.AuthorizationStatus.Restricted => SorollaDiagnosticSeverity.Warning,
-                _ => SorollaDiagnosticSeverity.Info,
+                ATT.ATTBridge.AuthorizationStatus.Authorized => (SorollaDiagnosticSeverity.Pass, false),
+                ATT.ATTBridge.AuthorizationStatus.NotDetermined => (SorollaDiagnosticSeverity.Waiting, false),
+                ATT.ATTBridge.AuthorizationStatus.Denied => (SorollaDiagnosticSeverity.Info, true),
+                ATT.ATTBridge.AuthorizationStatus.Restricted => (SorollaDiagnosticSeverity.Info, true),
+                _ => (SorollaDiagnosticSeverity.Info, false),
             };
 #else
-            return SorollaDiagnosticSeverity.Info;
+            return (SorollaDiagnosticSeverity.Info, false);
 #endif
         }
 
@@ -423,7 +427,9 @@ namespace Sorolla.Palette
             if (!snapshot.AdIdRequested) return SorollaDiagnosticSeverity.Waiting;
             if (!snapshot.AdIdReceived && Time.realtimeSinceStartup - snapshot.AdIdRequestTime < 4f)
                 return SorollaDiagnosticSeverity.Waiting;
-            if (snapshot.AdIdZeroed) return SorollaDiagnosticSeverity.Fail;
+            // A zeroed advertising id is a USER opt-out artifact on both platforms, not a defect the studio
+            // can act on - Info, never Fail (it also used to flap red/amber across the 4s fetch window).
+            if (snapshot.AdIdZeroed) return SorollaDiagnosticSeverity.Info;
             return snapshot.AdIdPresent ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning;
         }
 
@@ -431,7 +437,7 @@ namespace Sorolla.Palette
         {
             if (!snapshot.AdIdRequested) return "Not requested yet";
             if (!snapshot.AdIdReceived && Time.realtimeSinceStartup - snapshot.AdIdRequestTime < 4f) return "Fetching";
-            if (snapshot.AdIdZeroed) return "Zeroed advertising ID";
+            if (snapshot.AdIdZeroed) return "Zeroed (user opted out of tracking)";
             return snapshot.AdIdPresent ? "Present" : "Missing or unavailable";
         }
 
@@ -507,6 +513,42 @@ namespace Sorolla.Palette
         // silently fell into the DEVICE-build diagnosis - shown live in the Unity EDITOR, an honesty
         // violation (guessing a config-file cause that doesn't apply). Fixed to key on
         // Application.isEditor directly instead of re-deriving it from message text.
+        /// <summary>
+        ///     The SDK-warnings row. A warning the SDK can DIAGNOSE gets the real WHY/SIGNAL/FIX at this
+        ///     producer (the "no unknown fix" rule) - starting with the one pattern seen live: a game reading a
+        ///     remote-config key that exists in neither the console nor the registered in-app defaults. An
+        ///     undiagnosed warning keeps the generic shape and routes to Sorolla.
+        /// </summary>
+        static void AddSdkWarningsRow(List<SorollaDiagnosticRow> rows, Snapshot snapshot)
+        {
+            if (snapshot.PaletteWarningCount == 0)
+            {
+                Add(rows, "Red flags", "SDK warnings", SorollaDiagnosticSeverity.Pass, "None");
+                return;
+            }
+
+            string detail = $"{snapshot.PaletteWarningCount}, last={snapshot.LastPaletteWarning}";
+            string missingKey = MissingRemoteConfigKey(snapshot.LastPaletteWarning);
+            if (missingKey != null)
+                AddDiagnosed(rows, "Red flags", "SDK warnings", SorollaDiagnosticSeverity.Warning, detail,
+                    MissingRemoteConfigKeyDiagnosis(missingKey));
+            else
+                Add(rows, "Red flags", "SDK warnings", SorollaDiagnosticSeverity.Warning, detail);
+        }
+
+        const string MissingRemoteConfigKeyMarker = "not found in remote config, GameAnalytics, or registered defaults";
+
+        /// <summary>The key name out of the SDK's own missing-remote-config-key warning, or null when the
+        /// warning is something else. Matches the exact text Palette.RemoteConfig's WarnOnce emits.</summary>
+        static string MissingRemoteConfigKey(string warning)
+        {
+            if (string.IsNullOrEmpty(warning) || !warning.Contains(MissingRemoteConfigKeyMarker)) return null;
+            int open = warning.IndexOf('\'');
+            if (open < 0) return null;
+            int close = warning.IndexOf('\'', open + 1);
+            return close > open + 1 ? warning.Substring(open + 1, close - open - 1) : null;
+        }
+
         static void AddFirebaseRow(List<SorollaDiagnosticRow> rows, string name, string vendorLabel,
             SorollaDiagnosticSeverity severity, string detail)
         {

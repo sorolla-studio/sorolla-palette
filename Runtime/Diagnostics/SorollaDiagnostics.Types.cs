@@ -15,7 +15,6 @@ namespace Sorolla.Palette
     {
         Required,
         Observed,
-        Context,
     }
 
     internal readonly struct SorollaDiagnosticRow

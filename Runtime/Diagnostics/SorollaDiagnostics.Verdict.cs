@@ -123,6 +123,12 @@ namespace Sorolla.Palette
             if (row.Group == "Boot")
                 return row.Name == "Palette mode" ? SorollaRowOwner.Studio : SorollaRowOwner.Sorolla;
 
+            // Red flags are SDK complaints, so they default to Sorolla - but once a producer has DIAGNOSED
+            // one as the game's own configuration (e.g. a remote-config key that exists nowhere), the fix is
+            // the studio's and the row belongs in their list, not in "send to Sorolla".
+            if (row.Group == "Red flags")
+                return row.HasStructuredDiagnosis ? SorollaRowOwner.Studio : SorollaRowOwner.Sorolla;
+
             switch (row.Group)
             {
                 case "Config":

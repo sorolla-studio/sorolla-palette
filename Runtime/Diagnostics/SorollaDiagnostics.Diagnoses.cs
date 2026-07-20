@@ -93,6 +93,13 @@ namespace Sorolla.Palette
             "IDFA reads as zeroed/unavailable; ad personalization and Adjust's device-level attribution both degrade to a non-tracking mode - this is Apple's intended behavior for a denial, not an SDK fault.",
             "Nothing to fix in the SDK. To re-test the allowed path, the ATT decision must be reset at the OS level (Settings -> the app -> Tracking) or with a fresh install; the SDK has no re-prompt API.");
 
+        // ---- Remote Config ----
+
+        internal static (string why, string signal, string fix) MissingRemoteConfigKeyDiagnosis(string key) => (
+            $"The game reads the remote config key '{key}', but it exists in neither the remote config console nor the in-app defaults the game registered.",
+            $"Every read of '{key}' falls back to the value written at the call site, so changing it in the console has no effect and the value can never be tuned remotely.",
+            $"Register an in-app default for '{key}' (Palette.SetRemoteConfigDefaults) or add the parameter in the remote config console - or delete the read if the key is no longer used.");
+
         // ---- Ads ----
 
         // ---- Firebase (native library unavailable) ----

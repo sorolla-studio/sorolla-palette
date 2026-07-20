@@ -204,12 +204,16 @@ namespace Sorolla.Palette
             return section;
         }
 
+        // One rule decides BOTH the hero count and what is listed: a row that does not drive the verdict is
+        // never rendered as an issue (a red row nobody counts reads as FAILING while the hero says otherwise -
+        // DR-C4-FIXTHESE), and coverage/TO DO facts live in TEST YOUR GAME, never in FIX THESE.
         static List<SorollaDiagnosticRow> SortedForAttention(
             List<SorollaDiagnosticRow> rows, SorollaRowOwner owner)
         {
             var picked = new List<SorollaDiagnosticRow>();
             foreach (SorollaDiagnosticRow row in rows)
-                if (SorollaDiagnostics.NeedsAttention(row.Severity) && SorollaDiagnostics.OwnerOf(row) == owner)
+                if (SorollaDiagnostics.DrivesHealth(row) && SorollaDiagnostics.NeedsAttention(row.Severity) &&
+                    SorollaDiagnostics.OwnerOf(row) == owner)
                     picked.Add(row);
             picked.Sort((a, b) => SeverityRank(b.Severity).CompareTo(SeverityRank(a.Severity)));
             return picked;
@@ -371,9 +375,20 @@ namespace Sorolla.Palette
 
         // ── Row anatomy (migrated from the deleted Issues pane) ───────────
 
+        // The generic shape for a row whose producer supplied no diagnosis. Producers are expected to supply
+        // WHY/SIGNAL/FIX (see SorollaDiagnostics.Diagnoses.cs); this is the last resort, and it routes through
+        // an affordance a studio can actually see - the SEND TO SOROLLA section's own button, or the 5-tap
+        // gesture on the SDK context line for the internal console.
+        const string UnknownSignal = "—";
+        const string UnknownFix = "Not diagnosable from inside the app. Use \"Copy SDK state\" in the "
+            + "SEND TO SOROLLA section below and send it to Sorolla (or tap the SDK line at the top of this "
+            + "report 5 times to open the internal console).";
+
         static VisualElement BuildIssueRow(SorollaDiagnosticRow row)
         {
-            SorollaDebugMenuDiagnosis diagnosis = SorollaDebugMenuDiagnosisMapper.Map(row);
+            (string why, string signal, string fix) diagnosis = row.HasStructuredDiagnosis
+                ? (row.Why, row.Signal, row.Fix)
+                : (string.IsNullOrEmpty(row.Detail) ? "No detail recorded." : row.Detail, UnknownSignal, UnknownFix);
 
             var container = new VisualElement();
             container.AddToClassList("sorolla-debugmenu-issue-row");
@@ -415,14 +430,14 @@ namespace Sorolla.Palette
             return container;
         }
 
-        static VisualElement BuildExpandedDiagnosis(SorollaDebugMenuDiagnosis diagnosis)
+        static VisualElement BuildExpandedDiagnosis((string why, string signal, string fix) diagnosis)
         {
             var block = new VisualElement();
             block.AddToClassList("sorolla-debugmenu-diagnosis");
 
-            block.Add(BuildDiagnosisLine("WHY", diagnosis.Why, "sorolla-debugmenu-diagnosis-why"));
-            block.Add(BuildDiagnosisLine("SIGNAL", diagnosis.Signal, "sorolla-debugmenu-diagnosis-signal"));
-            block.Add(BuildDiagnosisLine("FIX", diagnosis.Fix, "sorolla-debugmenu-diagnosis-fix"));
+            block.Add(BuildDiagnosisLine("WHY", diagnosis.why, "sorolla-debugmenu-diagnosis-why"));
+            block.Add(BuildDiagnosisLine("SIGNAL", diagnosis.signal, "sorolla-debugmenu-diagnosis-signal"));
+            block.Add(BuildDiagnosisLine("FIX", diagnosis.fix, "sorolla-debugmenu-diagnosis-fix"));
 
             var copyOne = new Button(() => GUIUtility.systemCopyBuffer = BuildDiagnosisCopyText(diagnosis))
             {
@@ -452,12 +467,12 @@ namespace Sorolla.Palette
             return line;
         }
 
-        static string BuildDiagnosisCopyText(SorollaDebugMenuDiagnosis diagnosis)
+        static string BuildDiagnosisCopyText((string why, string signal, string fix) diagnosis)
         {
             var sb = new StringBuilder(256);
-            sb.Append("WHY: ").AppendLine(diagnosis.Why);
-            sb.Append("SIGNAL: ").AppendLine(diagnosis.Signal);
-            sb.Append("FIX: ").Append(diagnosis.Fix);
+            sb.Append("WHY: ").AppendLine(diagnosis.why);
+            sb.Append("SIGNAL: ").AppendLine(diagnosis.signal);
+            sb.Append("FIX: ").Append(diagnosis.fix);
             return sb.ToString();
         }
 

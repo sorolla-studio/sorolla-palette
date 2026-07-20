@@ -192,19 +192,6 @@ namespace Sorolla.Palette
             return row.Kind == SorollaDiagnosticKind.Required;
         }
 
-        internal static string KindLabel(SorollaDiagnosticKind kind)
-        {
-            switch (kind)
-            {
-                case SorollaDiagnosticKind.Observed:
-                    return "OBS";
-                case SorollaDiagnosticKind.Context:
-                    return "CTX";
-                default:
-                    return "REQ";
-            }
-        }
-
         static void AppendReportHeader(StringBuilder sb, string title, string buildDetail, string deviceWallClock = null)
         {
             sb.AppendLine(title);
