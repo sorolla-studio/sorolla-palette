@@ -251,7 +251,13 @@ namespace Sorolla.Palette
                 return;
             }
 
-            if (QaActionRegistry.TryInvoke(action, null, out string detail))
+            // Receipt for every exec, accepted or refused. Without it a bridge-triggered ad or consent reset
+            // is only attributable from the NEXT snapshot's test_* counters, which makes an agent action and a
+            // human action look identical in the console stream while both are in flight.
+            bool ok = QaActionRegistry.TryInvoke(action, null, out string detail);
+            PaletteLog.Vital($"[Palette:QaBridge] exec '{action ?? "(none)"}' -> {(ok ? "accepted" : $"refused ({detail})")}.");
+
+            if (ok)
             {
                 WriteJson(ctx, 200, "{\"ok\":true}");
                 return;

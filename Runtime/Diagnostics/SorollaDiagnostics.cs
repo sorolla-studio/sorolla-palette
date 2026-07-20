@@ -176,6 +176,20 @@ namespace Sorolla.Palette
             }
         }
 
+        /// <summary>
+        ///     A purchase the dedup ledger dropped as a duplicate. Recorded DIRECTLY at the drop site: the old
+        ///     log sniff looked for "duplicate transactionId", which the drop site never logs, so the counter
+        ///     could never fire.
+        /// </summary>
+        internal static void RecordDuplicatePurchase()
+        {
+            lock (s_lock)
+            {
+                s_purchaseDuplicateCount++;
+                s_purchaseIssue = "Duplicate purchase dropped";
+            }
+        }
+
         internal static void RecordEconomy(bool earn)
         {
             lock (s_lock)

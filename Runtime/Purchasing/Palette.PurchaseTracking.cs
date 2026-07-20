@@ -139,6 +139,7 @@ namespace Sorolla.Palette
                     $"Unity IAP v5 can re-deliver purchases (Google Play in-session double on OnPurchaseConfirmed, " +
                     $"or OnPurchasePending crash-replay across restarts per Unity docs). Dedup is persisted so " +
                     $"the fan-out fires once per purchase even after a restart.");
+                SorollaDiagnostics.RecordDuplicatePurchase();
                 return;
             }
 

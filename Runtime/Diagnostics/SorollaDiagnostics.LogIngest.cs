@@ -153,11 +153,6 @@ namespace Sorolla.Palette
             if (message.Contains("[Palette:Purchasing] AttachPurchaseTracking: wired"))
                 s_purchaseTrackingAttached = true;
             if (message.Contains("TrackPurchase: accepted")) s_purchaseAcceptedCount++;
-            if (message.Contains("duplicate transactionId"))
-            {
-                s_purchaseDuplicateCount++;
-                s_purchaseIssue = "Duplicate transaction dropped";
-            }
             if (message.Contains("TrackPurchase") && (message.Contains("invalid metadata") || message.Contains("dropping event")))
                 s_purchaseIssue = SafeDetail(message);
             if (message.Contains("purchase verification:"))

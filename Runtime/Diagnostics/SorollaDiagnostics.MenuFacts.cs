@@ -117,20 +117,29 @@ namespace Sorolla.Palette
             SorollaQaState state = CaptureQaState();
             var rows = new List<SorollaMenuMatrixRow>(8);
 
-            bool consentResolved = state.ConsentStatus == "Obtained" || state.ConsentStatus == "Denied"
-                || state.ConsentStatus == "NotApplicable";
-            rows.Add(new SorollaMenuMatrixRow("Consent", consentResolved, MenuConsentCell(state, out _),
+            // Coverage is per BUILD, not per launch: a path proved earlier on this same build stays proved
+            // across a force-quit (a studio cannot exercise every path in one session). A rebuild starts over.
+            SorollaCoverageFact session = SessionCoverageFacts(snap, state);
+            SorollaCoverageFact proved = SorollaCoverageLedger.Merge(session);
+
+            bool consentResolved = (proved & SorollaCoverageFact.Consent) != 0;
+            rows.Add(new SorollaMenuMatrixRow("Consent", consentResolved,
+                Cell(session, SorollaCoverageFact.Consent, MenuConsentCell(state, out _)),
                 "Open the app and resolve the CMP prompt"));
 
-            bool progressionSeen = snap.ProgressionStartCount > 0 && snap.ProgressionEndCount > 0;
+            bool progressionSeen = (proved & SorollaCoverageFact.Progression) != 0;
             rows.Add(new SorollaMenuMatrixRow("Progression", progressionSeen,
-                $"{snap.ProgressionStartCount} start · {snap.ProgressionEndCount} end", "Play one level to completion"));
+                Cell(session, SorollaCoverageFact.Progression,
+                    $"{snap.ProgressionStartCount} start · {snap.ProgressionEndCount} end"),
+                "Play one level to completion"));
 
             // One observed flow proves the economy family dispatches; earn-without-spend is normal
             // player behavior, not missing coverage (minimum-evidence rule: earn-only owes no spend test).
-            bool economySeen = snap.EconomyEarnCount > 0 || snap.EconomySpendCount > 0;
+            bool economySeen = (proved & SorollaCoverageFact.Economy) != 0;
             rows.Add(new SorollaMenuMatrixRow("Economy", economySeen,
-                $"{snap.EconomyEarnCount} earn · {snap.EconomySpendCount} spend", "Earn or spend soft currency once"));
+                Cell(session, SorollaCoverageFact.Economy,
+                    $"{snap.EconomyEarnCount} earn · {snap.EconomySpendCount} spend"),
+                "Earn or spend soft currency once"));
 
             // Hint verified live (team-lead tier-2 follow-up): Actions -> "Fire test event" does NOT
             // flip this row - DoTrackTestEvent tags the event with the QA-test marker and runs inside
@@ -139,23 +148,26 @@ namespace Sorolla.Palette
             // game-integration coverage). The hint points at a real Palette.TrackEvent call from game
             // code, not the Actions-tab button - matching the Economy/Progression/Custom convention
             // already used elsewhere in this matrix.
-            bool customSeen = snap.CustomEventCount > 0;
+            bool customSeen = (proved & SorollaCoverageFact.CustomEvent) != 0;
             rows.Add(new SorollaMenuMatrixRow("Custom events", customSeen,
-                customSeen ? $"{snap.CustomEventCount} seen" : "none seen",
+                Cell(session, SorollaCoverageFact.CustomEvent, $"{snap.CustomEventCount} seen"),
                 "Trigger a real Palette.TrackEvent call from game code (the Actions test-event button is excluded from this count)"));
 
-            bool interExercised = state.InterstitialLoaded && state.InterstitialCompleted;
+            bool interExercised = (proved & SorollaCoverageFact.Interstitial) != 0;
             rows.Add(new SorollaMenuMatrixRow("Ads · interstitial", interExercised,
-                $"loaded {YesNo(state.InterstitialLoaded)} · shown-to-completion {YesNo(state.InterstitialCompleted)}",
+                Cell(session, SorollaCoverageFact.Interstitial,
+                    $"loaded {YesNo(state.InterstitialLoaded)} · shown-to-completion {YesNo(state.InterstitialCompleted)}"),
                 "Show an interstitial from Actions → Ads test"));
 
-            bool rewardedExercised = state.RewardedLoaded && state.RewardedCompleted;
+            bool rewardedExercised = (proved & SorollaCoverageFact.Rewarded) != 0;
             rows.Add(new SorollaMenuMatrixRow("Ads · rewarded", rewardedExercised,
-                $"loaded {YesNo(state.RewardedLoaded)} · shown-to-completion {YesNo(state.RewardedCompleted)}",
+                Cell(session, SorollaCoverageFact.Rewarded,
+                    $"loaded {YesNo(state.RewardedLoaded)} · shown-to-completion {YesNo(state.RewardedCompleted)}"),
                 "Show a rewarded ad from Actions → Ads test"));
 
-            rows.Add(new SorollaMenuMatrixRow("Ads · revenue", state.AdRevenueSeen,
-                state.AdRevenueSeen ? "revenue callback seen" : "no revenue callback seen",
+            bool revenueSeen = (proved & SorollaCoverageFact.AdRevenue) != 0;
+            rows.Add(new SorollaMenuMatrixRow("Ads · revenue", revenueSeen,
+                Cell(session, SorollaCoverageFact.AdRevenue, "revenue callback seen"),
                 "Show an ad through to an impression"));
 
             // IAP row only when the game has IAP wired at all (tracking attached or a purchase already
@@ -163,9 +175,9 @@ namespace Sorolla.Palette
             // not-exercised row with no honest way to satisfy it.
             if (state.IapTrackingAttached || state.IapPurchaseCount > 0)
             {
-                bool purchaseSeen = state.IapPurchaseCount > 0;
+                bool purchaseSeen = (proved & SorollaCoverageFact.IapPurchase) != 0;
                 rows.Add(new SorollaMenuMatrixRow("IAP", purchaseSeen,
-                    purchaseSeen ? $"{state.IapPurchaseCount} purchase(s) tracked" : "tracking attached, no purchase yet",
+                    Cell(session, SorollaCoverageFact.IapPurchase, $"{state.IapPurchaseCount} purchase(s) tracked"),
                     "Complete one purchase (sandbox/test track)"));
             }
 
@@ -175,6 +187,33 @@ namespace Sorolla.Palette
                 "Close and reopen the app; consent/config should persist without re-prompting"));
 
             return rows;
+        }
+
+        /// <summary>The cell text for a proved row: this launch's own numbers when it saw the fact, otherwise
+        /// a plain statement that an earlier launch on this same build proved it (the session counters would
+        /// read zero and make a DONE row look wrong).</summary>
+        static string Cell(SorollaCoverageFact session, SorollaCoverageFact fact, string sessionText) =>
+            (session & fact) != 0 ? sessionText : "verified earlier on this build";
+
+        /// <summary>What THIS launch proved. Facts only ever turn on here; the ledger owns the union.</summary>
+        static SorollaCoverageFact SessionCoverageFacts(Snapshot snap, SorollaQaState state)
+        {
+            SorollaCoverageFact facts = SorollaCoverageFact.None;
+            if (state.ConsentStatus == "Obtained" || state.ConsentStatus == "Denied"
+                || state.ConsentStatus == "NotApplicable")
+                facts |= SorollaCoverageFact.Consent;
+            if (snap.ProgressionStartCount > 0 && snap.ProgressionEndCount > 0)
+                facts |= SorollaCoverageFact.Progression;
+            // One observed flow proves the economy family dispatches; earn-without-spend is normal player
+            // behavior, not missing coverage (minimum-evidence rule: earn-only owes no spend test).
+            if (snap.EconomyEarnCount > 0 || snap.EconomySpendCount > 0)
+                facts |= SorollaCoverageFact.Economy;
+            if (snap.CustomEventCount > 0) facts |= SorollaCoverageFact.CustomEvent;
+            if (state.InterstitialLoaded && state.InterstitialCompleted) facts |= SorollaCoverageFact.Interstitial;
+            if (state.RewardedLoaded && state.RewardedCompleted) facts |= SorollaCoverageFact.Rewarded;
+            if (state.AdRevenueSeen) facts |= SorollaCoverageFact.AdRevenue;
+            if (state.IapPurchaseCount > 0) facts |= SorollaCoverageFact.IapPurchase;
+            return facts;
         }
 
         static string YesNo(bool value) => value ? "yes" : "no";
