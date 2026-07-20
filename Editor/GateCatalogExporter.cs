@@ -13,12 +13,12 @@ namespace Sorolla.Palette.Editor
     ///     The SDK ships only the emitter; the private-side divergence check lives in sorolla-docs
     ///     (qa/scripts/validate-gate-catalog.py).
     /// </summary>
-    public static class GateCatalogExporter
+    internal static class GateCatalogExporter
     {
-        public const string Schema = "sorolla.gate-catalog/1";
+        internal const string Schema = "sorolla.gate-catalog/1";
 
         /// <summary>Serializes the canonical catalog to a JSON string (id, version, phases, required proof).</summary>
-        public static string Serialize()
+        internal static string Serialize()
         {
             var gates = new List<object>();
             foreach (GateDefinition def in GateCatalog.Canonical.All)
@@ -42,8 +42,8 @@ namespace Sorolla.Palette.Editor
             return MiniJson.Serialize(root, prettyPrint: true);
         }
 
-        /// <summary>Writes the export to <paramref name="path"/> (callable from CI / a script). Returns the path.</summary>
-        public static string Export(string path)
+        /// <summary>Writes the export to <paramref name="path"/>. Returns the path.</summary>
+        internal static string Export(string path)
         {
             string json = Serialize();
             string dir = Path.GetDirectoryName(path);
@@ -53,8 +53,7 @@ namespace Sorolla.Palette.Editor
             return path;
         }
 
-        [MenuItem("Palette/QA/Export Gate Catalog (JSON)")]
-        static void ExportMenu()
+        internal static void ShowSavePanel()
         {
             string path = EditorUtility.SaveFilePanel(
                 "Export Gate Catalog", Application.dataPath, "gate-catalog", "json");

@@ -152,7 +152,7 @@ namespace Sorolla.Palette.Editor
             {
                 results.Add(Warning(
                     CheckCategory.ModeConsistency,
-                    "No SDK mode configured. Run Palette > Configuration to select Prototype or Full mode."));
+                    "No SDK mode configured. Open Tools > Sorolla Palette SDK to select Prototype or Full mode."));
                 return results;
             }
 
@@ -238,7 +238,7 @@ namespace Sorolla.Palette.Editor
                     results.Add(Error(
                         CheckCategory.ScopedRegistries,
                         $"Missing scoped registry for {sdk.Name}\n  Required scope: {sdk.Scope}",
-                        "Run Palette > Configuration to fix registry configuration"));
+                        "Open Tools > Sorolla Palette SDK to fix registry configuration"));
                 }
             }
 

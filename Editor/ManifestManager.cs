@@ -61,17 +61,6 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Add or update a scoped registry
-        /// </summary>
-        public static bool AddOrUpdateRegistry(string name, string url, string[] requiredScopes)
-        {
-            return ModifyManifest((manifest, scopedRegistries) =>
-            {
-                return AddOrUpdateRegistryInternal(scopedRegistries, name, url, requiredScopes);
-            });
-        }
-
-        /// <summary>
         ///     Add dependencies to manifest
         /// </summary>
         public static bool AddDependencies(Dictionary<string, string> packagesToAdd)
@@ -121,33 +110,9 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Remove a scope from a specific registry (used to fix duplicate scope issues)
+        ///     Pure list-level registry management used by the installer and deterministic tests.
         /// </summary>
-        public static bool RemoveScopeFromRegistry(string registryUrl, string scopeToRemove)
-        {
-            return ModifyManifest((manifest, scopedRegistries) =>
-            {
-                foreach (var reg in scopedRegistries)
-                {
-                    if (reg is Dictionary<string, object> r &&
-                        r.ContainsKey("url") && r["url"].ToString() == registryUrl &&
-                        r.TryGetValue("scopes", out var value) && value is List<object> scopes)
-                    {
-                        if (scopes.Remove(scopeToRemove))
-                        {
-                            Debug.Log($"[ManifestManager] Removed scope '{scopeToRemove}' from registry '{registryUrl}'");
-                            return true;
-                        }
-                    }
-                }
-                return false;
-            });
-        }
-
-        /// <summary>
-        ///     Internal registry management logic
-        /// </summary>
-        private static bool AddOrUpdateRegistryInternal(List<object> scopedRegistries, string name, string url,
+        internal static bool AddOrUpdateRegistryInternal(List<object> scopedRegistries, string name, string url,
             string[] requiredScopes)
         {
             Dictionary<string, object> registry = null;
@@ -174,32 +139,43 @@ namespace Sorolla.Palette.Editor
                     { "scopes", new List<object>(requiredScopes) }
                 };
                 scopedRegistries.Add(registry);
-                Debug.Log($"[ManifestManager] Added {name} registry to manifest.json");
                 return true;
             }
 
             // Update existing registry scopes
-            if (registry.TryGetValue("scopes", out var value))
+            if (!registry.TryGetValue("scopes", out object value) || !(value is List<object> scopes))
             {
-                if (value is List<object> scopes)
-                {
-                    var modified = false;
-                    foreach (var scope in requiredScopes)
-                        if (!scopes.Contains(scope))
-                        {
-                            scopes.Add(scope);
-                            modified = true;
-                        }
-
-                    if (modified)
-                    {
-                        Debug.Log($"[ManifestManager] Updated {name} registry scopes");
-                        return true;
-                    }
-                }
+                registry["scopes"] = new List<object>(requiredScopes);
+                return requiredScopes.Length > 0;
             }
 
-            return false;
+            bool modified = false;
+            foreach (string scope in requiredScopes)
+                if (!scopes.Contains(scope))
+                {
+                    scopes.Add(scope);
+                    modified = true;
+                }
+
+            return modified;
+        }
+
+        internal static bool RemoveScopeFromRegistryInternal(
+            List<object> scopedRegistries,
+            string registryUrl,
+            string scopeToRemove)
+        {
+            bool modified = false;
+            foreach (object reg in scopedRegistries)
+            {
+                if (reg is Dictionary<string, object> registry &&
+                    registry.TryGetValue("url", out object url) && url?.ToString() == registryUrl &&
+                    registry.TryGetValue("scopes", out object value) && value is List<object> scopes)
+                    while (scopes.Remove(scopeToRemove))
+                        modified = true;
+            }
+
+            return modified;
         }
     }
 }

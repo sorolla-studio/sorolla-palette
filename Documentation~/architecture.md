@@ -86,8 +86,7 @@ Runtime/
 │       ├── Sorolla.Adapters.Adjust.asmdef
 │       └── AdjustAdapterImpl.cs
 └── ATT/
-    ├── ContextScreenView.cs   ← Pre-ATT explanation screen
-    └── FakeATTDialog.cs       ← Editor testing
+    └── ATTBridge.cs           ← Native iOS ATT status and authorization
 
 Editor/
 ├── SorollaWindow.cs           ← Main configuration window
@@ -113,7 +112,7 @@ SorollaBootstrapper.AutoInit()
     ↓
 Creates "[Sorolla SDK]" GameObject (DontDestroyOnLoad)
     ↓
-iOS: Check ATT status → Show ContextScreen if needed
+iOS without MAX: request native ATT authorization when status is NotDetermined
     ↓
 Palette.Initialize()
     ├── GameAnalyticsAdapter.Initialize()      ← Always

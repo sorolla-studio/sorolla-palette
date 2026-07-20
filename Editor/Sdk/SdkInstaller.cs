@@ -12,19 +12,67 @@ namespace Sorolla.Palette.Editor
     /// </summary>
     public static class SdkInstaller
     {
-        /// <summary>
-        ///     Ensure MAX registry is properly configured (uses its own registry, not OpenUPM).
-        /// </summary>
-        static void EnsureMaxRegistry()
-        {
-            // Remove com.applovin from OpenUPM if it exists (fixes duplicate scope error)
-            ManifestManager.RemoveScopeFromRegistry("https://package.openupm.com", "com.applovin");
+        const string OpenUpmRegistryName = "package.openupm.com";
+        const string OpenUpmRegistryUrl = "https://package.openupm.com";
+        const string MaxRegistryName = "AppLovin MAX";
+        const string MaxRegistryUrl = "https://unity.packages.applovin.com/";
 
-            ManifestManager.AddOrUpdateRegistry(
-                "AppLovin MAX",
-                "https://unity.packages.applovin.com/",
-                new[] { "com.applovin" }
-            );
+        internal static bool EnsureRegistryEntry(List<object> scopedRegistries, SdkInfo sdk)
+        {
+            if (string.IsNullOrEmpty(sdk.Scope)) return false;
+
+            if (sdk.Id != SdkId.AppLovinMAX)
+            {
+                return ManifestManager.AddOrUpdateRegistryInternal(
+                    scopedRegistries,
+                    OpenUpmRegistryName,
+                    OpenUpmRegistryUrl,
+                    new[] { sdk.Scope });
+            }
+
+            // MAX owns com.applovin exclusively; leaving it in OpenUPM creates a duplicate scope.
+            bool changed = ManifestManager.RemoveScopeFromRegistryInternal(
+                scopedRegistries, OpenUpmRegistryUrl, sdk.Scope);
+            changed |= ManifestManager.AddOrUpdateRegistryInternal(
+                scopedRegistries,
+                MaxRegistryName,
+                MaxRegistryUrl,
+                new[] { sdk.Scope });
+            return changed;
+        }
+
+        internal static bool EnsureRequiredRegistryEntries(List<object> scopedRegistries, bool isPrototype)
+        {
+            bool changed = false;
+            foreach (SdkInfo sdk in SdkRegistry.GetRequired(isPrototype))
+                changed |= EnsureRegistryEntry(scopedRegistries, sdk);
+            return changed;
+        }
+
+        static bool EnsureRegistry(SdkInfo sdk)
+        {
+            if (string.IsNullOrEmpty(sdk.Scope)) return false;
+
+            return ManifestManager.ModifyManifest((manifest, scopedRegistries) =>
+                EnsureRegistryEntry(scopedRegistries, sdk));
+        }
+
+        internal static bool EnsureRequiredRegistries(bool isPrototype)
+        {
+            return ManifestManager.ModifyManifest((manifest, scopedRegistries) =>
+                EnsureRequiredRegistryEntries(scopedRegistries, isPrototype));
+        }
+
+        internal static bool EnsureCoreRegistries()
+        {
+            return ManifestManager.ModifyManifest((manifest, scopedRegistries) =>
+            {
+                bool changed = false;
+                foreach (SdkInfo sdk in SdkRegistry.All.Values)
+                    if (sdk.Requirement == SdkRequirement.Core)
+                        changed |= EnsureRegistryEntry(scopedRegistries, sdk);
+                return changed;
+            });
         }
 
         /// <summary>
@@ -40,19 +88,7 @@ namespace Sorolla.Palette.Editor
 
             Debug.Log($"[Palette] Installing {info.Name}...");
 
-            // Add registry if needed (for MAX - uses its own registry, not OpenUPM)
-            if (id == SdkId.AppLovinMAX)
-                EnsureMaxRegistry();
-            // Add scope to OpenUPM if needed (but not for MAX)
-            else if (!string.IsNullOrEmpty(info.Scope))
-            {
-                ManifestManager.AddOrUpdateRegistry(
-                    "package.openupm.com",
-                    "https://package.openupm.com",
-                    new[] { info.Scope }
-                );
-            }
-
+            EnsureRegistry(info);
 
             // Add dependency to manifest
             ManifestManager.AddDependencies(new Dictionary<string, string>
@@ -86,8 +122,9 @@ namespace Sorolla.Palette.Editor
         {
             Debug.Log($"[Palette] Installing required SDKs for {(isPrototype ? "Prototype" : "Full")} mode...");
 
-            var scopes = new List<string>();
             var dependencies = new Dictionary<string, string>();
+
+            EnsureRequiredRegistries(isPrototype);
 
             foreach (SdkInfo sdk in SdkRegistry.GetRequired(isPrototype))
             {
@@ -95,26 +132,7 @@ namespace Sorolla.Palette.Editor
                 // ManifestManager.AddDependencies handles idempotency via manifest.json check.
                 Debug.Log($"[Palette] Will install: {sdk.Name} ({sdk.PackageId})");
 
-                // Add scope to OpenUPM - but NOT for MAX (it uses its own registry)
-                if (!string.IsNullOrEmpty(sdk.Scope) && sdk.Id != SdkId.AppLovinMAX)
-                    scopes.Add(sdk.Scope);
-
                 dependencies[sdk.PackageId] = sdk.DependencyValue;
-
-                // Special handling for MAX - uses its own registry, not OpenUPM
-                if (sdk.Id == SdkId.AppLovinMAX)
-                    EnsureMaxRegistry();
-            }
-
-
-            // Add OpenUPM scopes if any
-            if (scopes.Count > 0)
-            {
-                ManifestManager.AddOrUpdateRegistry(
-                    "package.openupm.com",
-                    "https://package.openupm.com",
-                    scopes.ToArray()
-                );
             }
 
             // Add all dependencies at once

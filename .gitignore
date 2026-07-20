@@ -10,6 +10,7 @@ Thumbs.db
 # IDE files
 .idea/
 .vscode/
+.tldr/
 
 # Internal files (keep locally, not on GitHub)
 .claude/

@@ -13,7 +13,7 @@ namespace Sorolla.Palette.Editor
     ///     Unity Package Manager handles resolution order automatically.
     /// </summary>
     [InitializeOnLoad]
-    public static class SorollaSetup
+    internal static class SorollaSetup
     {
         const string SetupVersion = "v7"; // v3.1.0: Firebase required in Full, optional in Prototype
 
@@ -23,28 +23,16 @@ namespace Sorolla.Palette.Editor
         }
         static string SetupKey => $"Sorolla_Setup_{SetupVersion}_{Application.dataPath.GetHashCode()}";
 
-        [MenuItem("Palette/Run Setup (Force)")]
-        public static void ForceRunSetup()
-        {
-            EditorPrefs.DeleteKey(SetupKey);
-            RunSetup();
-        }
-
         static void RunSetup()
         {
+            // This repair is idempotent and must not be hidden behind the one-time dependency gate.
+            CopyLinkXmlToAssets();
+
             if (EditorPrefs.GetBool(SetupKey, false))
                 return;
 
             Debug.Log("[Palette] Running initial setup...");
 
-            // Copy link.xml to Assets/ for IL2CPP stripping protection
-            CopyLinkXmlToAssets();
-
-            // Configure EDM4U to use Unity's Gradle (fixes Java 17+ compatibility)
-            ConfigureEdm4uGradleSettings();
-
-            // Collect all scopes needed for OpenUPM
-            var openUpmScopes = new List<string>();
             var dependencies = new Dictionary<string, string>();
 
             foreach (SdkInfo sdk in SdkRegistry.All.Values)
@@ -52,23 +40,11 @@ namespace Sorolla.Palette.Editor
                 if (sdk.Requirement != SdkRequirement.Core)
                     continue;
 
-                // Add scope if needed
-                if (!string.IsNullOrEmpty(sdk.Scope))
-                    openUpmScopes.Add(sdk.Scope);
-
                 // Add dependency
                 dependencies[sdk.PackageId] = sdk.DependencyValue;
             }
 
-            // Add OpenUPM registry with all scopes
-            if (openUpmScopes.Count > 0)
-            {
-                ManifestManager.AddOrUpdateRegistry(
-                    "package.openupm.com",
-                    "https://package.openupm.com",
-                    openUpmScopes.ToArray()
-                );
-            }
+            SdkInstaller.EnsureCoreRegistries();
 
             // Add all core dependencies in one shot - UPM handles resolution order
             ManifestManager.AddDependencies(dependencies);
@@ -88,11 +64,7 @@ namespace Sorolla.Palette.Editor
             const string destPath = "Assets/Sorolla.link.xml";
 
             // Skip if already exists (don't overwrite user modifications)
-            if (File.Exists(destPath))
-            {
-                Debug.Log("[Palette] link.xml already exists in Assets/, skipping copy.");
-                return;
-            }
+            if (File.Exists(destPath)) return;
 
             if (!File.Exists(sourcePath))
             {
@@ -112,14 +84,6 @@ namespace Sorolla.Palette.Editor
             }
         }
 
-        /// <summary>
-        ///     Configure EDM4U Gradle settings during initial setup.
-        ///     Delegates to Edm4uGradleConfig which also runs on every domain reload.
-        /// </summary>
-        static void ConfigureEdm4uGradleSettings()
-        {
-            Edm4uGradleConfig.ConfigureGradleTemplateMode();
-        }
     }
 
     /// <summary>

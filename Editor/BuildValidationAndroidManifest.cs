@@ -32,7 +32,7 @@ namespace Sorolla.Palette.Editor
                         $"AndroidManifest.xml has {sdkName} entries but SDK is not installed!\n" +
                         $"  Found patterns: {string.Join(", ", entries)}\n" +
                         "  This WILL crash at runtime.",
-                        "Open Palette > Configuration and click Refresh in Build Health"));
+                        "Open Tools > Sorolla Palette SDK and click Refresh in Build Health"));
                 }
             }
 
@@ -44,7 +44,7 @@ namespace Sorolla.Palette.Editor
                     "AndroidManifest.xml has duplicate activity declarations!\n" +
                     $"  Duplicates: {string.Join(", ", duplicates)}\n" +
                     "  This WILL cause build failures.",
-                    "Open Palette > Configuration and click Refresh in Build Health"));
+                    "Open Tools > Sorolla Palette SDK and click Refresh in Build Health"));
             }
 
             if (wrongActivity != null)
@@ -56,7 +56,7 @@ namespace Sorolla.Palette.Editor
                     $"  Found: {wrongActivity}\n" +
                     $"  Expected: {AndroidManifestSanitizer.GetExpectedMainActivity()}\n" +
                     "  The app WILL crash on launch.",
-                    "Open Palette > Configuration and click Refresh in Build Health"));
+                    "Open Tools > Sorolla Palette SDK and click Refresh in Build Health"));
             }
 
             if (themeMismatch != null)
@@ -67,7 +67,7 @@ namespace Sorolla.Palette.Editor
                     "AndroidManifest.xml activity theme issue!\n" +
                     $"  {themeMismatch}\n" +
                     "  This WILL cause a Gradle merge conflict on build.",
-                    "Open Palette > Configuration and click Refresh in Build Health"));
+                    "Open Tools > Sorolla Palette SDK and click Refresh in Build Health"));
             }
 
             if (launcherIssue != null)
@@ -77,7 +77,7 @@ namespace Sorolla.Palette.Editor
                     CheckCategory.AndroidManifest,
                     $"LauncherManifest.xml issue: {launcherIssue}\n" +
                     "  The app will install but fail to launch.",
-                    "Open Palette > Configuration and click Refresh in Build Health"));
+                    "Open Tools > Sorolla Palette SDK and click Refresh in Build Health"));
             }
 
             if (!hasIssues)

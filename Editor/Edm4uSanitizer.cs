@@ -32,7 +32,7 @@ namespace Sorolla.Palette.Editor
             Debug.LogWarning(
                 "[Palette] Known issue: EDM4U's bundled Gradle is incompatible with Java 17+.\n" +
                 "This error is cosmetic — restart Unity and it will resolve automatically.\n" +
-                "If it persists, run Palette > Run Setup (Force).");
+                "If it persists, allow the next domain reload to reapply EDM4U Gradle settings.");
 
             // Unsubscribe after first detection to avoid spam
             Application.logMessageReceived -= OnLogMessage;

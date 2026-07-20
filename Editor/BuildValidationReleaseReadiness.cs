@@ -46,7 +46,7 @@ namespace Sorolla.Palette.Editor
                     category,
                     "SorollaConfig.isPrototypeMode is on while a Full-mode SDK (MAX and/or Adjust) is installed.\n" +
                     "  Prototype mode skips MAX/Adjust init even though the packages are present - confirm this is intentional.",
-                    "Switch to Full mode in Palette > Configuration if this build should ship ads/attribution, or uninstall the Full-mode SDKs if Prototype is intentional"));
+                    "Switch to Full mode in Tools > Sorolla Palette SDK if this build should ship ads/attribution, or uninstall the Full-mode SDKs if Prototype is intentional"));
             }
             else
             {
@@ -78,7 +78,7 @@ namespace Sorolla.Palette.Editor
                     category,
                     "SorollaConfig.verboseLogging is on.\n" +
                     "  Runtime already forces this off in non-development builds, so this is drift hygiene, not a leak risk.",
-                    "Turn off verboseLogging in Palette > Configuration before committing, unless this is a dev/QA build on purpose"));
+                    "Turn off verboseLogging in Tools > Sorolla Palette SDK before committing, unless this is a dev/QA build on purpose"));
             }
             else
             {
@@ -161,7 +161,7 @@ namespace Sorolla.Palette.Editor
                     category,
                     "SorollaConfig.adjustSandboxMode is on.\n" +
                     "  Sandbox events are excluded from Adjust's live dashboards/attribution - must be off before store submission.",
-                    "Turn off Adjust Sandbox mode in Palette > Configuration before a release build"));
+                    "Turn off Adjust Sandbox mode in Tools > Sorolla Palette SDK before a release build"));
             }
             else
             {

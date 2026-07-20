@@ -44,12 +44,17 @@ namespace Sorolla.Palette.Editor
             if (SorollaSettings.SyncFromRuntimeConfig())
                 changed = true;
 
-            // Auto-install missing required SDKs
+            // Auto-install missing required SDKs. The installer also restores their registries.
             if (!SdkDetector.AreAllRequiredInstalled(config.isPrototypeMode))
             {
                 string modeName = config.isPrototypeMode ? "Prototype" : "Full";
                 Debug.Log($"{Tag} Auto-fixing: Installing missing required SDKs for {modeName} mode...");
                 SdkInstaller.InstallRequiredSdks(config.isPrototypeMode);
+                changed = true;
+            }
+            else if (SdkInstaller.EnsureRequiredRegistries(config.isPrototypeMode))
+            {
+                // Installed assemblies do not prove their manifest registry entries still exist.
                 changed = true;
             }
 

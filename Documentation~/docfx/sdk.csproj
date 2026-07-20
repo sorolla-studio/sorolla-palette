@@ -23,8 +23,6 @@
     <!-- Compile the public Runtime surface only. Exclude:
          - folders that reference external SDKs (MAX/Firebase/Adjust)
          - native plugin folders
-         - ATT UI helpers (FakeATTDialog/ContextScreenView)
-           which depend on UnityEngine.UI (uGUI) and aren't in CI's managed DLL cache.
          - Diagnostics/InputSystem: a SEPARATE Unity assembly (Sorolla.Runtime.InputSystem.asmdef,
            references Unity.InputSystem, gated on ENABLE_INPUT_SYSTEM). It is never part of the
            Sorolla.Runtime assembly this shadow project mirrors, so it must not be globbed in.
@@ -39,8 +37,6 @@
                       ..\..\Runtime\Adapters\MAX\**\*.cs;
                       ..\..\Runtime\Adapters\Adjust\**\*.cs;
                       ..\..\Runtime\Diagnostics\InputSystem\**\*.cs;
-                      ..\..\Runtime\ATT\ContextScreenView.cs;
-                      ..\..\Runtime\ATT\FakeATTDialog.cs;
                       ..\..\Runtime\SorollaLoadingOverlay.cs;
                       ..\..\Runtime\SorollaBootstrapper.cs" />
   </ItemGroup>

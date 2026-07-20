@@ -46,7 +46,7 @@ namespace Sorolla.Palette.Editor
                 results.Add(Warning(
                     CheckCategory.FirebaseCoherence,
                     "Firebase not installed (required in Full mode)",
-                    "Run setup or open Palette > Configuration to install Firebase."));
+                    "Open Tools > Sorolla Palette SDK to install Firebase."));
             }
             else
             {

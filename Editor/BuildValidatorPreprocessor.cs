@@ -31,7 +31,7 @@ namespace Sorolla.Palette.Editor
 
                 throw new BuildFailedException(
                     $"Build validation failed with {errors.Count} error(s). " +
-                    "Open Palette > Configuration for details."
+                    "Open Tools > Sorolla Palette SDK for details."
                 );
             }
 

@@ -171,8 +171,8 @@ pod --version
 ### ATT Dialog Not Showing
 
 1. Verify iOS 14.5+ target
-2. Check `ContextScreen` prefab in Resources
-3. ATT only shows once per app install
+2. Verify `NSUserTrackingUsageDescription` is present in the built app's Info.plist
+3. ATT only shows once per app install and only while the status is `NotDetermined`
 4. Delete and reinstall the app to reset consent for testing
 
 ### Missing Provisioning Profile

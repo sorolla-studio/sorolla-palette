@@ -38,7 +38,7 @@ namespace Sorolla.Palette.Editor
                         $"{fileName} has Java 11 compileOptions!\n" +
                         $"  Firebase 23.x, AppLovin MAX 13.x, and Kotlin 2.x require Java {RequiredJavaVersion}.\n" +
                         $"  Change sourceCompatibility and targetCompatibility to VERSION_{RequiredJavaVersion}.",
-                        "Open Palette > Configuration and click Refresh in Build Health"));
+                        "Open Tools > Sorolla Palette SDK and click Refresh in Build Health"));
                 }
             }
 
@@ -183,7 +183,7 @@ namespace Sorolla.Palette.Editor
                         "  AGP 8.x bundles modern R8 that handles Kotlin 2.0 natively.\n" +
                         "  The pin causes NoSuchMethodError during dexing.\n" +
                         "  Remove the buildscript { ... } block from baseProjectTemplate.gradle.",
-                        "Open Palette > Configuration and click Refresh in Build Health"));
+                        "Open Tools > Sorolla Palette SDK and click Refresh in Build Health"));
 #endif
                     // Unity 2022: R8 pin is expected and correct - no warning needed
                 }

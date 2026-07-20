@@ -39,10 +39,10 @@ namespace Sorolla.Palette.Editor
                     Debug.Log($"[Palette] Build Health: {fixes.Count} issue(s) detected and auto-fixed.");
                 else if (fixes.Count > 0)
                     Debug.LogWarning(
-                        $"[Palette] Build Health: {fixes.Count} auto-fixed, {errorCount} remaining. Open Palette > Configuration.");
+                        $"[Palette] Build Health: {fixes.Count} auto-fixed, {errorCount} remaining. Open Tools > Sorolla Palette SDK.");
                 else if (errorCount > 0)
                     Debug.LogWarning(
-                        $"[Palette] Build Health: {errorCount} issue(s) require manual attention. Open Palette > Configuration.");
+                        $"[Palette] Build Health: {errorCount} issue(s) require manual attention. Open Tools > Sorolla Palette SDK.");
             }
             catch
             {

@@ -1,25 +1,5 @@
-/* Palette UI Overhaul design tokens - canonical values in docs/ui-overhaul/TOKENS.md.
-   REVISED THEME RULING (Arthur, 2026-07-08, supersedes both the original fixed-dark decision AND
-   the same-day fixed-lighter-literal fix): backgrounds/text now DERIVE from the live Unity editor
-   skin at runtime, not a single hardcoded value - a light-skin user gets an adapted UI
-   automatically. Mechanism: this file defines the shared, skin-INDEPENDENT tokens (status colors,
-   radii, spacing) in the base .sorolla-root rule, then two variant rules
-   (.sorolla-root.sorolla-skin-dark / .sorolla-skin-light) carry the skin-DEPENDENT background/text
-   ramps. C# adds exactly one of those two classes alongside .sorolla-root when building a ported
-   container (CreatePortedSectionContainer in SorollaWindow.cs), based on
-   EditorGUIUtility.isProSkin - never both, never neither. The dark ramp is read LIVE via
-   EditorGUIUtility.GetDefaultBackgroundColor() (rgb(56,56,56), confirmed isProSkin=true on the
-   reviewing machine) with every other dark step preserving the same delta-from-page as the
-   original near-black ramp. The light ramp's page anchor (rgb(194,194,194)) is Unity's
-   well-documented default light-skin intensity (0.76) from EditorGUIUtility's own source, NOT
-   live-verified on this machine (no light-skin editor available without the banned global
-   re-skin) - flagged as exploratory/"to be tested" per Arthur, pending a human on a real
-   light-skin editor. Status colors are untouched in both skins per Arthur's explicit call. A debug
-   forced-skin toggle lives in the gallery window (PaletteStyleGalleryWindow) so light mode can be
-   visually checked without the banned SwitchSkinAndRepaintAllViews re-skin. Mirror any change here
-   into TOKENS.md and SorollaConsoleTheme.cs in the same cycle (SorollaConsoleTheme.cs is the
-   RUNTIME console's separate theme system - an in-game overlay, not editor chrome - and remains
-   intentionally NOT skin-adaptive; Arthur's review was of the editor window/gallery only). */
+/* Shared Editor-window tokens. SorollaWindow applies exactly one skin class beside
+   .sorolla-root based on EditorGUIUtility.isProSkin. */
 
 .sorolla-root {
     --sorolla-status-pass: rgb(31, 148, 82);
@@ -31,10 +11,7 @@
     --sorolla-text-on-status: rgb(255, 255, 255);
     --sorolla-text-on-warn: rgb(31, 23, 5);
 
-    /* Was a true 999px stadium pill; Arthur's design review (2026-07-08) called that out as
-       reading like an ugly ellipse on short labels (FULL/READY/PASS etc.) - now a small rounded
-       rect. Token name kept (all 3 consumers - StatusBadge, the hero mode pill, the gallery swatch
-       demo - still conceptually "pill-shaped" badges, just not full-stadium anymore). */
+    /* Compact rounded badges rather than full-stadium pills. */
     --sorolla-radius-pill: 4px;
     --sorolla-radius-card: 8px;
     --sorolla-radius-input: 6px;
@@ -99,96 +76,8 @@
     --sorolla-text-accent: rgb(20, 110, 120);
 }
 
-/* Every gallery section is a card sitting on the page background - bg-card must read as visibly
-   lighter than bg-page so components have a deliberate surface to sit on (supervisor note,
-   2026-07-08 p1-tokens review). */
-.gallery-section {
-    background-color: var(--sorolla-bg-card);
-    border-radius: var(--sorolla-radius-card);
-    padding: var(--sorolla-space-4);
-    margin-bottom: var(--sorolla-space-4);
-}
-
-.gallery-section-title {
-    -unity-font-style: bold;
-    color: var(--sorolla-text-primary);
-    font-size: 13px;
-    margin-bottom: var(--sorolla-space-1);
-}
-
-/* Swatch sheet (docs/ui-overhaul p1-tokens acceptance): renders every token as a labeled tile so
-   a screenshot can be judged for legibility. Not consumed by any real component yet - phase 2/3
-   components apply these variables directly instead of duplicating hex values. */
-
-.sorolla-swatch-row {
-    flex-direction: row;
-    flex-wrap: wrap;
-    margin-bottom: var(--sorolla-space-3);
-}
-
-.sorolla-swatch {
-    width: 96px;
-    height: 64px;
-    margin-right: var(--sorolla-space-2);
-    margin-bottom: var(--sorolla-space-2);
-    border-radius: var(--sorolla-radius-input);
-    justify-content: flex-end;
-    padding: var(--sorolla-space-1);
-    border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.08);
-}
-
-.sorolla-swatch-label {
-    font-size: 10px;
-    color: var(--sorolla-text-primary);
-    -unity-text-align: lower-left;
-    white-space: normal;
-}
-
-.sorolla-swatch-pill {
-    width: auto;
-    height: 28px;
-    min-width: 72px;
-    border-radius: var(--sorolla-radius-pill);
-    justify-content: center;
-    align-items: center;
-    padding: 0 var(--sorolla-space-2);
-    margin-right: var(--sorolla-space-2);
-    margin-bottom: var(--sorolla-space-2);
-    border-width: 0;
-}
-
-.sorolla-swatch-pill-label {
-    font-size: 12px;
-    -unity-font-style: bold;
-    color: var(--sorolla-text-on-status);
-    -unity-text-align: middle-center;
-}
-
-.sorolla-type-title { font-size: 18px; -unity-font-style: bold; color: var(--sorolla-text-primary); }
 .sorolla-type-section { font-size: 13px; -unity-font-style: bold; color: var(--sorolla-text-accent); }
-.sorolla-type-body { font-size: 12px; color: var(--sorolla-text-secondary); }
 .sorolla-type-small { font-size: 11px; color: var(--sorolla-text-tertiary); }
-
-/* Per-token background utility classes - C# cannot read a USS custom property's resolved value,
-   so swatch tiles pick one of these classes by name rather than setting inline background-color. */
-.sorolla-bg-page { background-color: var(--sorolla-bg-page); }
-.sorolla-bg-card { background-color: var(--sorolla-bg-card); }
-.sorolla-bg-card-alt { background-color: var(--sorolla-bg-card-alt); }
-.sorolla-bg-section { background-color: var(--sorolla-bg-section); }
-.sorolla-bg-elevated { background-color: var(--sorolla-bg-elevated); }
-.sorolla-bg-elevated-hover { background-color: var(--sorolla-bg-elevated-hover); }
-.sorolla-bg-accent-muted { background-color: var(--sorolla-bg-accent-muted); }
-.sorolla-bg-accent { background-color: var(--sorolla-bg-accent); }
-.sorolla-status-fail-tint-bg { background-color: var(--sorolla-status-fail-tint); }
-.sorolla-status-warn-tint-bg { background-color: var(--sorolla-status-warn-tint); }
-
-.sorolla-pill-pass { background-color: var(--sorolla-status-pass); }
-.sorolla-pill-warn { background-color: var(--sorolla-status-warn); }
-.sorolla-pill-fail { background-color: var(--sorolla-status-fail); }
-.sorolla-pill-wait { background-color: var(--sorolla-status-wait); }
-.sorolla-pill-info { background-color: var(--sorolla-status-info); }
-.sorolla-pill-warn .sorolla-swatch-pill-label { color: var(--sorolla-text-on-warn); }
 
 /* StatusBadge (p2-badge): BLOCKER/ADVISORY/FULL/PASS/FAIL/WAIT/GATED/UNVERIFIABLE. GATED is a
    muted solid fill (blocked on something else); UNVERIFIABLE is outline-only with no fill - it

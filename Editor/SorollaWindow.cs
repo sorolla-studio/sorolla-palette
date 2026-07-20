@@ -231,7 +231,7 @@ namespace Sorolla.Palette.Editor
         /// pattern this whole loop's capture harness already uses) instead of ever spawning a
         /// second one - AutoOpenOnLoad below is the only other caller and goes through this same
         /// method.</summary>
-        [MenuItem("Palette/Configuration")]
+        [MenuItem("Tools/Sorolla Palette SDK")]
         public static void ShowWindow()
         {
             var existing = Resources.FindObjectsOfTypeAll<SorollaWindow>().FirstOrDefault();
@@ -242,7 +242,7 @@ namespace Sorolla.Palette.Editor
             }
 
             var window = CreateInstance<SorollaWindow>();
-            window.titleContent = new GUIContent("Palette");
+            window.titleContent = new GUIContent("Sorolla Palette SDK");
             window.minSize = new Vector2(420, 380);
             window.position = new Rect(100, 100, 560, 800);
             window.ShowUtility();
@@ -1014,6 +1014,7 @@ namespace Sorolla.Palette.Editor
 
             var actionsRow = new VisualElement();
             actionsRow.style.flexDirection = FlexDirection.Row;
+            actionsRow.style.flexWrap = Wrap.Wrap;
             actionsRow.style.marginBottom = 8;
 
             var refreshButton = new Button(RunBuildValidation) { text = "Refresh" };
@@ -1049,6 +1050,11 @@ namespace Sorolla.Palette.Editor
                 { text = "Copy Report (JSON)" };
             copyJsonButton.AddToClassList("sorolla-button-small");
             actionsRow.Add(copyJsonButton);
+
+            var exportCatalogButton = new Button(GateCatalogExporter.ShowSavePanel)
+                { text = "Export Gate Catalog (JSON)" };
+            exportCatalogButton.AddToClassList("sorolla-button-small");
+            actionsRow.Add(exportCatalogButton);
 
             _greenlightContainer.Add(actionsRow);
 
@@ -1131,7 +1137,7 @@ namespace Sorolla.Palette.Editor
 
             // Auto-fix: Sync config and install missing required SDKs
             if (BuildValidator.FixConfigSync())
-                _autoFixLog.Add("Synced config / installed missing SDKs");
+                _autoFixLog.Add("Synced config / required SDKs / registries");
 
             // Run all sanitizers (single source of truth)
             _autoFixLog.AddRange(BuildValidator.RunAutoFixes());

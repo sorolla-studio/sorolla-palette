@@ -56,7 +56,7 @@ namespace Sorolla.Palette.Editor
                         CheckCategory.MaxSettings,
                         $"MAX has no rewarded or interstitial ad unit ID set for {activePlatform} in SorollaConfig.\n" +
                         "  Ad calls will fail to load on this platform until an ad unit ID is set.",
-                        "Open Palette > Configuration and enter the AppLovin MAX ad unit IDs for this platform"));
+                        "Open Tools > Sorolla Palette SDK and enter the AppLovin MAX ad unit IDs for this platform"));
                     return results;
                 }
             }
@@ -116,8 +116,8 @@ namespace Sorolla.Palette.Editor
                     CheckCategory.AdjustSettings,
                     "Adjust app token is not configured!\n" +
                     "  Attribution tracking will not work without a valid app token.\n" +
-                    "  Enter your Adjust app token in Palette > Configuration.",
-                    "Open Palette > Configuration and enter Adjust app token"));
+                    "  Enter your Adjust app token in Tools > Sorolla Palette SDK.",
+                    "Open Tools > Sorolla Palette SDK and enter Adjust app token"));
             }
             else
             {
@@ -239,7 +239,7 @@ namespace Sorolla.Palette.Editor
                         "EDM4U not configured for Gradle templates.\n" +
                         "  This causes Java 17+ compatibility errors on Android resolve.\n" +
                         "  Unity 6+ requires Gradle template mode.",
-                        "Run Palette > Run Setup (Force)");
+                        "Allow the next domain reload to reapply EDM4U Gradle settings");
                 }
             }
             catch (Exception e)

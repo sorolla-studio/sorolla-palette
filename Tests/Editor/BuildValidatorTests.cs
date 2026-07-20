@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using Sorolla.Palette.Editor;
 
@@ -121,5 +122,60 @@ plugins {
         {
             Assert.AreEqual(expected, BuildValidator.ForcesKotlinStdlibVersion(gradle));
         }
+
+        [Test]
+        public void RequiredRegistries_MissingScope_RepairsOnceThenRemainsUnchanged()
+        {
+            var openUpmScopes = new List<object> { "com.google.external-dependency-manager" };
+            var registries = new List<object>
+            {
+                Registry("package.openupm.com", "https://package.openupm.com", openUpmScopes),
+            };
+
+            Assert.IsTrue(SdkInstaller.EnsureRequiredRegistryEntries(registries, isPrototype: true));
+            CollectionAssert.Contains(openUpmScopes, "com.gameanalytics");
+
+            string repaired = MiniJson.Serialize(registries, prettyPrint: true);
+            Assert.IsFalse(SdkInstaller.EnsureRequiredRegistryEntries(registries, isPrototype: true));
+            Assert.AreEqual(repaired, MiniJson.Serialize(registries, prettyPrint: true));
+        }
+
+        [Test]
+        public void RequiredRegistries_FullMode_MovesMaxScopeOutOfOpenUpm()
+        {
+            var openUpmScopes = new List<object>
+            {
+                "com.google.external-dependency-manager",
+                "com.gameanalytics",
+                "com.applovin",
+                "com.applovin",
+            };
+            var registries = new List<object>
+            {
+                Registry("package.openupm.com", "https://package.openupm.com", openUpmScopes),
+            };
+
+            Assert.IsTrue(SdkInstaller.EnsureRequiredRegistryEntries(registries, isPrototype: false));
+            CollectionAssert.DoesNotContain(openUpmScopes, "com.applovin");
+
+            var max = (Dictionary<string, object>)registries.Find(entry =>
+                entry is Dictionary<string, object> registry &&
+                registry.TryGetValue("url", out object url) &&
+                url?.ToString() == "https://unity.packages.applovin.com/");
+            Assert.NotNull(max);
+            CollectionAssert.Contains((List<object>)max["scopes"], "com.applovin");
+
+            string repaired = MiniJson.Serialize(registries, prettyPrint: true);
+            Assert.IsFalse(SdkInstaller.EnsureRequiredRegistryEntries(registries, isPrototype: false));
+            Assert.AreEqual(repaired, MiniJson.Serialize(registries, prettyPrint: true));
+        }
+
+        static Dictionary<string, object> Registry(string name, string url, List<object> scopes) =>
+            new Dictionary<string, object>
+            {
+                ["name"] = name,
+                ["url"] = url,
+                ["scopes"] = scopes,
+            };
     }
 }

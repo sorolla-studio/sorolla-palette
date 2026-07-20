@@ -17,12 +17,12 @@ namespace Sorolla.Palette
         internal static (string why, string signal, string fix) PaletteModeUnknownDiagnosis() => (
             "No SorollaConfig asset was found in Resources, so Palette cannot determine which mode (Prototype or Full) it is running in.",
             "Init may be wedged rather than merely degraded - a null config makes InitializeMax() early-return before subscribing MAX's init callback (DR-133), so IsInitialized never flips and OnInitialized never fires on a MAX-compiled build.",
-            "Palette > Configuration, then create the config asset (it must land at exactly Assets/Resources/SorollaConfig.asset).");
+            "Open Tools > Sorolla Palette SDK, then create the config asset (it must land at exactly Assets/Resources/SorollaConfig.asset).");
 
         internal static (string why, string signal, string fix) SorollaConfigMissingDiagnosis() => (
             "Assets/Resources/SorollaConfig.asset does not exist, or is not exactly at that path/name.",
             "Palette silently runs Prototype mode instead of Full mode; ads, Adjust, and the vendor SDKs behave as if none of them are configured.",
-            "Palette window -> Run Setup, or create the asset at exactly Assets/Resources/SorollaConfig.asset. The path and filename are read via Resources.Load by string, so a rename or wrong folder is invisible until this check catches it.");
+            "Open Tools > Sorolla Palette SDK and create the configuration asset at exactly Assets/Resources/SorollaConfig.asset. The path and filename are read via Resources.Load by string, so a rename or wrong folder is invisible until this check catches it.");
 
         // Adjust app token is a documented hard build gate in Full mode (BuildValidatorPreprocessor
         // throws BuildFailedException on an empty/short token) - this row is the runtime mirror of

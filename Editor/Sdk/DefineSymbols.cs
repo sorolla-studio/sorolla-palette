@@ -11,7 +11,7 @@ namespace Sorolla.Palette.Editor
     ///     Manages scripting define symbols for Palette SDK.
     /// </summary>
     [InitializeOnLoad]
-    public static class DefineSymbols
+    internal static class DefineSymbols
     {
         /// <summary>
         ///     Package ID to define symbol mapping.
@@ -38,7 +38,7 @@ namespace Sorolla.Palette.Editor
             Events.registeredPackages += OnPackagesChanged;
         }
 
-        private static void OnPackagesChanged(PackageRegistrationEventArgs args)
+        static void OnPackagesChanged(PackageRegistrationEventArgs args)
         {
             RefreshSdkDefines();
         }
@@ -47,10 +47,7 @@ namespace Sorolla.Palette.Editor
         ///     Detect installed SDK packages and set their global defines.
         ///     This ensures defineConstraints work correctly in builds.
         /// </summary>
-#if SOROLLA_DEV
-        [MenuItem("Sorolla/Refresh SDK Defines")]
-#endif
-        public static void RefreshSdkDefines()
+        static void RefreshSdkDefines()
         {
             var listRequest = Client.List(true, false);
 
@@ -94,7 +91,7 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Set a define only if the current state differs. Returns true if changed.
         /// </summary>
-        private static bool SetIfChanged(string define, bool enabled)
+        static bool SetIfChanged(string define, bool enabled)
         {
             bool changed = false;
 
@@ -129,7 +126,7 @@ namespace Sorolla.Palette.Editor
         ///     Remove legacy mode defines. Mode is resolved from SorollaConfig.asset,
         ///     so these derived symbols must not be treated as source of truth.
         /// </summary>
-        public static bool RemoveLegacyModeDefines()
+        internal static bool RemoveLegacyModeDefines()
         {
             bool changed = false;
             changed |= SetIfChanged(SorollaSettings.LegacyDefinePrototype, false);
