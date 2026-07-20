@@ -20,7 +20,7 @@ Monetization with automatic mediation.
 
 ## 3. Configure in Unity
 
-1. Open **Palette > Configuration**
+1. Open **Tools > Sorolla Palette SDK**
 2. Under **SDK Keys**, enter:
    - SDK Key (in MAX Integration Manager)
    - Rewarded Ad Unit ID

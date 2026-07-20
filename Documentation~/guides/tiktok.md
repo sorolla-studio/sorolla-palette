@@ -25,7 +25,7 @@ Event tracking for TikTok ad campaigns.
 
 ## 2. Configure in Unity
 
-1. Open **Palette > Configuration**
+1. Open **Tools > Sorolla Palette SDK**
 2. Under **TikTok**, enter all three values for Android and/or iOS
 3. Leave **Verbose Logging** (`verboseLogging`) **off** for distributed builds (auto-forced off in release builds regardless)
 

@@ -6,7 +6,7 @@ What must be true in the GameAnalytics dashboard, and why the SDK cannot verify 
 
 - The game exists in your GameAnalytics organization, with a **Game Key** and **Secret Key** per platform.
 - **The active platform (Android and/or iOS) is added under the game's Settings.**
-- Keys are entered into `Palette > Configuration` (or `Window > GameAnalytics > Select Settings` for the underlying GA SDK settings).
+- Keys are entered into `Tools > Sorolla Palette SDK` (or `Window > GameAnalytics > Select Settings` for the underlying GA SDK settings).
 
 Full setup procedure: [gameanalytics.com docs](https://gameanalytics.com/docs/). Sorolla's internal dashboard-creation runbook: [dashboard-setup.md](../dashboard-setup.md).
 

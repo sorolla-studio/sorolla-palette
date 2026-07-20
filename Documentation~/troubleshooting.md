@@ -15,7 +15,7 @@ Common issues and solutions for Sorolla SDK integration.
 | Remote config returns defaults | Ensure values are **published** in console | [→](#remote-config) |
 | Firebase errors | Verify config files match bundle ID | [→](#firebase-issues) |
 | Build failing | Check **Build Health** in Configuration window | [→](#build-health) |
-| Runtime crash on Android | Open `Palette > Configuration`, check Build Health | [→](#android-specific-issues) |
+| Runtime crash on Android | Open `Tools > Sorolla Palette SDK`, check Build Health | [→](#android-specific-issues) |
 | iOS provisioning errors | Open Xcode, enable "Automatically manage signing" | [→](#ios-specific-issues) |
 | TestFlight rejects `libFirebaseCpp*.a` (ITMS-90171) | Set the `.a` libs to "Do Not Embed" in Xcode | [→](known-issues.md) |
 
@@ -49,7 +49,7 @@ The Configuration window includes a **Build Health** section that validates your
 **Cause**: Config asset missing from Resources folder.
 
 **Fix**:
-1. Open `Palette > Configuration`
+1. Open `Tools > Sorolla Palette SDK`
 2. Click "Create Configuration Asset" if prompted
 3. Verify `Assets/Resources/SorollaConfig.asset` exists
 
@@ -210,10 +210,10 @@ pod --version
 **How it happens**: Switching modes (Prototype ↔ Full) can leave orphaned entries.
 
 **Fix**:
-1. Open `Palette > Configuration` window
+1. Open `Tools > Sorolla Palette SDK` window
 2. Check the **Build Health** section
 3. If "Android Manifest" shows an error, it will be auto-fixed on next validation
-4. Or open `Palette > Configuration` and click Refresh in Build Health
+4. Or open `Tools > Sorolla Palette SDK` and click Refresh in Build Health
 
 The Build Health validator automatically detects and removes orphaned manifest entries before builds.
 
@@ -240,7 +240,7 @@ Unity only compiles the selected entry point class into the APK. If the manifest
    - Activity: `com.unity3d.player.UnityPlayerActivity`
    - GameActivity: `com.unity3d.player.UnityPlayerGameActivity`
 3. If using `useCustomLauncherManifest`, check `LauncherManifest.xml` matches too
-4. Run `Palette > Configuration` - Build Health will detect and fix mismatches
+4. Run `Tools > Sorolla Palette SDK` - Build Health will detect and fix mismatches
 
 ### LauncherManifest.xml Missing Activity (Unity 6)
 
@@ -374,7 +374,7 @@ Crashlytics requires:
 
 ### Configuration window not opening
 
-1. Menu: `Palette > Configuration`
+1. Menu: `Tools > Sorolla Palette SDK`
 2. If missing, check for compile errors
 3. Try `Window > Package Manager > Sorolla SDK > Reimport`
 

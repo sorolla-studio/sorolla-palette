@@ -30,7 +30,7 @@ https://github.com/sorolla-studio/sorolla-palette.git
 ```
 
 4. Wait for Unity to import the package and resolve dependencies.
-5. Open **Palette > Configuration** if the Palette window does not open automatically.
+5. Open **Tools > Sorolla Palette SDK** if the Palette window does not open automatically.
 
 **You do not need a bootstrap prefab or a manual init call.** Palette auto-initializes at runtime through `SorollaBootstrapper`.
 
@@ -98,7 +98,7 @@ Assets/google-services.json
 Assets/GoogleService-Info.plist
 ```
 
-In **Palette > Configuration**, install Firebase from the Firebase row if it is not already installed. Then refresh **Build Health** and confirm Firebase config files are found.
+In **Tools > Sorolla Palette SDK**, install Firebase from the Firebase row if it is not already installed. Then refresh **Build Health** and confirm Firebase config files are found.
 
 Full details: [Firebase Setup](guides/firebase.md).
 
@@ -106,7 +106,7 @@ Full details: [Firebase Setup](guides/firebase.md).
 
 ## 6. Check Palette Configuration
 
-Open **Palette > Configuration**.
+Open **Tools > Sorolla Palette SDK**.
 
 Confirm:
 
@@ -165,7 +165,7 @@ Rules:
 - [ ] GameAnalytics Game Key and Secret Key are configured.
 - [ ] Facebook App ID and Client Token are configured.
 - [ ] Firebase `google-services.json` and `GoogleService-Info.plist` are in `Assets/`.
-- [ ] **Palette > Configuration** shows Prototype mode.
+- [ ] **Tools > Sorolla Palette SDK** shows Prototype mode.
 - [ ] **Build Health** has no blocking issues.
 - [ ] `Palette.Level.Start`, `Palette.Level.Complete`, and `Palette.Level.Fail` are wired in game code.
 - [ ] A real-device build launches and one complete level can be played.

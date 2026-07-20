@@ -2,7 +2,7 @@
 
 Analytics, Crashlytics, and Remote Config.
 
-> Firebase is part of the Sorolla Prototype and Full-mode integration path. If the Firebase row is not installed in Prototype mode, install it from **Palette > Configuration**.
+> Firebase is part of the Sorolla Prototype and Full-mode integration path. If the Firebase row is not installed in Prototype mode, install it from **Tools > Sorolla Palette SDK**.
 
 ---
 

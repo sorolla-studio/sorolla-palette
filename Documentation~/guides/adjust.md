@@ -14,7 +14,7 @@ Full attribution tracking for production.
 
 ## 2. Configure in Unity
 
-1. Open **Palette > Configuration**
+1. Open **Tools > Sorolla Palette SDK**
 2. Under **SDK Keys** → **Adjust**, enter your App Token
 3. Save
 

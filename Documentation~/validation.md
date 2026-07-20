@@ -38,7 +38,7 @@ If any identifier points to a different app, stop and fix the dashboard before t
 
 ### Unity
 
-- [ ] **Palette > Configuration** is set to **Full** mode.
+- [ ] **Tools > Sorolla Palette SDK** is set to **Full** mode.
 - [ ] **Build Health** is green for Android and iOS.
 - [ ] Firebase config files match the app identifiers.
 - [ ] AppLovin MAX SDK Key and ad unit IDs are configured.

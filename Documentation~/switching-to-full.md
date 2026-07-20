@@ -46,10 +46,10 @@ If any package name, bundle ID, app token, or ad unit belongs to a different app
 
 ## 2. Switch Unity to Full Mode
 
-1. Open **Palette > Configuration**.
+1. Open **Tools > Sorolla Palette SDK**.
 2. Click **Switch to Full**.
 3. Let Unity install and resolve the Full-mode packages.
-4. Reopen **Palette > Configuration** and check **Build Health**.
+4. Reopen **Tools > Sorolla Palette SDK** and check **Build Health**.
 
 Build Health should be green for:
 
@@ -203,7 +203,7 @@ Before uploading a soft-launch build:
 
 - [ ] Prototype analytics were already validated.
 - [ ] Identifier cross-reference table is complete and correct.
-- [ ] Full mode is selected in **Palette > Configuration**.
+- [ ] Full mode is selected in **Tools > Sorolla Palette SDK**.
 - [ ] Rewarded and interstitial placements are wired and failure-safe.
 - [ ] Privacy settings button is present when `Palette.PrivacyOptionsRequired` is true.
 - [ ] GDPR consent message is published.
