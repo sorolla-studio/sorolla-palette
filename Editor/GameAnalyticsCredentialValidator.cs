@@ -117,7 +117,7 @@ namespace Sorolla.Palette.Editor
             if (networkOrProtocolError)
             {
                 return new ProbeResult(ProbeState.Unreachable, gameKey,
-                    "Could not reach the GameAnalytics collector (offline, or the endpoint is blocked). Re-run Build Health when online.", now);
+                    "Could not reach the GameAnalytics collector (offline, or the endpoint is blocked). Re-run the check (Refresh) when online.", now);
             }
 
             long responseCode = request.responseCode;
@@ -132,7 +132,7 @@ namespace Sorolla.Palette.Editor
             if (responseCode != 200)
             {
                 return new ProbeResult(ProbeState.Unreachable, gameKey,
-                    $"GameAnalytics init request failed unexpectedly (HTTP {responseCode}). Re-run Build Health when online.", now);
+                    $"GameAnalytics init request failed unexpectedly (HTTP {responseCode}). Re-run the check (Refresh) when online.", now);
             }
 
             // Scoped to what this probe actually proved - the platform-registration reminder lives

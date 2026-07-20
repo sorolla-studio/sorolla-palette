@@ -17,12 +17,12 @@ namespace Sorolla.Palette
         internal static (string why, string signal, string fix) PaletteModeUnknownDiagnosis() => (
             "No SorollaConfig asset was found in Resources, so Palette cannot determine which mode (Prototype or Full) it is running in.",
             "Init may be wedged rather than merely degraded - a null config makes InitializeMax() early-return before subscribing MAX's init callback (DR-133), so IsInitialized never flips and OnInitialized never fires on a MAX-compiled build.",
-            "Open Tools > Sorolla Palette SDK, then create the config asset (it must land at exactly Assets/Resources/SorollaConfig.asset).");
+            "In Unity: open Tools > Sorolla Palette SDK, then create the config asset (it must land at exactly Assets/Resources/SorollaConfig.asset).");
 
         internal static (string why, string signal, string fix) SorollaConfigMissingDiagnosis() => (
             "Assets/Resources/SorollaConfig.asset does not exist, or is not exactly at that path/name.",
             "Palette silently runs Prototype mode instead of Full mode; ads, Adjust, and the vendor SDKs behave as if none of them are configured.",
-            "Open Tools > Sorolla Palette SDK and create the configuration asset at exactly Assets/Resources/SorollaConfig.asset. The path and filename are read via Resources.Load by string, so a rename or wrong folder is invisible until this check catches it.");
+            "In Unity: open Tools > Sorolla Palette SDK and create the configuration asset at exactly Assets/Resources/SorollaConfig.asset. The path and filename are read via Resources.Load by string, so a rename or wrong folder is invisible until this check catches it.");
 
         // Adjust app token is a documented hard build gate in Full mode (BuildValidatorPreprocessor
         // throws BuildFailedException on an empty/short token) - this row is the runtime mirror of
@@ -63,7 +63,7 @@ namespace Sorolla.Palette
         {
             string why = $"Facebook's validation probe failed ({vendorDetail}). The app's platform registration was checked and did not explain it, so the cause is one the SDK cannot see from inside the app: device clock/certificate, network path (VPN/private DNS blocking Facebook domains), or app credentials.";
             const string signal = "Every Facebook call is rejected; siblings (Firebase, Adjust, MAX) may keep passing at the same time if the cause is Facebook-specific (e.g. a Facebook certificate expiring while others are still valid on a future-dated device clock).";
-            const string fix = "Unknown from in-app data alone. Check the device clock is on automatic, then \"Copy SDK state\" (Actions) and send it to Sorolla - or walk the Facebook failure triage ladder (rung 1.5: device clock; rung 2: device network path; rung 3: does another Sorolla game on this device also fail).";
+            const string fix = "Unknown from in-app data alone. Check the device clock is set automatically, then use \"Copy report\" at the bottom of this screen and send it to Sorolla.";
             return (why, signal, fix);
         }
 
@@ -86,7 +86,7 @@ namespace Sorolla.Palette
         internal static (string why, string signal, string fix) CannotRequestAdsDiagnosis() => (
             "The user has not granted the consent MAX's CMP requires before ads can be requested (GDPR/consent-mode gate), or consent was explicitly denied.",
             "No ad request leaves the device; Show rewarded/Show interstitial both report \"not loaded\" even though every other adapter row can still pass.",
-            "This is often correct behavior, not a bug - a real user in a consent-required region who declines ads. To re-test the accepted-consent path: Actions -> Reset consent, then accept in the CMP form that reopens.");
+            "This is often correct behavior, not a bug - a real user in a consent-required region who declines ads. To re-test the accepted-consent path: tap \"Reset consent\" on the Consent row under TEST YOUR GAME, then accept in the CMP form that reopens.");
 
         internal static (string why, string signal, string fix) AttDeniedDiagnosis() => (
             "The user denied the iOS App Tracking Transparency (ATT) prompt, or it is restricted by an MDM/parental-controls profile.",
@@ -117,7 +117,7 @@ namespace Sorolla.Palette
         internal static (string why, string signal, string fix) FirebaseUnavailableOnDeviceDiagnosis(string vendorLabel) => (
             $"{vendorLabel} could not reach the native Firebase library on a real device build - most commonly a missing or misplaced config file (Assets/google-services.json for Android, Assets/GoogleService-Info.plist for iOS).",
             $"All {vendorLabel} calls are dropped; Firebase's own console shows no data from this build.",
-            "Confirm the REAL config file is at Assets/google-services.json / Assets/GoogleService-Info.plist (Firebase console -> the app -> download it) - the Build Health window's own \"Found\" check fuzzy-matches the auto-generated google-services-desktop.json and can false-positive, so verify the file exists by eye, not just by the checkmark.");
+            "Confirm the REAL config file is at Assets/google-services.json / Assets/GoogleService-Info.plist (Firebase console -> the app -> download it), then rebuild.");
 
         internal static (string why, string signal, string fix) AdLoadFailedDiagnosis(string format, string loadIssue) => (
             $"MAX's {format} load request finished with a failure ({(string.IsNullOrEmpty(loadIssue) ? "no fill or network error" : loadIssue)}).",

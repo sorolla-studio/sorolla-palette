@@ -180,34 +180,32 @@ namespace Sorolla.Palette
                     $"{snap.EconomyEarnCount} earn · {snap.EconomySpendCount} spend"),
                 "Earn or spend soft currency once"));
 
-            // Hint verified live (team-lead tier-2 follow-up): Actions -> "Fire test event" does NOT
-            // flip this row - DoTrackTestEvent tags the event with the QA-test marker and runs inside
-            // a test-action scope, and RecordCustomEvent excludes both from this counter (same
-            // DR-33/60 rationale as Economy/Progression: QA smoke tests must not inflate real
-            // game-integration coverage). The hint points at a real Palette.TrackEvent call from game
-            // code, not the Actions-tab button - matching the Economy/Progression/Custom convention
-            // already used elsewhere in this matrix.
+            // Only a real game-code event flips this row: the SDK's own test event is tagged as a QA
+            // test and excluded from this counter (same DR-33/60 rationale as Economy/Progression -
+            // QA smoke tests must not inflate real game-integration coverage). The hint stays silent
+            // about that internal button: a studio never sees it, and copy may only reference
+            // surfaces studio mode renders.
             bool customSeen = (proved & SorollaCoverageFact.CustomEvent) != 0;
             rows.Add(new SorollaMenuMatrixRow("Custom events", customSeen,
                 Cell(session, SorollaCoverageFact.CustomEvent, $"{snap.CustomEventCount} seen"),
-                "Trigger a real Palette.TrackEvent call from game code (the Actions test-event button is excluded from this count)"));
+                "Trigger a real Palette.TrackEvent call from your game code"));
 
             bool interExercised = (proved & SorollaCoverageFact.Interstitial) != 0;
             rows.Add(new SorollaMenuMatrixRow("Ads · interstitial", interExercised,
                 Cell(session, SorollaCoverageFact.Interstitial,
                     $"loaded {YesNo(state.InterstitialLoaded)} · shown-to-completion {YesNo(state.InterstitialCompleted)}"),
-                "Show an interstitial from Actions → Ads test"));
+                "Tap Show interstitial below, or reach one through your own game flow"));
 
             bool rewardedExercised = (proved & SorollaCoverageFact.Rewarded) != 0;
             rows.Add(new SorollaMenuMatrixRow("Ads · rewarded", rewardedExercised,
                 Cell(session, SorollaCoverageFact.Rewarded,
                     $"loaded {YesNo(state.RewardedLoaded)} · shown-to-completion {YesNo(state.RewardedCompleted)}"),
-                "Show a rewarded ad from Actions → Ads test"));
+                "Tap Show rewarded below, or reach one through your own game flow"));
 
             bool revenueSeen = (proved & SorollaCoverageFact.AdRevenue) != 0;
             rows.Add(new SorollaMenuMatrixRow("Ads · revenue", revenueSeen,
                 Cell(session, SorollaCoverageFact.AdRevenue, "revenue callback seen"),
-                "Show an ad through to an impression"));
+                "Use the Show interstitial or Show rewarded button above and let the ad play through"));
 
             // IAP row only when the game has IAP wired at all (tracking attached or a purchase already
             // observed) - a game with no store integration would otherwise show a permanently

@@ -110,7 +110,7 @@ namespace Sorolla.Palette.Editor
             if (networkOrProtocolError)
             {
                 return new ProbeResult(ProbeState.Unreachable, appId, platformName,
-                    "Could not reach the Facebook Graph API (offline, or the endpoint is blocked). Re-run Build Health when online.", now);
+                    "Could not reach the Facebook Graph API (offline, or the endpoint is blocked). Re-run the check (Refresh) when online.", now);
             }
 
             long responseCode = request.responseCode;
@@ -125,13 +125,13 @@ namespace Sorolla.Palette.Editor
                 }
 
                 return new ProbeResult(ProbeState.Unreachable, appId, platformName,
-                    $"Facebook Graph API request failed (HTTP {responseCode}). Re-run Build Health when online.", now);
+                    $"Facebook Graph API request failed (HTTP {responseCode}). Re-run the check (Refresh) when online.", now);
             }
 
             if (!TryGetSupportedPlatforms(body, out List<string> supportedPlatforms))
             {
                 return new ProbeResult(ProbeState.Unreachable, appId, platformName,
-                    "Facebook Graph API response could not be parsed. Re-run Build Health when online.", now);
+                    "Facebook Graph API response could not be parsed. Re-run the check (Refresh) when online.", now);
             }
 
             if (!IsRegistered(supportedPlatforms, platformName))

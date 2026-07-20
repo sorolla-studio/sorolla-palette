@@ -372,12 +372,11 @@ namespace Sorolla.Palette
 
         // The generic shape for a row whose producer supplied no diagnosis. Producers are expected to supply
         // WHY/SIGNAL/FIX (see SorollaDiagnostics.Diagnoses.cs); this is the last resort, and it routes through
-        // an affordance a studio can actually see - the SEND TO SOROLLA section's own button, or the 5-tap
-        // gesture on the SDK context line for the internal console.
+        // an affordance a studio can ALWAYS see: the footer's own Copy report button. The SEND TO SOROLLA
+        // section is absent whenever no Sorolla-owned row exists, and the 5-tap console is internal.
         const string UnknownSignal = "—";
-        const string UnknownFix = "Not diagnosable from inside the app. Use \"Copy SDK state\" in the "
-            + "SEND TO SOROLLA section below and send it to Sorolla (or tap the SDK line at the top of this "
-            + "report 5 times to open the internal console).";
+        const string UnknownFix = "Not diagnosable from inside the app. Use \"Copy report\" at the bottom "
+            + "of this screen and send it to Sorolla.";
 
         static VisualElement BuildIssueRow(SorollaDiagnosticRow row)
         {

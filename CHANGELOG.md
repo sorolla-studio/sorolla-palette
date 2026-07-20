@@ -31,6 +31,12 @@ signal it produces, and the fix.
   by the ad loading, so a second format is never demanded, and a game with no ad units configured
   owes no ad evidence at all. Coverage survives a relaunch (same build), so this is one pass through
   the game, not a per-launch chore.
+- **Fix text only points at things you can actually see.** On-device copy no longer sends a studio to
+  an Actions tab, an Issues tab, or a "Send to Sorolla" section that studio mode does not render:
+  the ad and consent to-dos point at the buttons sitting on those very rows, the "we cannot diagnose
+  this" fallback points at Copy report in the footer (always present), and the Facebook catch-all
+  drops the internal triage-ladder reference. Editor-side fix text stops telling you to open the
+  window you are already looking at, and the config fixes say up front that they are Unity actions.
 - **The report redraws while you watch it.** A fact landing while the report is on screen (an ad
   finishing, a level completing) now updates the report within a second instead of needing the menu
   closed and reopened. The pane is checked once a second and rebuilt only when the underlying facts

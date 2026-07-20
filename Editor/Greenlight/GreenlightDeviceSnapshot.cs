@@ -439,7 +439,7 @@ namespace Sorolla.Palette.Editor.Greenlight
                     Outcome = errorCount > 0 ? GateOutcome.Fail : GateOutcome.Pass,
                     ObservedProof = ProofScope.DeviceDispatch,
                     Evidence = errorCount > 0 ? $"{errorCount} error(s) - last: {GetString(problems, "last_sdk_error")}" : "None observed this session",
-                    FixHint = errorCount > 0 ? "Open the in-app debug menu (Vitals) Issues tab for WHY/SIGNAL/FIX on each error." : null,
+                    FixHint = errorCount > 0 ? "Open Vitals on the device and expand the failing rows under FIX THESE for WHY/SIGNAL/FIX." : null,
                 });
             }
         }

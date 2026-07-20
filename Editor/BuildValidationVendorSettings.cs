@@ -27,7 +27,7 @@ namespace Sorolla.Palette.Editor
                     CheckCategory.MaxSettings,
                     "AppLovin MAX SDK key auto-sync failed.\n" +
                     "  The shared publisher key could not be written to AppLovinSettings.",
-                    "Reopen Unity or click Refresh in Build Health; report this if it persists"));
+                    "Reopen Unity or click Refresh above; report this if it persists."));
                 return results;
             }
 
@@ -37,7 +37,7 @@ namespace Sorolla.Palette.Editor
                     CheckCategory.MaxSettings,
                     "AppLovin consent flow auto-sync failed.\n" +
                     "  The shared privacy policy URL could not be written to AppLovin internal settings.",
-                    "Reopen Unity or click Refresh in Build Health; report this if it persists"));
+                    "Reopen Unity or click Refresh above; report this if it persists."));
                 return results;
             }
 
