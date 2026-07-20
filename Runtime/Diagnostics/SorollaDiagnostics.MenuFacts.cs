@@ -21,27 +21,66 @@ namespace Sorolla.Palette
         }
 
         /// <summary>
-        ///     Header coverage line: what THIS session exercised (spec 2.1.4). "thin" mirrors the
-        ///     design-tokens.md rule: consent unresolved or 0 events -> amber, honesty callout shown.
-        ///     Session count is always reported as 1 - the SDK has no cross-launch session counter
-        ///     today (verified: grep found none); a real counter is future SDK work, not a phase-2 gap.
+        ///     Header coverage line: what this BUILD has proved (spec 2.1.4). Session count is always
+        ///     reported as 1 - the SDK has no cross-launch session counter today; a real counter is
+        ///     future SDK work, not a phase-2 gap. The ads word reads off the per-build ledger, so it
+        ///     agrees with the coverage matrix and the verdict instead of resetting on every relaunch.
         /// </summary>
         internal static string BuildMenuCoverageLine(out bool thin)
         {
             SorollaQaState state = CaptureQaState();
 
-            string consent = MenuConsentCell(state, out bool consentUnresolved);
+            string consent = MenuConsentCell(state, out _);
             int events = 0;
             if (state.Events != null)
             {
                 foreach (SorollaQaEvent evt in state.Events)
                     events += evt.Count;
             }
-            bool adsShown = state.InterstitialCompleted || state.RewardedCompleted || state.AdRevenueSeen;
 
-            thin = consentUnresolved || events == 0;
+            SorollaCoverageFact proved = ProvedCoverageFacts(state);
+            bool adsShown = (proved & (SorollaCoverageFact.Interstitial | SorollaCoverageFact.Rewarded
+                | SorollaCoverageFact.AdRevenue)) != 0;
+
+            thin = IsCoverageThin(state, proved);
 
             return $"consent {consent} · session 1 · {events} events · ads {(adsShown ? "shown" : "not shown")}";
+        }
+
+        /// <summary>Everything proved on THIS build: this launch's facts folded into the persisted ledger.</summary>
+        internal static SorollaCoverageFact ProvedCoverageFacts() => ProvedCoverageFacts(CaptureQaState());
+
+        internal static SorollaCoverageFact ProvedCoverageFacts(SorollaQaState state) =>
+            SorollaCoverageLedger.Merge(SessionCoverageFacts(CaptureSnapshot(), state));
+
+        /// <summary>
+        ///     Is the evidence behind an all-green report too thin to call it proved? Derived from the
+        ///     per-build coverage ledger, never from a raw event count: a boot sequence alone fires
+        ///     consent/IAP/auto-level events, so counting events made a fresh launch look played
+        ///     (hungrysnake iOS 2026-07-20). Green needs consent resolved AND a level played to
+        ///     completion AND one ad watched to completion on a format this game actually configured -
+        ///     one completed ad proves the mediation chain; per-format unit keys are already proved by
+        ///     LOAD, so a second format is never demanded. A game with no ad units configured owes no
+        ///     ad evidence at all.
+        /// </summary>
+        internal static bool IsCoverageThin(SorollaQaState state, SorollaCoverageFact proved)
+        {
+            MenuConsentCell(state, out bool consentUnresolved);
+            if (consentUnresolved) return true;
+            if ((proved & SorollaCoverageFact.Progression) == 0) return true;
+            return !AdCoverageSatisfied(proved);
+        }
+
+        /// <summary>One completed ad on ANY configured format is enough; no configured format means
+        /// nothing to prove (same shape as the build check that only warns when both units are empty).</summary>
+        static bool AdCoverageSatisfied(SorollaCoverageFact proved)
+        {
+            SorollaConfig config = LoadConfig();
+            bool rewardedConfigured = !string.IsNullOrEmpty(config?.rewardedAdUnit?.Current);
+            bool interstitialConfigured = !string.IsNullOrEmpty(config?.interstitialAdUnit?.Current);
+            if (!rewardedConfigured && !interstitialConfigured) return true;
+            if (rewardedConfigured && (proved & SorollaCoverageFact.Rewarded) != 0) return true;
+            return interstitialConfigured && (proved & SorollaCoverageFact.Interstitial) != 0;
         }
 
         static string MenuConsentCell(SorollaQaState state, out bool unresolved)

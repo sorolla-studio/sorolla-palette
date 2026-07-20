@@ -21,6 +21,21 @@ Awareness-first, not a gate: a studio may intentionally ship one platform at a t
 check below warns rather than blocks the build. Each warning states the root cause, the on-device
 signal it produces, and the fix.
 
+### Changed (2026-07-20 hungrysnake iOS re-QA fixes)
+- **A fresh build can no longer report itself HEALTHY.** The "did this session exercise anything"
+  judgment now reads the per-build coverage ledger instead of counting events, because a normal boot
+  already fires consent, store-ready and auto level-start events - enough to make an untouched
+  launch look played. Green now requires consent resolved, a level played to completion, and one ad
+  watched to the end on a format the game has ad units for; anything less reads NOT PROVEN even when
+  every check passes. One completed ad is enough on purpose: per-format unit keys are already proved
+  by the ad loading, so a second format is never demanded, and a game with no ad units configured
+  owes no ad evidence at all. Coverage survives a relaunch (same build), so this is one pass through
+  the game, not a per-launch chore.
+- **The report redraws while you watch it.** A fact landing while the report is on screen (an ad
+  finishing, a level completing) now updates the report within a second instead of needing the menu
+  closed and reopened. The pane is checked once a second and rebuilt only when the underlying facts
+  actually changed, so nothing is rebuilt per frame.
+
 ### Changed (2026-07-20 hungrysnake verification-run fixes)
 - **Studio platform declarations deleted.** A game no longer declares which stores it ships on or
   sells on. The active build target is the studio's intent, and the presence of Unity IAP is the

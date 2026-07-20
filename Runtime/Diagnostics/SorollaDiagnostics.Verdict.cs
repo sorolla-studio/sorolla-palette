@@ -62,7 +62,8 @@ namespace Sorolla.Palette
         internal static SorollaVitalsVerdictReport ComputeVerdict(List<SorollaDiagnosticRow> rows)
         {
             (int fail, int warn, int wait, int pass) = ComputeMenuHealthCounts(rows);
-            BuildMenuCoverageLine(out bool thin);
+            SorollaQaState state = CaptureQaState();
+            bool thin = IsCoverageThin(state, ProvedCoverageFacts(state));
 
             SorollaVitalsVerdict verdict =
                 fail > 0 ? SorollaVitalsVerdict.Failing
@@ -101,6 +102,25 @@ namespace Sorolla.Palette
             SorollaVitalsVerdict.NotProven => "not_proven",
             _ => "pass",
         };
+
+        /// <summary>
+        ///     A cheap change detector for the facts a report pane renders: the verdict counts plus the
+        ///     per-build coverage bits. A live view compares it against the previous tick and rebuilds only
+        ///     when it moved, so a fact landing while the report is on screen redraws it (an interstitial
+        ///     completing used to need a close/reopen) without a full tree rebuild every tick.
+        /// </summary>
+        internal static int ComputeFactsFingerprint(List<SorollaDiagnosticRow> rows)
+        {
+            SorollaVitalsVerdictReport report = ComputeVerdict(rows);
+            int hash = (int)report.Verdict;
+            hash = hash * 31 + report.Fail;
+            hash = hash * 31 + report.Warn;
+            hash = hash * 31 + report.Wait;
+            hash = hash * 31 + report.Pass;
+            hash = hash * 31 + (report.CoverageThin ? 1 : 0);
+            hash = hash * 31 + (int)ProvedCoverageFacts();
+            return hash;
+        }
 
         /// <summary>Convenience for the bridge: capture the current rows and return the verdict token.</summary>
         internal static string CurrentVerdictToken()

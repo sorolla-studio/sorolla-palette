@@ -351,8 +351,9 @@ namespace Sorolla.Palette
             SorollaDiagnostics.BuildMenuCoverageLine(out bool thin);
             if (thin)
             {
-                var warnNote = new Label("Coverage is thin: consent never resolved and 0 events were seen. "
-                    + "A clean report only covers what this session exercised — work the TEST YOUR GAME list, then re-check.");
+                var warnNote = new Label("Coverage is thin: this build has not yet been played through a level "
+                    + "and an ad watched to the end. A clean report only covers what was actually exercised — "
+                    + "work the TEST YOUR GAME list, then re-check.");
                 warnNote.AddToClassList("sorolla-debugmenu-note");
                 warnNote.AddToClassList("sorolla-debugmenu-note-warn");
                 card.Add(warnNote);

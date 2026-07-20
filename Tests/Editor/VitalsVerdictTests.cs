@@ -54,6 +54,27 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
+        public void EmptyLedger_IsAlwaysThin_EvenWithEventsFlowing()
+        {
+            // The defect this pins (hungrysnake iOS 2026-07-20): coverage-thin used to be "0 events",
+            // and a boot sequence alone fires enough events to defeat it. Coverage now comes from the
+            // per-build ledger, so a build that proved nothing is thin no matter what the counters say.
+            SorollaCoverageLedger.Clear();
+            try
+            {
+                SorollaVitalsVerdictReport report = SorollaDiagnostics.ComputeVerdict(Rows(
+                    Row("Config", "a", SorollaDiagnosticSeverity.Pass)));
+
+                Assert.IsTrue(report.CoverageThin, "an empty per-build ledger is thin coverage");
+                Assert.AreEqual(SorollaVitalsVerdict.NotProven, report.Verdict);
+            }
+            finally
+            {
+                SorollaCoverageLedger.Clear();
+            }
+        }
+
+        [Test]
         public void NotProven_IsNeverTheGreenWord()
         {
             var notProven = new SorollaVitalsVerdictReport(SorollaVitalsVerdict.NotProven, 0, 0, 0, 4, true);
