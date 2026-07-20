@@ -1176,7 +1176,7 @@ namespace Sorolla.Palette.Editor
             string text = certification == SdkCertification.CertifiedRelease
                 ? $"SDK internals certified by the Sorolla release process ({context?.CertificationEvidence}) — {certified} SDK-invariant check(s) proven by that release."
                 : profile == ReportProfile.SorollaFull
-                    ? $"Internal full-depth report: every SDK invariant is evaluated here, nothing is taken on certificate ({context?.CertificationEvidence})."
+                    ? $"Internal full-depth report — every SDK invariant is evaluated here, nothing is taken on certificate. Source: {context?.CertificationEvidence}."
                     : $"No release certificate applies to this build ({context?.CertificationEvidence}). Pin a tagged Palette release in Packages/manifest.json — SDK-invariant checks cannot pass without one.";
 
             var label = new Label(text);

@@ -51,8 +51,9 @@ namespace Sorolla.Palette.Editor.Greenlight
 
                 if (pkg.source == PackageSource.Embedded || pkg.source == PackageSource.Local ||
                     pkg.source == PackageSource.LocalTarball)
+                    // Evidence states the SOURCE only; the consuming line says what that source means.
                     return new Origin(ReportProfile.SorollaFull, SdkCertification.Uncertified,
-                        $"embedded/local SDK working tree ({ResolveSdkCommit()}) - full-depth internal report");
+                        $"embedded/local SDK working tree at {ResolveSdkCommit()}");
 
                 if (pkg.source == PackageSource.Git)
                 {
