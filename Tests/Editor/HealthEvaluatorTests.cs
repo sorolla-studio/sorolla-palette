@@ -495,7 +495,7 @@ namespace Sorolla.Palette.Editor.Tests
             var ctx = new EvaluationContext
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
-                InstalledModules = SdkModule.UnityIap, CommerceTargets = DistributionTargets.Android,
+                InstalledModules = SdkModule.UnityIap,
                 RequestedPhase = GatePhase.QaPass, Profile = ReportProfile.SorollaFull,
             };
             HealthReport r = HealthEvaluator.Evaluate(Catalog(def), ctx, new List<GateObservation>());

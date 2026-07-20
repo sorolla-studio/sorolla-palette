@@ -241,12 +241,6 @@ namespace Sorolla.Palette.Health
                 errors.Add("Evaluation context has an undefined platform value.");
             if (!HealthEnums.HasOnlyDefinedBits(context.InstalledModules))
                 errors.Add("Evaluation context has undefined installed-module bits.");
-            // Undefined target bits are corruption; None is a legitimate value (undeclared) the predicates
-            // fail closed to Unknown, so it is NOT a validation error here.
-            if (!HealthEnums.HasOnlyDefinedBits(context.IntendedTargets))
-                errors.Add("Evaluation context has undefined distribution-target bits.");
-            if (!HealthEnums.HasOnlyDefinedBits(context.CommerceTargets))
-                errors.Add("Evaluation context has undefined commerce-target bits.");
             if (!HealthEnums.IsSinglePhase(context.RequestedPhase))
                 errors.Add("Evaluation context requests an unknown/unsupported phase.");
             // An undeclared audience is a boundary error: the evaluator must not guess whether certified

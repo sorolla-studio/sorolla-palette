@@ -364,42 +364,6 @@ namespace Sorolla.Palette.Editor
             bool showMax = SdkDetector.IsInstalled(SdkId.AppLovinMAX);
             bool showAdjust = !isPrototype && SdkDetector.IsInstalled(SdkId.Adjust);
 
-            // Release targets (B5): mandatory, studio-owned applicability declaration - surfaced in the normal
-            // Palette UI so studios can discover and set it, not only by editing the raw asset. Distribution
-            // drives the device/QA gates; commerce drives the store-config gate; undeclared keeps them INCOMPLETE.
-            _configContainer.Add(SectionHeader.Create("Release Targets"));
-            var distributionField = new PropertyField(_serializedConfig.FindProperty("distributionPlatforms"), "Distribution Platforms")
-            {
-                tooltip = "Platforms this game's app SHIPS on. Drives device/QA gate applicability.",
-            };
-            _configContainer.Add(distributionField);
-            var commerceField = new PropertyField(_serializedConfig.FindProperty("commercePlatforms"), "Commerce Platforms (IAP)")
-            {
-                tooltip = "Platforms where this game SELLS in-app purchases (store-console products). Drives the store-config gate only.",
-            };
-            _configContainer.Add(commerceField);
-            // Undeclared warning stays ALWAYS in the tree; the callback only flips its style.display on a real
-            // undeclared<->declared TRANSITION and never rebuilds or re-Binds the container. That is what stops
-            // the recursion: the earlier RefreshConfigUI-on-change callback re-Bound the tree during event
-            // dispatch, and the re-attach fired ChangeEvent/SerializedPropertyChangeEvent straight back into the
-            // callback (depth-501 storm). A display-only toggle dispatches no SerializedPropertyChangeEvent, and
-            // the transition guard makes even repeated same-state events inert.
-            // Plain, jargon-free copy per the studio-facing UX rule (no verdict/contract terms in the default
-            // view): say what to do, not "gates INCOMPLETE".
-            var undeclaredWarning = new HelpBox(
-                "Set where this game ships (below) so QA can check the right platform's on-device tests.",
-                HelpBoxMessageType.Warning);
-            _configContainer.Add(undeclaredWarning);
-            bool prevUndeclared = _serializedConfig.FindProperty("distributionPlatforms").intValue == 0;
-            undeclaredWarning.style.display = prevUndeclared ? DisplayStyle.Flex : DisplayStyle.None;
-            distributionField.RegisterCallback<SerializedPropertyChangeEvent>(_ =>
-            {
-                bool nowUndeclared = _serializedConfig.FindProperty("distributionPlatforms").intValue == 0;
-                if (nowUndeclared == prevUndeclared) return; // act only on a real transition
-                prevUndeclared = nowUndeclared;
-                undeclaredWarning.style.display = nowUndeclared ? DisplayStyle.Flex : DisplayStyle.None;
-            });
-
             _configContainer.Add(SectionHeader.Create("SDK Keys"));
 
             // MAX Ad Units. Arthur's follow-up: the struct-level revert (plain PropertyField for
@@ -1062,11 +1026,6 @@ namespace Sorolla.Palette.Editor
                 _greenlightContainer.Add(countLabel);
             }
 
-            // The certification line replaces the invariant rows a studio would otherwise have to read:
-            // it states WHICH SDK source this verdict rests on, and it is the one place an uncertified
-            // (dev-line) pin is called out - the evaluator has already refused to let it render green.
-            _greenlightContainer.Add(BuildCertificationLine(report));
-
             var actionsRow = new VisualElement();
             actionsRow.style.flexDirection = FlexDirection.Row;
             actionsRow.style.flexWrap = Wrap.Wrap;
@@ -1154,36 +1113,6 @@ namespace Sorolla.Palette.Editor
                 clear.AddToClassList("sorolla-type-small");
                 _greenlightContainer.Add(clear);
             }
-        }
-
-        /// <summary>
-        ///     One line stating the audience this report was evaluated for and whether the SDK source is a
-        ///     certified tagged release, plus how many invariant rows that certificate resolved. An
-        ///     uncertified/unknown source says so plainly with the fix - it is the studio-visible face of
-        ///     the rule that a dev-line pin can never render green.
-        /// </summary>
-        static VisualElement BuildCertificationLine(GreenlightEvaluator.Report report)
-        {
-            EvaluationContext context = report.Context;
-            ReportProfile profile = context?.Profile ?? ReportProfile.Unknown;
-            SdkCertification certification = context?.Certification ?? SdkCertification.Unknown;
-
-            int certified = 0;
-            foreach (GateResult row in report.Health?.Rows ?? (IReadOnlyList<GateResult>)Array.Empty<GateResult>())
-                if (row.Disposition == GateDisposition.CertifiedBySdk)
-                    certified++;
-
-            string text = certification == SdkCertification.CertifiedRelease
-                ? $"SDK internals certified by the Sorolla release process ({context?.CertificationEvidence}) — {certified} SDK-invariant check(s) proven by that release."
-                : profile == ReportProfile.SorollaFull
-                    ? $"Internal full-depth report — every SDK invariant is evaluated here, nothing is taken on certificate. Source: {context?.CertificationEvidence}."
-                    : $"No release certificate applies to this build ({context?.CertificationEvidence}). Pin a tagged Palette release in Packages/manifest.json — SDK-invariant checks cannot pass without one.";
-
-            var label = new Label(text);
-            label.AddToClassList("sorolla-type-small");
-            label.style.whiteSpace = WhiteSpace.Normal;
-            label.style.marginBottom = 8;
-            return label;
         }
 
         /// <summary>A CheckRow plus its Fix/deep-link line and, for manual checklist rows, a

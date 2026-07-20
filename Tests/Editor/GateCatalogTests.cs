@@ -13,13 +13,10 @@ namespace Sorolla.Palette.Editor.Tests
     /// </summary>
     public class GateCatalogTests
     {
-        static EvaluationContext Ctx(EvalMode mode, EvalPlatform platform, SdkModule modules = SdkModule.None,
-            DistributionTargets targets = HealthEnums.AllTargetBits,
-            DistributionTargets commerce = HealthEnums.AllTargetBits) =>
+        static EvaluationContext Ctx(EvalMode mode, EvalPlatform platform, SdkModule modules = SdkModule.None) =>
             new EvaluationContext
             {
-                Mode = mode, Platform = platform, InstalledModules = modules, IntendedTargets = targets,
-                CommerceTargets = commerce, RequestedPhase = GatePhase.QaPass,
+                Mode = mode, Platform = platform, InstalledModules = modules, RequestedPhase = GatePhase.QaPass,
                 Profile = ReportProfile.SorollaFull,
             };
 
@@ -135,21 +132,16 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
-        public void DeviceGates_ApplicabilityFollowsIntendedTarget_NotCollector()
+        public void DeviceGates_ApplicabilityFollowsActiveBuildTarget()
         {
-            // F1: device evidence is Required on an INTENDED release platform - INCLUDING iOS, where no
-            // collector exists yet (it will omit → INCOMPLETE downstream, not vanish as NotApplicable).
-            // NotApplicable only when the active platform is not a declared target; Unknown when undeclared.
+            // The active build target IS the studio's declared intent (platform declarations deleted
+            // 2026-07-20): device evidence is Required on either mobile target, NotApplicable off mobile.
             Assert.AreEqual(Requirement.Required,
-                ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.Android, targets: DistributionTargets.Android)));
-            // Required (not merely Optional) on an intended platform, so an intended platform with no collector
-            // is INCOMPLETE, not a green skip - including iOS.
+                ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.Android)));
             Assert.AreEqual(Requirement.Required,
-                ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.iOS, targets: DistributionTargets.iOS)));
+                ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.iOS)));
             Assert.AreEqual(Requirement.NotApplicable,
-                ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.Android, targets: DistributionTargets.iOS)));
-            Assert.AreEqual(Requirement.Unknown,
-                ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.Android, targets: DistributionTargets.None)));
+                ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.Unknown)));
         }
 
         [Test]
@@ -157,8 +149,6 @@ namespace Sorolla.Palette.Editor.Tests
         {
             Assert.AreEqual(ProofScope.DeviceDispatch,
                 GateCatalog.Canonical.ById(GateIds.DeviceNoSdkErrors).RequiredProof);
-            Assert.AreEqual(ProofScope.DeviceDispatch,
-                GateCatalog.Canonical.ById(GateIds.DeviceAdvertisingId).RequiredProof);
         }
 
         [Test]
@@ -208,24 +198,15 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
-        public void IapStoreGate_KeysOnCommerceTargets_NotDistribution()
+        public void IapStoreGate_KeysOnUnityIapInstalled()
         {
-            // B2: store config is Required only when Unity IAP is installed AND the active platform is a
-            // declared COMMERCE target - independent of distribution. A game distributing its app on Android
-            // (distribution=Android) while selling IAP only on iOS (commerce=iOS) has a NotApplicable Android
-            // store gate, even though its Android device gates apply.
+            // The installed module IS the declaration (commerce-target declarations deleted 2026-07-20).
             Assert.AreEqual(Requirement.Required, ReqOf(GateIds.IapStoreConfigured,
-                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap, targets: DistributionTargets.Android, commerce: DistributionTargets.Android)));
-            // app ships on Android but sells IAP only on iOS → Android store gate NotApplicable with a reason.
-            Requirement shipsAndroidSellsIos = GateCatalog.Canonical.ById(GateIds.IapStoreConfigured)
-                .Requirement(Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap, targets: DistributionTargets.Android, commerce: DistributionTargets.iOS)).Value;
-            Assert.AreEqual(Requirement.NotApplicable, shipsAndroidSellsIos);
-            // Unity IAP absent → NotApplicable regardless of commerce.
+                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap)));
+            Assert.AreEqual(Requirement.Required, ReqOf(GateIds.IapStoreConfigured,
+                Ctx(EvalMode.Prototype, EvalPlatform.iOS, SdkModule.UnityIap)));
             Assert.AreEqual(Requirement.NotApplicable, ReqOf(GateIds.IapStoreConfigured,
-                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.None, commerce: DistributionTargets.Android)));
-            // installed + on-platform but commerce undeclared → Unknown (fail closed), not a silent skip.
-            Assert.AreEqual(Requirement.Unknown, ReqOf(GateIds.IapStoreConfigured,
-                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.UnityIap, commerce: DistributionTargets.None)));
+                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.None)));
             Assert.AreEqual(ProofScope.VendorAccepted, GateCatalog.Canonical.ById(GateIds.IapStoreConfigured).RequiredProof);
         }
 
@@ -258,11 +239,8 @@ namespace Sorolla.Palette.Editor.Tests
             CollectionAssert.AreEquivalent(
                 new[]
                 {
-                    GateIds.DeviceAdvertisingId,
-                    GateIds.DeviceNoSdkErrors,
                     GateIds.ManualRelaunchPersistence,
                     GateIds.ManualBackgroundResumeCycle,
-                    GateIds.ManualCrossVendorDashboardDrift,
                 },
                 GateCatalog.Canonical.All
                     .Where(d => d.Classification == GateClassification.Invariant)

@@ -20,7 +20,7 @@ namespace Sorolla.Palette.Editor.Tests
         {
             Mode = EvalMode.Full, Platform = EvalPlatform.Android,
             InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
-            IntendedTargets = DistributionTargets.Android, RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+            RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
             Profile = ReportProfile.SorollaFull,
         };
 

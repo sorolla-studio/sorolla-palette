@@ -111,11 +111,6 @@ namespace Sorolla.Palette.Editor.Greenlight
                 Platform = ToEvalPlatform(EditorUserBuildSettings.activeBuildTarget),
                 InstalledModules = modules,
                 ModulesResolved = resolved,
-                // Studio-declared targets (B2). Distribution drives device gates, commerce drives the store
-                // gate; undeclared (None) fails them closed to INCOMPLETE - applicability is NOT inferred from
-                // which packages happen to be installed.
-                IntendedTargets = SorollaSettings.IntendedTargets,
-                CommerceTargets = SorollaSettings.CommerceTargets,
                 // Follow the active Build Health profile (the "Validation Profile" QaPass/Release selector in
                 // the window, SorollaWindow's Build Health section) so ReleaseShip-tagged gates are reachable
                 // under Release and a profile-"Skipped" check maps to the right phase, not hard-coded QaPass.
@@ -172,10 +167,8 @@ namespace Sorolla.Palette.Editor.Greenlight
         /// <summary>
         ///     Builds the neutral observations. Producer-side context guards ensure it never fabricates
         ///     evidence for a gate the context makes NotApplicable (which would be a C3-05 context mismatch):
-        ///     device observations are emitted only when the active platform is an INTENDED target that also has
-        ///     a shipping transport (Android via adb, iOS via iproxy - F1/F10) - an intended platform with no
-        ///     collector emits nothing and its required device gates omit → INCOMPLETE; and the Adjust
-        ///     purchase-verification manual row only in Full mode
+        ///     device observations are emitted only on a platform that has a shipping transport (Android via
+        ///     adb, iOS via iproxy - F10); and the Adjust purchase-verification manual row only in Full mode
         ///     (no Adjust in Prototype). These are facts about which evidence EXISTS, not requirement
         ///     decisions - the catalog still owns those.
         /// </summary>
@@ -188,16 +181,11 @@ namespace Sorolla.Palette.Editor.Greenlight
             observations.AddRange(BuildHealthObservations(buildHealthResults, context.InstalledModules));
 
             string deviceBuildGuid = null;
-            // Emit device evidence only for an intended target that has a shipping snapshot collector. Both
-            // mobile transports ship now: Android over `adb forward`, iOS over `iproxy` (libimobiledevice USB),
-            // so the device path is un-gated for iOS too (F10). On a NON-intended platform the device gates are
-            // NotApplicable, so emitting here would be a C3-05 mismatch; a device-collector platform that is
-            // intended but never connected still emits a not-connected DeviceReady → INCOMPLETE (the F1
-            // capability semantics, now satisfiable on iOS instead of a permanent capability gap).
-            bool deviceCollectorPlatform =
-                context.Platform == EvalPlatform.Android || context.Platform == EvalPlatform.iOS;
-            if (deviceCollectorPlatform &&
-                HealthEnums.TargetsInclude(context.IntendedTargets, context.Platform))
+            // Emit device evidence on any platform that has a shipping snapshot collector. Both mobile
+            // transports ship now: Android over `adb forward`, iOS over `iproxy` (libimobiledevice USB). Off
+            // mobile the device gates are NotApplicable, so emitting there would be a C3-05 mismatch; a mobile
+            // target that is never connected still emits a not-connected DeviceReady → INCOMPLETE.
+            if (context.Platform == EvalPlatform.Android || context.Platform == EvalPlatform.iOS)
             {
                 observations.AddRange(GreenlightDeviceSnapshot.ToObservations(snapshotState));
                 // Binds device-session manual attestations (relaunch/background) to the exact connected build on
@@ -384,7 +372,6 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         static readonly Dictionary<string, string> DeviceLabels = new Dictionary<string, string>
         {
-            [GateIds.DeviceAdvertisingId] = "Device Snapshot: Advertising ID",
             [GateIds.DeviceNoSdkErrors] = "Device Snapshot: SDK Errors",
         };
 

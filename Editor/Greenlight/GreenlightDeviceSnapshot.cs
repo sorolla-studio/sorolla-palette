@@ -408,18 +408,6 @@ namespace Sorolla.Palette.Editor.Greenlight
                 return;
             }
 
-            if (TryGetObject(snapshot, "identity", out var identity))
-            {
-                bool adPresent = GetBool(identity, "advertising_id_present");
-                observations.Add(new GateObservation
-                {
-                    GateId = GateIds.DeviceAdvertisingId,
-                    Outcome = adPresent ? GateOutcome.Pass : GateOutcome.PassWithCaveats,
-                    ObservedProof = ProofScope.DeviceDispatch,
-                    Evidence = adPresent ? "Present" : "Not present (expected if ATT/consent denied, or zeroed by OS privacy settings)",
-                });
-            }
-
             // C4-08: device-error evidence must be present for the supported schema. A reduced snapshot with
             // no "problems" section, or a malformed sdk_errors value, has not demonstrated that SDK errors
             // were checked → INCOMPLETE, not a permissive false/zero pass.

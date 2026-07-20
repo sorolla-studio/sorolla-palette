@@ -65,17 +65,17 @@ namespace Sorolla.Palette.Editor.Greenlight
             new Descriptor
             {
                 Item = Item.RelaunchPersistence, GateId = GateIds.ManualRelaunchPersistence,
-                Label = "Relaunch Persistence",
-                Why = "Whether consent/identity/progress survive a real app kill+relaunch needs a human play session - Vitals already guides this same check at runtime.",
-                Fix = "Force-quit the app, relaunch, and confirm consent state and player progress persisted (see Vitals' own relaunch-persistence check for the in-app guide).",
+                Label = "Consent Persistence Across Relaunch",
+                Why = "Whether the SDK's stored consent state survives a real app kill+relaunch needs a human play session - Vitals already guides this same check at runtime.",
+                Fix = "Force-quit the app, relaunch, and confirm consent state persisted with no re-prompt (see Vitals' own relaunch-persistence check for the in-app guide).",
                 DeepLinkUrl = null,
             },
             new Descriptor
             {
                 Item = Item.BackgroundResumeCycle, GateId = GateIds.ManualBackgroundResumeCycle,
                 Label = "Background / Resume Cycle",
-                Why = "Ad/IAP/session behavior across a backgrounded app needs a human play session, not a static probe.",
-                Fix = "Background the app mid-session (e.g. during an ad load) and resume - confirm no crash, no stuck loading state, no duplicate session start.",
+                Why = "SDK session and ad-state behavior across a backgrounded app needs a human play session, not a static probe.",
+                Fix = "Background the app mid-session (e.g. during an ad load) and resume - confirm no duplicate session start and that ad state stayed coherent.",
                 DeepLinkUrl = null,
             },
             new Descriptor

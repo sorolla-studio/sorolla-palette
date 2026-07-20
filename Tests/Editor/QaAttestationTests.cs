@@ -152,8 +152,6 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = HealthEnums.AllModuleBits, // includes UnityIap
-                IntendedTargets = HealthEnums.AllTargetBits,  // distribution (device gates)
-                CommerceTargets = HealthEnums.AllTargetBits,  // commerce (store gate) - Android declared (B2)
                 RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
             Assert.AreEqual(Requirement.Required, GateCatalog.Canonical.ById(GateIds.IapStoreConfigured).Requirement(ctx).Value,
@@ -199,7 +197,6 @@ namespace Sorolla.Palette.Editor.Tests
                 Mode = mode, Platform = platform,
                 InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook | SdkModule.Firebase |
                                    SdkModule.AppLovinMax | SdkModule.Adjust | SdkModule.UnityIap,
-                IntendedTargets = HealthEnums.AllTargetBits, CommerceTargets = HealthEnums.AllTargetBits, // B2
                 RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
 

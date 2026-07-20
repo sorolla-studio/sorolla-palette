@@ -24,7 +24,6 @@ namespace Sorolla.Palette.Editor.Tests
             Mode = EvalMode.Full,
             Platform = EvalPlatform.Android,
             InstalledModules = HealthEnums.AllModuleBits,
-            IntendedTargets = HealthEnums.AllTargetBits,
             RequestedPhase = GatePhase.QaPass,
             Profile = ReportProfile.SorollaFull,
         };
@@ -165,18 +164,18 @@ namespace Sorolla.Palette.Editor.Tests
         // ── F1: applicability vs collector availability ───────────────────
 
         [Test]
-        public void IntendedIosPlatform_NoDeviceEvidence_DeviceGatesAreIncomplete_NotNotApplicable()
+        public void IosPlatform_NoDeviceEvidence_DeviceGatesAreIncomplete_NotNotApplicable()
         {
-            // On an iOS-only game with NO device evidence supplied, the required device gates omit → INCOMPLETE,
+            // On an iOS build with NO device evidence supplied, the required device gates omit → INCOMPLETE,
             // they do NOT drop out as NotApplicable (which would let an iOS build read HEALTHY without ever
-            // running on its only shipping platform). This is the catalog-level requiredness; the adapter now
-            // supplies real iOS evidence over iproxy (see the F10 tests below), but "never connected" must still
-            // land INCOMPLETE, exactly like Android.
+            // running on its shipping platform). This is the catalog-level requiredness; the adapter supplies
+            // real iOS evidence over iproxy (see the F10 tests below), but "never connected" must still land
+            // INCOMPLETE, exactly like Android.
             var ctx = new EvaluationContext
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
                 InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
-                IntendedTargets = DistributionTargets.iOS, RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
+                RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
             HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, new List<GateObservation>());
             GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceNoSdkErrors);
@@ -187,24 +186,21 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
-        public void NonShippingPlatform_DeviceAndStoreGates_AreNotApplicableWithReason()
+        public void NonMobilePlatform_DeviceGate_IsNotApplicableWithReason()
         {
-            // F2/B2: building Android for a game that ships and sells only on iOS - Android device gates
-            // (distribution) and store gate (commerce) are both NotApplicable WITH a recorded reason, never
-            // silently Required.
+            // Off a mobile build target there is no device to observe: the device gate is NotApplicable WITH a
+            // recorded reason, never silently Required. The store gate keys on Unity IAP alone, so it stays
+            // Required here (absent = NotApplicable, see IapStoreGate_KeysOnUnityIapInstalled).
             var ctx = new EvaluationContext
             {
-                Mode = EvalMode.Full, Platform = EvalPlatform.Android,
+                Mode = EvalMode.Full, Platform = EvalPlatform.Unknown,
                 InstalledModules = SdkModule.UnityIap,
-                IntendedTargets = DistributionTargets.iOS, CommerceTargets = DistributionTargets.iOS,
                 RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
             HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, new List<GateObservation>());
-            GateResult store = report.Rows.Single(r => r.GateId == GateIds.IapStoreConfigured);
             GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceNoSdkErrors);
-            Assert.AreEqual(GateDisposition.NotApplicable, store.Disposition);
             Assert.AreEqual(GateDisposition.NotApplicable, device.Disposition);
-            Assert.IsFalse(string.IsNullOrEmpty(store.RequirementReason), "a NotApplicable gate must record why");
+            Assert.IsFalse(string.IsNullOrEmpty(device.RequirementReason), "a NotApplicable gate must record why");
         }
 
         // ── C4-03: build/game identity binding ────────────────────────────
@@ -284,7 +280,7 @@ namespace Sorolla.Palette.Editor.Tests
         // ── F10: iOS device transport (iproxy) - un-gated collector + GUID binding ───
 
         [Test]
-        public void BuildObservations_IosIntended_NeverConnected_LeavesDeviceGatesUnobserved()
+        public void BuildObservations_Ios_NeverConnected_LeavesDeviceGatesUnobserved()
         {
             // F10: iOS has a shipping collector (iproxy), so the device path is un-gated for iOS. A
             // never-connected iOS build supplies no device evidence, so its required device gates omit →
@@ -293,7 +289,6 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
                 InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
-                IntendedTargets = DistributionTargets.iOS,
                 RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
@@ -307,21 +302,20 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
-        public void BuildObservations_IosNotIntended_EmitsNoDeviceObservation()
+        public void BuildObservations_NonMobilePlatform_EmitsNoDeviceObservation()
         {
-            // Building iOS for a game that ships only on Android: iOS device gates are NotApplicable, so the
-            // adapter must emit NO iOS device observation (emitting would be a C3-05 context mismatch).
+            // Off a mobile build target the device gates are NotApplicable, so the adapter must emit NO device
+            // observation (emitting would be a C3-05 context mismatch).
             var ctx = new EvaluationContext
             {
-                Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
+                Mode = EvalMode.Full, Platform = EvalPlatform.Unknown,
                 InstalledModules = SdkModule.GameAnalytics,
-                IntendedTargets = DistributionTargets.Android,
                 RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
                 ctx, null, new GreenlightDeviceSnapshot.State());
             Assert.IsFalse(obs.Any(o => o.GateId.StartsWith("device.")),
-                "an unintended iOS platform must not emit a device observation.");
+                "a non-mobile build target must not emit a device observation.");
         }
 
         // Parsed iOS snapshot carrying an explicit build GUID, for the attestation-binding tests below.

@@ -54,30 +54,6 @@ namespace Sorolla.Palette.Editor
 
         public static bool HasRuntimeConfig => LoadRuntimeConfig() != null;
 
-        /// <summary>
-        ///     The platforms this game declares it is DISTRIBUTED on (SorollaConfig.distributionPlatforms, B2).
-        ///     Drives device-gate applicability. <see cref="Health.DistributionTargets.None"/> when no config or
-        ///     nothing declared - undeclared fails the device gates closed to INCOMPLETE. Internal: surfaces an
-        ///     internal Health type, so not public API.
-        /// </summary>
-        internal static Health.DistributionTargets IntendedTargets => ToTargets(LoadRuntimeConfig()?.distributionPlatforms);
-
-        /// <summary>
-        ///     The platforms this game declares it SELLS in-app purchases on (SorollaConfig.commercePlatforms,
-        ///     B2). Drives the store-config gate only - distinct from distribution. Undeclared → None → the
-        ///     store gate fails closed to INCOMPLETE.
-        /// </summary>
-        internal static Health.DistributionTargets CommerceTargets => ToTargets(LoadRuntimeConfig()?.commercePlatforms);
-
-        static Health.DistributionTargets ToTargets(SorollaPlatforms? platforms)
-        {
-            if (platforms == null) return Health.DistributionTargets.None;
-            Health.DistributionTargets targets = Health.DistributionTargets.None;
-            if ((platforms.Value & SorollaPlatforms.Android) != 0) targets |= Health.DistributionTargets.Android;
-            if ((platforms.Value & SorollaPlatforms.iOS) != 0) targets |= Health.DistributionTargets.iOS;
-            return targets;
-        }
-
         public static bool SyncFromRuntimeConfig()
         {
             var config = LoadRuntimeConfig();

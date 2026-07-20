@@ -30,18 +30,15 @@ namespace Sorolla.Palette.Editor.Greenlight
             public readonly string Mode;
             public readonly string AppVersion;
             public readonly string DeviceBuildGuid;
-            public readonly string DistributionTargets;
-            public readonly string CommerceTargets;
             public readonly string Phase;
             public readonly string GeneratedAtUtc;
 
             Fingerprint(string sdk, string sdkCommit, string appId, string platform, string mode, string appVersion,
-                string deviceBuildGuid, string distributionTargets, string commerceTargets, string phase,
-                string generatedAtUtc)
+                string deviceBuildGuid, string phase, string generatedAtUtc)
             {
                 SdkVersion = sdk; SdkCommit = sdkCommit; ApplicationId = appId; Platform = platform; Mode = mode;
-                AppVersion = appVersion; DeviceBuildGuid = deviceBuildGuid; DistributionTargets = distributionTargets;
-                CommerceTargets = commerceTargets; Phase = phase; GeneratedAtUtc = generatedAtUtc;
+                AppVersion = appVersion; DeviceBuildGuid = deviceBuildGuid; Phase = phase;
+                GeneratedAtUtc = generatedAtUtc;
             }
 
             internal static Fingerprint Capture(EvaluationContext context, string deviceBuildGuid)
@@ -51,8 +48,6 @@ namespace Sorolla.Palette.Editor.Greenlight
                     Palette.SdkVersion, SdkProvenance.ResolveSdkCommit(),
                     id.ApplicationId, id.Platform, id.Mode, id.AppVersion,
                     string.IsNullOrEmpty(deviceBuildGuid) ? "(no device connected)" : deviceBuildGuid,
-                    context?.IntendedTargets.ToString() ?? "(none)",
-                    context?.CommerceTargets.ToString() ?? "(none)",
                     context?.RequestedPhase.ToString() ?? "(none)",
                     DateTime.UtcNow.ToString("o"));
             }
@@ -104,8 +99,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             sb.AppendLine($"sdk: {fingerprint.SdkVersion} (commit {fingerprint.SdkCommit}) | " +
                           $"app: {fingerprint.ApplicationId} {fingerprint.AppVersion} | " +
                           $"platform: {fingerprint.Platform} | mode: {fingerprint.Mode} | phase: {fingerprint.Phase}");
-            sb.AppendLine($"distribution targets: {fingerprint.DistributionTargets} | commerce targets: {fingerprint.CommerceTargets} | " +
-                          $"device build: {fingerprint.DeviceBuildGuid}");
+            sb.AppendLine($"device build: {fingerprint.DeviceBuildGuid}");
             sb.AppendLine($"profile: {context?.Profile ?? ReportProfile.Unknown} | " +
                           $"sdk certification: {context?.Certification ?? SdkCertification.Unknown} " +
                           $"({(string.IsNullOrEmpty(context?.CertificationEvidence) ? "no evidence" : context.CertificationEvidence)})");
@@ -151,8 +145,6 @@ namespace Sorolla.Palette.Editor.Greenlight
             ["mode"] = f.Mode,
             ["app_version"] = f.AppVersion,
             ["device_build_guid"] = f.DeviceBuildGuid,
-            ["distribution_targets"] = f.DistributionTargets,
-            ["commerce_targets"] = f.CommerceTargets,
             ["phase"] = f.Phase,
             ["generated_at_utc"] = f.GeneratedAtUtc,
         };

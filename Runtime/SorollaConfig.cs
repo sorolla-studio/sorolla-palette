@@ -31,21 +31,6 @@ namespace Sorolla.Palette
     }
 
     /// <summary>
-    ///     A set of store platforms - a curated flags value, not loose per-platform booleans. Used for two
-    ///     distinct declarations on <see cref="SorollaConfig"/>: DISTRIBUTION (where the game ships, drives the
-    ///     device/QA gates) and COMMERCE (where it sells in-app purchases, drives the store-config gate).
-    ///     <c>None</c> means undeclared - the greenlight fails the dependent gates closed to INCOMPLETE until a
-    ///     studio declares, rather than guessing from installed packages.
-    /// </summary>
-    [Flags]
-    public enum SorollaPlatforms
-    {
-        None = 0,
-        Android = 1 << 0,
-        iOS = 1 << 1,
-    }
-
-    /// <summary>
     ///     Configuration asset for Palette SDK.
     ///     Create via: Assets > Create > Palette > Config
     ///     Save to: Assets/Resources/SorollaConfig.asset
@@ -60,27 +45,6 @@ namespace Sorolla.Palette
         [Header("Mode")]
         [Tooltip("Prototype = Core SDKs only | Full = Core SDKs + MAX + Adjust")]
         public bool isPrototypeMode = true;
-
-        /// <summary>
-        ///     The store platforms this game is DISTRIBUTED on (where the app ships). Drives which platform's
-        ///     device/QA gates apply: a game shipping on only one store is validated on only that platform. A
-        ///     platform NOT listed here makes its device gates NotApplicable; a listed platform keeps them even
-        ///     where no on-device collector exists yet (they resolve INCOMPLETE, a capability gap). <c>None</c>
-        ///     is undeclared and fails the device gates closed to INCOMPLETE.
-        /// </summary>
-        [Header("Release Targets")]
-        [Tooltip("Platforms this game's app SHIPS on. Drives device/QA gate applicability. Leave None only before you know - undeclared keeps device gates INCOMPLETE.")]
-        public SorollaPlatforms distributionPlatforms;
-
-        /// <summary>
-        ///     The store platforms this game SELLS in-app purchases on (where products are configured in the
-        ///     store console). Distinct from <see cref="distributionPlatforms"/>: a game can ship its app on
-        ///     Android while selling IAP only on iOS, in which case the Android store-config gate is
-        ///     NotApplicable even though the Android app QA gates apply. Drives the store-config gate only.
-        ///     <c>None</c> is undeclared and fails the store gate closed to INCOMPLETE.
-        /// </summary>
-        [Tooltip("Platforms where this game SELLS in-app purchases (store-console products exist). Drives only the store-config gate; leave None if you don't sell IAP or haven't declared.")]
-        public SorollaPlatforms commercePlatforms;
 
         /// <summary>Rewarded ad unit IDs from AppLovin MAX (one per platform).</summary>
         [Header("MAX Ad Units")]
