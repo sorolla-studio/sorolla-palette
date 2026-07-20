@@ -61,7 +61,6 @@ ORDER=(
   "Palette.Economy.md"
   "SorollaConfig.md"
   "PlatformAdUnitId.md"
-  "SorollaPlatforms.md"
   "CurrencyId.md"
   "EconomySource.md"
   "EconomySink.md"
