@@ -19,6 +19,10 @@ namespace Sorolla.Palette
         const int PanelSortingOrder = 32000;
         const float LiveRefreshIntervalSeconds = 0.2f;
 
+        // The report pane is a full tree rebuild, so it is checked once a second and rebuilt only when
+        // the underlying facts moved (mobile perf baseline: never a per-tick rebuild).
+        const float ReportFactsCheckIntervalSeconds = 1f;
+
         // The design source (Sorolla Vitals Mobile.dc.html) authors its 11-13px type scale as phone
         // POINTS on a 392-wide phone frame. ScaleWithScreenSize's width/height blend (`match`) breaks
         // down on a landscape desktop Game View (1920x1080): matching width scales 1920/392=4.9x but
@@ -44,6 +48,8 @@ namespace Sorolla.Palette
         Button[] _tabButtons = System.Array.Empty<Button>();
         int _activeTabIndex;
         float _nextLiveRefreshTime;
+        float _nextReportFactsCheckTime;
+        int _reportFingerprint;
 
         // Computed once per Build() (menu open), never per frame - rebuilt tree, not rebuilt rows.
         readonly List<SorollaDiagnosticRow> _rows = new List<SorollaDiagnosticRow>(64);
@@ -126,6 +132,7 @@ namespace Sorolla.Palette
         {
             _root.Clear();
             SorollaDiagnostics.BuildRows(_rows);
+            _reportFingerprint = SorollaDiagnostics.ComputeFactsFingerprint(_rows);
 
             _header = BuildHeader();
             _root.Add(_header);
@@ -214,7 +221,24 @@ namespace Sorolla.Palette
         void RefreshDiagnosticViews()
         {
             SorollaDiagnostics.BuildRows(_rows);
+            _reportFingerprint = SorollaDiagnostics.ComputeFactsFingerprint(_rows);
+            RebuildHeaderAndReport();
+        }
 
+        /// <summary>Rebuilds the report pane only when the facts behind it actually changed, so a fact
+        /// landing while the report is on screen (an ad completing) redraws without a per-tick rebuild.</summary>
+        void RefreshReportIfFactsChanged()
+        {
+            SorollaDiagnostics.BuildRows(_rows);
+            int fingerprint = SorollaDiagnostics.ComputeFactsFingerprint(_rows);
+            if (fingerprint == _reportFingerprint) return;
+
+            _reportFingerprint = fingerprint;
+            RebuildHeaderAndReport();
+        }
+
+        void RebuildHeaderAndReport()
+        {
             VisualElement nextHeader = BuildHeader();
             _root.Remove(_header);
             _root.Insert(0, nextHeader);
@@ -248,6 +272,14 @@ namespace Sorolla.Palette
         {
             if (_panelSettings != null)
                 _panelSettings.scale = ComputePanelScale();
+
+            if (_activeTabIndex == 0)
+            {
+                if (Time.unscaledTime < _nextReportFactsCheckTime) return;
+                _nextReportFactsCheckTime = Time.unscaledTime + ReportFactsCheckIntervalSeconds;
+                RefreshReportIfFactsChanged();
+                return;
+            }
 
             if (Time.unscaledTime < _nextLiveRefreshTime) return;
             _nextLiveRefreshTime = Time.unscaledTime + LiveRefreshIntervalSeconds;
