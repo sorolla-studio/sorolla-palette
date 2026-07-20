@@ -82,6 +82,24 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
+        public void WriteJson_UnstampedVerdict_IsUnknown_NeverPass()
+        {
+            // The verdict is stamped by QaSnapshot.Build, not by the capture. A state nobody stamped must
+            // serialize as "unknown" - an unstamped snapshot claiming a pass is exactly the false green the
+            // bridge exists to prevent.
+            string json = Serialize(NewState());
+            Assert.That(json, Does.Contain("\"verdict\":\"unknown\""));
+        }
+
+        [Test]
+        public void WriteJson_StampedVerdict_IsSerialized()
+        {
+            object state = NewState();
+            Set(state, "Verdict", "not_proven");
+            Assert.That(Serialize(state), Does.Contain("\"verdict\":\"not_proven\""));
+        }
+
+        [Test]
         public void WriteJson_EmitsSchemaAndBuildIdentity()
         {
             // C4-03/08: the snapshot must carry a schema version + a build-identity block so a wrong-game or

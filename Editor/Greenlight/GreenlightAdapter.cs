@@ -81,11 +81,32 @@ namespace Sorolla.Palette.Editor.Greenlight
             }
         }
 
+        /// <summary>
+        ///     Overrides the audience the next context is built for. Sorolla-side only: it lets an internal
+        ///     session review a studio game as the studio will see it (and lets the reference-game
+        ///     certification run simulate a tagged pin). Null = use the resolved provenance. It can only make
+        ///     a report SHOW more or less; it never changes whether an observed failure counts.
+        /// </summary>
+        internal static ReportProfile? ForcedProfile;
+
+        /// <summary>Overrides the resolved certification alongside <see cref="ForcedProfile"/> (simulating a
+        /// tagged pin from an embedded working tree). Null = use the resolved provenance.</summary>
+        internal static SdkCertification? ForcedCertification;
+
         internal static EvaluationContext BuildContext()
         {
             bool resolved = TryDetectInstalledModules(out SdkModule modules);
+            SdkProvenance.Origin origin = SdkProvenance.ResolveOrigin();
+            ReportProfile profile = ForcedProfile ?? origin.Profile;
+            SdkCertification certification = ForcedCertification ?? origin.Certification;
+            string certificationEvidence = ForcedProfile == null && ForcedCertification == null
+                ? origin.Evidence
+                : $"{origin.Evidence} [overridden for review: profile={profile}, certification={certification}]";
             return new EvaluationContext
             {
+                Profile = profile,
+                Certification = certification,
+                CertificationEvidence = certificationEvidence,
                 Mode = ToEvalMode(SorollaSettings.Mode),
                 Platform = ToEvalPlatform(EditorUserBuildSettings.activeBuildTarget),
                 InstalledModules = modules,
@@ -153,8 +174,8 @@ namespace Sorolla.Palette.Editor.Greenlight
         ///     evidence for a gate the context makes NotApplicable (which would be a C3-05 context mismatch):
         ///     device observations are emitted only when the active platform is an INTENDED target that also has
         ///     a shipping transport (Android via adb, iOS via iproxy - F1/F10) - an intended platform with no
-        ///     collector emits nothing and its required device gates omit → INCOMPLETE; purchase-tracking evidence is emitted only when
-        ///     Unity IAP is installed (F5); and the Adjust purchase-verification manual row only in Full mode
+        ///     collector emits nothing and its required device gates omit → INCOMPLETE; and the Adjust
+        ///     purchase-verification manual row only in Full mode
         ///     (no Adjust in Prototype). These are facts about which evidence EXISTS, not requirement
         ///     decisions - the catalog still owns those.
         /// </summary>
@@ -182,15 +203,6 @@ namespace Sorolla.Palette.Editor.Greenlight
                 // Binds device-session manual attestations (relaunch/background) to the exact connected build on
                 // iOS as well as Android (C45-05, F10) - the snapshot's build_guid is the shared identity.
                 deviceBuildGuid = GreenlightDeviceSnapshot.BuildGuidOf(snapshotState);
-            }
-
-            // Purchase-tracking wiring (F5) is code-level, so it is Required whenever Unity IAP is installed,
-            // independent of the intended-platform gate. Its evidence comes from the device snapshot (Android or
-            // iOS); with no parsed snapshot the observation is null and the gate omits → INCOMPLETE.
-            if (deviceCollectorPlatform && (context.InstalledModules & SdkModule.UnityIap) != 0)
-            {
-                GateObservation tracking = GreenlightDeviceSnapshot.TrackingAttachedObservation(snapshotState);
-                if (tracking != null) observations.Add(tracking);
             }
 
             observations.AddRange(ManualObservations(context, deviceBuildGuid));
@@ -284,7 +296,6 @@ namespace Sorolla.Palette.Editor.Greenlight
                 [BuildValidator.CheckCategory.FirebaseConfig] = SdkModule.Firebase,
                 [BuildValidator.CheckCategory.MaxSettings] = SdkModule.AppLovinMax,
                 [BuildValidator.CheckCategory.AdjustSettings] = SdkModule.Adjust,
-                [BuildValidator.CheckCategory.AdjustResolvedVersion] = SdkModule.Adjust,
                 [BuildValidator.CheckCategory.AdjustSandboxMode] = SdkModule.Adjust,
             };
 
@@ -373,10 +384,8 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         static readonly Dictionary<string, string> DeviceLabels = new Dictionary<string, string>
         {
-            [GateIds.DeviceReady] = "Device Snapshot: Ready",
             [GateIds.DeviceAdvertisingId] = "Device Snapshot: Advertising ID",
             [GateIds.DeviceNoSdkErrors] = "Device Snapshot: SDK Errors",
-            [GateIds.IapTrackingAttached] = "IAP Purchase-Tracking Wired (device)",
         };
 
         static readonly Dictionary<BuildValidator.CheckCategory, string> CategoryToGateId =
@@ -396,7 +405,6 @@ namespace Sorolla.Palette.Editor.Greenlight
                 [BuildValidator.CheckCategory.FirebaseConfig] = GateIds.BuildFirebaseConfig,
                 [BuildValidator.CheckCategory.GameAnalyticsSettings] = GateIds.BuildGameAnalyticsKeys,
                 [BuildValidator.CheckCategory.FacebookPlatformConfig] = GateIds.BuildFacebookPlatform,
-                [BuildValidator.CheckCategory.PrototypeModeIntent] = GateIds.BuildPrototypeModeIntent,
                 [BuildValidator.CheckCategory.VerboseLogging] = GateIds.BuildVerboseLogging,
                 [BuildValidator.CheckCategory.DevelopmentBuild] = GateIds.BuildDevelopmentBuild,
                 [BuildValidator.CheckCategory.AdjustSandboxMode] = GateIds.BuildAdjustSandboxMode,
@@ -405,7 +413,6 @@ namespace Sorolla.Palette.Editor.Greenlight
                 [BuildValidator.CheckCategory.GameAnalyticsResourceWhitelist] = GateIds.BuildGameAnalyticsResourceWhitelist,
                 [BuildValidator.CheckCategory.AddressablesContent] = GateIds.BuildAddressablesContent,
                 [BuildValidator.CheckCategory.SdkPin] = GateIds.BuildSdkPin,
-                [BuildValidator.CheckCategory.AdjustResolvedVersion] = GateIds.BuildAdjustResolvedVersion,
                 [BuildValidator.CheckCategory.GameAnalyticsCredentialProbe] = GateIds.BuildGameAnalyticsCredentials,
             };
 

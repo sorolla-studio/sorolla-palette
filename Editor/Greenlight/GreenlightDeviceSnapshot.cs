@@ -369,59 +369,17 @@ namespace Sorolla.Palette.Editor.Greenlight
         }
 
         /// <summary>
-        ///     Maps the connection state onto neutral device observations. The device gates require
-        ///     <see cref="ProofScope.DeviceDispatch"/>, so a not-connected/unreachable snapshot yields an
-        ///     observation with no observed proof - the required-proof gate resolves it to INCOMPLETE (a
-        ///     build we have never confirmed on device cannot pass), never a green skip. A parsed snapshot
-        ///     carries DeviceDispatch proof and the real outcomes.
+        ///     Maps the connection state onto neutral device observations. Only a PARSED snapshot produces
+        ///     evidence: with no connection (or an unreachable/mismatched one) this emits nothing, so the
+        ///     required device gates omit → INCOMPLETE. A build we have never confirmed on device therefore
+        ///     cannot pass, and no observation ever claims a proof it does not hold.
         /// </summary>
         internal static List<GateObservation> ToObservations(State state)
         {
             var observations = new List<GateObservation>();
-
-            switch (state.Phase == Phase.NotStarted ? Outcome.None : state.Outcome)
-            {
-                case Outcome.None:
-                    observations.Add(new GateObservation
-                    {
-                        GateId = GateIds.DeviceReady,
-                        Outcome = GateOutcome.Incomplete,
-                        ObservedProof = ProofScope.None,
-                        Evidence = "Not connected - click Connect Device to pull live /qa/snapshot state.",
-                        FixHint = "Connect the device running this build over USB (Android USB debugging / iOS trusted + paired) and re-run.",
-                    });
-                    return observations;
-
-                case Outcome.TransportNotFound:
-                case Outcome.NoDevice:
-                    observations.Add(new GateObservation
-                    {
-                        GateId = GateIds.DeviceReady,
-                        Outcome = GateOutcome.Incomplete,
-                        ObservedProof = ProofScope.None,
-                        Evidence = state.DetailMessage,
-                        FixHint = "Connect the device running this build over USB (Android USB debugging / iOS trusted + paired) and re-run.",
-                    });
-                    return observations;
-
-                case Outcome.Unreachable:
-                    observations.Add(new GateObservation
-                    {
-                        GateId = GateIds.DeviceReady,
-                        Outcome = GateOutcome.Incomplete,
-                        ObservedProof = ProofScope.None,
-                        Evidence = state.DetailMessage,
-                        FixHint = "Confirm the app is installed, foregrounded, and the QA bridge is armed, then Connect Device again.",
-                    });
-                    return observations;
-
-                case Outcome.Parsed:
-                    AddParsedObservations(observations, state.Snapshot);
-                    return observations;
-
-                default:
-                    return observations;
-            }
+            if (state.Phase != Phase.NotStarted && state.Outcome == Outcome.Parsed)
+                AddParsedObservations(observations, state.Snapshot);
+            return observations;
         }
 
         internal enum IdentityResult { Match, Mismatch, Missing }
@@ -429,36 +387,26 @@ namespace Sorolla.Palette.Editor.Greenlight
         static void AddParsedObservations(List<GateObservation> observations, Dictionary<string, object> snapshot)
         {
             // C4-08: an unknown/absent snapshot schema is not parseable with confidence - degrade, never guess.
+            // A snapshot we cannot trust (bad schema, wrong game/build) yields NO evidence at all, so the
+            // required device gates omit → INCOMPLETE rather than being answered by an untrusted device.
             string schema = GetString(snapshot, "snapshot_schema");
             if (schema != QaSnapshot.SchemaVersion)
             {
-                observations.Add(DeviceReady(GateOutcome.Incomplete,
+                observations.Add(Untrusted(
                     $"Snapshot schema '{schema ?? "(absent)"}' is unsupported (expected {QaSnapshot.SchemaVersion}) - the device build predates identity binding.",
                     "Rebuild and reinstall the game from the current SDK so the snapshot carries build identity."));
                 return;
             }
 
-            // C4-03: a snapshot from the wrong game or wrong build must NOT satisfy device readiness.
-            IdentityResult identityResult = CompareIdentity(
-                snapshot, Application.identifier, ExpectedMode(), Application.version, ExpectedPlatform(), out string identityDetail);
-            if (identityResult == IdentityResult.Mismatch)
+            // C4-03: a snapshot from the wrong game or wrong build must NOT satisfy any device gate. It is
+            // still reported - as a reason the evidence is MISSING, never as evidence itself.
+            if (CompareIdentity(snapshot, Application.identifier, ExpectedMode(), Application.version,
+                    ExpectedPlatform(), out string identityDetail) != IdentityResult.Match)
             {
-                observations.Add(DeviceReady(GateOutcome.Fail, identityDetail,
+                observations.Add(Untrusted(identityDetail,
                     "Connect the device running THIS game/build, or rebuild and reinstall from the current source."));
                 return;
             }
-            if (identityResult == IdentityResult.Missing)
-            {
-                observations.Add(DeviceReady(GateOutcome.Incomplete, identityDetail,
-                    "Rebuild and reinstall the game from the current SDK so the snapshot carries build identity."));
-                return;
-            }
-
-            bool ready = GetBool(snapshot, "ready");
-            observations.Add(DeviceReady(
-                ready ? GateOutcome.Pass : GateOutcome.Fail,
-                ready ? $"Ready - identity matches ({GetString(snapshot, "mode")}, {Application.identifier})" : "SDK reports not ready",
-                ready ? null : "Open the in-app debug menu (Vitals) on this device for the full WHY/SIGNAL/FIX breakdown."));
 
             if (TryGetObject(snapshot, "identity", out var identity))
             {
@@ -508,11 +456,14 @@ namespace Sorolla.Palette.Editor.Greenlight
             }
         }
 
-        static GateObservation DeviceReady(GateOutcome outcome, string evidence, string fix) => new GateObservation
+        /// <summary>An untrusted snapshot (wrong schema, wrong game/build) reported against the required device
+        /// gate as INCOMPLETE with NO observed proof: the studio still sees WHY the device evidence is missing,
+        /// and an unusable device can never answer a gate.</summary>
+        static GateObservation Untrusted(string evidence, string fix) => new GateObservation
         {
-            GateId = GateIds.DeviceReady,
-            Outcome = outcome,
-            ObservedProof = outcome == GateOutcome.Pass || outcome == GateOutcome.Fail ? ProofScope.DeviceDispatch : ProofScope.None,
+            GateId = GateIds.DeviceNoSdkErrors,
+            Outcome = GateOutcome.Incomplete,
+            ObservedProof = ProofScope.None,
             Evidence = evidence,
             FixHint = fix,
         };
@@ -572,58 +523,6 @@ namespace Sorolla.Palette.Editor.Greenlight
 
             detail = "identity matches";
             return IdentityResult.Match;
-        }
-
-        /// <summary>
-        ///     Purchase-tracking wiring evidence for <c>iap.tracking_attached</c> (F5/C2), read from the
-        ///     snapshot's <c>iap.tracking_attached</c> + <c>iap.attach_attempted</c> signals - a DIFFERENT fact
-        ///     from store-console config. Returns null (→ the required gate omits → INCOMPLETE) unless there is a
-        ///     parsed, schema-current, identity-matching snapshot: a store attestation can never stand in for it.
-        ///     Scenario provenance (C2): wired → PASS; not wired but the attach scenario RAN → FAIL (a real
-        ///     unwired integration); not wired and the scenario never ran → INCOMPLETE (nothing exercised yet).
-        /// </summary>
-        internal static GateObservation TrackingAttachedObservation(State state)
-        {
-            if (state == null || state.Phase != Phase.Done || state.Outcome != Outcome.Parsed)
-                return null;
-            Dictionary<string, object> snapshot = state.Snapshot;
-            if (GetString(snapshot, "snapshot_schema") != QaSnapshot.SchemaVersion)
-                return null;
-            if (CompareIdentity(snapshot, Application.identifier, ExpectedMode(), Application.version,
-                    ExpectedPlatform(), out _) != IdentityResult.Match)
-                return null;
-
-            bool hasIap = TryGetObject(snapshot, "iap", out var iap);
-            bool attached = hasIap && GetBool(iap, "tracking_attached");
-            bool attemptRan = hasIap && GetBool(iap, "attach_attempted");
-
-            if (attached)
-                return new GateObservation
-                {
-                    GateId = GateIds.IapTrackingAttached,
-                    Outcome = GateOutcome.Pass,
-                    ObservedProof = ProofScope.DeviceDispatch,
-                    Evidence = "Palette.AttachPurchaseTracking wired (observed on device this session).",
-                };
-
-            if (attemptRan)
-                return new GateObservation
-                {
-                    GateId = GateIds.IapTrackingAttached,
-                    Outcome = GateOutcome.Fail,
-                    ObservedProof = ProofScope.DeviceDispatch,
-                    Evidence = "AttachPurchaseTracking ran this session but tracking is NOT wired (e.g. null/duplicate store) - purchases will go untracked.",
-                    FixHint = "Pass the real StoreController to Palette.AttachPurchaseTracking(store) at store init, then re-snapshot.",
-                };
-
-            return new GateObservation
-            {
-                GateId = GateIds.IapTrackingAttached,
-                Outcome = GateOutcome.Incomplete,
-                ObservedProof = ProofScope.None,
-                Evidence = "Purchase-tracking wiring not exercised this session (store-init scenario not observed; store config alone does not prove wiring).",
-                FixHint = "Run the store-init scenario: call Palette.AttachPurchaseTracking(store), trigger a test purchase, then re-snapshot.",
-            };
         }
 
         /// <summary>The connected snapshot's Unity build GUID (from its build-identity block), or null when no

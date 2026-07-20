@@ -20,6 +20,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = mode, Platform = platform, InstalledModules = modules, IntendedTargets = targets,
                 CommerceTargets = commerce, RequestedPhase = GatePhase.QaPass,
+                Profile = ReportProfile.SorollaFull,
             };
 
         static Requirement ReqOf(string gateId, EvaluationContext ctx) =>
@@ -96,7 +97,7 @@ namespace Sorolla.Palette.Editor.Tests
         {
             foreach (string id in new[]
             {
-                GateIds.BuildMaxSettings, GateIds.BuildAdjustSettings, GateIds.BuildAdjustResolvedVersion,
+                GateIds.BuildMaxSettings, GateIds.BuildAdjustSettings,
             })
             {
                 Assert.AreEqual(Requirement.Required, ReqOf(id, Ctx(EvalMode.Full, EvalPlatform.Android)), id);
@@ -140,23 +141,24 @@ namespace Sorolla.Palette.Editor.Tests
             // collector exists yet (it will omit → INCOMPLETE downstream, not vanish as NotApplicable).
             // NotApplicable only when the active platform is not a declared target; Unknown when undeclared.
             Assert.AreEqual(Requirement.Required,
-                ReqOf(GateIds.DeviceReady, Ctx(EvalMode.Full, EvalPlatform.Android, targets: DistributionTargets.Android)));
-            Assert.AreEqual(Requirement.Required,
-                ReqOf(GateIds.DeviceReady, Ctx(EvalMode.Full, EvalPlatform.iOS, targets: DistributionTargets.iOS)));
-            Assert.AreEqual(Requirement.NotApplicable,
-                ReqOf(GateIds.DeviceReady, Ctx(EvalMode.Full, EvalPlatform.Android, targets: DistributionTargets.iOS)));
-            Assert.AreEqual(Requirement.Unknown,
-                ReqOf(GateIds.DeviceReady, Ctx(EvalMode.Full, EvalPlatform.Android, targets: DistributionTargets.None)));
-            // no_sdk_errors follows the same rule and is Required (not merely Optional) on an intended platform,
-            // so an intended platform with no collector is INCOMPLETE, not a green skip.
+                ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.Android, targets: DistributionTargets.Android)));
+            // Required (not merely Optional) on an intended platform, so an intended platform with no collector
+            // is INCOMPLETE, not a green skip - including iOS.
             Assert.AreEqual(Requirement.Required,
                 ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.iOS, targets: DistributionTargets.iOS)));
+            Assert.AreEqual(Requirement.NotApplicable,
+                ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.Android, targets: DistributionTargets.iOS)));
+            Assert.AreEqual(Requirement.Unknown,
+                ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.Android, targets: DistributionTargets.None)));
         }
 
         [Test]
-        public void DeviceReady_RequiresDeviceDispatchProof()
+        public void DeviceGates_RequireDeviceDispatchProof()
         {
-            Assert.AreEqual(ProofScope.DeviceDispatch, GateCatalog.Canonical.ById(GateIds.DeviceReady).RequiredProof);
+            Assert.AreEqual(ProofScope.DeviceDispatch,
+                GateCatalog.Canonical.ById(GateIds.DeviceNoSdkErrors).RequiredProof);
+            Assert.AreEqual(ProofScope.DeviceDispatch,
+                GateCatalog.Canonical.ById(GateIds.DeviceAdvertisingId).RequiredProof);
         }
 
         [Test]
@@ -166,8 +168,7 @@ namespace Sorolla.Palette.Editor.Tests
             // Valid can never read as PASS.
             foreach (string id in new[]
             {
-                GateIds.BuildAndroidKeystore, GateIds.BuildAdjustSandboxMode,
-                GateIds.BuildSdkPin, GateIds.BuildPrototypeModeIntent,
+                GateIds.BuildAndroidKeystore, GateIds.BuildAdjustSandboxMode, GateIds.BuildSdkPin,
             })
             {
                 GatePhase phases = GateCatalog.Canonical.ById(id).Phases;
@@ -185,6 +186,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = HealthEnums.AllModuleBits, RequestedPhase = GatePhase.ReleaseShip,
+                Profile = ReportProfile.SorollaFull,
             };
             HealthReport releaseReport = HealthEvaluator.Evaluate(
                 GateCatalog.Canonical, release, new System.Collections.Generic.List<GateObservation>());
@@ -197,6 +199,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = HealthEnums.AllModuleBits, RequestedPhase = GatePhase.QaPass,
+                Profile = ReportProfile.SorollaFull,
             };
             HealthReport qaReport = HealthEvaluator.Evaluate(
                 GateCatalog.Canonical, qa, new System.Collections.Generic.List<GateObservation>());
@@ -226,23 +229,6 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(ProofScope.VendorAccepted, GateCatalog.Canonical.ById(GateIds.IapStoreConfigured).RequiredProof);
         }
 
-        [Test]
-        public void IapTrackingGate_IsSeparateFromStore_DeviceProof_RequiredWhenIapInstalled()
-        {
-            // F5: the wiring gate is a DIFFERENT id, Required whenever Unity IAP is installed (code wiring is
-            // platform-independent), proven by device dispatch - NOT the store's vendor attestation.
-            Assert.AreEqual(Requirement.Required, ReqOf(GateIds.IapTrackingAttached,
-                Ctx(EvalMode.Full, EvalPlatform.iOS, SdkModule.UnityIap, DistributionTargets.iOS)));
-            Assert.AreEqual(Requirement.NotApplicable, ReqOf(GateIds.IapTrackingAttached,
-                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.None, DistributionTargets.Android)));
-            Assert.AreEqual(ProofScope.DeviceDispatch,
-                GateCatalog.Canonical.ById(GateIds.IapTrackingAttached).RequiredProof);
-            Assert.AreNotEqual(
-                GateCatalog.Canonical.ById(GateIds.IapStoreConfigured).RequiredProof,
-                GateCatalog.Canonical.ById(GateIds.IapTrackingAttached).RequiredProof,
-                "store config (vendor) and tracking wiring (device) must require different proof classes");
-        }
-
         // ── Manual gates require unscoped-tick-defeating proof ─────────────
 
         [Test]
@@ -260,6 +246,61 @@ namespace Sorolla.Palette.Editor.Tests
                 Assert.IsFalse(proof.HasFlag(ProofScope.Static),
                     $"{id} must require proof a static editor check cannot supply.");
             }
+        }
+        // ── Invariant/variant classification (2026-07-20 split) ────────────
+
+        /// <summary>The Invariant set is an EXACT list, pinned here on purpose: adding or removing one changes
+        /// what studios must test and what the reference-game certification run has to cover, so it must never
+        /// drift silently.</summary>
+        [Test]
+        public void InvariantGates_AreExactlyTheCertifiedSet()
+        {
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    GateIds.DeviceAdvertisingId,
+                    GateIds.DeviceNoSdkErrors,
+                    GateIds.ManualRelaunchPersistence,
+                    GateIds.ManualBackgroundResumeCycle,
+                    GateIds.ManualCrossVendorDashboardDrift,
+                },
+                GateCatalog.Canonical.All
+                    .Where(d => d.Classification == GateClassification.Invariant)
+                    .Select(d => d.Id).ToList());
+        }
+
+        [Test]
+        public void EveryGate_IsClassified()
+        {
+            foreach (GateDefinition def in GateCatalog.Canonical.All)
+                Assert.AreNotEqual(GateClassification.Unknown, def.Classification, $"Gate '{def.Id}' is unclassified.");
+        }
+
+        [Test]
+        public void InvariantGates_AreNeverStaticProofOnly()
+        {
+            // A Static-only invariant would be a repo-shape rule mislabelled - the conflation this split removed.
+            foreach (GateDefinition def in GateCatalog.Canonical.All
+                         .Where(d => d.Classification == GateClassification.Invariant))
+                Assert.AreNotEqual(ProofScope.None, def.RequiredProof & ~ProofScope.Static,
+                    $"Invariant gate '{def.Id}' requires only Static proof.");
+        }
+
+        [Test]
+        public void DeletedGates_AreGone()
+        {
+            // No shims: the four deleted ids must not resolve, so a stale producer fails loud.
+            foreach (string id in new[]
+            {
+                "device.ready", "iap.tracking_attached", "build.adjust_resolved_version", "build.prototype_mode_intent",
+            })
+                Assert.IsNull(GateCatalog.Canonical.ById(id, throwIfMissing: false), id);
+        }
+
+        [Test]
+        public void Canonical_Has31Gates()
+        {
+            Assert.AreEqual(31, GateCatalog.Canonical.All.Count);
         }
     }
 }

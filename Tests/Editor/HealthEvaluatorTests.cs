@@ -20,21 +20,24 @@ namespace Sorolla.Palette.Editor.Tests
             Platform = EvalPlatform.Android,
             InstalledModules = SdkModule.GameAnalytics,
             RequestedPhase = phase,
+            Profile = ReportProfile.SorollaFull,
         };
 
         static GateDefinition Def(
             string id,
             Requirement requirement = Requirement.Required,
             ProofScope proof = ProofScope.None,
-            GatePhase phases = GatePhase.QaPass)
+            GatePhase phases = GatePhase.QaPass,
+            GateClassification classification = GateClassification.Structural)
         {
-            return new GateDefinition(id, "1.0.0", phases, proof,
+            return new GateDefinition(id, "1.0.0", classification, phases, proof,
                 _ => new RequirementDecision(requirement, "test reason"));
         }
 
         static GateDefinition DefReq(string id, System.Func<EvaluationContext, RequirementDecision> req,
-            ProofScope proof = ProofScope.None, GatePhase phases = GatePhase.QaPass) =>
-            new GateDefinition(id, "1.0.0", phases, proof, req);
+            ProofScope proof = ProofScope.None, GatePhase phases = GatePhase.QaPass,
+            GateClassification classification = GateClassification.Structural) =>
+            new GateDefinition(id, "1.0.0", classification, phases, proof, req);
 
         static GateObservation Obs(string id, GateOutcome outcome, ProofScope proof = ProofScope.Static) =>
             new GateObservation { GateId = id, Outcome = outcome, ObservedProof = proof };
@@ -307,6 +310,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android, InstalledModules = SdkModule.None,
                 RequestedPhase = GatePhase.QaPass, ModulesResolved = false,
+                Profile = ReportProfile.SorollaFull,
             };
             HealthReport r = HealthEvaluator.Evaluate(Catalog(Def("a")), ctx,
                 new List<GateObservation> { Obs("a", GateOutcome.Pass) });
@@ -321,6 +325,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = (EvalMode)999, Platform = EvalPlatform.Android,
                 InstalledModules = SdkModule.None, RequestedPhase = GatePhase.QaPass,
+                Profile = ReportProfile.SorollaFull,
             };
             HealthReport r = HealthEvaluator.Evaluate(Catalog(Def("a")), ctx,
                 new List<GateObservation> { Obs("a", GateOutcome.Pass) });
@@ -359,7 +364,7 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void Validate_EmptyVersion_IsProblem()
         {
-            var def = new GateDefinition("a", "", GatePhase.QaPass, ProofScope.None,
+            var def = new GateDefinition("a", "", GateClassification.Structural, GatePhase.QaPass, ProofScope.None,
                 _ => new RequirementDecision(Requirement.Required));
             Assert.IsNotEmpty(GateCatalog.Validate(new[] { def }, Grid));
         }
@@ -367,7 +372,7 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void Validate_MissingRequirementPredicate_IsProblem()
         {
-            var def = new GateDefinition("a", "1", GatePhase.QaPass, ProofScope.None, null);
+            var def = new GateDefinition("a", "1", GateClassification.Structural, GatePhase.QaPass, ProofScope.None, null);
             Assert.IsNotEmpty(GateCatalog.Validate(new[] { def }, Grid));
         }
 
@@ -396,7 +401,11 @@ namespace Sorolla.Palette.Editor.Tests
         {
             var partialGrid = new List<EvaluationContext>
             {
-                new EvaluationContext { Mode = EvalMode.Full, Platform = EvalPlatform.Android, RequestedPhase = GatePhase.QaPass },
+                new EvaluationContext
+                {
+                    Mode = EvalMode.Full, Platform = EvalPlatform.Android, RequestedPhase = GatePhase.QaPass,
+                    Profile = ReportProfile.SorollaFull,
+                },
             };
             Assert.IsNotEmpty(GateCatalog.Validate(new[] { Def("a") }, partialGrid));
         }
@@ -482,14 +491,145 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void IapModuleRequirement_InstalledButUnobserved_IsOmittedIncomplete()
         {
-            var def = DefReq("iap", Requirements.UnityIapRequiredElseNotApplicable, ProofScope.VendorAccepted);
+            var def = DefReq("iap", Requirements.IapStoreConfiguredRequirement, ProofScope.VendorAccepted);
             var ctx = new EvaluationContext
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
-                InstalledModules = SdkModule.UnityIap, RequestedPhase = GatePhase.QaPass,
+                InstalledModules = SdkModule.UnityIap, CommerceTargets = DistributionTargets.Android,
+                RequestedPhase = GatePhase.QaPass, Profile = ReportProfile.SorollaFull,
             };
             HealthReport r = HealthEvaluator.Evaluate(Catalog(def), ctx, new List<GateObservation>());
             Assert.AreEqual(GateDisposition.Omitted, Row(r, "iap").Disposition);
+            Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
+        }
+        // ── Invariant/variant split: the Studio profile + release certificate ─
+
+        static EvaluationContext StudioCtx(SdkCertification certification) => new EvaluationContext
+        {
+            Mode = EvalMode.Full,
+            Platform = EvalPlatform.Android,
+            InstalledModules = SdkModule.GameAnalytics,
+            RequestedPhase = GatePhase.QaPass,
+            Profile = ReportProfile.Studio,
+            Certification = certification,
+            CertificationEvidence = "tag v9.9.9",
+        };
+
+        static GateDefinition Invariant(string id, Requirement requirement = Requirement.Required) =>
+            Def(id, requirement, ProofScope.DeviceDispatch, GatePhase.QaPass, GateClassification.Invariant);
+
+        [Test]
+        public void StudioCertified_InvariantIsCollapsed_AndOnlyVariantRowsVote()
+        {
+            HealthReport r = HealthEvaluator.Evaluate(
+                Catalog(Invariant("inv"), Def("var", classification: GateClassification.Variant)),
+                StudioCtx(SdkCertification.CertifiedRelease),
+                new List<GateObservation> { Obs("var", GateOutcome.Pass) });
+
+            GateResult inv = Row(r, "inv");
+            Assert.AreEqual(GateDisposition.CertifiedBySdk, inv.Disposition);
+            StringAssert.Contains("Certified by Sorolla release process", inv.Evidence);
+            Assert.AreEqual(GateOutcome.Pass, r.Outcome,
+                "a certified invariant must not block a report whose studio-owned rows all pass");
+        }
+
+        [Test]
+        public void StudioCertified_ObservedFailOnInvariant_StillFails()
+        {
+            HealthReport r = HealthEvaluator.Evaluate(
+                Catalog(Invariant("inv"), Def("var", classification: GateClassification.Variant)),
+                StudioCtx(SdkCertification.CertifiedRelease),
+                new List<GateObservation>
+                {
+                    Obs("inv", GateOutcome.Fail, ProofScope.DeviceDispatch),
+                    Obs("var", GateOutcome.Pass),
+                });
+
+            Assert.AreEqual(GateDisposition.Evaluated, Row(r, "inv").Disposition);
+            Assert.AreEqual(GateOutcome.Fail, r.Outcome, "a certificate must never mask an observed FAIL");
+        }
+
+        [Test]
+        public void StudioUncertified_RequiredInvariant_IsIncomplete_NeverGreen()
+        {
+            foreach (SdkCertification certification in new[]
+            {
+                SdkCertification.Uncertified, SdkCertification.Unknown,
+            })
+            {
+                HealthReport r = HealthEvaluator.Evaluate(
+                    Catalog(Invariant("inv"), Def("var", classification: GateClassification.Variant)),
+                    StudioCtx(certification),
+                    new List<GateObservation> { Obs("var", GateOutcome.Pass) });
+
+                GateResult inv = Row(r, "inv");
+                Assert.AreEqual(GateDisposition.Omitted, inv.Disposition, certification.ToString());
+                StringAssert.Contains("Pin a tagged Palette release", inv.FixHint);
+                Assert.AreEqual(GateOutcome.Incomplete, r.Outcome,
+                    $"an uncertified SDK pin ({certification}) must never render green");
+            }
+        }
+
+        [Test]
+        public void StudioUncertified_OptionalInvariant_IsOptionalSkipped()
+        {
+            HealthReport r = HealthEvaluator.Evaluate(
+                Catalog(Invariant("inv", Requirement.Optional), Def("var", classification: GateClassification.Variant)),
+                StudioCtx(SdkCertification.Uncertified),
+                new List<GateObservation> { Obs("var", GateOutcome.Pass) });
+
+            Assert.AreEqual(GateDisposition.OptionalSkipped, Row(r, "inv").Disposition);
+            Assert.AreEqual(GateOutcome.Pass, r.Outcome);
+        }
+
+        [Test]
+        public void StudioCertified_NotApplicableInvariant_StaysNotApplicable()
+        {
+            HealthReport r = HealthEvaluator.Evaluate(
+                Catalog(
+                    Def("inv", Requirement.NotApplicable, ProofScope.DeviceDispatch, GatePhase.QaPass,
+                        GateClassification.Invariant),
+                    Def("var", classification: GateClassification.Variant)),
+                StudioCtx(SdkCertification.CertifiedRelease),
+                new List<GateObservation> { Obs("var", GateOutcome.Pass) });
+
+            Assert.AreEqual(GateDisposition.NotApplicable, Row(r, "inv").Disposition,
+                "a certificate cannot speak for a gate the context excludes");
+        }
+
+        [Test]
+        public void SorollaFullProfile_IgnoresCertification_AndEvaluatesInvariantsNormally()
+        {
+            // The regression guarantee: at full depth a certified release changes nothing - the invariant is
+            // still required, still unobserved, still INCOMPLETE.
+            var ctx = Ctx();
+            ctx.Certification = SdkCertification.CertifiedRelease;
+            HealthReport r = HealthEvaluator.Evaluate(
+                Catalog(Invariant("inv"), Def("var", classification: GateClassification.Variant)), ctx,
+                new List<GateObservation> { Obs("var", GateOutcome.Pass) });
+
+            Assert.AreEqual(GateDisposition.Omitted, Row(r, "inv").Disposition);
+            Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
+        }
+
+        [Test]
+        public void UndeclaredProfile_IsValidationErrorAndIncomplete()
+        {
+            var ctx = Ctx();
+            ctx.Profile = ReportProfile.Unknown;
+            HealthReport r = HealthEvaluator.Evaluate(Catalog(Def("a")), ctx,
+                new List<GateObservation> { Obs("a", GateOutcome.Pass) });
+            Assert.IsNotEmpty(r.ValidationErrors);
+            Assert.AreEqual(GateOutcome.Incomplete, r.Outcome, "a report with no declared audience must not render green");
+        }
+
+        [Test]
+        public void StudioCertified_OnlyInvariants_HasNoAffirmativeEvidence_IsIncomplete()
+        {
+            // Collapsed rows do not vote, so a report made only of them has proven nothing locally.
+            HealthReport r = HealthEvaluator.Evaluate(
+                Catalog(Invariant("inv")), StudioCtx(SdkCertification.CertifiedRelease),
+                new List<GateObservation>());
             Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
         }
     }

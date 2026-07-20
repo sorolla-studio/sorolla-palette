@@ -154,7 +154,7 @@ namespace Sorolla.Palette.Editor.Tests
                 InstalledModules = HealthEnums.AllModuleBits, // includes UnityIap
                 IntendedTargets = HealthEnums.AllTargetBits,  // distribution (device gates)
                 CommerceTargets = HealthEnums.AllTargetBits,  // commerce (store gate) - Android declared (B2)
-                RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+                RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
             Assert.AreEqual(Requirement.Required, GateCatalog.Canonical.ById(GateIds.IapStoreConfigured).Requirement(ctx).Value,
                 "with Unity IAP installed and the active platform a declared commerce target, the store gate is Required");
@@ -200,12 +200,11 @@ namespace Sorolla.Palette.Editor.Tests
                 InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook | SdkModule.Firebase |
                                    SdkModule.AppLovinMax | SdkModule.Adjust | SdkModule.UnityIap,
                 IntendedTargets = HealthEnums.AllTargetBits, CommerceTargets = HealthEnums.AllTargetBits, // B2
-                RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+                RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
 
-            // The non-manual Required gates (build + device + iap.tracking_attached) are supplied as
-            // observations at their required proof; the manual + store-config gates come from the real
-            // attestation seam. tracking_attached is device-produced, so it lands via this loop, not attestation.
+            // The non-manual Required gates (build + device) are supplied as observations at their required
+            // proof; the manual + store-config gates come from the real attestation seam.
             var observations = new List<GateObservation>();
             observations.AddRange(GreenlightAdapter.ManualObservations(ctx, deviceGuid)); // real attestation seam
             foreach (GateDefinition def in GateCatalog.Canonical.All)
@@ -234,6 +233,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = SdkModule.None, RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+                Profile = ReportProfile.SorollaFull,
             };
             Assert.IsTrue(GreenlightAdapter.AttestManualGate(gate, "qa-bot", "did the dashboard check", null));
 
@@ -253,6 +253,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = SdkModule.None, RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+                Profile = ReportProfile.SorollaFull,
             };
             QaBuildIdentity cur = QaBuildIdentity.Current();
             QaAttestationStore.Record(new QaAttestationRecord
@@ -280,6 +281,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = SdkModule.None, RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+                Profile = ReportProfile.SorollaFull,
             };
             List<GateObservation> obs = GreenlightAdapter.ManualObservations(ctx, null).ToList();
             Assert.IsTrue(obs.Count > 0 && obs.All(o => o.Outcome == GateOutcome.Incomplete),

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Sorolla.Palette.Health;
 using UnityEditor.PackageManager;
 
 namespace Sorolla.Palette.Editor.Greenlight
@@ -14,6 +15,77 @@ namespace Sorolla.Palette.Editor.Greenlight
     static class SdkProvenance
     {
         internal const string Unknown = "unknown (provenance unavailable)";
+
+        /// <summary>How this project consumes the SDK, expressed in the terms the evaluator needs: which
+        /// report audience applies and whether a release certificate covers the invariant gates.</summary>
+        internal readonly struct Origin
+        {
+            public readonly ReportProfile Profile;
+            public readonly SdkCertification Certification;
+            public readonly string Evidence;
+
+            internal Origin(ReportProfile profile, SdkCertification certification, string evidence)
+            {
+                Profile = profile;
+                Certification = certification;
+                Evidence = evidence;
+            }
+        }
+
+        /// <summary>
+        ///     Tag-as-certificate resolution. A git dependency pinned to the version tag matching the package's
+        ///     own version is a certified release (Sorolla's release process tags only a commit that passed the
+        ///     full internal pass on the reference game). A branch/commit pin is a studio report with NO
+        ///     certificate - which is exactly what stops a game pinned to the development line from rendering
+        ///     green. An embedded/local package is Sorolla working on the SDK itself, so it gets the STRICTER
+        ///     full-depth profile. Anything unresolvable fails closed: Studio + Unknown certification.
+        /// </summary>
+        internal static Origin ResolveOrigin()
+        {
+            try
+            {
+                PackageInfo pkg = PackageInfo.FindForAssembly(typeof(SdkProvenance).Assembly);
+                if (pkg == null)
+                    return new Origin(ReportProfile.Studio, SdkCertification.Unknown,
+                        "package info unavailable - the SDK's install source could not be identified");
+
+                if (pkg.source == PackageSource.Embedded || pkg.source == PackageSource.Local ||
+                    pkg.source == PackageSource.LocalTarball)
+                    return new Origin(ReportProfile.SorollaFull, SdkCertification.Uncertified,
+                        $"embedded/local SDK working tree ({ResolveSdkCommit()}) - full-depth internal report");
+
+                if (pkg.source == PackageSource.Git)
+                {
+                    string revision = pkg.git?.revision;
+                    string hash = pkg.git?.hash;
+                    if (string.IsNullOrEmpty(revision))
+                        return new Origin(ReportProfile.Studio, SdkCertification.Uncertified,
+                            "git dependency with no pinned ref (tracking a branch) - no release certificate");
+                    return IsVersionTag(revision, pkg.version)
+                        ? new Origin(ReportProfile.Studio, SdkCertification.CertifiedRelease,
+                            $"tag {revision} (commit {hash}) matching package version {pkg.version}")
+                        : new Origin(ReportProfile.Studio, SdkCertification.Uncertified,
+                            $"git ref '{revision}' is not the release tag for version {pkg.version} - no release certificate");
+                }
+
+                return new Origin(ReportProfile.Studio, SdkCertification.Unknown,
+                    $"unsupported package source '{pkg.source}' - certification could not be established");
+            }
+            catch
+            {
+                return new Origin(ReportProfile.Studio, SdkCertification.Unknown, Unknown);
+            }
+        }
+
+        /// <summary>Whether a git ref IS the release tag for <paramref name="version"/> (<c>v1.2.3</c> or
+        /// <c>1.2.3</c>). Deliberately exact: a ref that merely CONTAINS the version is not a certificate.</summary>
+        internal static bool IsVersionTag(string revision, string version)
+        {
+            if (string.IsNullOrWhiteSpace(revision) || string.IsNullOrWhiteSpace(version))
+                return false;
+            string r = revision.Trim();
+            return r == version.Trim() || r == "v" + version.Trim();
+        }
 
         internal static string ResolveSdkCommit()
         {

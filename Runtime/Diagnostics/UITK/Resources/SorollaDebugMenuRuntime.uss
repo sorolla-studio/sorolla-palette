@@ -448,12 +448,7 @@
     align-self: flex-start;
 }
 
-/* ---- Overview tab (phase 6 redesign): spec section 11, one-pager dashboard ---- */
-
-.sorolla-debugmenu-overview-pane {
-    flex-grow: 1;
-    flex-direction: column;
-}
+/* ---- Report pane (2026-07-20): the one studio-visible surface ---- */
 
 /* Verdict hero: the big badge + count strip, moved here from the header (spec item 1). Reuses the
    existing badge/countstrip classes verbatim so it renders pixel-identical to the old header
@@ -476,68 +471,7 @@
     justify-content: space-between;
 }
 
-.sorolla-debugmenu-hero-copy-status {
-    margin: 0 0 4px 0;
-    align-self: flex-start;
-}
-
-.sorolla-debugmenu-area-cards {
-    margin-bottom: 12px;
-}
-
-/* Area card row skins mirror the Issues row severity skins (FAIL/WARN/neutral-for-wait), clean
-   cards use the section-clean green tint from the phase-3 grouped list. */
-.sorolla-debugmenu-area-card {
-    border-radius: 8px;
-    border-width: 1px;
-    margin-bottom: 8px;
-    overflow: hidden;
-    padding: 10px 12px;
-}
-
-.sorolla-debugmenu-area-card-fail { background-color: rgb(29, 18, 16); border-color: rgb(74, 38, 32); }
-.sorolla-debugmenu-area-card-warn { background-color: rgb(28, 24, 16); border-color: rgb(70, 58, 28); }
-.sorolla-debugmenu-area-card-wait { background-color: rgb(20, 25, 34); border-color: rgb(36, 45, 58); }
-.sorolla-debugmenu-area-card-clean { background-color: rgb(18, 21, 28); border-color: rgb(28, 34, 44); }
-
-.sorolla-debugmenu-area-card-header {
-    flex-direction: row;
-    align-items: center;
-}
-
-.sorolla-debugmenu-area-card-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 4px;
-    margin-right: 8px;
-    flex-shrink: 0;
-}
-
-.sorolla-debugmenu-area-card-dot-fail { background-color: rgb(224, 88, 79); }
-.sorolla-debugmenu-area-card-dot-warn { background-color: rgb(217, 166, 54); }
-.sorolla-debugmenu-area-card-dot-wait { background-color: rgb(157, 184, 210); }
-.sorolla-debugmenu-area-card-dot-clean { background-color: rgb(95, 138, 110); }
-
-.sorolla-debugmenu-area-card-name {
-    font-size: 13px;
-    -unity-font-style: bold;
-    color: rgb(211, 218, 228); /* #d3dae4 */
-    flex-grow: 1;
-}
-
-.sorolla-debugmenu-area-card-counts {
-    font-size: 10.5px;
-    -unity-font-style: bold;
-    color: rgb(125, 134, 148);
-    margin-right: 6px;
-}
-
-.sorolla-debugmenu-area-card-chevron {
-    font-size: 14px;
-    color: rgb(125, 134, 148);
-}
-
-.sorolla-debugmenu-area-card-fact {
+.sorolla-debugmenu-verdict-meaning {
     font-size: 11px;
     color: rgb(125, 134, 148); /* #7d8694 */
     white-space: normal;
@@ -553,14 +487,6 @@
     border-radius: 10px;
     padding: 12px 12px 6px 12px;
     margin-bottom: 12px;
-}
-
-.sorolla-debugmenu-matrix-title {
-    font-size: 11px;
-    -unity-font-style: bold;
-    letter-spacing: 0.4px;
-    color: rgb(125, 134, 148); /* #7d8694 */
-    margin-bottom: 8px;
 }
 
 .sorolla-debugmenu-matrix-row {
@@ -588,65 +514,6 @@
     margin-top: 2px;
 }
 
-/* Issues tab area filter indicator (spec item 3, punch list): dismissible banner shown only when
-   an Overview card jumped in with a Group filter applied. */
-.sorolla-debugmenu-area-filter-indicator {
-    flex-direction: row;
-    align-items: center;
-    background-color: rgb(20, 25, 34); /* #141922 */
-    border-width: 1px;
-    border-color: rgb(36, 45, 58); /* #242d3a */
-    border-radius: 7px;
-    padding: 6px 10px;
-    margin-bottom: 10px;
-}
-
-.sorolla-debugmenu-area-filter-label {
-    font-size: 11px;
-    color: rgb(154, 166, 182); /* #9aa6b6 */
-    flex-grow: 1;
-}
-
-.sorolla-debugmenu-area-filter-clear {
-    background-color: rgb(26, 33, 44); /* #1a212c */
-    color: rgb(185, 195, 210); /* #b9c3d2 */
-    border-width: 1px;
-    border-color: rgb(36, 45, 58); /* #242d3a */
-    border-radius: 6px;
-    padding: 3px 10px;
-    font-size: 10.5px;
-    -unity-font-style: bold;
-}
-
-.sorolla-debugmenu-section {
-    margin-bottom: 8px;
-}
-
-/* Section header: bg #141922, border #1d2430, title 12px/800 #b9c3d2, count mono 10.5px. */
-.sorolla-debugmenu-section-header {
-    flex-direction: row;
-    align-items: center;
-    background-color: rgb(20, 25, 34);
-    border-width: 1px;
-    border-color: rgb(29, 36, 48);
-    border-radius: 8px;
-    padding: 8px 10px;
-    min-height: 36px;
-}
-
-.sorolla-debugmenu-section-chevron {
-    font-size: 13px;
-    color: rgb(125, 134, 148);
-    margin-right: 6px;
-}
-
-.sorolla-debugmenu-section-title {
-    font-size: 12px;
-    -unity-font-style: bold;
-    color: rgb(185, 195, 210); /* #b9c3d2 */
-    flex-grow: 1;
-}
-
 .sorolla-debugmenu-section-count {
     font-size: 10.5px;
     -unity-font-style: bold;
@@ -654,15 +521,6 @@
 
 .sorolla-debugmenu-section-count-warn { color: rgb(217, 166, 54); } /* CTXT.WARN */
 .sorolla-debugmenu-section-count-clean { color: rgb(95, 138, 110); } /* #5f8a6e */
-
-.sorolla-debugmenu-section-body {
-    padding-top: 6px;
-    padding-left: 10px; /* child rows indented 10px, design-tokens.md */
-}
-
-.sorolla-debugmenu-section-child-row {
-    margin-bottom: 4px;
-}
 
 /* ---- Console tab (phase 3): mockup 04, spec 2.4 ---- */
 

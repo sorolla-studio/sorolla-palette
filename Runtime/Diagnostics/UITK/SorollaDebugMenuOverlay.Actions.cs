@@ -187,7 +187,6 @@ namespace Sorolla.Palette
         {
             RefreshActionState();
             RefreshConsoleList(true);
-            RefreshTabBadgeCounts();
         }
 
         void RefreshActionState()

@@ -15,9 +15,9 @@ namespace Sorolla.Palette.Editor
     /// </summary>
     internal static class GateCatalogExporter
     {
-        internal const string Schema = "sorolla.gate-catalog/1";
+        internal const string Schema = "sorolla.gate-catalog/2";
 
-        /// <summary>Serializes the canonical catalog to a JSON string (id, version, phases, required proof).</summary>
+        /// <summary>Serializes the canonical catalog to a JSON string (id, version, classification, phases, required proof).</summary>
         internal static string Serialize()
         {
             var gates = new List<object>();
@@ -27,6 +27,7 @@ namespace Sorolla.Palette.Editor
                 {
                     ["id"] = def.Id,
                     ["version"] = def.Version,
+                    ["classification"] = def.Classification.ToString(),
                     ["phases"] = FlagNames(def.Phases),
                     ["required_proof"] = ProofNames(def.RequiredProof),
                 });

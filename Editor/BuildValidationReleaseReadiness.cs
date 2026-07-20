@@ -16,47 +16,6 @@ namespace Sorolla.Palette.Editor
     public static partial class BuildValidator
     {
         /// <summary>
-        ///     A Full-mode SDK (MAX/Adjust) installed while SorollaConfig still declares Prototype mode
-        ///     is the shape of the 2026-04-23 prototype-leak incident class. Studios sometimes install
-        ///     ahead of switching modes, so this warns rather than blocks, and only in the Release
-        ///     profile (QA-pass builds legitimately iterate with both installed).
-        /// </summary>
-        static List<ValidationResult> CheckPrototypeModeIntent()
-        {
-            var results = new List<ValidationResult>();
-            const CheckCategory category = CheckCategory.PrototypeModeIntent;
-
-            if (!BuildValidationProfileSettings.IsRelease)
-            {
-                results.Add(Valid(category, "Skipped (QA Pass profile)"));
-                return results;
-            }
-
-            var config = Resources.Load<SorollaConfig>("SorollaConfig");
-            if (config == null || !config.isPrototypeMode)
-            {
-                results.Add(Valid(category, "Not in Prototype mode"));
-                return results;
-            }
-
-            bool fullModeSdkInstalled = SdkDetector.IsInstalled(SdkId.AppLovinMAX) || SdkDetector.IsInstalled(SdkId.Adjust);
-            if (fullModeSdkInstalled)
-            {
-                results.Add(Warning(
-                    category,
-                    "SorollaConfig.isPrototypeMode is on while a Full-mode SDK (MAX and/or Adjust) is installed.\n" +
-                    "  Prototype mode skips MAX/Adjust init even though the packages are present - confirm this is intentional.",
-                    "Switch to Full mode in Tools > Sorolla Palette SDK if this build should ship ads/attribution, or uninstall the Full-mode SDKs if Prototype is intentional"));
-            }
-            else
-            {
-                results.Add(Valid(category, "Prototype mode, no Full-mode SDKs installed"));
-            }
-
-            return results;
-        }
-
-        /// <summary>
         ///     Drift hygiene, not a leak gate - runtime already forces verboseLogging off in
         ///     non-development builds. Still worth surfacing so a stray "on" doesn't get committed.
         /// </summary>

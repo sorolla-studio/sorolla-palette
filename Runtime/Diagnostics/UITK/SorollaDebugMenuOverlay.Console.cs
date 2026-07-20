@@ -141,7 +141,6 @@ namespace Sorolla.Palette
             _expandedConsoleEvents.Clear();
             _expandedConsoleProblems.Clear();
             RefreshConsoleList(true);
-            RefreshTabBadgeCounts();
         }
 
         void RefreshConsoleList(bool force = false)
@@ -158,7 +157,6 @@ namespace Sorolla.Palette
             _consoleSummaryLabel.text =
                 $"{_consoleProblems.Count} {Pluralize("problem", _consoleProblems.Count)} · "
                 + $"{_consoleEvents.Count} {Pluralize("event", _consoleEvents.Count)}";
-            RefreshTabBadgeCounts();
 
             PruneExpandedRows();
             _consoleEntries.Clear();

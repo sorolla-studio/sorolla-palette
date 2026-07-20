@@ -26,6 +26,7 @@ namespace Sorolla.Palette.Editor.Tests
             InstalledModules = HealthEnums.AllModuleBits,
             IntendedTargets = HealthEnums.AllTargetBits,
             RequestedPhase = GatePhase.QaPass,
+            Profile = ReportProfile.SorollaFull,
         };
 
         // ── Adapter: context mapping ──────────────────────────────────────
@@ -154,12 +155,11 @@ namespace Sorolla.Palette.Editor.Tests
         // ── Adapter: device row-class → observation ───────────────────────
 
         [Test]
-        public void Device_NotConnected_EmitsIncompleteReadyWithNoProof()
+        public void Device_NotConnected_EmitsNoObservations_SoRequiredDeviceGatesOmit()
         {
-            List<GateObservation> obs = GreenlightDeviceSnapshot.ToObservations(new GreenlightDeviceSnapshot.State());
-            GateObservation ready = obs.Single(o => o.GateId == GateIds.DeviceReady);
-            Assert.AreEqual(GateOutcome.Incomplete, ready.Outcome);
-            Assert.AreEqual(ProofScope.None, ready.ObservedProof);
+            // With device.ready deleted, a never-connected device produces NO evidence at all: the required
+            // device gates omit → INCOMPLETE. Silence is the fail-closed answer; a fabricated row is not.
+            Assert.IsEmpty(GreenlightDeviceSnapshot.ToObservations(new GreenlightDeviceSnapshot.State()));
         }
 
         // ── F1: applicability vs collector availability ───────────────────
@@ -176,13 +176,13 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
                 InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
-                IntendedTargets = DistributionTargets.iOS, RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+                IntendedTargets = DistributionTargets.iOS, RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
             HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, new List<GateObservation>());
-            GateResult ready = report.Rows.Single(r => r.GateId == GateIds.DeviceReady);
-            Assert.AreEqual(Requirement.Required, ready.Requirement);
-            Assert.AreEqual(GateDisposition.Omitted, ready.Disposition);
-            Assert.AreEqual(GateOutcome.Incomplete, ready.Outcome);
+            GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceNoSdkErrors);
+            Assert.AreEqual(Requirement.Required, device.Requirement);
+            Assert.AreEqual(GateDisposition.Omitted, device.Disposition);
+            Assert.AreEqual(GateOutcome.Incomplete, device.Outcome);
             Assert.AreEqual(GateOutcome.Incomplete, report.Outcome, "an iOS-only build with no device evidence must not be HEALTHY");
         }
 
@@ -197,120 +197,14 @@ namespace Sorolla.Palette.Editor.Tests
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = SdkModule.UnityIap,
                 IntendedTargets = DistributionTargets.iOS, CommerceTargets = DistributionTargets.iOS,
-                RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+                RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
             HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, new List<GateObservation>());
             GateResult store = report.Rows.Single(r => r.GateId == GateIds.IapStoreConfigured);
-            GateResult ready = report.Rows.Single(r => r.GateId == GateIds.DeviceReady);
+            GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceNoSdkErrors);
             Assert.AreEqual(GateDisposition.NotApplicable, store.Disposition);
-            Assert.AreEqual(GateDisposition.NotApplicable, ready.Disposition);
+            Assert.AreEqual(GateDisposition.NotApplicable, device.Disposition);
             Assert.IsFalse(string.IsNullOrEmpty(store.RequirementReason), "a NotApplicable gate must record why");
-        }
-
-        // ── F5: store config PASS cannot satisfy tracking wiring ──────────
-
-        [Test]
-        public void StoreConfigPass_CannotSatisfyTrackingWiring()
-        {
-            var ctx = new EvaluationContext
-            {
-                Mode = EvalMode.Full, Platform = EvalPlatform.Android,
-                InstalledModules = SdkModule.UnityIap,
-                IntendedTargets = DistributionTargets.Android, CommerceTargets = DistributionTargets.Android,
-                RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
-            };
-            // Store config attested at its vendor scope; NOTHING supplied for the wiring gate.
-            var observations = new List<GateObservation>
-            {
-                new GateObservation
-                {
-                    GateId = GateIds.IapStoreConfigured, Outcome = GateOutcome.Pass,
-                    ObservedProof = ProofScope.VendorAccepted,
-                },
-            };
-            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, observations);
-            Assert.AreEqual(GateOutcome.Pass, report.Rows.Single(r => r.GateId == GateIds.IapStoreConfigured).Outcome);
-            GateResult tracking = report.Rows.Single(r => r.GateId == GateIds.IapTrackingAttached);
-            Assert.AreEqual(GateDisposition.Omitted, tracking.Disposition, "a store attestation must not stand in for wiring");
-            Assert.AreEqual(GateOutcome.Incomplete, tracking.Outcome);
-        }
-
-        [Test]
-        public void TrackingObservation_NoSnapshot_IsNull_SoGateOmitsIncomplete()
-        {
-            // No parsed device snapshot → no tracking evidence → the required gate omits → INCOMPLETE (never a
-            // silent pass off the back of a store attestation).
-            Assert.IsNull(GreenlightDeviceSnapshot.TrackingAttachedObservation(new GreenlightDeviceSnapshot.State()));
-        }
-
-        [Test]
-        public void TrackingObservation_UnknownSchema_IsNull()
-        {
-            var state = new GreenlightDeviceSnapshot.State
-            {
-                Phase = GreenlightDeviceSnapshot.Phase.Done,
-                Outcome = GreenlightDeviceSnapshot.Outcome.Parsed,
-                Snapshot = new Dictionary<string, object> { ["snapshot_schema"] = "999" },
-            };
-            Assert.IsNull(GreenlightDeviceSnapshot.TrackingAttachedObservation(state));
-        }
-
-        // ── C2: tracking scenario provenance (attempted vs not-run) ───────
-
-        // Builds a parsed snapshot whose identity matches the ambient project so TrackingAttachedObservation
-        // passes the identity gate. Ignores when the ambient build target/mode can't produce a match.
-        static GreenlightDeviceSnapshot.State AmbientTrackingSnapshot(bool attached, bool attempted)
-        {
-            string platform = EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android ? "Android"
-                : EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS ? "IPhonePlayer" : null;
-            string mode = SorollaSettings.Mode == SorollaMode.Full ? "full"
-                : SorollaSettings.Mode == SorollaMode.Prototype ? "prototype" : null;
-            if (platform == null || mode == null)
-                Assert.Ignore("C2 tracking-provenance test needs an Android/iOS target and a configured mode (ambient).");
-            return new GreenlightDeviceSnapshot.State
-            {
-                Phase = GreenlightDeviceSnapshot.Phase.Done,
-                Outcome = GreenlightDeviceSnapshot.Outcome.Parsed,
-                Snapshot = new Dictionary<string, object>
-                {
-                    ["snapshot_schema"] = "1",
-                    ["mode"] = mode,
-                    ["build"] = new Dictionary<string, object>
-                    {
-                        ["application_id"] = UnityEngine.Application.identifier, ["platform"] = platform,
-                        ["app_version"] = UnityEngine.Application.version, ["build_guid"] = "test-guid",
-                    },
-                    ["iap"] = new Dictionary<string, object>
-                    {
-                        ["tracking_attached"] = attached, ["attach_attempted"] = attempted,
-                    },
-                },
-            };
-        }
-
-        [Test]
-        public void Tracking_Wired_IsPass()
-        {
-            GateObservation obs = GreenlightDeviceSnapshot.TrackingAttachedObservation(AmbientTrackingSnapshot(attached: true, attempted: true));
-            Assert.AreEqual(GateOutcome.Pass, obs.Outcome);
-            Assert.AreEqual(ProofScope.DeviceDispatch, obs.ObservedProof);
-        }
-
-        [Test]
-        public void Tracking_AttemptedButNotWired_IsFail()
-        {
-            // C2: the store-init scenario ran (attach_attempted) but tracking is not wired → a real FAIL, not
-            // the conservative INCOMPLETE used before the scenario runs.
-            GateObservation obs = GreenlightDeviceSnapshot.TrackingAttachedObservation(AmbientTrackingSnapshot(attached: false, attempted: true));
-            Assert.AreEqual(GateOutcome.Fail, obs.Outcome);
-        }
-
-        [Test]
-        public void Tracking_ScenarioNotRun_IsIncomplete()
-        {
-            // Not wired AND the attach scenario never ran → INCOMPLETE (nothing exercised yet), not FAIL.
-            GateObservation obs = GreenlightDeviceSnapshot.TrackingAttachedObservation(AmbientTrackingSnapshot(attached: false, attempted: false));
-            Assert.AreEqual(GateOutcome.Incomplete, obs.Outcome);
         }
 
         // ── C4-03: build/game identity binding ────────────────────────────
@@ -370,7 +264,10 @@ namespace Sorolla.Palette.Editor.Tests
                 Snapshot = new Dictionary<string, object> { ["snapshot_schema"] = "999" },
             };
             List<GateObservation> obs = GreenlightDeviceSnapshot.ToObservations(state);
-            Assert.AreEqual(GateOutcome.Incomplete, obs.Single(o => o.GateId == GateIds.DeviceReady).Outcome);
+            GateObservation untrusted = obs.Single(o => o.GateId == GateIds.DeviceNoSdkErrors);
+            Assert.AreEqual(GateOutcome.Incomplete, untrusted.Outcome);
+            Assert.AreEqual(ProofScope.None, untrusted.ObservedProof,
+                "an untrusted snapshot must never carry device-dispatch proof");
         }
 
         [Test]
@@ -387,27 +284,30 @@ namespace Sorolla.Palette.Editor.Tests
         // ── F10: iOS device transport (iproxy) - un-gated collector + GUID binding ───
 
         [Test]
-        public void BuildObservations_IosIntended_NeverConnected_EmitsIncompleteDeviceReady()
+        public void BuildObservations_IosIntended_NeverConnected_LeavesDeviceGatesUnobserved()
         {
-            // F10: iOS now has a shipping collector (iproxy), so the device path is un-gated for iOS. A
-            // never-connected iOS build must emit an explicit not-connected DeviceReady (INCOMPLETE) - the same
-            // row Android emits - instead of the old behavior where iOS emitted nothing at all.
+            // F10: iOS has a shipping collector (iproxy), so the device path is un-gated for iOS. A
+            // never-connected iOS build supplies no device evidence, so its required device gates omit →
+            // INCOMPLETE through the real evaluator.
             var ctx = new EvaluationContext
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
                 InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
                 IntendedTargets = DistributionTargets.iOS,
-                RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+                RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
                 ctx, null, new GreenlightDeviceSnapshot.State());
-            GateObservation ready = obs.Single(o => o.GateId == GateIds.DeviceReady);
-            Assert.AreEqual(GateOutcome.Incomplete, ready.Outcome);
-            Assert.AreEqual(ProofScope.None, ready.ObservedProof);
+            Assert.IsFalse(obs.Any(o => o.GateId == GateIds.DeviceNoSdkErrors));
+
+            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, obs);
+            GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceNoSdkErrors);
+            Assert.AreEqual(GateDisposition.Omitted, device.Disposition);
+            Assert.AreEqual(GateOutcome.Incomplete, report.Outcome);
         }
 
         [Test]
-        public void BuildObservations_IosNotIntended_OmitsDeviceReady()
+        public void BuildObservations_IosNotIntended_EmitsNoDeviceObservation()
         {
             // Building iOS for a game that ships only on Android: iOS device gates are NotApplicable, so the
             // adapter must emit NO iOS device observation (emitting would be a C3-05 context mismatch).
@@ -416,30 +316,12 @@ namespace Sorolla.Palette.Editor.Tests
                 Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
                 InstalledModules = SdkModule.GameAnalytics,
                 IntendedTargets = DistributionTargets.Android,
-                RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+                RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
                 ctx, null, new GreenlightDeviceSnapshot.State());
-            Assert.IsFalse(obs.Any(o => o.GateId == GateIds.DeviceReady),
+            Assert.IsFalse(obs.Any(o => o.GateId.StartsWith("device.")),
                 "an unintended iOS platform must not emit a device observation.");
-        }
-
-        [Test]
-        public void BuildObservations_IosPlatform_UnityIap_EmitsTrackingObservation()
-        {
-            // F10/F5: the purchase-tracking observation was Android-only; with the iOS collector it must be
-            // emitted for iOS too when Unity IAP is installed and a parsed snapshot is present.
-            GreenlightDeviceSnapshot.State snapshot = AmbientTrackingSnapshot(attached: true, attempted: true);
-            var ctx = new EvaluationContext
-            {
-                Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
-                InstalledModules = SdkModule.UnityIap,
-                IntendedTargets = DistributionTargets.iOS, CommerceTargets = DistributionTargets.iOS,
-                RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
-            };
-            List<GateObservation> obs = GreenlightAdapter.BuildObservations(ctx, null, snapshot);
-            Assert.IsTrue(obs.Any(o => o.GateId == GateIds.IapTrackingAttached),
-                "iOS + Unity IAP + a parsed snapshot must emit the tracking-wiring observation.");
         }
 
         // Parsed iOS snapshot carrying an explicit build GUID, for the attestation-binding tests below.
@@ -517,6 +399,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Prototype, Platform = EvalPlatform.Android,
                 InstalledModules = SdkModule.None, RequestedPhase = GatePhase.QaPass,
+                Profile = ReportProfile.SorollaFull,
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
                 protoCtx, results, new GreenlightDeviceSnapshot.State());
@@ -536,6 +419,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = SdkModule.Firebase, RequestedPhase = GatePhase.QaPass,
+                Profile = ReportProfile.SorollaFull,
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
                 ctx, results, new GreenlightDeviceSnapshot.State());
@@ -557,6 +441,7 @@ namespace Sorolla.Palette.Editor.Tests
                 Platform = EvalPlatform.Android,
                 InstalledModules = HealthEnums.AllModuleBits,
                 RequestedPhase = GatePhase.QaPass,
+                Profile = ReportProfile.SorollaFull,
             };
             var observations = new List<GateObservation>
             {

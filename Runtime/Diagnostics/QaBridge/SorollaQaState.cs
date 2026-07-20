@@ -15,6 +15,11 @@ namespace Sorolla.Palette
         public bool DevelopmentBuild;
         public bool BridgeArmed;
         public bool Ready;
+        /// <summary>The folded Vitals verdict token (failing | action_needed | not_proven | pass) - the SAME
+        /// verdict the overlay's Report pane renders. Stamped by <see cref="QaSnapshot.Build"/>, not by the
+        /// capture itself (the verdict reads the captured state, so computing it inside the capture would
+        /// recurse). Null when nobody stamped it, and serialized as "unknown" - never as a pass.</summary>
+        public string Verdict;
         internal string DeviceWallClock; // ISO-8601 local time with UTC offset, captured with the snapshot
 
         // Build identity (review C4-03/08): binds a snapshot to the exact game/build so a wrong-game or

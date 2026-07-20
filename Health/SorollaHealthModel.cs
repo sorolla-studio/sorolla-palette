@@ -62,6 +62,50 @@ namespace Sorolla.Palette.Health
         Omitted,
         OptionalSkipped,
         NotApplicable,
+        /// <summary>An Invariant gate resolved by the SDK release certificate in a Studio report: proven once
+        /// on the reference game for this tagged release, so it does not vote here. Excluded from aggregation
+        /// like OptionalSkipped/NotApplicable - and only ever reachable when no FAIL was observed locally.</summary>
+        CertifiedBySdk,
+    }
+
+    /// <summary>
+    ///     Who owns proving a gate, and therefore who ever sees it (2026-07-20 invariant/variant split).
+    ///     <list type="bullet">
+    ///         <item><c>Invariant</c> - SDK behavior identical for every game; certified ONCE per tagged
+    ///         release on the reference game, never re-proven per studio.</item>
+    ///         <item><c>Structural</c> - an SDK-fixed rule over the studio repo: machine-checked in every
+    ///         project, silent unless red.</item>
+    ///         <item><c>Variant</c> - a per-game input or action; always studio-visible.</item>
+    ///         <item><c>Unknown</c> - catalog-invalid; <see cref="GateCatalog.Validate"/> rejects it so a new
+    ///         gate cannot slip in unclassified.</item>
+    ///     </list>
+    /// </summary>
+    internal enum GateClassification
+    {
+        Unknown,
+        Invariant,
+        Structural,
+        Variant,
+    }
+
+    /// <summary>Who the report is FOR. <c>SorollaFull</c> evaluates every gate at full depth (the internal
+    /// pass); <c>Studio</c> collapses certified invariants to the release certificate. <c>Unknown</c> is a
+    /// boundary validation error → INCOMPLETE: a report with no declared audience must not render green.</summary>
+    internal enum ReportProfile
+    {
+        Unknown,
+        SorollaFull,
+        Studio,
+    }
+
+    /// <summary>Whether the SDK source under evaluation is a certified tagged release (tag-as-certificate).
+    /// <c>Unknown</c> is legal and behaves as <c>Uncertified</c> - it only changes the evidence wording -
+    /// because an unresolvable provenance must fail closed, not crash the report.</summary>
+    internal enum SdkCertification
+    {
+        Unknown,
+        Uncertified,
+        CertifiedRelease,
     }
 
     /// <summary>Which validation phase(s) a gate belongs to. A definition with no phase is unreachable.</summary>
@@ -148,6 +192,9 @@ namespace Sorolla.Palette.Health
     {
         public string Id { get; }
         public string Version { get; }
+        /// <summary>Ownership class - a required constructor argument with NO default, so every call site
+        /// must decide and an unclassified gate cannot be added by omission.</summary>
+        public GateClassification Classification { get; }
         public GatePhase Phases { get; }
         public ProofScope RequiredProof { get; }
         public Func<EvaluationContext, RequirementDecision> Requirement { get; }
@@ -155,12 +202,14 @@ namespace Sorolla.Palette.Health
         public GateDefinition(
             string id,
             string version,
+            GateClassification classification,
             GatePhase phases,
             ProofScope requiredProof,
             Func<EvaluationContext, RequirementDecision> requirement)
         {
             Id = id;
             Version = version;
+            Classification = classification;
             Phases = phases;
             RequiredProof = requiredProof;
             Requirement = requirement;
@@ -205,6 +254,15 @@ namespace Sorolla.Palette.Health
         /// manifest, review C4-02). Unknown manifest state must NOT be treated as an empty module set - it
         /// forces INCOMPLETE. Defaults true; a producer that cannot read the manifest sets it false.</summary>
         public bool ModulesResolved = true;
+        /// <summary>Who this report is for. Defaults <see cref="ReportProfile.Unknown"/>, which is a boundary
+        /// validation error → INCOMPLETE: a producer must declare its audience, never inherit one silently.</summary>
+        public ReportProfile Profile;
+        /// <summary>Whether the SDK source is a certified tagged release (tag-as-certificate). Only consulted
+        /// for Invariant gates under the Studio profile. Unknown behaves as Uncertified.</summary>
+        public SdkCertification Certification;
+        /// <summary>Human-readable provenance behind <see cref="Certification"/> (the resolved tag, branch, or
+        /// why it could not be resolved). Quoted into the certified rows' evidence.</summary>
+        public string CertificationEvidence;
     }
 
     /// <summary>One resolved gate = one row of a <see cref="HealthReport"/>. The evaluator's output, not a
@@ -213,6 +271,9 @@ namespace Sorolla.Palette.Health
     {
         public string GateId;
         public string DefinitionVersion;
+        /// <summary>Carried through from the definition so frontends and the report export can group, collapse,
+        /// or route a row without re-looking-up the catalog.</summary>
+        public GateClassification Classification;
         public Requirement Requirement;
         public string RequirementReason;
         public GateDisposition Disposition;
@@ -248,6 +309,18 @@ namespace Sorolla.Palette.Health
         internal static bool IsDefinedRequirement(Requirement v) =>
             v == Requirement.Unknown || v == Requirement.NotApplicable ||
             v == Requirement.Optional || v == Requirement.Required;
+
+        internal static bool IsDefinedClassification(GateClassification v) =>
+            v == GateClassification.Unknown || v == GateClassification.Invariant ||
+            v == GateClassification.Structural || v == GateClassification.Variant;
+
+        /// <summary>A DECLARED audience. Unknown is deliberately NOT accepted: it is the fail-closed default.</summary>
+        internal static bool IsDeclaredProfile(ReportProfile v) =>
+            v == ReportProfile.SorollaFull || v == ReportProfile.Studio;
+
+        internal static bool IsDefinedCertification(SdkCertification v) =>
+            v == SdkCertification.Unknown || v == SdkCertification.Uncertified ||
+            v == SdkCertification.CertifiedRelease;
 
         internal static bool IsDefinedMode(EvalMode v) =>
             v == EvalMode.Unknown || v == EvalMode.Prototype || v == EvalMode.Full;

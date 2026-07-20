@@ -60,7 +60,7 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         /// <summary>The full canonical report as JSON: fingerprint + outcome + validation errors + every row's
         /// stable metadata. Inert rows are NOT dropped (review F4/F9).</summary>
-        internal static string ToJson(HealthReport health, Fingerprint fingerprint)
+        internal static string ToJson(HealthReport health, Fingerprint fingerprint, EvaluationContext context = null)
         {
             var rows = new List<object>();
             foreach (GateResult r in health?.Rows ?? Array.Empty<GateResult>())
@@ -69,6 +69,7 @@ namespace Sorolla.Palette.Editor.Greenlight
                 {
                     ["id"] = r.GateId,
                     ["version"] = r.DefinitionVersion,
+                    ["classification"] = r.Classification.ToString(),
                     ["requirement"] = r.Requirement.ToString(),
                     ["requirement_reason"] = r.RequirementReason ?? "",
                     ["disposition"] = r.Disposition.ToString(),
@@ -84,6 +85,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             {
                 ["schema"] = Schema,
                 ["fingerprint"] = FingerprintObject(fingerprint),
+                ["certification"] = CertificationObject(context),
                 ["outcome"] = (health?.Outcome ?? GateOutcome.Incomplete).ToString(),
                 ["validation_errors"] = new List<object>(health?.ValidationErrors ?? Array.Empty<string>()),
                 ["row_count"] = rows.Count,
@@ -94,7 +96,7 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         /// <summary>Human-readable rendering of the same canonical report - includes disposition + requirement
         /// so an inert row is not mistaken for an evaluated PASS.</summary>
-        internal static string ToText(HealthReport health, Fingerprint fingerprint)
+        internal static string ToText(HealthReport health, Fingerprint fingerprint, EvaluationContext context = null)
         {
             var sb = new StringBuilder();
             sb.AppendLine($"Palette Greenlight Report ({Schema})");
@@ -104,12 +106,15 @@ namespace Sorolla.Palette.Editor.Greenlight
                           $"platform: {fingerprint.Platform} | mode: {fingerprint.Mode} | phase: {fingerprint.Phase}");
             sb.AppendLine($"distribution targets: {fingerprint.DistributionTargets} | commerce targets: {fingerprint.CommerceTargets} | " +
                           $"device build: {fingerprint.DeviceBuildGuid}");
+            sb.AppendLine($"profile: {context?.Profile ?? ReportProfile.Unknown} | " +
+                          $"sdk certification: {context?.Certification ?? SdkCertification.Unknown} " +
+                          $"({(string.IsNullOrEmpty(context?.CertificationEvidence) ? "no evidence" : context.CertificationEvidence)})");
             sb.AppendLine($"generated: {fingerprint.GeneratedAtUtc}");
             sb.AppendLine();
 
             foreach (GateResult r in health?.Rows ?? Array.Empty<GateResult>())
             {
-                sb.AppendLine($"[{r.Outcome}] {r.GateId} (v{r.DefinitionVersion}) " +
+                sb.AppendLine($"[{r.Outcome}] {r.GateId} (v{r.DefinitionVersion}, {r.Classification}) " +
                               $"req={r.Requirement} disp={r.Disposition} " +
                               $"proof req={ProofString(r.RequiredProof)} obs={ProofString(r.ObservedProof)}");
                 if (!string.IsNullOrEmpty(r.RequirementReason))
@@ -125,6 +130,17 @@ namespace Sorolla.Palette.Editor.Greenlight
 
             return sb.ToString();
         }
+
+        /// <summary>Who the report was evaluated FOR and whether a release certificate covered its invariant
+        /// gates - without this a Studio report's collapsed rows would be unreadable after the fact. A null
+        /// context reports Unknown/Unknown, never an assumed audience.</summary>
+        static Dictionary<string, object> CertificationObject(EvaluationContext context) =>
+            new Dictionary<string, object>
+            {
+                ["profile"] = (context?.Profile ?? ReportProfile.Unknown).ToString(),
+                ["certification"] = (context?.Certification ?? SdkCertification.Unknown).ToString(),
+                ["evidence"] = context?.CertificationEvidence ?? "",
+            };
 
         static Dictionary<string, object> FingerprintObject(Fingerprint f) => new Dictionary<string, object>
         {

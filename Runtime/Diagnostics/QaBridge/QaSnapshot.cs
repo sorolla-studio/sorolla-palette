@@ -17,6 +17,7 @@ namespace Sorolla.Palette
         internal static string Build()
         {
             SorollaQaState state = SorollaDiagnostics.CaptureQaState();
+            state.Verdict = SorollaDiagnostics.CurrentVerdictToken();
             var sb = new StringBuilder(2048);
             WriteJson(state, sb);
             return sb.ToString();
@@ -34,6 +35,9 @@ namespace Sorolla.Palette
             QaJson.BoolMember(sb, ref first, "development_build", state.DevelopmentBuild);
             QaJson.BoolMember(sb, ref first, "armed", state.BridgeArmed);
             QaJson.BoolMember(sb, ref first, "ready", state.Ready);
+            // The SAME verdict the overlay's Report pane shows, so an agent reading the bridge and a human
+            // reading the phone never disagree. Stable machine token: failing | action_needed | not_proven | pass.
+            QaJson.StringMember(sb, ref first, "verdict", state.Verdict ?? "unknown");
             QaJson.StringMember(sb, ref first, "device_wall_clock", state.DeviceWallClock);
 
             QaJson.Comma(sb, ref first);

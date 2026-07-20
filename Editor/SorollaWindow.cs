@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Sorolla.Palette.Editor.Greenlight;
 using Sorolla.Palette.Editor.UI;
+using Sorolla.Palette.Health;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
@@ -136,16 +137,27 @@ namespace Sorolla.Palette.Editor
             // p3-sdkoverview: DrawSdkOverviewSection() was the LAST call in DrawUpperSections, so
             // porting it is a clean peel from the end of the already-shrunk IMGUIContainerA region,
             // not a new middle-split - it just slots in right before Build Health.
-            _sdkOverviewContainer = CreatePortedSectionContainer();
-            _sdkOverviewContainer.style.marginTop = 10;
-            scrollView.Add(_sdkOverviewContainer);
-            RefreshSdkOverviewUI();
+            // SDK Overview + the full Build Health row list are INTERNAL depth. Build Health itself still
+            // runs (and still auto-fixes) on every refresh and before every build - only its section is
+            // hidden, so a studio gets the fixes without the wall of rows.
+            if (InternalView)
+            {
+                _sdkOverviewContainer = CreatePortedSectionContainer();
+                _sdkOverviewContainer.style.marginTop = 10;
+                scrollView.Add(_sdkOverviewContainer);
+                RefreshSdkOverviewUI();
 
-            _buildHealthContainer = CreatePortedSectionContainer();
-            _buildHealthContainer.style.marginTop = 10;
-            _buildHealthContainer.style.marginBottom = 10;
-            scrollView.Add(_buildHealthContainer);
-            RefreshBuildHealthUI(); // initial paint from whatever _validationResults already holds
+                _buildHealthContainer = CreatePortedSectionContainer();
+                _buildHealthContainer.style.marginTop = 10;
+                _buildHealthContainer.style.marginBottom = 10;
+                scrollView.Add(_buildHealthContainer);
+                RefreshBuildHealthUI(); // initial paint from whatever _validationResults already holds
+            }
+            else
+            {
+                _sdkOverviewContainer = null;
+                _buildHealthContainer = null;
+            }
 
             // p3-config: DrawConfigSection() was the FIRST call in DrawLowerSections, so porting it
             // is a clean peel from the front of the already-shrunk IMGUIContainerB region.
@@ -246,6 +258,41 @@ namespace Sorolla.Palette.Editor
             window.minSize = new Vector2(420, 380);
             window.position = new Rect(100, 100, 560, 800);
             window.ShowUtility();
+        }
+
+        // ── Internal (Sorolla) view ───────────────────────────────────
+        //
+        // A studio sees one verdict card, their configuration, and quick start. The full depth (SDK
+        // overview, every Build Health row, JSON/catalog exports, every greenlight row) is not removed
+        // and not build-gated - it is one checkable menu item away, so Sorolla debugs exactly the window
+        // the studio is looking at.
+
+        const string InternalViewMenuPath = "Tools/Sorolla Palette SDK Internal";
+        const string InternalViewPrefKey = "sorolla.window.internal";
+
+        internal static bool InternalView
+        {
+            get => EditorPrefs.GetBool(InternalViewPrefKey, false);
+            set => EditorPrefs.SetBool(InternalViewPrefKey, value);
+        }
+
+        [MenuItem(InternalViewMenuPath)]
+        static void ToggleInternalView()
+        {
+            InternalView = !InternalView;
+            foreach (SorollaWindow window in Resources.FindObjectsOfTypeAll<SorollaWindow>())
+            {
+                window.rootVisualElement.Clear();
+                window.CreateGUI();
+                window.Repaint();
+            }
+        }
+
+        [MenuItem(InternalViewMenuPath, true)]
+        static bool ToggleInternalViewValidate()
+        {
+            Menu.SetChecked(InternalViewMenuPath, InternalView);
+            return true;
         }
 
         [InitializeOnLoadMethod]
@@ -993,7 +1040,7 @@ namespace Sorolla.Palette.Editor
             headerRow.style.alignItems = Align.Center;
             headerRow.style.marginBottom = 8;
 
-            var headerLabel = new Label("Greenlight");
+            var headerLabel = new Label(InternalView ? "Greenlight (internal)" : "Greenlight");
             headerLabel.AddToClassList("sorolla-type-section");
             headerRow.Add(headerLabel);
 
@@ -1006,11 +1053,19 @@ namespace Sorolla.Palette.Editor
 
             _greenlightContainer.Add(headerRow);
 
-            string countStrip = $"{report.FailCount} fail · {report.WarnCount} warn · {report.WaitCount} wait · {report.PassCount} pass";
-            var countLabel = new Label(countStrip);
-            countLabel.AddToClassList("sorolla-type-small");
-            countLabel.style.marginBottom = 8;
-            _greenlightContainer.Add(countLabel);
+            if (InternalView)
+            {
+                string countStrip = $"{report.FailCount} fail · {report.WarnCount} warn · {report.WaitCount} wait · {report.PassCount} pass";
+                var countLabel = new Label(countStrip);
+                countLabel.AddToClassList("sorolla-type-small");
+                countLabel.style.marginBottom = 8;
+                _greenlightContainer.Add(countLabel);
+            }
+
+            // The certification line replaces the invariant rows a studio would otherwise have to read:
+            // it states WHICH SDK source this verdict rests on, and it is the one place an uncertified
+            // (dev-line) pin is called out - the evaluator has already refused to let it render green.
+            _greenlightContainer.Add(BuildCertificationLine(report));
 
             var actionsRow = new VisualElement();
             actionsRow.style.flexDirection = FlexDirection.Row;
@@ -1040,21 +1095,24 @@ namespace Sorolla.Palette.Editor
             // disposition/requirement/proof + a build fingerprint, so a pasted result is unambiguous. The old
             // flattened summary is no longer the export - it dropped inert rows and provenance.
             var copyButton = new Button(() =>
-                    EditorGUIUtility.systemCopyBuffer = GreenlightReportExport.ToText(report.Health, report.Fingerprint))
+                    EditorGUIUtility.systemCopyBuffer = GreenlightReportExport.ToText(report.Health, report.Fingerprint, report.Context))
                 { text = "Copy Report (text)" };
             copyButton.AddToClassList("sorolla-button-small");
             actionsRow.Add(copyButton);
 
-            var copyJsonButton = new Button(() =>
-                    EditorGUIUtility.systemCopyBuffer = GreenlightReportExport.ToJson(report.Health, report.Fingerprint))
-                { text = "Copy Report (JSON)" };
-            copyJsonButton.AddToClassList("sorolla-button-small");
-            actionsRow.Add(copyJsonButton);
+            if (InternalView)
+            {
+                var copyJsonButton = new Button(() =>
+                        EditorGUIUtility.systemCopyBuffer = GreenlightReportExport.ToJson(report.Health, report.Fingerprint, report.Context))
+                    { text = "Copy Report (JSON)" };
+                copyJsonButton.AddToClassList("sorolla-button-small");
+                actionsRow.Add(copyJsonButton);
 
-            var exportCatalogButton = new Button(GateCatalogExporter.ShowSavePanel)
-                { text = "Export Gate Catalog (JSON)" };
-            exportCatalogButton.AddToClassList("sorolla-button-small");
-            actionsRow.Add(exportCatalogButton);
+                var exportCatalogButton = new Button(GateCatalogExporter.ShowSavePanel)
+                    { text = "Export Gate Catalog (JSON)" };
+                exportCatalogButton.AddToClassList("sorolla-button-small");
+                actionsRow.Add(exportCatalogButton);
+            }
 
             _greenlightContainer.Add(actionsRow);
 
@@ -1066,14 +1124,66 @@ namespace Sorolla.Palette.Editor
             privacyNote.style.marginBottom = 6;
             _greenlightContainer.Add(privacyNote);
 
-            var rowElements = new List<VisualElement>();
-            foreach (GreenlightEvaluator.Row row in report.Rows)
-                rowElements.Add(BuildGreenlightRow(row));
+            if (InternalView)
+            {
+                var rowElements = new List<VisualElement>();
+                foreach (GreenlightEvaluator.Row row in report.Rows)
+                    rowElements.Add(BuildGreenlightRow(row));
 
-            string summary = GreenlightEvaluator.RowSummary(report);
-            Foldout rowGroup = CollapsibleCheckGroup.Create(summary, rowElements, _greenlightChecksExpanded);
-            rowGroup.RegisterValueChangedCallback(evt => _greenlightChecksExpanded = evt.newValue);
-            _greenlightContainer.Add(rowGroup);
+                string summary = GreenlightEvaluator.RowSummary(report);
+                Foldout rowGroup = CollapsibleCheckGroup.Create(summary, rowElements, _greenlightChecksExpanded);
+                rowGroup.RegisterValueChangedCallback(evt => _greenlightChecksExpanded = evt.newValue);
+                _greenlightContainer.Add(rowGroup);
+                return;
+            }
+
+            // Studio view: only what still needs work. A passing row is not information a studio has to
+            // read, and hiding it here hides nothing from the verdict - the badge above already aggregates
+            // every row, and the copied report still carries all of them.
+            bool anyOpen = false;
+            foreach (GreenlightEvaluator.Row row in report.Rows)
+            {
+                if (row.Status == CheckRow.Status.Pass) continue;
+                _greenlightContainer.Add(BuildGreenlightRow(row));
+                anyOpen = true;
+            }
+
+            if (!anyOpen)
+            {
+                var clear = new Label("Nothing outstanding in your project's setup.");
+                clear.AddToClassList("sorolla-type-small");
+                _greenlightContainer.Add(clear);
+            }
+        }
+
+        /// <summary>
+        ///     One line stating the audience this report was evaluated for and whether the SDK source is a
+        ///     certified tagged release, plus how many invariant rows that certificate resolved. An
+        ///     uncertified/unknown source says so plainly with the fix - it is the studio-visible face of
+        ///     the rule that a dev-line pin can never render green.
+        /// </summary>
+        static VisualElement BuildCertificationLine(GreenlightEvaluator.Report report)
+        {
+            EvaluationContext context = report.Context;
+            ReportProfile profile = context?.Profile ?? ReportProfile.Unknown;
+            SdkCertification certification = context?.Certification ?? SdkCertification.Unknown;
+
+            int certified = 0;
+            foreach (GateResult row in report.Health?.Rows ?? (IReadOnlyList<GateResult>)Array.Empty<GateResult>())
+                if (row.Disposition == GateDisposition.CertifiedBySdk)
+                    certified++;
+
+            string text = certification == SdkCertification.CertifiedRelease
+                ? $"SDK internals certified by the Sorolla release process ({context?.CertificationEvidence}) — {certified} SDK-invariant check(s) proven by that release."
+                : profile == ReportProfile.SorollaFull
+                    ? $"Internal full-depth report: every SDK invariant is evaluated here, nothing is taken on certificate ({context?.CertificationEvidence})."
+                    : $"No release certificate applies to this build ({context?.CertificationEvidence}). Pin a tagged Palette release in Packages/manifest.json — SDK-invariant checks cannot pass without one.";
+
+            var label = new Label(text);
+            label.AddToClassList("sorolla-type-small");
+            label.style.whiteSpace = WhiteSpace.Normal;
+            label.style.marginBottom = 8;
+            return label;
         }
 
         /// <summary>A CheckRow plus its Fix/deep-link line and, for manual checklist rows, a

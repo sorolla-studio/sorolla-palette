@@ -27,7 +27,6 @@ namespace Sorolla.Palette.Health
         public const string BuildFirebaseConfig = "build.firebase_config";
         public const string BuildGameAnalyticsKeys = "build.gameanalytics_keys";
         public const string BuildFacebookPlatform = "build.facebook_platform";
-        public const string BuildPrototypeModeIntent = "build.prototype_mode_intent";
         public const string BuildVerboseLogging = "build.verbose_logging";
         public const string BuildDevelopmentBuild = "build.development_build";
         public const string BuildAdjustSandboxMode = "build.adjust_sandbox_mode";
@@ -36,19 +35,16 @@ namespace Sorolla.Palette.Health
         public const string BuildGameAnalyticsResourceWhitelist = "build.gameanalytics_resource_whitelist";
         public const string BuildAddressablesContent = "build.addressables_content";
         public const string BuildSdkPin = "build.sdk_pin";
-        public const string BuildAdjustResolvedVersion = "build.adjust_resolved_version";
         public const string BuildGameAnalyticsCredentials = "build.gameanalytics_credentials";
 
         // Device snapshot facts (require a live on-device dispatch).
-        public const string DeviceReady = "device.ready";
         public const string DeviceAdvertisingId = "device.advertising_id";
         public const string DeviceNoSdkErrors = "device.no_sdk_errors";
 
-        // In-app purchases (applicability from the Unity IAP module). Two DISTINCT gates (F5): store-console
-        // catalog/test-track config (vendor-attested) is not the same fact as Palette purchase-tracking wiring
-        // (device-observed) - a store attestation must never be able to satisfy the wiring gate.
+        // In-app purchases: store-console catalog/test-track config, vendor-attested and per-game. (The old
+        // iap.tracking_attached wiring gate was deleted with the 2026-07-20 split - its successor is the
+        // per-build variant coverage ledger; the QA-bridge snapshot still reports the raw signal.)
         public const string IapStoreConfigured = "iap.store_configured";
-        public const string IapTrackingAttached = "iap.tracking_attached";
 
         // Manual / dashboard attestations (require vendor-side or on-device human confirmation).
         public const string ManualGaPlatformRegistered = "manual.ga_platform_registered";
@@ -127,42 +123,44 @@ namespace Sorolla.Palette.Health
             var defs = new List<GateDefinition>();
 
             // Build Health - core SDKs, required in BOTH modes (GameAnalytics + Facebook are SdkRequirement.Core).
-            AddBuild(defs, GateIds.BuildRequiredSdks, Requirements.AlwaysRequired);
-            AddBuild(defs, GateIds.BuildGameAnalyticsKeys, Requirements.AlwaysRequired);
-            AddBuild(defs, GateIds.BuildGameAnalyticsCredentials, Requirements.AlwaysRequired);
-            AddBuild(defs, GateIds.BuildFacebookPlatform, Requirements.AlwaysRequired);
+            // required_sdks is a repo-shape rule (Structural); the credential/key rows are per-game inputs (Variant).
+            AddBuild(defs, GateIds.BuildRequiredSdks, GateClassification.Structural, Requirements.AlwaysRequired);
+            AddBuild(defs, GateIds.BuildGameAnalyticsKeys, GateClassification.Variant, Requirements.AlwaysRequired);
+            AddBuild(defs, GateIds.BuildGameAnalyticsCredentials, GateClassification.Variant, Requirements.AlwaysRequired);
+            AddBuild(defs, GateIds.BuildFacebookPlatform, GateClassification.Variant, Requirements.AlwaysRequired);
 
             // Firebase coherence - THE decided contradiction, expressed in the 4-state model. SdkRegistry
             // marks every Firebase module FullRequired ("optional in Prototype, never uninstalled"), so it is
             // Required in Full and Optional in Prototype: a prototype that ships Firebase has its coherence
             // evaluated, a bare prototype skips it cleanly (no penalty), and no real observation is discarded.
-            AddBuild(defs, GateIds.BuildFirebaseCoherence, Requirements.FullRequiredElseOptional);
+            AddBuild(defs, GateIds.BuildFirebaseCoherence, GateClassification.Structural,
+                Requirements.FullRequiredElseOptional);
 
             // Full-mode vendors (AppLovin MAX FullRequired, Adjust FullOnly): Required in Full, Optional in
-            // Prototype (evaluated only if the vendor is present).
-            AddBuild(defs, GateIds.BuildMaxSettings, Requirements.FullRequiredElseOptional);
-            AddBuild(defs, GateIds.BuildAdjustSettings, Requirements.FullRequiredElseOptional);
-            AddBuild(defs, GateIds.BuildAdjustResolvedVersion, Requirements.FullRequiredElseOptional);
+            // Prototype (evaluated only if the vendor is present). Both carry per-game credentials/ad-unit ids.
+            AddBuild(defs, GateIds.BuildMaxSettings, GateClassification.Variant, Requirements.FullRequiredElseOptional);
+            AddBuild(defs, GateIds.BuildAdjustSettings, GateClassification.Variant, Requirements.FullRequiredElseOptional);
 
             // Firebase config files follow the SAME requirement as Firebase itself (review C4-05): when
             // Firebase is required (Full), a missing active-platform google-services.json / plist must block
             // release confidence, not sit as a non-blocking advisory warning. Optional in Prototype. V2 (F9):
             // the check now also fails when a PRESENT config is for the wrong app id (active-app matching), a
             // stricter meaning than mere presence, so its comparison-agreement count restarts.
-            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfig, V2, buildPhase, ProofScope.Static,
-                Requirements.FullRequiredElseOptional));
+            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfig, V2, GateClassification.Variant, buildPhase,
+                ProofScope.Static, Requirements.FullRequiredElseOptional));
 
             // Release-only checks (review C4-04) - PreBuild|ReleaseShip, NOT QaPass. BuildValidator emits a
             // "Skipped (QA Pass profile)" Valid for these in a QA-pass run; because they are not selected in a
             // QaPass report their skip observation is unused, so it can never read as a PASS. Keystore is
             // Required on Android at release; the rest are advisory release-ship checks.
-            defs.Add(new GateDefinition(GateIds.BuildAndroidKeystore, Version, releasePhase, ProofScope.Static,
-                Requirements.AndroidRequiredElseOptional));
+            defs.Add(new GateDefinition(GateIds.BuildAndroidKeystore, Version, GateClassification.Variant,
+                releasePhase, ProofScope.Static, Requirements.AndroidRequiredElseOptional));
             foreach (string id in new[]
             {
-                GateIds.BuildAdjustSandboxMode, GateIds.BuildSdkPin, GateIds.BuildPrototypeModeIntent,
+                GateIds.BuildAdjustSandboxMode, GateIds.BuildSdkPin,
             })
-                defs.Add(new GateDefinition(id, Version, releasePhase, ProofScope.Static, Requirements.AlwaysOptional));
+                defs.Add(new GateDefinition(id, Version, GateClassification.Structural, releasePhase,
+                    ProofScope.Static, Requirements.AlwaysOptional));
 
             // Advisory Build Health rows - Optional in both modes. Their OBSERVED outcome still drives
             // precedence (an error -> FAIL, a warning -> caveats); an unobserved conditional check is a real
@@ -175,53 +173,48 @@ namespace Sorolla.Palette.Health
                 GateIds.BuildGradleJavaHome, GateIds.BuildGameAnalyticsResourceWhitelist,
                 GateIds.BuildAddressablesContent,
             })
-                AddBuild(defs, id, Requirements.AlwaysOptional);
+                AddBuild(defs, id, GateClassification.Structural, Requirements.AlwaysOptional);
 
             // In-app purchases (review C4-10, F2/F5). STORE config is Required only when Unity IAP is installed
             // AND the active platform is an intended release/commerce target (a game shipping on one store must
             // not be forced to prove the other store's config). Its proof is vendor-side (store console),
             // unavailable to the SDK, so with no attestation it resolves to INCOMPLETE (Omitted). NotApplicable
             // when Unity IAP is absent OR the active platform is not an intended target.
-            defs.Add(new GateDefinition(GateIds.IapStoreConfigured, V2, qaPhase, ProofScope.VendorAccepted,
-                Requirements.IapStoreConfiguredRequirement));
-
-            // TRACKING wiring is a DIFFERENT fact (F5): that Palette.AttachPurchaseTracking is wired, observed
-            // on device (the snapshot's iap.tracking_attached signal) - NOT satisfiable by a store attestation.
-            // Required whenever Unity IAP is installed (code wiring is platform-independent); with no device
-            // evidence it omits → INCOMPLETE. NotApplicable when Unity IAP is absent.
-            defs.Add(new GateDefinition(GateIds.IapTrackingAttached, Version, qaPhase, ProofScope.DeviceDispatch,
-                Requirements.UnityIapRequiredElseNotApplicable));
+            defs.Add(new GateDefinition(GateIds.IapStoreConfigured, V2, GateClassification.Variant, qaPhase,
+                ProofScope.VendorAccepted, Requirements.IapStoreConfiguredRequirement));
 
             // Device snapshot (F1): applicability follows the INTENDED release platform, not the (currently
             // Android-only) transport. On an intended platform the device gates stay applicable; if no evidence
             // collector exists yet (iOS today) the required ones omit → INCOMPLETE (a capability gap), never a
             // NotApplicable exemption. NotApplicable only when the active platform is not an intended target.
-            defs.Add(new GateDefinition(GateIds.DeviceReady, V2, qaPhase, ProofScope.DeviceDispatch,
-                Requirements.IntendedPlatformRequiredElseNotApplicable));
-            defs.Add(new GateDefinition(GateIds.DeviceAdvertisingId, V2, qaPhase, ProofScope.DeviceDispatch,
-                Requirements.IntendedPlatformOptionalElseNotApplicable));
-            defs.Add(new GateDefinition(GateIds.DeviceNoSdkErrors, V2, qaPhase, ProofScope.DeviceDispatch,
-                Requirements.IntendedPlatformRequiredElseNotApplicable));
+            // Both are SDK behavior identical for every game → Invariant (certified per tagged release).
+            defs.Add(new GateDefinition(GateIds.DeviceAdvertisingId, V2, GateClassification.Invariant, qaPhase,
+                ProofScope.DeviceDispatch, Requirements.IntendedPlatformOptionalElseNotApplicable));
+            defs.Add(new GateDefinition(GateIds.DeviceNoSdkErrors, V2, GateClassification.Invariant, qaPhase,
+                ProofScope.DeviceDispatch, Requirements.IntendedPlatformRequiredElseNotApplicable));
 
             // Manual / dashboard attestations - required, and the required proof (vendor-accepted or an
             // on-device human session) is deliberately something a legacy EditorPrefs check-off cannot supply,
             // so a ticked legacy box resolves to INCOMPLETE, never PASS (B-10). Adjust purchase verification
             // is NotApplicable in Prototype (no Adjust there; the adapter emits it only in Full).
-            defs.Add(new GateDefinition(GateIds.ManualGaPlatformRegistered, Version, qaPhase, ProofScope.VendorAccepted,
-                Requirements.AlwaysRequired));
-            defs.Add(new GateDefinition(GateIds.ManualCrossVendorDashboardDrift, Version, qaPhase, ProofScope.VendorAccepted,
-                Requirements.AlwaysRequired));
-            defs.Add(new GateDefinition(GateIds.ManualAdjustPurchaseVerification, Version, qaPhase, ProofScope.VendorAccepted,
-                Requirements.FullRequiredElseNotApplicable));
-            defs.Add(new GateDefinition(GateIds.ManualRelaunchPersistence, Version, qaPhase, ProofScope.DeviceDispatch,
-                Requirements.AlwaysRequired));
-            defs.Add(new GateDefinition(GateIds.ManualBackgroundResumeCycle, Version, qaPhase, ProofScope.DeviceDispatch,
-                Requirements.AlwaysRequired));
+            defs.Add(new GateDefinition(GateIds.ManualGaPlatformRegistered, Version, GateClassification.Variant,
+                qaPhase, ProofScope.VendorAccepted, Requirements.AlwaysRequired));
+            // Cross-vendor dashboard drift is the heaviest manual burden and the same SDK fan-out for every
+            // game (per-game routing is already covered by the variant credential gates) → Invariant.
+            defs.Add(new GateDefinition(GateIds.ManualCrossVendorDashboardDrift, Version, GateClassification.Invariant,
+                qaPhase, ProofScope.VendorAccepted, Requirements.AlwaysRequired));
+            defs.Add(new GateDefinition(GateIds.ManualAdjustPurchaseVerification, Version, GateClassification.Variant,
+                qaPhase, ProofScope.VendorAccepted, Requirements.FullRequiredElseNotApplicable));
+            defs.Add(new GateDefinition(GateIds.ManualRelaunchPersistence, Version, GateClassification.Invariant,
+                qaPhase, ProofScope.DeviceDispatch, Requirements.AlwaysRequired));
+            defs.Add(new GateDefinition(GateIds.ManualBackgroundResumeCycle, Version, GateClassification.Invariant,
+                qaPhase, ProofScope.DeviceDispatch, Requirements.AlwaysRequired));
 
             return defs;
 
-            void AddBuild(List<GateDefinition> list, string id, Func<EvaluationContext, RequirementDecision> req) =>
-                list.Add(new GateDefinition(id, Version, buildPhase, ProofScope.Static, req));
+            void AddBuild(List<GateDefinition> list, string id, GateClassification classification,
+                Func<EvaluationContext, RequirementDecision> req) =>
+                list.Add(new GateDefinition(id, Version, classification, buildPhase, ProofScope.Static, req));
         }
 
         static IReadOnlyList<EvaluationContext> BuildSupportedContexts()
@@ -240,6 +233,10 @@ namespace Sorolla.Palette.Health
                     IntendedTargets = HealthEnums.AllTargetBits,
                     CommerceTargets = HealthEnums.AllTargetBits,
                     RequestedPhase = GatePhase.QaPass,
+                    // Reachability is checked at FULL depth against an UNCERTIFIED source: the strictest
+                    // context, where no gate can be excused by the release certificate.
+                    Profile = ReportProfile.SorollaFull,
+                    Certification = SdkCertification.Uncertified,
                 });
             return contexts;
         }
@@ -289,6 +286,17 @@ namespace Sorolla.Palette.Health
                     problems.Add($"Gate '{def.Id}' has undefined phase flag bits.");
                 if (!HealthEnums.HasOnlyDefinedBits(def.RequiredProof))
                     problems.Add($"Gate '{def.Id}' has undefined proof-scope flag bits.");
+                // Every gate must be classified: an unclassified gate has no declared owner, so no frontend
+                // can decide whether a studio must see it.
+                if (!HealthEnums.IsDefinedClassification(def.Classification) ||
+                    def.Classification == GateClassification.Unknown)
+                    problems.Add($"Gate '{def.Id}' is unclassified (GateClassification.Unknown).");
+                // An Invariant gate is certified once per release on the reference GAME - it must therefore
+                // rest on evidence a studio's repo cannot produce. A Static-proof-only invariant would be a
+                // repo-shape rule mislabelled, i.e. the invariant/structural conflation this split removed.
+                if (def.Classification == GateClassification.Invariant &&
+                    (def.RequiredProof & ~ProofScope.Static) == ProofScope.None)
+                    problems.Add($"Invariant gate '{def.Id}' requires only Static proof - it is Structural, not Invariant.");
 
                 if (def.Requirement == null || supportedContexts == null || supportedContexts.Count == 0)
                     continue;
@@ -350,11 +358,6 @@ namespace Sorolla.Palette.Health
             ctx.Platform == EvalPlatform.Unknown ? Unk("build platform is unknown")
             : ctx.Platform == EvalPlatform.Android ? Req("Android build fact")
             : Opt("evaluated only if reported off-Android");
-
-        internal static readonly Func<EvaluationContext, RequirementDecision> UnityIapRequiredElseNotApplicable = ctx =>
-            (ctx.InstalledModules & SdkModule.UnityIap) != 0
-                ? Req("Unity IAP installed: purchase-tracking wiring required")
-                : Na("Unity IAP not installed");
 
         // ── F1: applicability follows the INTENDED release platform, not the evidence collector ──
         // On an intended platform a required device gate stays applicable and omits → INCOMPLETE when no
