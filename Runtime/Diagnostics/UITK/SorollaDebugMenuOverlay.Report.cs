@@ -40,7 +40,7 @@ namespace Sorolla.Palette
             SorollaVitalsVerdictReport verdict = SorollaDiagnostics.ComputeVerdict(rows);
 
             host.Add(BuildVerdictHero(verdict));
-            host.Add(BuildResponsibilityBlock());
+            host.Add(BuildContextLine());
             host.Add(BuildFixTheseSection(rows));
             VisualElement sorollaSection = BuildSendToSorollaSection(rows);
             if (sorollaSection != null)
@@ -118,22 +118,16 @@ namespace Sorolla.Palette
 
         // ── SDK context + responsibility division ─────────────────────────
 
-        VisualElement BuildResponsibilityBlock()
+        // The SDK context line, and the 5-tap target that unlocks the internal view. The
+        // responsibility/certification sentence that used to sit under it is deleted: a studio cannot act on
+        // who certifies SDK internals, and zero-leverage info does not render on a studio surface (scope
+        // lens, 2026-07-20). That framing lives in the report export / agent payload.
+        VisualElement BuildContextLine()
         {
-            var block = new VisualElement();
-
             var contextLine = new Label(SorollaDiagnostics.BuildMenuContextLine());
             contextLine.AddToClassList("sorolla-debugmenu-context-line");
             contextLine.RegisterCallback<ClickEvent>(_ => RegisterInternalUnlockTap());
-            block.Add(contextLine);
-
-            var responsibility = new Label(
-                "SDK internals are certified per release by Sorolla — this report covers your game's setup and coverage.");
-            responsibility.AddToClassList("sorolla-debugmenu-note");
-            responsibility.AddToClassList("sorolla-debugmenu-note-info");
-            block.Add(responsibility);
-
-            return block;
+            return contextLine;
         }
 
         void RegisterInternalUnlockTap()
