@@ -772,17 +772,16 @@ namespace Sorolla.Palette.Editor
         /// whichever of the two is worse instead of only the key-config status, so it can't disagree with
         /// what Greenlight is warning about for the same vendor (product-audit fix cycle ruling 3,
         /// 2026-07-21 11:55). The Edit button always opens GA Settings regardless of which finding is
-        /// worse - it is the one place both facts get fixed.</summary>
-        VisualElement BuildGameAnalyticsOverviewRow(SdkConfigDetector.ConfigStatus keyStatus)
+        /// worse - it is the one place both facts get fixed. <paramref name="whitelistWarn"/> is computed
+        /// once by the caller (<see cref="RefreshSdkOverviewUI"/>) and also feeds the section badge, so the
+        /// row and the badge can never disagree about it (residual of ruling 4, 2026-07-21 fix-cycle
+        /// review: the badge must reflect the worst row beneath it).</summary>
+        VisualElement BuildGameAnalyticsOverviewRow(SdkConfigDetector.ConfigStatus keyStatus, bool whitelistWarn)
         {
             SdkInfo sdk = SdkRegistry.All[SdkId.GameAnalytics];
             bool isInstalled = SdkDetector.IsInstalled(sdk);
             bool isInstalling = _installingPackages.Contains(sdk.PackageId);
             string keyDetail = SdkConfigDetector.GetGameAnalyticsPlatformDetail();
-
-            bool whitelistWarn = _validationResults.Any(r =>
-                r.Category == BuildValidator.CheckCategory.GameAnalyticsResourceWhitelist &&
-                r.Status == BuildValidator.ValidationStatus.Warning);
 
             Color iconColor;
             string iconGlyph;
@@ -996,7 +995,15 @@ namespace Sorolla.Palette.Editor
                 MaxSettingsSanitizer.SyncEmbeddedSdkKey();
             bool maxSettingsSynced = !maxInstalled || MaxSettingsSanitizer.IsSdkKeyConfigured();
 
+            // Computed once here so the badge and the GameAnalytics row below can never disagree about it
+            // (fix-cycle review residual, 2026-07-21: the badge must reflect the worst row beneath it, the
+            // same rule ruling 4 already applied one level up between Greenlight and this section).
+            bool gaWhitelistWarn = _validationResults.Any(r =>
+                r.Category == BuildValidator.CheckCategory.GameAnalyticsResourceWhitelist &&
+                r.Status == BuildValidator.ValidationStatus.Warning);
+
             bool isReady = gaStatus == SdkConfigDetector.ConfigStatus.Configured &&
+                           !gaWhitelistWarn &&
                            (isPrototype
                                ? fbStatus == SdkConfigDetector.ConfigStatus.Configured
                                : maxInstalled &&
@@ -1016,13 +1023,15 @@ namespace Sorolla.Palette.Editor
             headerSpacer.style.flexGrow = 1;
             headerRow.Add(headerSpacer);
 
-            // Scoped wording (product-audit fix cycle ruling 4, 2026-07-21 11:55): this badge reflects
-            // ONLY whether the required vendors are installed+keyed, not overall build/QA health - it must
-            // not read as a second, competing verdict next to the Greenlight badge above it (which can
-            // legitimately say INCOMPLETE while every vendor here is installed and keyed).
+            // Scoped wording (product-audit fix cycle ruling 4, 2026-07-21 11:55) AND worst-row
+            // agreement (fix-cycle review residual, 2026-07-21): this badge reflects whether EVERY row in
+            // this section is clean, not just whether the required vendors are installed+keyed - isReady
+            // now folds in gaWhitelistWarn so the badge can't render green while the GameAnalytics row
+            // beneath it is amber. Still scoped wording so it doesn't read as a second, competing verdict
+            // next to the Greenlight badge above it.
             headerRow.Add(isReady
                 ? StatusBadge.Create("VENDORS READY", StatusBadge.Severity.Pass)
-                : StatusBadge.Create("VENDOR SETUP NEEDED", StatusBadge.Severity.Advisory));
+                : StatusBadge.Create("VENDOR ATTENTION", StatusBadge.Severity.Advisory));
 
             _sdkOverviewContainer.Add(headerRow);
 
@@ -1030,7 +1039,7 @@ namespace Sorolla.Palette.Editor
             // (product-audit fix cycle ruling 3, 2026-07-21 11:55): per-platform key status AND the
             // Resource Whitelist check Build Health also runs for GameAnalytics - a studio must not see a
             // flat green "Configured" here while Greenlight is warning about the same vendor.
-            _sdkOverviewContainer.Add(BuildGameAnalyticsOverviewRow(gaStatus));
+            _sdkOverviewContainer.Add(BuildGameAnalyticsOverviewRow(gaStatus, gaWhitelistWarn));
 
             // Facebook (always required)
             _sdkOverviewContainer.Add(BuildSdkOverviewRow(

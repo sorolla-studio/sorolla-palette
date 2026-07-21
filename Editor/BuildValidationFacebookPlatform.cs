@@ -52,10 +52,12 @@ namespace Sorolla.Palette.Editor
                     break;
 
                 case FacebookPlatformValidator.ProbeState.CredentialInvalid:
+                    // Fix hint omits the "open FacebookSettings.asset" step (product-audit fix cycle
+                    // residual, 2026-07-21): the row's "Open FB Settings" button already opens it.
                     results.Add(Warning(
                         category,
                         probe.Detail,
-                        "Verify FacebookSettings.asset app id + client token against the Facebook developer console"));
+                        "Compare the app id + client token against the Facebook developer console"));
                     break;
 
                 case FacebookPlatformValidator.ProbeState.Verified:

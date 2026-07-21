@@ -34,11 +34,15 @@ namespace Sorolla.Palette.Editor
                 // Awareness-first severity ruling (Arthur, via supervisor): a studio may intentionally
                 // ship one platform at a time, so a missing per-platform vendor key is not a build
                 // blocker - it is a warning with a clear root cause, signal, and fix.
+                // Fix hint deliberately omits the "Window > GameAnalytics > Select Settings" navigation
+                // step: the Greenlight row's "Open GA Settings" button now performs that exact navigation
+                // (product-audit fix cycle residual, 2026-07-21) - the hint states only what to do once
+                // there, not where the button already took you.
                 results.Add(Warning(
                     category,
                     $"{platformName} has no game key + secret key pair in Assets/Resources/GameAnalytics/Settings.asset.\n" +
                     $"  GameAnalytics will drop 100% of events on {platformName}; device log shows the SDK never leaving \"not initialized\".",
-                    $"Window > GameAnalytics > Select Settings, add {platformName}, and paste the game key + secret key from the GameAnalytics dashboard"));
+                    $"Add {platformName} and paste the game key + secret key from the GameAnalytics dashboard"));
             }
 
             return results;
@@ -75,11 +79,13 @@ namespace Sorolla.Palette.Editor
 
             if (isEmpty)
             {
+                // Fix hint omits the "Window > GameAnalytics > Select Settings" navigation step for the
+                // same reason as CheckGameAnalyticsSettings above - the row's button already opens it.
                 results.Add(Warning(
                     category,
                     "GameAnalytics ResourceCurrencies whitelist is empty.\n" +
                     "  Only matters if this game tracks economy via Palette.Economy - GameAnalytics silently drops every resource event when the whitelist is empty.",
-                    "If the game tracks economy: Window > GameAnalytics > Select Settings and add each currency name (e.g. Coins) to Resource Currencies"));
+                    "If the game tracks economy: add each currency name (e.g. Coins) to Resource Currencies"));
             }
             else
             {
