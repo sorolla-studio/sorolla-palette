@@ -333,6 +333,11 @@ namespace Sorolla.Palette.Editor.Greenlight
                     ObservedProof = ProofScope.Static,
                     Evidence = FirstLine(worst.Message),
                     FixHint = worst.Fix,
+                    // A deliberate skip (F5 residual, 2026-07-21 audit review) must render/export as
+                    // neutral end-to-end, not collapse into an affirmative Pass once it reaches a gate row -
+                    // Outcome above still maps to Pass for aggregation (non-blocking), this flag is the
+                    // separate signal frontends/export use to label it correctly.
+                    Informational = worst.Status == BuildValidator.ValidationStatus.Skipped,
                 };
             }
         }

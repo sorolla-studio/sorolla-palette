@@ -68,7 +68,12 @@ namespace Sorolla.Palette.Editor.Greenlight
                     ["requirement"] = r.Requirement.ToString(),
                     ["requirement_reason"] = r.RequirementReason ?? "",
                     ["disposition"] = r.Disposition.ToString(),
-                    ["outcome"] = r.Outcome.ToString(),
+                    // A deliberate skip/absence must never export as an affirmative [Pass] (F5 residual,
+                    // 2026-07-21 audit review) - the raw Outcome still aggregates as Pass (non-blocking), but
+                    // the exported label and an explicit flag both say Skipped so a reader can't mistake it
+                    // for evaluated evidence.
+                    ["outcome"] = r.Informational ? "Skipped" : r.Outcome.ToString(),
+                    ["informational"] = r.Informational,
                     ["required_proof"] = ProofNames(r.RequiredProof),
                     ["observed_proof"] = ProofNames(r.ObservedProof),
                     ["evidence"] = r.Evidence ?? "",
@@ -108,7 +113,10 @@ namespace Sorolla.Palette.Editor.Greenlight
 
             foreach (GateResult r in health?.Rows ?? Array.Empty<GateResult>())
             {
-                sb.AppendLine($"[{r.Outcome}] {r.GateId} (v{r.DefinitionVersion}, {r.Classification}) " +
+                // Same Skipped relabel as the JSON export above - never print an affirmative [Pass] for a
+                // deliberate skip/absence result (F5 residual, 2026-07-21 audit review).
+                string outcomeLabel = r.Informational ? "Skipped" : r.Outcome.ToString();
+                sb.AppendLine($"[{outcomeLabel}] {r.GateId} (v{r.DefinitionVersion}, {r.Classification}) " +
                               $"req={r.Requirement} disp={r.Disposition} " +
                               $"proof req={ProofString(r.RequiredProof)} obs={ProofString(r.ObservedProof)}");
                 if (!string.IsNullOrEmpty(r.RequirementReason))

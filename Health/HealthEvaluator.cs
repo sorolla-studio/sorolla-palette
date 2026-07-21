@@ -120,6 +120,7 @@ namespace Sorolla.Palette.Health
                             row.ObservedProof = matches[0].ObservedProof;
                             row.Evidence = matches[0].Evidence;
                             row.FixHint = matches[0].FixHint;
+                            row.Informational = matches[0].Informational;
                             row.Outcome = matches[0].Outcome == GateOutcome.Fail
                                 ? GateOutcome.Fail
                                 : GateOutcome.Incomplete;
@@ -270,6 +271,7 @@ namespace Sorolla.Palette.Health
             row.ObservedProof = only.ObservedProof;
             row.Evidence = only.Evidence;
             row.FixHint = only.FixHint;
+            row.Informational = only.Informational;
 
             switch (only.Outcome)
             {

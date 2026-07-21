@@ -90,6 +90,13 @@ namespace Sorolla.Palette.Editor.Greenlight
                     continue;
 
                 CheckRow.Status status = ToStatus(r.Outcome);
+                // A deliberate skip/absence still aggregates as Pass (non-blocking), but must never render
+                // as an affirmative green check (F5 residual, 2026-07-21 audit review: this collapsed back
+                // into Pass end-to-end once the Build Health row list - which special-cased it locally - was
+                // deleted by F12). Display-only override; PassCount below still counts it (the `default`
+                // arm covers both Pass and Info), so the verdict/aggregation is untouched.
+                if (r.Informational && status == CheckRow.Status.Pass)
+                    status = CheckRow.Status.Info;
                 (string url, string linkLabel) = GreenlightAdapter.DeepLinkFor(r.GateId);
                 report.Rows.Add(new Row
                 {

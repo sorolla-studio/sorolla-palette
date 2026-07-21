@@ -209,6 +209,14 @@ namespace Sorolla.Palette.Health
         public ProofScope ObservedProof;
         public string Evidence;
         public string FixHint;
+        /// <summary>The producer observed a deliberate skip (vendor absent, wrong platform/profile) rather
+        /// than an affirmative pass - Outcome still maps to Pass for aggregation (a skip is non-blocking,
+        /// same as a pass), but frontends and the report export must render/label it as neutral, never as
+        /// an affirmative green check (F5 residual, 2026-07-21 audit review: Skipped had collapsed into
+        /// Pass end-to-end once the Build Health row list - which special-cased it locally - was deleted
+        /// by F12). Purely additive passthrough: does not affect Outcome, Disposition, or verdict
+        /// aggregation, only downstream display/export labeling.</summary>
+        public bool Informational;
     }
 
     /// <summary>The trusted facts a definition's requirement predicate reads. Provenance is a later
@@ -253,6 +261,8 @@ namespace Sorolla.Palette.Health
         public ProofScope ObservedProof;
         public string Evidence;
         public string FixHint;
+        /// <summary>Carried through from the matched observation - see <see cref="GateObservation.Informational"/>.</summary>
+        public bool Informational;
     }
 
     internal sealed class HealthReport

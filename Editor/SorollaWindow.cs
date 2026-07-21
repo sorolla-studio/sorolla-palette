@@ -1266,7 +1266,12 @@ namespace Sorolla.Palette.Editor
             bool anyOpen = false;
             foreach (GreenlightEvaluator.Row row in report.Rows)
             {
-                if (row.Status == CheckRow.Status.Pass) continue;
+                // Info rows are a deliberate skip/absence, not a fix a studio can act on (F5 residual,
+                // 2026-07-21 audit review: giving them their own neutral status must not make them start
+                // appearing on the studio surface, which only ever showed them while they were Pass -
+                // "GameAnalytics not installed" etc. carries zero leverage for a studio the same way a
+                // passing row does).
+                if (row.Status == CheckRow.Status.Pass || row.Status == CheckRow.Status.Info) continue;
                 bool isManualChecklistRow = GreenlightManualChecklist.DescriptorForLabel(row.Label) != null;
                 bool isStudioActionablePinIssue = row.Disposition == GateDisposition.Omitted;
                 if (isManualChecklistRow && !isStudioActionablePinIssue) continue;
@@ -1324,7 +1329,9 @@ namespace Sorolla.Palette.Editor
             // deliberate exception (its own scope comment says never drop it, since the probe genuinely
             // cannot verify that fact) - it still renders on a Pass row, re-prefixed "Note:" instead of
             // "Fix:" so it doesn't read as an outstanding requirement.
-            bool isPass = row.Status == CheckRow.Status.Pass;
+            // Info rows (deliberate skip/absence, F5 residual) get the same treatment as Pass - no Fix
+            // text and no action button, since a skip is not a caveat to resolve.
+            bool isPass = row.Status == CheckRow.Status.Pass || row.Status == CheckRow.Status.Info;
             bool isGaCredentialNote = row.GateId == GateIds.BuildGameAnalyticsCredentials;
 
             if (!string.IsNullOrEmpty(row.Fix) && (!isPass || isGaCredentialNote))
