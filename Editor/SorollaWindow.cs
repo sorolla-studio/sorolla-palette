@@ -1164,25 +1164,9 @@ namespace Sorolla.Palette.Editor
                 }
                 rowElements.AddRange(g.Inputs);
 
-                if (ShowInternalDepth)
-                {
-                    bool anyAttention = WorstOfRows(visibleRows) != CheckRow.Status.Pass;
-                    _greenlightContainer.Add(BuildExpandableGroup($"internal:{g.Id}", header, rowElements, anyAttention));
-                }
-                else
-                {
-                    var groupContainer = new VisualElement();
-                    groupContainer.style.marginBottom = 8;
-                    groupContainer.Add(header);
-
-                    var rowsWrap = new VisualElement();
-                    rowsWrap.style.marginLeft = 20;
-                    foreach (VisualElement element in rowElements)
-                        rowsWrap.Add(element);
-                    groupContainer.Add(rowsWrap);
-
-                    _greenlightContainer.Add(groupContainer);
-                }
+                bool anyAttention = WorstOfRows(visibleRows) != CheckRow.Status.Pass;
+                string persistKey = ShowInternalDepth ? $"internal:{g.Id}" : $"studio:{g.Id}";
+                _greenlightContainer.Add(BuildExpandableGroup(persistKey, header, rowElements, anyAttention));
             }
 
             if (!ShowInternalDepth && !anyOpen)
