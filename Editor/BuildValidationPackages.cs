@@ -37,7 +37,7 @@ namespace Sorolla.Palette.Editor
             else
             {
                 string modeName = SorollaSettings.IsPrototype ? "Prototype" : "Full";
-                results.Add(Valid(CheckCategory.RequiredSdks, $"{modeName} mode SDKs OK"));
+                results.Add(Valid(CheckCategory.RequiredSdks, $"All required SDKs present for {modeName} mode"));
             }
 
             return results;
@@ -198,7 +198,7 @@ namespace Sorolla.Palette.Editor
             }
 
             if (!hasIssues)
-                results.Add(Valid(CheckCategory.ModeConsistency, $"{modeName} mode SDKs OK"));
+                results.Add(Valid(CheckCategory.ModeConsistency, $"No mode-mismatched SDKs installed ({modeName} mode)"));
 
             return results;
         }

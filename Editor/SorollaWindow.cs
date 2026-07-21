@@ -1328,7 +1328,14 @@ namespace Sorolla.Palette.Editor
             // Detail and was the only Wait row in Device & QA rendering that sentence in place of the
             // WAIT tag instead of alongside it - inconsistent with its four sibling rows.
             bool longDetail = (manual != null || row.GateId == GateIds.DeviceNoSdkErrors) && row.Status != CheckRow.Status.Pass;
-            string statusSlotText = longDetail ? row.Status.ToString().ToUpperInvariant() : row.Detail;
+            // Studio humanizes the short state word (acceptance pass, 2026-07-21): internal view is a QA
+            // tool and can show the raw enum name (WAIT), but studio's every other surface already speaks
+            // plain English ("Needs attention", "Awaiting attestation") - includeAttestation doubles as
+            // "this is the internal view" at this method's one call site.
+            string statusWord = row.Status == CheckRow.Status.Wait && !includeAttestation
+                ? "Pending"
+                : row.Status.ToString().ToUpperInvariant();
+            string statusSlotText = longDetail ? statusWord : row.Detail;
             container.Add(CheckRow.Create(TrimGroupPrefix(row.Label, group), row.Status, statusSlotText));
 
             if (longDetail && !string.IsNullOrEmpty(row.Detail))

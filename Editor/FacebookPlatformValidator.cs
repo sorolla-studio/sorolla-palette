@@ -60,13 +60,17 @@ namespace Sorolla.Palette.Editor
         // "IOS" again. Human-facing messages still say "iOS" (ActivePlatformName below).
         static readonly string[] s_iosGraphPlatforms = { "IPHONE", "IPAD" };
 
+        // Normal-case display string (acceptance-pass follow-up, 2026-07-21: "ANDROID" was the one
+        // outlier shouting case among every other studio-facing platform label). The Graph API's own
+        // vocabulary is still all-caps ("ANDROID"), so the comparison below is case-insensitive rather
+        // than normalizing this string back to match it.
         internal static string ActivePlatformName() =>
-            EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS ? "iOS" : "ANDROID";
+            EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS ? "iOS" : "Android";
 
         static bool IsRegistered(List<string> supportedPlatforms, string platformName) =>
             platformName == "iOS"
                 ? s_iosGraphPlatforms.Any(supportedPlatforms.Contains)
-                : supportedPlatforms.Contains(platformName);
+                : supportedPlatforms.Contains(platformName, StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         ///     Kicks off a Graph API probe for this app id/client token/active-platform combination if
