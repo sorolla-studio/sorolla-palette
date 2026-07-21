@@ -37,7 +37,6 @@ namespace Sorolla.Palette.Editor
         readonly HashSet<string> _installingPackages = new HashSet<string>();
         SorollaConfig _config;
         SerializedObject _serializedConfig;
-        VisualElement _buildHealthContainer;
         VisualElement _sdkOverviewContainer;
         VisualElement _configContainer;
         VisualElement _heroContainer;
@@ -47,7 +46,6 @@ namespace Sorolla.Palette.Editor
         // leaving "enter it below" as a pointer with no action (F9, 2026-07-21 audit).
         VisualElement _adjustAppTokenField;
         VisualElement _tiktokAppIdField;
-        bool _buildHealthChecksExpanded;
         bool _greenlightChecksExpanded;
         List<BuildValidator.ValidationResult> _validationResults = new List<BuildValidator.ValidationResult>();
         readonly GreenlightDeviceSnapshot.State _snapshotState = new GreenlightDeviceSnapshot.State();
@@ -149,28 +147,16 @@ namespace Sorolla.Palette.Editor
             // not a new middle-split - it just slots in right before Build Health.
             // SDK Overview is studio-facing (fix-cycle ruling 1, 2026-07-21 11:30): vendor status
             // rows + Edit/Console/Install affordances are exactly the kind of self-serve control a
-            // studio needs, so it renders unconditionally, same as Greenlight/Config. Only the full
-            // Build Health row list stays INTERNAL depth - Build Health itself still runs (and still
-            // auto-fixes) on every refresh and before every build regardless of which sections are
-            // visible; the internal harness (Assets/SorollaInternal/Editor/ in the testbed) renders
-            // that extra depth by toggling ShowInternalDepth and calling this same CreateGUI.
+            // studio needs, so it renders unconditionally, same as Greenlight/Config. Build Health
+            // itself still runs (and still auto-fixes) on every refresh and before every build
+            // regardless of which sections are visible; its own row list/section is gone entirely
+            // (F12 ruling, 2026-07-21 ~12:30) - its unique bits (profile selector, auto-fix log,
+            // Firebase sub-rows) now render inside the internal Greenlight section instead of a second,
+            // disagreeing row list on the same surface.
             _sdkOverviewContainer = CreatePortedSectionContainer();
             _sdkOverviewContainer.style.marginTop = 10;
             scrollView.Add(_sdkOverviewContainer);
             RefreshSdkOverviewUI();
-
-            if (ShowInternalDepth)
-            {
-                _buildHealthContainer = CreatePortedSectionContainer();
-                _buildHealthContainer.style.marginTop = 10;
-                _buildHealthContainer.style.marginBottom = 10;
-                scrollView.Add(_buildHealthContainer);
-                RefreshBuildHealthUI(); // initial paint from whatever _validationResults already holds
-            }
-            else
-            {
-                _buildHealthContainer = null;
-            }
 
             // p3-config: DrawConfigSection() was the FIRST call in DrawLowerSections, so porting it
             // is a clean peel from the front of the already-shrunk IMGUIContainerB region.
@@ -1020,7 +1006,7 @@ namespace Sorolla.Palette.Editor
 
         /// <summary>Ported to UI Toolkit (p3-sdkoverview): same readiness computation and row order
         /// as the old DrawSdkOverviewSection(), rendered as real VisualElements. Clear-and-rebuild
-        /// on data change only, same guarded pattern as RefreshBuildHealthUI - triggers are
+        /// on data change only, same guarded pattern as the other ported sections - triggers are
         /// RunBuildValidation()'s completion (config/mode changes), the package registration events,
         /// play-mode transitions (Install-button enabled state), and the TikTok toggle itself.</summary>
         void RefreshSdkOverviewUI()
@@ -1209,19 +1195,57 @@ namespace Sorolla.Palette.Editor
 
             _greenlightContainer.Add(actionsRow);
 
-            // Privacy caution at copy time (C1): the report embeds tester names + evidence notes and is meant
-            // for PRs/tickets/chat - warn before it leaves the editor.
-            var privacyNote = new HelpBox(
-                "Copied reports include tester names and evidence notes. Do not paste secrets, tokens, private URLs, or personal data.",
-                HelpBoxMessageType.Info);
-            privacyNote.style.marginBottom = 6;
-            _greenlightContainer.Add(privacyNote);
+            // Privacy banner REMOVED entirely, both surfaces, no copy-time replacement (F13.5 ruling,
+            // 2026-07-21 ~12:30) - it was internal QA vocabulary ("tester names", "evidence notes") on a
+            // studio surface where attestations don't exist, and a permanent fixture above every
+            // actionable row on both surfaces either way.
 
             if (ShowInternalDepth)
             {
+                // Build Health's unique bits folded in here, its duplicate row list deleted (F12 ruling,
+                // 2026-07-21 ~12:30): the same _validationResults used to render TWICE on this one surface
+                // (Greenlight gate rows + a separate Build Health row list) with different vocabularies and
+                // different totals. Only the profile selector, the AUTO-FIXED log, and the Firebase
+                // sub-rows were unique to Build Health; its callout was a third, redundant verdict and is
+                // simply gone now that Greenlight's badge above is the one verdict.
+                var profileField = new EnumField("Validation Profile", BuildValidationProfileSettings.Current);
+                profileField.AddToClassList("sorolla-type-small");
+                profileField.style.marginBottom = 6;
+                profileField.RegisterValueChangedCallback(evt =>
+                {
+                    BuildValidationProfileSettings.Current = (ValidationProfile)evt.newValue;
+                    RunBuildValidation();
+                });
+                _greenlightContainer.Add(profileField);
+
+                foreach (string fix in _autoFixLog)
+                {
+                    var fixLabel = new Label($"AUTO-FIXED: {fix}");
+                    fixLabel.AddToClassList("sorolla-type-small");
+                    _greenlightContainer.Add(fixLabel);
+                }
+
                 var rowElements = new List<VisualElement>();
                 foreach (GreenlightEvaluator.Row row in report.Rows)
+                {
                     rowElements.Add(BuildGreenlightRow(row, includeAttestation: true));
+
+                    // Firebase sub-rows, active target only (F7 fix, carried over from the deleted Build
+                    // Health list): attached right under the Firebase Coherence gate row.
+                    if (row.GateId == GateIds.BuildFirebaseCoherence && SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
+                    {
+                        bool isIos = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS;
+                        VisualElement platformRow = isIos
+                            ? CheckRow.Create("GoogleService-Info.plist",
+                                SdkConfigDetector.IsFirebaseIOSConfigured() ? CheckRow.Status.Pass : CheckRow.Status.Warn,
+                                SdkConfigDetector.IsFirebaseIOSConfigured() ? "Found" : "Missing")
+                            : CheckRow.Create("google-services.json",
+                                SdkConfigDetector.IsFirebaseAndroidConfigured() ? CheckRow.Status.Pass : CheckRow.Status.Warn,
+                                SdkConfigDetector.IsFirebaseAndroidConfigured() ? "Found" : "Missing");
+                        platformRow.style.marginLeft = 24;
+                        rowElements.Add(platformRow);
+                    }
+                }
 
                 string summary = GreenlightEvaluator.RowSummary(report);
                 Foldout rowGroup = CollapsibleCheckGroup.Create(summary, rowElements, _greenlightChecksExpanded);
@@ -1234,19 +1258,29 @@ namespace Sorolla.Palette.Editor
             // a fix. A passing row is not information a studio has to read, and hiding it here hides
             // nothing from the verdict - the badge above already aggregates every row, and the copied
             // report still carries all of them. Manual/dashboard attestation checklist rows are Sorolla
-            // QA process (studio pilot not yet delegated), so they never render here either, per ruling 2.
+            // QA process (studio pilot not yet delegated), so they never render here either, per ruling 2 -
+            // EXCEPT the uncertified-pin case (Disposition.Omitted), which shares the same manual/Invariant
+            // gate shape but is genuinely studio-actionable (its fix is "pin a tagged release in
+            // manifest.json") - the filter must never hide a studio-actionable cause (F1 ruling, 2026-07-21
+            // ~12:30).
             bool anyOpen = false;
             foreach (GreenlightEvaluator.Row row in report.Rows)
             {
                 if (row.Status == CheckRow.Status.Pass) continue;
-                if (GreenlightManualChecklist.DescriptorForLabel(row.Label) != null) continue;
+                bool isManualChecklistRow = GreenlightManualChecklist.DescriptorForLabel(row.Label) != null;
+                bool isStudioActionablePinIssue = row.Disposition == GateDisposition.Omitted;
+                if (isManualChecklistRow && !isStudioActionablePinIssue) continue;
                 _greenlightContainer.Add(BuildGreenlightRow(row, includeAttestation: false));
                 anyOpen = true;
             }
 
             if (!anyOpen)
             {
-                var clear = new Label("Nothing outstanding in your project's setup.");
+                // F1 ruling (2026-07-21 ~12:30): NOT a semantics change - INCOMPLETE-while-clean is
+                // correct order-of-operations (Sorolla QA precedes release), so the empty state now
+                // explains that instead of asserting "nothing outstanding" right next to a badge that
+                // still reads INCOMPLETE.
+                var clear = new Label("Your setup is clean - remaining checks are Sorolla's QA before release.");
                 clear.AddToClassList("sorolla-type-small");
                 _greenlightContainer.Add(clear);
             }
@@ -1406,10 +1440,13 @@ namespace Sorolla.Palette.Editor
 
         #endregion
 
-        #region Build Health
+        #region Build Validation
 
         /// <summary>
-        ///     Run build validation checks and auto-fixes.
+        ///     Run build validation checks and auto-fixes. Build Health no longer has its own rendered
+        ///     section (F12 ruling, 2026-07-21 ~12:30 - its duplicate row list is deleted, its unique bits
+        ///     folded into the internal Greenlight render) - this method still runs every check and
+        ///     auto-fix exactly as before; only the now-deleted RefreshBuildHealthUI call is gone.
         /// </summary>
         void RunBuildValidation()
         {
@@ -1425,159 +1462,12 @@ namespace Sorolla.Palette.Editor
             // Run validation checks
             _validationResults = BuildValidator.RunAllChecks();
             Repaint();
-            RefreshBuildHealthUI();
             RefreshSdkOverviewUI();
             RefreshConfigUI();
             RefreshGreenlightUI();
         }
 
-        /// <summary>Ported to UI Toolkit (p3-buildhealth): CalloutCard summary + SectionHeader +
-        /// CheckRow per category, rebuilt from _validationResults/_autoFixLog. Clear-and-rebuild on
-        /// data change only (RunBuildValidation's completion path + this initial call from
-        /// CreateGUI) - never from a per-frame/per-event path, per the supervisor's guard against a
-        /// UITK Clear()-in-a-hot-path anti-pattern. Content/logic is unchanged from the old
-        /// DrawBuildHealthSection()/DrawFirebaseConfigSubRows() - only the rendering technology.
-        /// The check list itself is wrapped in a CollapsibleCheckGroup (Arthur's design review,
-        /// 2026-07-08): default-collapsed so the always-visible CalloutCard summary above it is the
-        /// primary signal, not a wall of rows; _buildHealthChecksExpanded remembers whatever the
-        /// user last chose across refreshes (Refresh button, mode switch, etc.) within this window
-        /// session, rather than re-collapsing every rebuild.</summary>
-        void RefreshBuildHealthUI()
-        {
-            // Ordering/null-safety guard: RunBuildValidation() can run from OnEnable before
-            // CreateGUI() has built _buildHealthContainer on some window lifecycles (and after a
-            // domain reload). No-op safely; CreateGUI()'s own call renders whatever
-            // _validationResults already holds once the container exists.
-            if (_buildHealthContainer == null) return;
-
-            _buildHealthContainer.Clear();
-
-            _buildHealthContainer.Add(SectionHeader.Create("Build Health", "Refresh", RunBuildValidation));
-
-            // Phase 3 (Build Health parity with the pre-build gates): QA Pass vs Release scoping for
-            // checks that only apply at one phase (sandbox mode, keystore, SDK pin, ...). Switching
-            // re-runs validation so those rows reflect the new profile immediately.
-            var profileField = new EnumField("Validation Profile", BuildValidationProfileSettings.Current);
-            profileField.AddToClassList("sorolla-type-small");
-            profileField.RegisterValueChangedCallback(evt =>
-            {
-                BuildValidationProfileSettings.Current = (ValidationProfile)evt.newValue;
-                RunBuildValidation();
-            });
-            _buildHealthContainer.Add(profileField);
-
-            // Callout renders AFTER the category loop below and restates the SAME counts the foldout
-            // summary uses (product-audit finding F2, 2026-07-21): one owner for "how many checks need
-            // attention" instead of this callout independently counting only errors while the foldout
-            // counts errors+warnings and Greenlight counts evidence gaps - three disagreeing numbers for
-            // the same _validationResults. Never green "Ready to build." while a warning or pending check
-            // is open, even with zero hard errors.
-            var calloutSlot = new VisualElement();
-            _buildHealthContainer.Add(calloutSlot);
-
-            foreach (string fix in _autoFixLog)
-            {
-                var fixLabel = new Label($"AUTO-FIXED: {fix}");
-                fixLabel.AddToClassList("sorolla-type-small");
-                _buildHealthContainer.Add(fixLabel);
-            }
-
-            var checkRows = new List<VisualElement>();
-            int errorCount = 0;
-            int warnCount = 0;
-            int waitCount = 0;
-            int issueCount = 0;
-
-            foreach (BuildValidator.CheckCategory category in (BuildValidator.CheckCategory[])Enum.GetValues(typeof(BuildValidator.CheckCategory)))
-            {
-                string checkName = BuildValidator.CheckNames[category];
-                var categoryResults = _validationResults.Where(r => r.Category == category).ToList();
-
-                bool hasError = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Error);
-                bool hasWarning = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Warning);
-                bool hasUnverifiable = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Unverifiable);
-                var validResult = categoryResults.Find(r => r.Status == BuildValidator.ValidationStatus.Valid);
-                var skippedResult = categoryResults.Find(r => r.Status == BuildValidator.ValidationStatus.Skipped);
-
-                CheckRow.Status status;
-                string statusText;
-                if (hasError)
-                {
-                    status = CheckRow.Status.Fail;
-                    statusText = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Error).Message.Split('\n')[0];
-                    issueCount++;
-                    errorCount++;
-                }
-                else if (hasWarning)
-                {
-                    status = CheckRow.Status.Warn;
-                    statusText = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Warning).Message.Split('\n')[0];
-                    issueCount++;
-                    warnCount++;
-                }
-                else if (hasUnverifiable)
-                {
-                    // Neutral, not a pass and not a build-blocking issue: offline/unreachable network
-                    // check. Never counted in issueCount - there is nothing actionable to fix locally.
-                    status = CheckRow.Status.Wait;
-                    statusText = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Unverifiable).Message.Split('\n')[0];
-                    waitCount++;
-                }
-                else if (validResult != null)
-                {
-                    status = CheckRow.Status.Pass;
-                    statusText = validResult.Message;
-                }
-                else if (skippedResult != null)
-                {
-                    // Deliberately skipped (vendor absent, wrong platform/profile) - a neutral notice, never
-                    // an affirmative green check (F5, 2026-07-21 audit).
-                    status = CheckRow.Status.Info;
-                    statusText = skippedResult.Message;
-                }
-                else
-                {
-                    status = CheckRow.Status.Wait; // "Not checked" - not a pass, closest honest state
-                    statusText = "Not checked";
-                }
-
-                checkRows.Add(CheckRow.Create(checkName, status, statusText));
-
-                // Firebase sub-rows: ACTIVE TARGET ONLY (F7, 2026-07-21 audit) - an Android-only project
-                // used to get a permanent "GoogleService-Info.plist - Missing" warning for a platform it
-                // never builds for, the same "irrelevant for active platform" pattern ruling 2 already
-                // fixed for GameAnalytics.
-                if (category == BuildValidator.CheckCategory.FirebaseCoherence && SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
-                {
-                    bool isIos = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS;
-                    VisualElement platformRow = isIos
-                        ? CheckRow.Create("GoogleService-Info.plist",
-                            SdkConfigDetector.IsFirebaseIOSConfigured() ? CheckRow.Status.Pass : CheckRow.Status.Warn,
-                            SdkConfigDetector.IsFirebaseIOSConfigured() ? "Found" : "Missing")
-                        : CheckRow.Create("google-services.json",
-                            SdkConfigDetector.IsFirebaseAndroidConfigured() ? CheckRow.Status.Pass : CheckRow.Status.Warn,
-                            SdkConfigDetector.IsFirebaseAndroidConfigured() ? "Found" : "Missing");
-                    platformRow.style.marginLeft = 24;
-                    checkRows.Add(platformRow);
-                }
-            }
-
-            string summary = issueCount > 0 ? $"{issueCount} of {checkRows.Count} checks need attention" : $"{checkRows.Count} checks passing";
-            Foldout checkGroup = CollapsibleCheckGroup.Create(summary, checkRows, _buildHealthChecksExpanded);
-            checkGroup.RegisterValueChangedCallback(evt => _buildHealthChecksExpanded = evt.newValue);
-            _buildHealthContainer.Add(checkGroup);
-
-            // Single-owner callout (F2): restates the SAME counts the foldout summary above uses, and
-            // never renders green "Ready to build." while a warning or pending check is open.
-            calloutSlot.Add(errorCount > 0
-                ? CalloutCard.Create(CalloutCard.Severity.Blocker, $"{errorCount} Issue(s)",
-                    "Fix the failing checks below before building.")
-                : warnCount > 0 || waitCount > 0
-                    ? CalloutCard.Create(CalloutCard.Severity.Advisory, $"{warnCount + waitCount} check(s) need attention",
-                        "No build-blocking errors, but review the warnings/pending checks below before shipping.")
-                    : CalloutCard.Create(CalloutCard.Severity.Success, "Build Health checks passing", "Ready to build."));
-        }
-
         #endregion
+
     }
 }

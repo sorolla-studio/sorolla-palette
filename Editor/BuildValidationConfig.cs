@@ -12,11 +12,17 @@ namespace Sorolla.Palette.Editor
         ///     "some SorollaConfig exists somewhere" (F14, 2026-07-21 audit: this window's own
         ///     asset-finder, AssetDatabase.FindAssets, can load/edit a SorollaConfig outside Resources/
         ///     entirely, which Resources.Load then can never resolve - the hero header, this check, and
-        ///     the Create-button availability disagreed as a result). Severity stays Warning pending an
-        ///     escalation ruling (F14's severity question is a separate judgment call, not touched here);
-        ///     only the path validation and the fix action are mechanical.
+        ///     the Create-button availability disagreed as a result). Escalates to Error in Full mode
+        ///     (F14 ruling, 2026-07-21 ~12:30, DR-133 alignment: a missing/misplaced config wedges a Full
+        ///     build's init forever, so this is a real build blocker there, not just a warning) - stays a
+        ///     Warning in Prototype/unconfigured, where it's disruptive but not silently fatal.
         /// </summary>
         const string ExpectedConfigPath = "Assets/Resources/SorollaConfig.asset";
+
+        static ValidationResult ConfigSyncIssue(string message, string fix) =>
+            !SorollaSettings.IsPrototype
+                ? Error(CheckCategory.ConfigSync, message, fix)
+                : Warning(CheckCategory.ConfigSync, message, fix);
 
         static List<ValidationResult> CheckConfigSync(Dictionary<string, object> dependencies)
         {
@@ -29,8 +35,7 @@ namespace Sorolla.Palette.Editor
                 if (guids.Length > 0)
                 {
                     string actualPath = AssetDatabase.GUIDToAssetPath(guids[0]);
-                    results.Add(Warning(
-                        CheckCategory.ConfigSync,
+                    results.Add(ConfigSyncIssue(
                         $"SorollaConfig exists at '{actualPath}', not '{ExpectedConfigPath}'.\n" +
                         "  Resources.Load (and the runtime) cannot find it there, so the SDK silently runs unconfigured.",
                         // Fix points at the in-window Create button, not menu prose (F14) - creating a
@@ -39,8 +44,7 @@ namespace Sorolla.Palette.Editor
                 }
                 else
                 {
-                    results.Add(Warning(
-                        CheckCategory.ConfigSync,
+                    results.Add(ConfigSyncIssue(
                         "SorollaConfig not found.",
                         "Click \"Create Configuration Asset\" in this window"));
                 }
@@ -54,8 +58,7 @@ namespace Sorolla.Palette.Editor
                 // Resources.Load scans EVERY folder literally named "Resources" anywhere under Assets, not
                 // just the top-level one - a config in a different Resources/ folder still resolves here
                 // but isn't at the canonical path other tooling assumes.
-                results.Add(Warning(
-                    CheckCategory.ConfigSync,
+                results.Add(ConfigSyncIssue(
                     $"SorollaConfig resolves via Resources.Load but lives at '{configPath}', not the canonical '{ExpectedConfigPath}'.",
                     $"Move the asset to {ExpectedConfigPath}"));
                 return results;

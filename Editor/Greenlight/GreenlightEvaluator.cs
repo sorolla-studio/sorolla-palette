@@ -24,6 +24,12 @@ namespace Sorolla.Palette.Editor.Greenlight
             /// specific gate (product-audit fix cycle ruling 1/5, 2026-07-21 11:55) without re-deriving it
             /// from the display label.</summary>
             public string GateId;
+            /// <summary>Carried through so the studio row filter can tell "this manual/Invariant row is a
+            /// Sorolla-QA attestation ask" (skip on the studio surface) apart from "this manual/Invariant
+            /// row is actually the uncertified-pin fix line, which IS studio-actionable" (F1 ruling,
+            /// 2026-07-21 ~12:30) - both share the same GateId/label shape (manual descriptor lookup can't
+            /// tell them apart), but only the pin case reaches <see cref="GateDisposition.Omitted"/>.</summary>
+            public GateDisposition Disposition;
             public string Label;
             public CheckRow.Status Status;
             public string Detail;
@@ -88,6 +94,7 @@ namespace Sorolla.Palette.Editor.Greenlight
                 report.Rows.Add(new Row
                 {
                     GateId = r.GateId,
+                    Disposition = r.Disposition,
                     Label = GreenlightAdapter.LabelFor(r.GateId),
                     Status = status,
                     Detail = DetailFor(r),
