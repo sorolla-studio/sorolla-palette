@@ -19,6 +19,11 @@ namespace Sorolla.Palette.Editor.Greenlight
     {
         internal sealed class Row
         {
+            /// <summary>The canonical gate id (<see cref="Sorolla.Palette.Health.GateIds"/>), null for the
+            /// synthetic Report Integrity row. Lets the window look up an in-editor remedy action for a
+            /// specific gate (product-audit fix cycle ruling 1/5, 2026-07-21 11:55) without re-deriving it
+            /// from the display label.</summary>
+            public string GateId;
             public string Label;
             public CheckRow.Status Status;
             public string Detail;
@@ -82,6 +87,7 @@ namespace Sorolla.Palette.Editor.Greenlight
                 (string url, string linkLabel) = GreenlightAdapter.DeepLinkFor(r.GateId);
                 report.Rows.Add(new Row
                 {
+                    GateId = r.GateId,
                     Label = GreenlightAdapter.LabelFor(r.GateId),
                     Status = status,
                     Detail = DetailFor(r),

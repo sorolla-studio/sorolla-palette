@@ -36,8 +36,12 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Human-readable per-platform breakdown for the SDK Overview row, e.g.
-        ///     "Android configured, iOS key missing".
+        ///     Human-readable detail for the SDK Overview row, SCOPED TO THE ACTIVE BUILD TARGET ONLY - e.g.
+        ///     "Android configured". Mentioning the other platform's key status here reads as a problem
+        ///     under a green check when only the active platform's key actually matters for
+        ///     <see cref="GetGameAnalyticsStatus"/> (product-audit fix cycle ruling 2, 2026-07-21 11:55:
+        ///     status glyph and text must agree - an irrelevant platform's state must not be mentioned next
+        ///     to a pass icon).
         /// </summary>
         public static string GetGameAnalyticsPlatformDetail()
         {
@@ -47,9 +51,9 @@ namespace Sorolla.Palette.Editor
             if (Resources.Load("GameAnalytics/Settings") == null)
                 return "Settings.asset not found";
 
-            string androidText = HasGameAnalyticsKeys(RuntimePlatform.Android) ? "Android configured" : "Android key missing";
-            string iosText = HasGameAnalyticsKeys(RuntimePlatform.IPhonePlayer) ? "iOS configured" : "iOS key missing";
-            return $"{androidText}, {iosText}";
+            RuntimePlatform active = ActiveGameAnalyticsPlatform();
+            string platformName = active == RuntimePlatform.IPhonePlayer ? "iOS" : "Android";
+            return HasGameAnalyticsKeys(active) ? $"{platformName} configured" : $"{platformName} key missing";
         }
 
         /// <summary>

@@ -370,6 +370,25 @@ namespace Sorolla.Palette.Editor.Greenlight
                 : (null, null);
         }
 
+        /// <summary>Gate ids whose fix is something THIS editor can do directly (open the exact vendor
+        /// settings asset/window the fix hint tells you to edit), rather than a step in a store console or
+        /// on a device - product-audit fix cycle ruling 1, 2026-07-21 11:55: "any row fix the editor can
+        /// perform/open becomes a button on the row, prose only where the editor genuinely can't act."
+        /// Same pattern as the attest rows' "Open Dashboard" deep link, just an in-editor action instead of
+        /// a URL.</summary>
+        static readonly Dictionary<string, (string Label, Action Action)> EditorActions =
+            new Dictionary<string, (string, Action)>
+            {
+                [GateIds.BuildGameAnalyticsKeys] = ("Open GA Settings", SdkConfigDetector.OpenGameAnalyticsSettings),
+                [GateIds.BuildGameAnalyticsResourceWhitelist] = ("Open GA Settings", SdkConfigDetector.OpenGameAnalyticsSettings),
+                [GateIds.BuildFacebookPlatform] = ("Open FB Settings", SdkConfigDetector.OpenFacebookSettings),
+            };
+
+        internal static (string label, Action action) EditorActionFor(string gateId) =>
+            gateId != null && EditorActions.TryGetValue(gateId, out (string Label, Action Action) entry)
+                ? (entry.Label, entry.Action)
+                : (null, null);
+
         static readonly Dictionary<string, string> DeviceLabels = new Dictionary<string, string>
         {
             [GateIds.DeviceNoSdkErrors] = "Device Snapshot: SDK Errors",

@@ -767,6 +767,78 @@ namespace Sorolla.Palette.Editor
             });
         }
 
+        /// <summary>GameAnalytics is the one vendor Build Health runs TWO checks for (per-platform keys,
+        /// and the Resource Whitelist that a game's economy tracking silently needs) - this row reflects
+        /// whichever of the two is worse instead of only the key-config status, so it can't disagree with
+        /// what Greenlight is warning about for the same vendor (product-audit fix cycle ruling 3,
+        /// 2026-07-21 11:55). The Edit button always opens GA Settings regardless of which finding is
+        /// worse - it is the one place both facts get fixed.</summary>
+        VisualElement BuildGameAnalyticsOverviewRow(SdkConfigDetector.ConfigStatus keyStatus)
+        {
+            SdkInfo sdk = SdkRegistry.All[SdkId.GameAnalytics];
+            bool isInstalled = SdkDetector.IsInstalled(sdk);
+            bool isInstalling = _installingPackages.Contains(sdk.PackageId);
+            string keyDetail = SdkConfigDetector.GetGameAnalyticsPlatformDetail();
+
+            bool whitelistWarn = _validationResults.Any(r =>
+                r.Category == BuildValidator.CheckCategory.GameAnalyticsResourceWhitelist &&
+                r.Status == BuildValidator.ValidationStatus.Warning);
+
+            Color iconColor;
+            string iconGlyph;
+            Color configColor;
+            string configText;
+            if (isInstalling)
+            {
+                iconColor = ColorYellow;
+                iconGlyph = "⏳";
+                configColor = ColorYellow;
+                configText = "Installing...";
+            }
+            else if (!isInstalled)
+            {
+                iconColor = ColorRed;
+                iconGlyph = "✗";
+                configColor = ColorGray;
+                configText = "—";
+            }
+            else if (keyStatus != SdkConfigDetector.ConfigStatus.Configured)
+            {
+                iconColor = ColorRed;
+                iconGlyph = "✗";
+                configColor = ColorYellow;
+                configText = keyDetail;
+            }
+            else if (whitelistWarn)
+            {
+                iconColor = ColorYellow;
+                iconGlyph = "⚠";
+                configColor = ColorYellow;
+                configText = $"✓ {keyDetail} · Resource whitelist empty";
+            }
+            else
+            {
+                iconColor = ColorGreen;
+                iconGlyph = "✓";
+                configColor = ColorGreen;
+                configText = $"✓ {keyDetail}";
+            }
+
+            var nameLabel = new Label(sdk.Name);
+            nameLabel.AddToClassList("sorolla-sdk-row-name");
+
+            return BuildVendorRow(new SdkOverviewRowData
+            {
+                NameElement = nameLabel,
+                IconGlyph = iconGlyph,
+                IconColor = iconColor,
+                ConfigText = configText,
+                ConfigColor = configColor,
+                ActionLabel = isInstalled ? "Edit" : null,
+                OnAction = isInstalled ? SdkConfigDetector.OpenGameAnalyticsSettings : null,
+            });
+        }
+
         VisualElement BuildFirebaseOverviewRow()
         {
             bool isInstalled = SdkDetector.IsInstalled(SdkId.FirebaseAnalytics);
@@ -944,19 +1016,21 @@ namespace Sorolla.Palette.Editor
             headerSpacer.style.flexGrow = 1;
             headerRow.Add(headerSpacer);
 
+            // Scoped wording (product-audit fix cycle ruling 4, 2026-07-21 11:55): this badge reflects
+            // ONLY whether the required vendors are installed+keyed, not overall build/QA health - it must
+            // not read as a second, competing verdict next to the Greenlight badge above it (which can
+            // legitimately say INCOMPLETE while every vendor here is installed and keyed).
             headerRow.Add(isReady
-                ? StatusBadge.Create("READY", StatusBadge.Severity.Pass)
-                : StatusBadge.Create("SETUP REQUIRED", StatusBadge.Severity.Advisory));
+                ? StatusBadge.Create("VENDORS READY", StatusBadge.Severity.Pass)
+                : StatusBadge.Create("VENDOR SETUP NEEDED", StatusBadge.Severity.Advisory));
 
             _sdkOverviewContainer.Add(headerRow);
 
-            // GameAnalytics (always required) - shows the per-platform breakdown in both the
-            // Configured and NotConfigured branches, e.g. "Android configured, iOS key missing", so a
-            // single-platform config no longer false-greens as a flat "Configured".
-            string gaDetail = SdkConfigDetector.GetGameAnalyticsPlatformDetail();
-            _sdkOverviewContainer.Add(BuildSdkOverviewRow(
-                SdkRegistry.All[SdkId.GameAnalytics], gaStatus, gaDetail,
-                SdkConfigDetector.OpenGameAnalyticsSettings, true, gaDetail));
+            // GameAnalytics (always required). Reflects the WORST editor-side finding for this vendor
+            // (product-audit fix cycle ruling 3, 2026-07-21 11:55): per-platform key status AND the
+            // Resource Whitelist check Build Health also runs for GameAnalytics - a studio must not see a
+            // flat green "Configured" here while Greenlight is warning about the same vendor.
+            _sdkOverviewContainer.Add(BuildGameAnalyticsOverviewRow(gaStatus));
 
             // Facebook (always required)
             _sdkOverviewContainer.Add(BuildSdkOverviewRow(
@@ -1145,6 +1219,35 @@ namespace Sorolla.Palette.Editor
                 linkButton.AddToClassList("sorolla-footer-link");
                 linkButton.style.marginLeft = 24;
                 container.Add(linkButton);
+            }
+
+            // Editor-performable fix -> a button on the row, same pattern as the Open Dashboard deep link
+            // above, not just prose (product-audit fix cycle ruling 1, 2026-07-21 11:55).
+            (string actionLabel, Action action) = GreenlightAdapter.EditorActionFor(row.GateId);
+            if (action != null)
+            {
+                var actionButton = new Button(action) { text = actionLabel };
+                actionButton.AddToClassList("sorolla-footer-link");
+                actionButton.style.marginLeft = 24;
+                container.Add(actionButton);
+            }
+
+            // The device snapshot row's remedy IS the Connect Device action already in this section's
+            // header - point straight at it instead of leaving a bare "evidence missing" line with no
+            // button (product-audit fix cycle ruling 5, 2026-07-21 11:55).
+            if (row.GateId == GateIds.DeviceNoSdkErrors && row.Status != CheckRow.Status.Pass)
+            {
+                bool connecting = _snapshotState.Phase == GreenlightDeviceSnapshot.Phase.Running;
+                var connectRowButton = new Button(() => GreenlightDeviceSnapshot.Run(_snapshotState, () =>
+                {
+                    RefreshGreenlightUI();
+                    Repaint();
+                }))
+                { text = connecting ? "Connecting..." : "Connect Device" };
+                connectRowButton.AddToClassList("sorolla-button-small");
+                connectRowButton.style.marginLeft = 24;
+                connectRowButton.SetEnabled(!connecting);
+                container.Add(connectRowButton);
             }
 
             if (!includeAttestation) return container;
