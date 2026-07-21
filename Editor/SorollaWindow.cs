@@ -1295,7 +1295,15 @@ namespace Sorolla.Palette.Editor
                 }
 
                 List<VisualElement> configInputs = BuildConfigInputsForGroup(group);
-                if (actionableRows.Count == 0 && configInputs.Count == 0) continue;
+                // Build & Project's only config input (Verbose Logging) is a plain settings toggle, not a
+                // required/validated fix like MAX's ad units or Adjust's tokens - it doesn't earn the
+                // group an exception to the zero-leverage rule (round-3 refuter follow-up, 2026-07-21:
+                // "Build & Project - All clear" was the one clean group still rendering a header line in
+                // studio; Facebook/Firebase vanish entirely when clean, MAX/Adjust correctly stay open
+                // because their inputs are the fix for something). One rule: a clean group renders in
+                // studio only if it has a config input worth forcing open.
+                bool inputsForceOpen = configInputs.Count > 0 && group != GreenlightAdapter.VendorGroup.BuildAndProject;
+                if (actionableRows.Count == 0 && !inputsForceOpen) continue;
                 anyOpen = true;
 
                 var groupContainer = new VisualElement();
@@ -1459,7 +1467,11 @@ namespace Sorolla.Palette.Editor
             // puts in its bold, right-aligned, single-line status slot - ragged 5-7 line blue columns
             // colliding with neighbor rows (F10, 2026-07-21 audit). The status slot gets a short state
             // word instead; the full paragraph renders full-width under the label, same as Fix text.
-            bool longDetail = manual != null && row.Status != CheckRow.Status.Pass;
+            // Device Snapshot gets the identical treatment (round-3 refuter follow-up, 2026-07-21): it
+            // isn't a manual-checklist descriptor, but it carries the same kind of descriptive-sentence
+            // Detail and was the only Wait row in Device & QA rendering that sentence in place of the
+            // WAIT tag instead of alongside it - inconsistent with its four sibling rows.
+            bool longDetail = (manual != null || row.GateId == GateIds.DeviceNoSdkErrors) && row.Status != CheckRow.Status.Pass;
             string statusSlotText = longDetail ? row.Status.ToString().ToUpperInvariant() : row.Detail;
             container.Add(CheckRow.Create(TrimGroupPrefix(row.Label, group), row.Status, statusSlotText));
 
