@@ -408,9 +408,31 @@ namespace Sorolla.Palette.Editor
                 _adjustAppTokenField = null;
             }
 
-            // TikTok (optional - shown only when enabled in SDK Overview). Also PlatformAdUnitId
-            // (nested Android/iOS struct, same as the MAX ad units above), not a leaf string -
-            // stays plain PropertyField for the same reason.
+            // TikTok is a parked vendor (roadmap "Parking decisions" - no QA/diagnostics investment),
+            // so it's a plain config toggle here, not a Greenlight check row / vendor group (grouping-
+            // review ruling, 2026-07-21: it was pulled out of the check-row list entirely). Also
+            // PlatformAdUnitId (nested Android/iOS struct, same as the MAX ad units above), not a leaf
+            // string - stays plain PropertyField for the same reason.
+            var tiktokHeader = new Label("TikTok (optional, parked)");
+            tiktokHeader.AddToClassList("sorolla-config-group-header");
+            _configContainer.Add(tiktokHeader);
+
+            // Plain unbound Toggle, not a bound PropertyField: a PropertyField's ValueChangeCallback
+            // also fires once during Bind()'s own initial sync, and refreshing the whole container from
+            // inside that sync recurses (a fresh PropertyField created by the refresh gets bound again,
+            // fires again...) - Unity's own recursion guard caught this at ~490 deep during verification.
+            // Same fix shape as the pre-restructure TikTok row, which used an unbound Toggle for exactly
+            // this reason.
+            var tiktokToggle = new Toggle("Enabled") { value = _config.enableTikTok };
+            tiktokToggle.style.marginLeft = 15;
+            tiktokToggle.RegisterValueChangedCallback(evt =>
+            {
+                _config.enableTikTok = evt.newValue;
+                EditorUtility.SetDirty(_config);
+                RefreshConfigUI(); // fields show/hide with this same flag
+            });
+            _configContainer.Add(tiktokToggle);
+
             if (_config.enableTikTok)
             {
                 var tiktokAppIdField = new PropertyField(_serializedConfig.FindProperty("tiktokAppId"), "TikTok App ID");
@@ -928,74 +950,6 @@ namespace Sorolla.Palette.Editor
             });
         }
 
-        /// <summary>The only row that mutates the config asset directly. The Toggle callback must
-        /// stay byte-identical to the old ToggleLeft handler - same field, same SetDirty target, no
-        /// debounce (supervisor's explicit condition for exercising this control live, unlike the
-        /// Install buttons above).</summary>
-        VisualElement BuildTikTokOverviewRow()
-        {
-            bool enabled = _config.enableTikTok;
-            bool hasAppId = enabled && _config?.tiktokAppId?.IsConfigured == true
-                            && _config?.tiktokEmAppId?.IsConfigured == true;
-
-            Color iconColor = hasAppId ? ColorGreen : ColorGray;
-            string iconGlyph = hasAppId ? "✓" : "○";
-
-            var toggle = new Toggle("TikTok (optional)") { value = enabled };
-            toggle.AddToClassList("sorolla-sdk-row-name");
-            toggle.RegisterValueChangedCallback(evt =>
-            {
-                _config.enableTikTok = evt.newValue;
-                EditorUtility.SetDirty(_config);
-                RefreshGreenlightUI(); // TikTok's row lives in the Build & Project group now
-                RefreshConfigUI(); // TikTok's config fields show/hide with this same flag
-            });
-
-            Color configColor;
-            string configText;
-            if (!enabled)
-            {
-                configColor = ColorGray;
-                configText = "Disabled";
-            }
-            else if (hasAppId)
-            {
-                configColor = ColorGreen;
-                configText = "✓ Configured";
-            }
-            else
-            {
-                configColor = ColorGray;
-                configText = "Set App ID below";
-            }
-
-            string actionLabel = null;
-            Action onAction = null;
-            if (hasAppId)
-            {
-                actionLabel = "Dashboard";
-                onAction = () => Application.OpenURL("https://business.tiktok.com/");
-            }
-            else if (enabled)
-            {
-                // "Set App ID below" used to be a pointer with no action (F9, 2026-07-21 audit) - now
-                // scrolls/focuses the actual field, same treatment as the Adjust row above.
-                actionLabel = "Set ID";
-                onAction = () => FocusConfigField(_tiktokAppIdField);
-            }
-
-            return BuildVendorRow(new SdkOverviewRowData
-            {
-                NameElement = toggle,
-                IconGlyph = iconGlyph,
-                IconColor = iconColor,
-                ConfigText = configText,
-                ConfigColor = configColor,
-                ActionLabel = actionLabel,
-                OnAction = onAction,
-            });
-        }
-
         /// <summary>The vendor group header IS the overview row (vendor-grouping cycle, supervisor
         /// 2026-07-21 ~13:50) - the separate SDK Overview section is gone; RefreshGreenlightUI calls this
         /// once per vendor group to get the exact same row component that section used to render, now
@@ -1218,7 +1172,7 @@ namespace Sorolla.Palette.Editor
                     var rowElements = new List<VisualElement>();
                     foreach (GreenlightEvaluator.Row row in rows)
                     {
-                        rowElements.Add(BuildGreenlightRow(row, includeAttestation: true));
+                        rowElements.Add(BuildGreenlightRow(row, includeAttestation: true, group));
 
                         // Firebase sub-rows, active target only (F7 fix, carried over from the deleted
                         // Build Health list): attached right under the Firebase Coherence gate row, now
@@ -1238,13 +1192,6 @@ namespace Sorolla.Palette.Editor
                         }
                     }
 
-                    // TikTok has no gate/category at all (a pure config toggle, not a Build Health check) -
-                    // it doesn't fit the grouping key ("the gate's existing category"), so it can't earn its
-                    // own group without inventing a fourth one. Appended as an extra row in Build & Project,
-                    // the catch-all for project-level config that isn't vendor-specific.
-                    if (group == GreenlightAdapter.VendorGroup.BuildAndProject)
-                        rowElements.Add(BuildTikTokOverviewRow());
-
                     VisualElement header = BuildVendorGroupHeader(group) ?? BuildPlainGroupHeader(GroupTitle(group), rows);
                     bool anyAttention = rows.Any(r => r.Status == CheckRow.Status.Fail || r.Status == CheckRow.Status.Warn || r.Status == CheckRow.Status.Wait);
                     _greenlightContainer.Add(BuildExpandableGroup($"internal:{group}", header, rowElements, anyAttention));
@@ -1255,9 +1202,10 @@ namespace Sorolla.Palette.Editor
 
             // Studio view: same grouping, same filter as before regrouping - only studio-red actionable
             // rows render, per group (vendor-grouping cycle, supervisor 2026-07-21 ~13:50). A group with
-            // nothing actionable renders NOT AT ALL (zero-leverage rule) - EXCEPT Build & Project, which
-            // always carries the TikTok enable/configure control regardless of whether any gate row in
-            // that group needs attention, since that's a studio-facing control, not a diagnostic.
+            // nothing actionable renders NOT AT ALL (zero-leverage rule) - no exceptions: TikTok is a
+            // parked vendor (roadmap "Parking decisions" - no QA/diagnostics investment) and lives as a
+            // plain config toggle in the SDK Keys area now, not as a check row, so it no longer forces
+            // Build & Project to stay visible when clean (grouping-review ruling, 2026-07-21).
             // Manual/dashboard attestation checklist rows are Sorolla QA process (studio pilot not yet
             // delegated), so they never render here either, per ruling 2 - EXCEPT the uncertified-pin case
             // (Disposition.Omitted), which is genuinely studio-actionable (F1 ruling, 2026-07-21 ~12:30).
@@ -1278,10 +1226,8 @@ namespace Sorolla.Palette.Editor
                     actionableRows.Add(row);
                 }
 
-                bool isBuildAndProject = group == GreenlightAdapter.VendorGroup.BuildAndProject;
-                if (actionableRows.Count == 0 && !isBuildAndProject) continue;
-
-                if (actionableRows.Count > 0) anyOpen = true;
+                if (actionableRows.Count == 0) continue;
+                anyOpen = true;
 
                 var groupContainer = new VisualElement();
                 groupContainer.style.marginBottom = 8;
@@ -1290,9 +1236,7 @@ namespace Sorolla.Palette.Editor
                 var rowsWrap = new VisualElement();
                 rowsWrap.style.marginLeft = 20;
                 foreach (GreenlightEvaluator.Row row in actionableRows)
-                    rowsWrap.Add(BuildGreenlightRow(row, includeAttestation: false));
-                if (isBuildAndProject)
-                    rowsWrap.Add(BuildTikTokOverviewRow());
+                    rowsWrap.Add(BuildGreenlightRow(row, includeAttestation: false, group));
                 groupContainer.Add(rowsWrap);
 
                 _greenlightContainer.Add(groupContainer);
@@ -1320,6 +1264,27 @@ namespace Sorolla.Palette.Editor
             GreenlightAdapter.VendorGroup.BuildAndProject,
             GreenlightAdapter.VendorGroup.DeviceAndQa,
         };
+
+        /// <summary>Child rows inside a vendor group drop the redundant vendor name from their own label
+        /// - "GameAnalytics Platform Keys" reads as "Platform Keys" once it's already indented under a
+        /// "GameAnalytics" header (grouping-review ruling, 2026-07-21). Display-only: the gate id, the
+        /// LabelFor lookup, and the copied/exported report all keep the full name - this only changes
+        /// the text a CheckRow shows.</summary>
+        static string TrimGroupPrefix(string label, GreenlightAdapter.VendorGroup? group)
+        {
+            string prefix = group switch
+            {
+                GreenlightAdapter.VendorGroup.GameAnalytics => "GameAnalytics ",
+                GreenlightAdapter.VendorGroup.Facebook => "Facebook ",
+                GreenlightAdapter.VendorGroup.Firebase => "Firebase ",
+                GreenlightAdapter.VendorGroup.AppLovinMax => "MAX ",
+                GreenlightAdapter.VendorGroup.Adjust => "Adjust ",
+                _ => null,
+            };
+            return !string.IsNullOrEmpty(prefix) && !string.IsNullOrEmpty(label) && label.StartsWith(prefix)
+                ? label.Substring(prefix.Length)
+                : label;
+        }
 
         static string GroupTitle(GreenlightAdapter.VendorGroup group) => group switch
         {
@@ -1383,13 +1348,15 @@ namespace Sorolla.Palette.Editor
         /// unchecked box (brief requirement: always carry fix text + deep link). Studio callers pass
         /// includeAttestation: false since attestation checklist rows never reach the studio render
         /// (ruling 2 - they're Sorolla QA process, not a studio row at all).</summary>
-        VisualElement BuildGreenlightRow(GreenlightEvaluator.Row row, bool includeAttestation)
+        VisualElement BuildGreenlightRow(GreenlightEvaluator.Row row, bool includeAttestation, GreenlightAdapter.VendorGroup? group = null)
         {
             var container = new VisualElement();
 
             // Looked up once, up front: used below both to decide how this row's detail text lays out
             // (F10) and, further down, to render the Attest button (unchanged behavior, just no longer a
-            // second lookup of the same descriptor).
+            // second lookup of the same descriptor). Keyed on the FULL label, never the trimmed display
+            // text below - manual descriptor lookup, gate ids, and the exported report are unaffected by
+            // the vendor-prefix trim (grouping-review ruling, 2026-07-21: display-only).
             GreenlightManualChecklist.Descriptor manual = GreenlightManualChecklist.DescriptorForLabel(row.Label);
 
             // Manual gates carry a multi-sentence "why this matters" paragraph as Detail, which CheckRow
@@ -1398,7 +1365,7 @@ namespace Sorolla.Palette.Editor
             // word instead; the full paragraph renders full-width under the label, same as Fix text.
             bool longDetail = manual != null && row.Status != CheckRow.Status.Pass;
             string statusSlotText = longDetail ? row.Status.ToString().ToUpperInvariant() : row.Detail;
-            container.Add(CheckRow.Create(row.Label, row.Status, statusSlotText));
+            container.Add(CheckRow.Create(TrimGroupPrefix(row.Label, group), row.Status, statusSlotText));
 
             if (longDetail && !string.IsNullOrEmpty(row.Detail))
             {
