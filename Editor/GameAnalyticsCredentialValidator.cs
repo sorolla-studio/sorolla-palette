@@ -122,10 +122,16 @@ namespace Sorolla.Palette.Editor
 
             long responseCode = request.responseCode;
 
+            // Truncated for on-screen/copied-report display only (F13.6, 2026-07-21 audit) - the raw
+            // gameKey still flows into ProbeResult's cache-matching field below, unchanged. A game key
+            // isn't a secret credential by itself (the secret key never renders), but it identifies the
+            // specific GA project and doesn't need to render in full next to a "don't paste secrets" note.
+            string displayKey = gameKey.Length > 8 ? gameKey.Substring(0, 8) + "…" : gameKey;
+
             if (responseCode == 401)
             {
                 return new ProbeResult(ProbeState.CredentialInvalid, gameKey,
-                    $"GameAnalytics game key/secret key pair for {gameKey} was rejected by the collector (HTTP 401).\n" +
+                    $"GameAnalytics game key/secret key pair for {displayKey} was rejected by the collector (HTTP 401).\n" +
                     "  Events will fail to submit; GA will silently show no data for this build.", now);
             }
 
@@ -138,7 +144,7 @@ namespace Sorolla.Palette.Editor
             // Scoped to what this probe actually proved - the platform-registration reminder lives
             // once, in the caller's Fix text (BuildValidationGameAnalyticsCredential.cs), not here too.
             return new ProbeResult(ProbeState.CredentialsValid, gameKey,
-                $"GameAnalytics credentials for {gameKey} are a live, matched pair.", now);
+                $"GameAnalytics credentials for {displayKey} are a live, matched pair.", now);
         }
     }
 }

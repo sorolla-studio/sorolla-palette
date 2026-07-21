@@ -15,7 +15,7 @@ namespace Sorolla.Palette.Editor
 
             if (!SorollaSettings.IsConfigured)
             {
-                results.Add(Valid(CheckCategory.RequiredSdks, "Mode not configured"));
+                results.Add(Skipped(CheckCategory.RequiredSdks, "Mode not configured"));
                 return results;
             }
 

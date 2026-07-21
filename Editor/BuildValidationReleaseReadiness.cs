@@ -27,7 +27,7 @@ namespace Sorolla.Palette.Editor
             var config = Resources.Load<SorollaConfig>("SorollaConfig");
             if (config == null)
             {
-                results.Add(Valid(category, "SorollaConfig not found"));
+                results.Add(Skipped(category, "SorollaConfig not found"));
                 return results;
             }
 
@@ -180,7 +180,7 @@ namespace Sorolla.Palette.Editor
 
             if (!dependencies.ContainsKey("com.unity.addressables"))
             {
-                results.Add(Valid(category, "Addressables not installed"));
+                results.Add(Skipped(category, "Addressables not installed"));
                 return results;
             }
 
@@ -222,7 +222,7 @@ namespace Sorolla.Palette.Editor
 
             if (!dependencies.TryGetValue("com.sorolla.sdk", out object sdkRefObj))
             {
-                results.Add(Valid(category, "com.sorolla.sdk is an embedded/local package - no manifest pin to check"));
+                results.Add(Skipped(category, "com.sorolla.sdk is an embedded/local package - no manifest pin to check"));
                 return results;
             }
 

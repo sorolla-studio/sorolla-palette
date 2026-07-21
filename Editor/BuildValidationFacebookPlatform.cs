@@ -17,13 +17,13 @@ namespace Sorolla.Palette.Editor
 
             if (!SdkDetector.IsInstalled(SdkId.Facebook))
             {
-                results.Add(Valid(category, "Facebook not installed"));
+                results.Add(Skipped(category, "Facebook not installed"));
                 return results;
             }
 
             if (!SdkConfigDetector.TryGetFacebookCredentials(out string appId, out string clientToken))
             {
-                results.Add(Valid(category, "Facebook app id/client token not set, platform check skipped"));
+                results.Add(Skipped(category, "Facebook app id/client token not set, platform check skipped"));
                 return results;
             }
 

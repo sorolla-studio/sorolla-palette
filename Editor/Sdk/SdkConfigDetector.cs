@@ -205,38 +205,17 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Checks if Facebook SDK has a valid App ID configured.
+        ///     Checks if Facebook SDK has BOTH a valid App ID and Client Token configured. Used to false-green
+        ///     as Configured on App ID alone while the Graph platform probe (which needs both) warns about the
+        ///     same vendor beside a flat green Overview row (product-audit finding F7, 2026-07-21) - now the
+        ///     same <see cref="TryGetFacebookCredentials"/> pair the probe itself requires.
         /// </summary>
         public static ConfigStatus GetFacebookStatus()
         {
             if (!SdkDetector.IsInstalled(SdkId.Facebook))
                 return ConfigStatus.NotInstalled;
 
-            try
-            {
-                // Load FacebookSettings from Resources
-                var settings = Resources.Load("FacebookSettings");
-                if (settings == null)
-                    return ConfigStatus.NotConfigured;
-
-                // Use SerializedObject to read appIds
-                var serialized = new SerializedObject(settings);
-                var appIdsProperty = serialized.FindProperty("appIds");
-                
-                if (appIdsProperty != null && appIdsProperty.isArray && appIdsProperty.arraySize > 0)
-                {
-                    var firstAppId = appIdsProperty.GetArrayElementAtIndex(0).stringValue;
-                    // Check if it's a valid app ID (not "0" and has reasonable length)
-                    if (!string.IsNullOrEmpty(firstAppId) && firstAppId != "0" && firstAppId.Length > 5)
-                        return ConfigStatus.Configured;
-                }
-                
-                return ConfigStatus.NotConfigured;
-            }
-            catch
-            {
-                return ConfigStatus.NotConfigured;
-            }
+            return TryGetFacebookCredentials(out _, out _) ? ConfigStatus.Configured : ConfigStatus.NotConfigured;
         }
 
         /// <summary>
@@ -330,16 +309,22 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Checks if Firebase is fully configured (config files present).
         /// </summary>
+        /// <summary>
+        ///     Configured = the ACTIVE build target's config file is present, not "either platform" - the
+        ///     same single-platform false-green the GameAnalytics fix removed for GA (product-audit finding
+        ///     F7, 2026-07-21): an Android-only project used to read a flat green here while the Firebase
+        ///     Config Files gate/sub-rows correctly warned about the missing Android file.
+        /// </summary>
         public static ConfigStatus GetFirebaseStatus(SorollaConfig config)
         {
             if (!SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
                 return ConfigStatus.NotInstalled;
 
-            // At least one platform should be configured
-            if (IsFirebaseAndroidConfigured() || IsFirebaseIOSConfigured())
-                return ConfigStatus.Configured;
+            bool activeConfigured = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS
+                ? IsFirebaseIOSConfigured()
+                : IsFirebaseAndroidConfigured();
 
-            return ConfigStatus.NotConfigured;
+            return activeConfigured ? ConfigStatus.Configured : ConfigStatus.NotConfigured;
         }
     }
 }

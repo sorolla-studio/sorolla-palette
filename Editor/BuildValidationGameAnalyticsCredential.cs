@@ -22,13 +22,13 @@ namespace Sorolla.Palette.Editor
 
             if (!SdkDetector.IsInstalled(SdkId.GameAnalytics))
             {
-                results.Add(Valid(category, "GameAnalytics not installed"));
+                results.Add(Skipped(category, "GameAnalytics not installed"));
                 return results;
             }
 
             if (!SdkConfigDetector.TryGetGameAnalyticsCredentials(out string gameKey, out string secretKey))
             {
-                results.Add(Valid(category, "GameAnalytics game key/secret key not set, credential probe skipped"));
+                results.Add(Skipped(category, "GameAnalytics game key/secret key not set, credential probe skipped"));
                 return results;
             }
 

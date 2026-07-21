@@ -94,7 +94,7 @@ namespace Sorolla.Palette.Editor
                     results.Add(CheckIosConfig(category, required));
                     break;
                 default:
-                    results.Add(Valid(category, "Firebase config match applies to Android/iOS builds only"));
+                    results.Add(Skipped(category, "Firebase config match applies to Android/iOS builds only"));
                     break;
             }
 

@@ -1213,16 +1213,27 @@ namespace Sorolla.Palette.Editor
 
             container.Add(CheckRow.Create(row.Label, row.Status, row.Detail));
 
-            if (!string.IsNullOrEmpty(row.Fix))
+            // Pass rows suppress Fix text and remedy buttons entirely (product-audit finding F4,
+            // 2026-07-21): a green row with mandatory "Fix:" homework and an action button pointing at
+            // nothing-to-act-on is the glyph-vs-text contradiction family, one level deeper than the
+            // ruled defects. The GA credential probe's platform-registration reminder is the ONE
+            // deliberate exception (its own scope comment says never drop it, since the probe genuinely
+            // cannot verify that fact) - it still renders on a Pass row, re-prefixed "Note:" instead of
+            // "Fix:" so it doesn't read as an outstanding requirement.
+            bool isPass = row.Status == CheckRow.Status.Pass;
+            bool isGaCredentialNote = row.GateId == GateIds.BuildGameAnalyticsCredentials;
+
+            if (!string.IsNullOrEmpty(row.Fix) && (!isPass || isGaCredentialNote))
             {
-                var fixLabel = new Label($"Fix: {row.Fix}");
+                string prefix = isPass ? "Note" : "Fix";
+                var fixLabel = new Label($"{prefix}: {row.Fix}");
                 fixLabel.AddToClassList("sorolla-type-small");
                 fixLabel.style.marginLeft = 24;
                 fixLabel.style.whiteSpace = WhiteSpace.Normal;
                 container.Add(fixLabel);
             }
 
-            if (!string.IsNullOrEmpty(row.DeepLinkUrl))
+            if (!isPass && !string.IsNullOrEmpty(row.DeepLinkUrl))
             {
                 var linkButton = new Button(() => Application.OpenURL(row.DeepLinkUrl)) { text = row.DeepLinkLabel ?? "Open" };
                 linkButton.AddToClassList("sorolla-footer-link");
@@ -1231,8 +1242,9 @@ namespace Sorolla.Palette.Editor
             }
 
             // Editor-performable fix -> a button on the row, same pattern as the Open Dashboard deep link
-            // above, not just prose (product-audit fix cycle ruling 1, 2026-07-21 11:55).
-            (string actionLabel, Action action) = GreenlightAdapter.EditorActionFor(row.GateId);
+            // above, not just prose (product-audit fix cycle ruling 1, 2026-07-21 11:55). Pass rows get no
+            // action button (F4) - nothing to act on.
+            (string actionLabel, Action action) = isPass ? (null, null) : GreenlightAdapter.EditorActionFor(row.GateId);
             if (action != null)
             {
                 var actionButton = new Button(action) { text = actionLabel };
@@ -1246,6 +1258,21 @@ namespace Sorolla.Palette.Editor
             // button (product-audit fix cycle ruling 5, 2026-07-21 11:55).
             if (row.GateId == GateIds.DeviceNoSdkErrors && row.Status != CheckRow.Status.Pass)
             {
+                // Connect Device failures were completely silent (F3, 2026-07-21): every failure path
+                // writes State.DetailMessage but nothing ever rendered it, so pressing the button with no
+                // device attached looked like a broken no-op. Surface the actual reason once the attempt
+                // has settled without producing a parsed snapshot.
+                bool settledWithoutSnapshot = _snapshotState.Phase == GreenlightDeviceSnapshot.Phase.Done &&
+                                               _snapshotState.Outcome != GreenlightDeviceSnapshot.Outcome.Parsed;
+                if (settledWithoutSnapshot && !string.IsNullOrEmpty(_snapshotState.DetailMessage))
+                {
+                    var detailLabel = new Label(_snapshotState.DetailMessage);
+                    detailLabel.AddToClassList("sorolla-type-small");
+                    detailLabel.style.marginLeft = 24;
+                    detailLabel.style.whiteSpace = WhiteSpace.Normal;
+                    container.Add(detailLabel);
+                }
+
                 bool connecting = _snapshotState.Phase == GreenlightDeviceSnapshot.Phase.Running;
                 var connectRowButton = new Button(() => GreenlightDeviceSnapshot.Run(_snapshotState, () =>
                 {
@@ -1331,9 +1358,6 @@ namespace Sorolla.Palette.Editor
 
             _buildHealthContainer.Clear();
 
-            int errors = _validationResults.Count(r => r.Status == BuildValidator.ValidationStatus.Error);
-            bool isHealthy = errors == 0;
-
             _buildHealthContainer.Add(SectionHeader.Create("Build Health", "Refresh", RunBuildValidation));
 
             // Phase 3 (Build Health parity with the pre-build gates): QA Pass vs Release scoping for
@@ -1348,9 +1372,14 @@ namespace Sorolla.Palette.Editor
             });
             _buildHealthContainer.Add(profileField);
 
-            _buildHealthContainer.Add(isHealthy
-                ? CalloutCard.Create(CalloutCard.Severity.Success, "Build Health checks passing", "Ready to build.")
-                : CalloutCard.Create(CalloutCard.Severity.Blocker, $"{errors} Issue(s)", "Fix the failing checks below before building."));
+            // Callout renders AFTER the category loop below and restates the SAME counts the foldout
+            // summary uses (product-audit finding F2, 2026-07-21): one owner for "how many checks need
+            // attention" instead of this callout independently counting only errors while the foldout
+            // counts errors+warnings and Greenlight counts evidence gaps - three disagreeing numbers for
+            // the same _validationResults. Never green "Ready to build." while a warning or pending check
+            // is open, even with zero hard errors.
+            var calloutSlot = new VisualElement();
+            _buildHealthContainer.Add(calloutSlot);
 
             foreach (string fix in _autoFixLog)
             {
@@ -1360,6 +1389,9 @@ namespace Sorolla.Palette.Editor
             }
 
             var checkRows = new List<VisualElement>();
+            int errorCount = 0;
+            int warnCount = 0;
+            int waitCount = 0;
             int issueCount = 0;
 
             foreach (BuildValidator.CheckCategory category in (BuildValidator.CheckCategory[])Enum.GetValues(typeof(BuildValidator.CheckCategory)))
@@ -1371,6 +1403,7 @@ namespace Sorolla.Palette.Editor
                 bool hasWarning = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Warning);
                 bool hasUnverifiable = categoryResults.Any(r => r.Status == BuildValidator.ValidationStatus.Unverifiable);
                 var validResult = categoryResults.Find(r => r.Status == BuildValidator.ValidationStatus.Valid);
+                var skippedResult = categoryResults.Find(r => r.Status == BuildValidator.ValidationStatus.Skipped);
 
                 CheckRow.Status status;
                 string statusText;
@@ -1379,12 +1412,14 @@ namespace Sorolla.Palette.Editor
                     status = CheckRow.Status.Fail;
                     statusText = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Error).Message.Split('\n')[0];
                     issueCount++;
+                    errorCount++;
                 }
                 else if (hasWarning)
                 {
                     status = CheckRow.Status.Warn;
                     statusText = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Warning).Message.Split('\n')[0];
                     issueCount++;
+                    warnCount++;
                 }
                 else if (hasUnverifiable)
                 {
@@ -1392,11 +1427,19 @@ namespace Sorolla.Palette.Editor
                     // check. Never counted in issueCount - there is nothing actionable to fix locally.
                     status = CheckRow.Status.Wait;
                     statusText = categoryResults.First(r => r.Status == BuildValidator.ValidationStatus.Unverifiable).Message.Split('\n')[0];
+                    waitCount++;
                 }
                 else if (validResult != null)
                 {
                     status = CheckRow.Status.Pass;
                     statusText = validResult.Message;
+                }
+                else if (skippedResult != null)
+                {
+                    // Deliberately skipped (vendor absent, wrong platform/profile) - a neutral notice, never
+                    // an affirmative green check (F5, 2026-07-21 audit).
+                    status = CheckRow.Status.Info;
+                    statusText = skippedResult.Message;
                 }
                 else
                 {
@@ -1406,20 +1449,22 @@ namespace Sorolla.Palette.Editor
 
                 checkRows.Add(CheckRow.Create(checkName, status, statusText));
 
+                // Firebase sub-rows: ACTIVE TARGET ONLY (F7, 2026-07-21 audit) - an Android-only project
+                // used to get a permanent "GoogleService-Info.plist - Missing" warning for a platform it
+                // never builds for, the same "irrelevant for active platform" pattern ruling 2 already
+                // fixed for GameAnalytics.
                 if (category == BuildValidator.CheckCategory.FirebaseCoherence && SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
                 {
-                    bool androidOk = SdkConfigDetector.IsFirebaseAndroidConfigured();
-                    bool iosOk = SdkConfigDetector.IsFirebaseIOSConfigured();
-
-                    VisualElement androidRow = CheckRow.Create("google-services.json",
-                        androidOk ? CheckRow.Status.Pass : CheckRow.Status.Warn, androidOk ? "Found" : "Missing");
-                    androidRow.style.marginLeft = 24;
-                    checkRows.Add(androidRow);
-
-                    VisualElement iosRow = CheckRow.Create("GoogleService-Info.plist",
-                        iosOk ? CheckRow.Status.Pass : CheckRow.Status.Warn, iosOk ? "Found" : "Missing");
-                    iosRow.style.marginLeft = 24;
-                    checkRows.Add(iosRow);
+                    bool isIos = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS;
+                    VisualElement platformRow = isIos
+                        ? CheckRow.Create("GoogleService-Info.plist",
+                            SdkConfigDetector.IsFirebaseIOSConfigured() ? CheckRow.Status.Pass : CheckRow.Status.Warn,
+                            SdkConfigDetector.IsFirebaseIOSConfigured() ? "Found" : "Missing")
+                        : CheckRow.Create("google-services.json",
+                            SdkConfigDetector.IsFirebaseAndroidConfigured() ? CheckRow.Status.Pass : CheckRow.Status.Warn,
+                            SdkConfigDetector.IsFirebaseAndroidConfigured() ? "Found" : "Missing");
+                    platformRow.style.marginLeft = 24;
+                    checkRows.Add(platformRow);
                 }
             }
 
@@ -1427,6 +1472,16 @@ namespace Sorolla.Palette.Editor
             Foldout checkGroup = CollapsibleCheckGroup.Create(summary, checkRows, _buildHealthChecksExpanded);
             checkGroup.RegisterValueChangedCallback(evt => _buildHealthChecksExpanded = evt.newValue);
             _buildHealthContainer.Add(checkGroup);
+
+            // Single-owner callout (F2): restates the SAME counts the foldout summary above uses, and
+            // never renders green "Ready to build." while a warning or pending check is open.
+            calloutSlot.Add(errorCount > 0
+                ? CalloutCard.Create(CalloutCard.Severity.Blocker, $"{errorCount} Issue(s)",
+                    "Fix the failing checks below before building.")
+                : warnCount > 0 || waitCount > 0
+                    ? CalloutCard.Create(CalloutCard.Severity.Advisory, $"{warnCount + waitCount} check(s) need attention",
+                        "No build-blocking errors, but review the warnings/pending checks below before shipping.")
+                    : CalloutCard.Create(CalloutCard.Severity.Success, "Build Health checks passing", "Ready to build."));
         }
 
         #endregion

@@ -47,6 +47,12 @@ namespace Sorolla.Palette.Editor
             /// <summary>Could not verify: offline or the vendor endpoint is unreachable. Never blocks a
             /// build and never renders as a pass - re-run the check when online.</summary>
             Unverifiable,
+            /// <summary>The check did not run because it does not apply here (vendor not installed,
+            /// wrong platform, wrong validation profile) - never a build blocker, but NOT an affirmative
+            /// pass either: renders as a neutral notice (<see cref="Sorolla.Palette.Editor.UI.CheckRow.Status.Info"/>),
+            /// never a green check, so absence/skip can't be misread as "verified healthy" (product-audit
+            /// finding F5, 2026-07-21).</summary>
+            Skipped,
         }
         const string Tag = "[Palette BuildValidator]";
 
@@ -93,6 +99,11 @@ namespace Sorolla.Palette.Editor
         /// <summary>Offline/unreachable network check - never blocks a build, never renders as a pass.</summary>
         static ValidationResult Unverifiable(CheckCategory category, string message, string fix = null) =>
             new ValidationResult(ValidationStatus.Unverifiable, message, fix, category);
+
+        /// <summary>Check does not apply here (vendor absent, wrong platform/profile) - a neutral notice,
+        /// not an affirmative pass (F5).</summary>
+        static ValidationResult Skipped(CheckCategory category, string message, string fix = null) =>
+            new ValidationResult(ValidationStatus.Skipped, message, fix, category);
 
         // Stashed by RunAutoFixes(), consumed once by RunAllChecks() to avoid double detection.
         static AndroidManifestSanitizer.ManifestDiagnostics _lastManifestDiagnostics;

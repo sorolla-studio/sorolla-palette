@@ -19,7 +19,7 @@ namespace Sorolla.Palette.Editor
 
             if (!SdkDetector.IsInstalled(SdkId.GameAnalytics))
             {
-                results.Add(Valid(category, "GameAnalytics not installed"));
+                results.Add(Skipped(category, "GameAnalytics not installed"));
                 return results;
             }
 
@@ -61,7 +61,7 @@ namespace Sorolla.Palette.Editor
 
             if (!SdkDetector.IsInstalled(SdkId.GameAnalytics))
             {
-                results.Add(Valid(category, "GameAnalytics not installed"));
+                results.Add(Skipped(category, "GameAnalytics not installed"));
                 return results;
             }
 

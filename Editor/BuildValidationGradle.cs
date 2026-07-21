@@ -18,7 +18,7 @@ namespace Sorolla.Palette.Editor
 
             if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
             {
-                results.Add(Valid(CheckCategory.GradleConfig, "Gradle checks skipped (not Android)"));
+                results.Add(Skipped(CheckCategory.GradleConfig, "Gradle checks skipped (not Android)"));
                 return results;
             }
 

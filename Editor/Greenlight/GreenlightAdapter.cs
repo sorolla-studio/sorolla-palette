@@ -285,6 +285,15 @@ namespace Sorolla.Palette.Editor.Greenlight
                 [BuildValidator.CheckCategory.MaxSettings] = SdkModule.AppLovinMax,
                 [BuildValidator.CheckCategory.AdjustSettings] = SdkModule.Adjust,
                 [BuildValidator.CheckCategory.AdjustSandboxMode] = SdkModule.Adjust,
+                // Extended to GameAnalytics/Facebook (product-audit finding F5, 2026-07-21): the same
+                // "not installed" result those categories emit is vendor absence, not evidence, exactly
+                // like Firebase/MAX/Adjust above - without this the canonical export could show
+                // `[Pass] build.gameanalytics_keys - "GameAnalytics not installed"` right beside a failing
+                // Required SDKs gate, contradicting the report's own absence-is-not-evidence rule.
+                [BuildValidator.CheckCategory.GameAnalyticsSettings] = SdkModule.GameAnalytics,
+                [BuildValidator.CheckCategory.GameAnalyticsResourceWhitelist] = SdkModule.GameAnalytics,
+                [BuildValidator.CheckCategory.GameAnalyticsCredentialProbe] = SdkModule.GameAnalytics,
+                [BuildValidator.CheckCategory.FacebookPlatformConfig] = SdkModule.Facebook,
             };
 
         /// <summary>One observation per Build Health category actually produced (worst status wins when a
@@ -336,6 +345,9 @@ namespace Sorolla.Palette.Editor.Greenlight
             BuildValidator.ValidationStatus.Unverifiable => 1,
             BuildValidator.ValidationStatus.Warning => 2,
             BuildValidator.ValidationStatus.Valid => 3,
+            // Least severe: a deliberate skip (vendor absent, wrong platform/profile) never outranks an
+            // actual pass, error, warning, or pending check in the same category (F5, 2026-07-21).
+            BuildValidator.ValidationStatus.Skipped => 4,
             _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Undefined ValidationStatus."),
         };
 
@@ -345,6 +357,10 @@ namespace Sorolla.Palette.Editor.Greenlight
             BuildValidator.ValidationStatus.Warning => GateOutcome.PassWithCaveats,
             BuildValidator.ValidationStatus.Unverifiable => GateOutcome.Incomplete,
             BuildValidator.ValidationStatus.Valid => GateOutcome.Pass,
+            // A skip is non-blocking, same gate outcome as a pass (F5) - only the CheckRow-level display
+            // (Build Health row list) distinguishes it as a neutral Info notice rather than a green check;
+            // it does not change the gate's verdict contribution.
+            BuildValidator.ValidationStatus.Skipped => GateOutcome.Pass,
             _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Undefined ValidationStatus."),
         };
 
