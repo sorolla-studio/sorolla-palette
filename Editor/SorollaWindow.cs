@@ -413,7 +413,7 @@ namespace Sorolla.Palette.Editor
             // review ruling, 2026-07-21: it was pulled out of the check-row list entirely). Also
             // PlatformAdUnitId (nested Android/iOS struct, same as the MAX ad units above), not a leaf
             // string - stays plain PropertyField for the same reason.
-            var tiktokHeader = new Label("TikTok (optional, parked)");
+            var tiktokHeader = new Label("TikTok (optional)");
             tiktokHeader.AddToClassList("sorolla-config-group-header");
             _configContainer.Add(tiktokHeader);
 
