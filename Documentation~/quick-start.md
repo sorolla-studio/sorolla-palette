@@ -98,11 +98,7 @@ Assets/google-services.json
 Assets/GoogleService-Info.plist
 ```
 
-Firebase is optional in Prototype mode, so it is not auto-installed by the mode switch. Add
-`com.google.firebase.app`, `com.google.firebase.analytics`, `com.google.firebase.crashlytics`, and
-`com.google.firebase.remote-config` to `Packages/manifest.json` (see [Firebase Setup](guides/firebase.md)
-for exact refs), let Unity resolve, then reopen **Tools > Sorolla Palette SDK** and click **Refresh**
-under Greenlight to confirm the config files are found.
+In **Tools > Sorolla Palette SDK**, install Firebase from the Firebase row if it is not already installed. Then refresh **Build Health** and confirm Firebase config files are found.
 
 Full details: [Firebase Setup](guides/firebase.md).
 

@@ -137,19 +137,20 @@ namespace Sorolla.Palette.Editor
             // p3-sdkoverview: DrawSdkOverviewSection() was the LAST call in DrawUpperSections, so
             // porting it is a clean peel from the end of the already-shrunk IMGUIContainerA region,
             // not a new middle-split - it just slots in right before Build Health.
-            // SDK Overview + the full Build Health row list are INTERNAL depth (editor-window-
-            // simplification-2026-07-21 ruling 2/4): they no longer render in the shipped studio
-            // window at all. Build Health itself still runs (and still auto-fixes) on every refresh
-            // and before every build - only its section is gone from this window; the internal
-            // harness (Assets/SorollaInternal/Editor/ in the testbed) renders the full depth by
-            // toggling ShowInternalDepth and calling this same CreateGUI.
+            // SDK Overview is studio-facing (fix-cycle ruling 1, 2026-07-21 11:30): vendor status
+            // rows + Edit/Console/Install affordances are exactly the kind of self-serve control a
+            // studio needs, so it renders unconditionally, same as Greenlight/Config. Only the full
+            // Build Health row list stays INTERNAL depth - Build Health itself still runs (and still
+            // auto-fixes) on every refresh and before every build regardless of which sections are
+            // visible; the internal harness (Assets/SorollaInternal/Editor/ in the testbed) renders
+            // that extra depth by toggling ShowInternalDepth and calling this same CreateGUI.
+            _sdkOverviewContainer = CreatePortedSectionContainer();
+            _sdkOverviewContainer.style.marginTop = 10;
+            scrollView.Add(_sdkOverviewContainer);
+            RefreshSdkOverviewUI();
+
             if (ShowInternalDepth)
             {
-                _sdkOverviewContainer = CreatePortedSectionContainer();
-                _sdkOverviewContainer.style.marginTop = 10;
-                scrollView.Add(_sdkOverviewContainer);
-                RefreshSdkOverviewUI();
-
                 _buildHealthContainer = CreatePortedSectionContainer();
                 _buildHealthContainer.style.marginTop = 10;
                 _buildHealthContainer.style.marginBottom = 10;
@@ -158,7 +159,6 @@ namespace Sorolla.Palette.Editor
             }
             else
             {
-                _sdkOverviewContainer = null;
                 _buildHealthContainer = null;
             }
 
@@ -218,6 +218,23 @@ namespace Sorolla.Palette.Editor
             bool isPrototype = SorollaSettings.Mode == SorollaMode.Prototype;
             container.Add(HeroHeader.Create("Palette SDK", $"v{Version} - Plug & Play Publisher Stack",
                 modeIsFull: !isPrototype, onSwitchRequested: RequestModeSwitch));
+
+            // Preview toggle for the internal harness only (fix-cycle ruling 2): flips the same
+            // instance flag CreateGUI already reads and rebuilds in place - no second window, no
+            // second menu item. Never shown on a plain studio machine (_isHarnessWindow stays false
+            // there since InternalDepthDefault is never set without the harness's InitializeOnLoad).
+            if (_isHarnessWindow)
+            {
+                var studioViewToggle = new Toggle("Studio view") { value = !ShowInternalDepth };
+                studioViewToggle.RegisterValueChangedCallback(evt =>
+                {
+                    ShowInternalDepth = !evt.newValue;
+                    rootVisualElement.Clear();
+                    CreateGUI();
+                });
+                container.Add(studioViewToggle);
+            }
+
             _heroContainer.Add(container);
         }
 
@@ -257,7 +274,9 @@ namespace Sorolla.Palette.Editor
             }
 
             var window = CreateInstance<SorollaWindow>();
-            window.titleContent = new GUIContent("Sorolla Palette SDK");
+            window._isHarnessWindow = InternalDepthDefault;
+            window.ShowInternalDepth = InternalDepthDefault;
+            window.titleContent = new GUIContent(InternalDepthDefault ? "Sorolla Palette SDK (Internal)" : "Sorolla Palette SDK");
             window.minSize = new Vector2(420, 380);
             window.position = new Rect(100, 100, 560, 800);
             window.ShowUtility();
@@ -265,28 +284,17 @@ namespace Sorolla.Palette.Editor
 
         // ── Internal (Sorolla) depth ───────────────────────────────────
         //
-        // A studio sees one verdict card, their configuration, and quick start. The full depth (SDK
-        // overview, every Build Health row, JSON/catalog exports, every greenlight row) lives ONLY in
-        // the testbed-local internal harness (Assets/SorollaInternal/Editor/, gitignored, non-shipping).
-        // No EditorPrefs toggle and no second MenuItem in this package (editor-window-simplification-
-        // 2026-07-21 ruling 1/4) - the harness is the sole caller of <see cref="ShowInternal"/>, which
-        // flips this instance flag before the window paints, so the one evaluator/report/export/
-        // validator model backs both frontends with no duplicated logic.
+        // ONE menu entry everywhere, including machines running the testbed-local internal harness
+        // (fix-cycle ruling 2, 2026-07-21 11:30) - the harness must not declare its own MenuItem. The
+        // harness instead sets <see cref="InternalDepthDefault"/> to true from its own
+        // [InitializeOnLoad] initializer (via InternalsVisibleTo), so the package's single
+        // Tools/Sorolla Palette SDK entry opens the full-depth window on a Sorolla machine and the
+        // ordinary studio window everywhere else - same evaluator/report/export/validator model, same
+        // frontend code, no second window, no second menu item.
 
+        internal static bool InternalDepthDefault;
         internal bool ShowInternalDepth;
-
-        /// <summary>Sole entry point for the internal harness (via InternalsVisibleTo) to open the
-        /// full-depth window. Not exposed via any MenuItem in this package.</summary>
-        internal static SorollaWindow ShowInternal()
-        {
-            var window = CreateInstance<SorollaWindow>();
-            window.ShowInternalDepth = true;
-            window.titleContent = new GUIContent("Sorolla Palette SDK (Internal)");
-            window.minSize = new Vector2(420, 380);
-            window.position = new Rect(100, 100, 560, 800);
-            window.ShowUtility();
-            return window;
-        }
+        bool _isHarnessWindow;
 
         [InitializeOnLoadMethod]
         static void AutoOpenOnLoad() => EditorApplication.delayCall += () =>
