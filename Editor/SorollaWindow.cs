@@ -837,10 +837,14 @@ namespace Sorolla.Palette.Editor
             }
             else if (whitelistWarn)
             {
+                // No leading "✓" here (product-audit follow-up, 2026-07-21): a pass glyph inline with a
+                // problem statement, under a warning-triangle row icon, is the same one-verdict-per-row
+                // contradiction ruling 2/3 already fixed elsewhere - the keys are fine, but the row's
+                // overall status is warn, so the text must not open with a check.
                 iconColor = ColorYellow;
                 iconGlyph = "⚠";
                 configColor = ColorYellow;
-                configText = $"✓ {keyDetail} · Resource whitelist empty";
+                configText = $"{keyDetail} · Resource whitelist empty";
             }
             else
             {
@@ -1426,14 +1430,16 @@ namespace Sorolla.Palette.Editor
                 container.Add(linkButton);
             }
 
-            // Editor-performable fix -> a button on the row, same pattern as the Open Dashboard deep link
-            // above, not just prose (product-audit fix cycle ruling 1, 2026-07-21 11:55). Pass rows get no
+            // Editor-performable fix -> a real bordered button on the row, same pattern as the header's
+            // Edit/Console/Install affordances and the Connect Device button below - NOT link-style text
+            // (product-audit fix cycle ruling 1, 2026-07-21 11:55, sharpened 2026-07-21: a plain-text link
+            // reads as prose/navigation, not an in-editor action the row itself performs). Pass rows get no
             // action button (F4) - nothing to act on.
             (string actionLabel, Action action) = isPass ? (null, null) : GreenlightAdapter.EditorActionFor(row.GateId);
             if (action != null)
             {
                 var actionButton = new Button(action) { text = actionLabel };
-                actionButton.AddToClassList("sorolla-footer-link");
+                actionButton.AddToClassList("sorolla-button-small");
                 actionButton.style.marginLeft = 24;
                 container.Add(actionButton);
             }
