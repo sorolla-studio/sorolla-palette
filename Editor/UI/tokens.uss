@@ -356,16 +356,6 @@
     -unity-font-style: bold;
 }
 
-.sorolla-snippet-copy {
-    background-color: var(--sorolla-bg-elevated);
-    color: var(--sorolla-text-primary);
-    border-width: 0;
-    border-radius: var(--sorolla-radius-input);
-    padding: 2px var(--sorolla-space-2);
-    font-size: 10px;
-    -unity-font-style: bold;
-}
-
 .sorolla-snippet-body {
     color: var(--sorolla-text-primary);
     font-size: 12px;

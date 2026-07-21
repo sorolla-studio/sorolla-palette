@@ -660,8 +660,58 @@ namespace Sorolla.Palette.Editor
             return row;
         }
 
+        /// <summary>Worst status among a vendor group's rows (Fail &gt; Warn &gt; Wait &gt; Pass/Info) - used
+        /// to keep a vendor group header from showing a plain pass/green verdict while one of its own rows
+        /// (including a manual attestation row moved in under it, e.g. Adjust Purchase Verification) is
+        /// still Warn/Wait/Fail (refuter follow-up, 2026-07-21: Adjust's header stayed green "Configured"
+        /// after fix 4 moved a Wait-status attestation row into this same group).</summary>
+        static CheckRow.Status WorstRowStatus(IEnumerable<GreenlightEvaluator.Row> rows)
+        {
+            bool anyFail = false, anyWarn = false, anyWait = false;
+            foreach (GreenlightEvaluator.Row r in rows)
+            {
+                if (r.Status == CheckRow.Status.Fail) anyFail = true;
+                else if (r.Status == CheckRow.Status.Warn) anyWarn = true;
+                else if (r.Status == CheckRow.Status.Wait) anyWait = true;
+            }
+            return anyFail ? CheckRow.Status.Fail : anyWarn ? CheckRow.Status.Warn : anyWait ? CheckRow.Status.Wait : CheckRow.Status.Pass;
+        }
+
+        /// <summary>Downgrades an already-computed pass/green vendor-row presentation to match a worse
+        /// status found among the group's own rows. Never upgrades - a row already showing its own
+        /// Fail/Warn (e.g. GA's key-status check) keeps that presentation; this only catches the case
+        /// where the row-builder's own status happened to be clean but a sibling row (attestation, etc.)
+        /// in the same group isn't.</summary>
+        static void ApplyGroupRowsWorstOf(List<GreenlightEvaluator.Row> groupRows, ref Color iconColor,
+            ref string iconGlyph, ref Color configColor, ref string configText)
+        {
+            if (groupRows == null || groupRows.Count == 0 || iconGlyph != "✓") return;
+
+            CheckRow.Status worst = WorstRowStatus(groupRows);
+            if (worst == CheckRow.Status.Pass) return;
+
+            switch (worst)
+            {
+                case CheckRow.Status.Fail:
+                    iconColor = ColorRed; iconGlyph = "✗"; configColor = ColorRed;
+                    break;
+                case CheckRow.Status.Warn:
+                    iconColor = ColorYellow; iconGlyph = "⚠"; configColor = ColorYellow;
+                    break;
+                case CheckRow.Status.Wait:
+                    iconColor = ColorGray; iconGlyph = "•"; configColor = ColorGray;
+                    break;
+            }
+
+            // Drop any leading pass checkmark (one-verdict-per-row, same rule as the GA whitelist fix)
+            // and name what's still open instead of silently keeping a "Configured"-only text.
+            string baseText = configText.StartsWith("✓ ") ? configText.Substring(2) : configText;
+            configText = baseText + (worst == CheckRow.Status.Wait ? " · Awaiting attestation" : " · Needs attention");
+        }
+
         VisualElement BuildSdkOverviewRow(SdkInfo sdk, SdkConfigDetector.ConfigStatus configStatus,
-            string configHint, Action openSettings, bool isRequired, string configuredDetail = null)
+            string configHint, Action openSettings, bool isRequired, string configuredDetail = null,
+            List<GreenlightEvaluator.Row> groupRows = null)
         {
             bool isPrototype = SorollaSettings.IsPrototype;
             bool isAutoInstalled = sdk.IsRequiredFor(isPrototype);
@@ -693,6 +743,8 @@ namespace Sorolla.Palette.Editor
                 configColor = ColorYellow;
                 configText = configHint;
             }
+
+            ApplyGroupRowsWorstOf(groupRows, ref iconColor, ref iconGlyph, ref configColor, ref configText);
 
             string actionLabel = null;
             Action onAction = null;
@@ -803,7 +855,8 @@ namespace Sorolla.Palette.Editor
         /// worse - it is the one place both facts get fixed. <paramref name="whitelistWarn"/> is computed
         /// once by the caller (now the GameAnalytics group header builder in RefreshGreenlightUI) so this
         /// row and the group's own worst-of glyph can never disagree about it.</summary>
-        VisualElement BuildGameAnalyticsOverviewRow(SdkConfigDetector.ConfigStatus keyStatus, bool whitelistWarn)
+        VisualElement BuildGameAnalyticsOverviewRow(SdkConfigDetector.ConfigStatus keyStatus, bool whitelistWarn,
+            List<GreenlightEvaluator.Row> groupRows = null)
         {
             SdkInfo sdk = SdkRegistry.All[SdkId.GameAnalytics];
             bool isInstalled = SdkDetector.IsInstalled(sdk);
@@ -853,6 +906,8 @@ namespace Sorolla.Palette.Editor
                 configColor = ColorGreen;
                 configText = $"✓ {keyDetail}";
             }
+
+            ApplyGroupRowsWorstOf(groupRows, ref iconColor, ref iconGlyph, ref configColor, ref configText);
 
             var nameLabel = new Label(sdk.Name);
             nameLabel.AddToClassList("sorolla-sdk-row-name");
@@ -950,7 +1005,12 @@ namespace Sorolla.Palette.Editor
         /// used as that group's collapsible header instead. One owner per vendor, structurally: this is
         /// the ONLY place these five vendors' status gets computed, instead of a second independent
         /// computation duplicating what the group's own gate rows already say.</summary>
-        VisualElement BuildVendorGroupHeader(GreenlightAdapter.VendorGroup group)
+        /// <summary><paramref name="rows"/> is this group's own row list (whatever the caller is about
+        /// to render below the header - full rows for internal, the studio-filtered subset for studio)
+        /// so a Wait/Warn/Fail row moved into this vendor's group (e.g. an attestation row) can downgrade
+        /// an otherwise-green header instead of being silently outvoted (refuter follow-up, 2026-07-21:
+        /// see <see cref="ApplyGroupRowsWorstOf"/>).</summary>
+        VisualElement BuildVendorGroupHeader(GreenlightAdapter.VendorGroup group, List<GreenlightEvaluator.Row> rows)
         {
             switch (group)
             {
@@ -962,12 +1022,12 @@ namespace Sorolla.Palette.Editor
                     bool gaWhitelistWarn = _validationResults.Any(r =>
                         r.Category == BuildValidator.CheckCategory.GameAnalyticsResourceWhitelist &&
                         r.Status == BuildValidator.ValidationStatus.Warning);
-                    return BuildGameAnalyticsOverviewRow(gaStatus, gaWhitelistWarn);
+                    return BuildGameAnalyticsOverviewRow(gaStatus, gaWhitelistWarn, rows);
                 }
                 case GreenlightAdapter.VendorGroup.Facebook:
                     return BuildSdkOverviewRow(
                         SdkRegistry.All[SdkId.Facebook], SdkConfigDetector.GetFacebookStatus(), "Set App ID",
-                        SdkConfigDetector.OpenFacebookSettings, true);
+                        SdkConfigDetector.OpenFacebookSettings, true, groupRows: rows);
                 case GreenlightAdapter.VendorGroup.Firebase:
                     return BuildFirebaseOverviewRow();
                 case GreenlightAdapter.VendorGroup.AppLovinMax:
@@ -986,7 +1046,7 @@ namespace Sorolla.Palette.Editor
                     return BuildSdkOverviewRow(
                         SdkRegistry.All[SdkId.Adjust], SdkConfigDetector.GetAdjustStatus(_config),
                         "Enter app token below", () => FocusConfigField(_adjustAppTokenField),
-                        !SorollaSettings.IsPrototype);
+                        !SorollaSettings.IsPrototype, groupRows: rows);
                 default:
                     return null; // Build & Project / Device & QA use the plain worst-of header instead.
             }
@@ -1198,7 +1258,7 @@ namespace Sorolla.Palette.Editor
                     // for status, check rows, AND config.
                     rowElements.AddRange(BuildConfigInputsForGroup(group));
 
-                    VisualElement header = BuildVendorGroupHeader(group) ?? BuildPlainGroupHeader(GroupTitle(group), rows);
+                    VisualElement header = BuildVendorGroupHeader(group, rows) ?? BuildPlainGroupHeader(GroupTitle(group), rows);
                     bool anyAttention = rows.Any(r => r.Status == CheckRow.Status.Fail || r.Status == CheckRow.Status.Warn || r.Status == CheckRow.Status.Wait);
                     _greenlightContainer.Add(BuildExpandableGroup($"internal:{group}", header, rowElements, anyAttention));
                 }
@@ -1241,8 +1301,11 @@ namespace Sorolla.Palette.Editor
                 var groupContainer = new VisualElement();
                 groupContainer.style.marginBottom = 8;
                 // actionableRows, not the full rows list: the plain header's count must match what
-                // actually renders below it in studio (refuter follow-up, 2026-07-21).
-                groupContainer.Add(BuildVendorGroupHeader(group) ?? BuildPlainGroupHeader(GroupTitle(group), actionableRows));
+                // actually renders below it in studio (refuter follow-up, 2026-07-21), and the vendor
+                // header's worst-of check (ApplyGroupRowsWorstOf) must only see what studio itself
+                // renders - an attestation row filtered out of studio shouldn't downgrade a header studio
+                // never sees the reason for.
+                groupContainer.Add(BuildVendorGroupHeader(group, actionableRows) ?? BuildPlainGroupHeader(GroupTitle(group), actionableRows));
 
                 var rowsWrap = new VisualElement();
                 rowsWrap.style.marginLeft = 20;

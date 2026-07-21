@@ -25,8 +25,11 @@ namespace Sorolla.Palette.Editor.UI
             titleLabel.AddToClassList("sorolla-snippet-title");
             titleBar.Add(titleLabel);
 
+            // Same bordered-button style as every other row action (Edit/Console/Open Dashboard) - was
+            // its own "sorolla-snippet-copy" chip, which read as bare text next to those (refuter
+            // follow-up, 2026-07-21).
             var copyButton = new Button(() => GUIUtility.systemCopyBuffer = code) { text = "Copy" };
-            copyButton.AddToClassList("sorolla-snippet-copy");
+            copyButton.AddToClassList("sorolla-button-small");
             titleBar.Add(copyButton);
 
             card.Add(titleBar);
