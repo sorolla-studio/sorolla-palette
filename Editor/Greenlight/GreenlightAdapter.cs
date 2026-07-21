@@ -475,6 +475,11 @@ namespace Sorolla.Palette.Editor.Greenlight
             /// attestation, manual/dashboard QA gates (cross-vendor drift included), and the synthetic
             /// Report Integrity row.</summary>
             DeviceAndQa,
+            /// <summary>Parked vendor (roadmap "Parking decisions" - no QA/diagnostics investment): no
+            /// BuildValidator category, no gate ever routes here via GroupFor - it exists purely so the
+            /// window's one Group list can carry TikTok's toggle+fields uniformly (rewrite cycle, Arthur
+            /// ruling 2026-07-21 ~16:45), instead of a bespoke non-Group code path.</summary>
+            TikTok,
         }
 
         static readonly Dictionary<BuildValidator.CheckCategory, VendorGroup> CategoryToGroup =
