@@ -325,7 +325,7 @@ namespace Sorolla.Palette.Editor
         /// <summary>Rewrite cycle (Arthur ruling 2026-07-21 ~16:45): every group's config inputs, built
         /// once per group as part of the single Group model - one owner per vendor for status, check
         /// rows, AND config, not two places. Returns an empty list for groups with nothing to configure
-        /// (GameAnalytics/Facebook/Firebase/DeviceAndQa - GA keys stay on GA Settings, no duplicated
+        /// (GameAnalytics/Facebook/Firebase - GA keys stay on GA Settings, no duplicated
         /// inputs here). Inputs render in BOTH views unconditionally (the rendering contract: "Studio
         /// view: all inputs") - the view filter never touches this list, only check rows.</summary>
         List<VisualElement> BuildConfigInputsForGroup(GreenlightAdapter.VendorGroup group)
@@ -393,12 +393,14 @@ namespace Sorolla.Palette.Editor
                     }
                     break;
 
-                // Non-vendor inputs land in Build & Project (vendor-consolidation ruling). Plain bound
-                // Toggle, not PropertyField (round-4 refuter follow-up, 2026-07-21): PropertyField would
-                // auto-render verboseLogging's own [Header("Logging")] attribute as a standalone-looking
-                // "Logging" header line above the checkbox - the same redundant-header problem already
-                // avoided for MAX/Adjust's inputs, whose group header already names the section.
-                case GreenlightAdapter.VendorGroup.BuildAndProject:
+                // Verbose Logging is a QA/debug knob, so it lives under Device & QA, not Build & Project
+                // (Arthur ruling 2026-07-21 ~17:40 - a "Build & Project" group whose only studio-visible
+                // content was this toggle read as noise; now the group only renders when a build check
+                // actually needs attention). Plain bound Toggle, not PropertyField (round-4 refuter
+                // follow-up, 2026-07-21): PropertyField would auto-render verboseLogging's own
+                // [Header("Logging")] attribute as a standalone-looking "Logging" header line above the
+                // checkbox - the same redundant-header problem already avoided for MAX/Adjust's inputs.
+                case GreenlightAdapter.VendorGroup.DeviceAndQa:
                 {
                     SerializedProperty verboseLoggingProp = _serializedConfig.FindProperty("verboseLogging");
                     var verboseLoggingToggle = new Toggle("Verbose Logging") { value = verboseLoggingProp.boolValue };
@@ -787,17 +789,18 @@ namespace Sorolla.Palette.Editor
             if (!isInstalled)
                 return new OwnVendorState { Severity = CheckRow.Status.Fail, Text = "—" };
 
+            // Active platform missing = Fail (the build in front of you won't report). Only the sibling
+            // platform missing = Warn: still shippable today, but games ship both platforms, so it
+            // surfaces instead of hiding behind the active target (Arthur ruling 2026-07-21 ~17:40).
             SdkConfigDetector.ConfigStatus keyStatus = SdkConfigDetector.GetGameAnalyticsStatus();
-            if (keyStatus != SdkConfigDetector.ConfigStatus.Configured)
-                return new OwnVendorState
-                {
-                    Severity = CheckRow.Status.Fail, Text = keyDetail,
-                    ActionLabel = "Edit", Action = SdkConfigDetector.OpenGameAnalyticsSettings,
-                };
+            CheckRow.Status severity = keyStatus != SdkConfigDetector.ConfigStatus.Configured
+                ? CheckRow.Status.Fail
+                : SdkConfigDetector.HasGameAnalyticsKeysForOtherPlatform() ? CheckRow.Status.Pass : CheckRow.Status.Warn;
 
             return new OwnVendorState
             {
-                Severity = CheckRow.Status.Pass, Text = $"✓ {keyDetail}",
+                Severity = severity,
+                Text = severity == CheckRow.Status.Pass ? $"✓ {keyDetail}" : keyDetail,
                 ActionLabel = "Edit", Action = SdkConfigDetector.OpenGameAnalyticsSettings,
             };
         }
@@ -1361,19 +1364,9 @@ namespace Sorolla.Palette.Editor
                 container.Add(linkButton);
             }
 
-            // Editor-performable fix -> a real bordered button on the row, same pattern as the header's
-            // Edit/Console/Install affordances and the Connect Device button below - NOT link-style text
-            // (product-audit fix cycle ruling 1, 2026-07-21 11:55, sharpened 2026-07-21: a plain-text link
-            // reads as prose/navigation, not an in-editor action the row itself performs). Pass rows get no
-            // action button (F4) - nothing to act on.
-            (string actionLabel, Action action) = isPass ? (null, null) : GreenlightAdapter.EditorActionFor(row.GateId);
-            if (action != null)
-            {
-                var actionButton = new Button(action) { text = actionLabel };
-                actionButton.AddToClassList("sorolla-button-small");
-                actionButton.style.marginLeft = 24;
-                container.Add(actionButton);
-            }
+            // No per-row "Open GA/FB Settings" buttons: since the vendor foldouts, every row that had
+            // one sits under a group header whose Edit button performs the identical action (Arthur
+            // ruling 2026-07-21 ~17:40 - the duplicate affordance was noise).
 
             // The device snapshot row's remedy IS the Connect Device action already in this section's
             // header - point straight at it instead of leaving a bare "evidence missing" line with no

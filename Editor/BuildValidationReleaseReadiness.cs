@@ -35,12 +35,12 @@ namespace Sorolla.Palette.Editor
             {
                 // Fix hint no longer tells you to open the window you're already reading this row inside
                 // (F6, 2026-07-21 audit) - the field is the "Verbose Logging" toggle in this same window's
-                // SDK Keys section, a few rows below.
+                // Device & QA group.
                 results.Add(Warning(
                     category,
                     "SorollaConfig.verboseLogging is on.\n" +
                     "  Runtime already forces this off in non-development builds, so this is drift hygiene, not a leak risk.",
-                    "Turn off Verbose Logging in the SDK Keys section below before committing, unless this is a dev/QA build on purpose"));
+                    "Turn off Verbose Logging in the Device & QA group before committing, unless this is a dev/QA build on purpose"));
             }
             else
             {

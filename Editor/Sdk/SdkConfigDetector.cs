@@ -36,12 +36,11 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Human-readable detail for the SDK Overview row, SCOPED TO THE ACTIVE BUILD TARGET ONLY - e.g.
-        ///     "Android configured". Mentioning the other platform's key status here reads as a problem
-        ///     under a green check when only the active platform's key actually matters for
-        ///     <see cref="GetGameAnalyticsStatus"/> (product-audit fix cycle ruling 2, 2026-07-21 11:55:
-        ///     status glyph and text must agree - an irrelevant platform's state must not be mentioned next
-        ///     to a pass icon).
+        ///     Human-readable detail for the GameAnalytics group header, covering BOTH platforms - e.g.
+        ///     "Android ✓ · iOS missing". Both are named with their own state so the text always agrees
+        ///     with the header glyph (Arthur ruling 2026-07-21 ~17:40, superseding the active-target-only
+        ///     scoping): games ship both platforms, so a missing sibling-platform key is information the
+        ///     studio needs, surfaced as a Warn - not silence.
         /// </summary>
         public static string GetGameAnalyticsPlatformDetail()
         {
@@ -51,9 +50,20 @@ namespace Sorolla.Palette.Editor
             if (Resources.Load("GameAnalytics/Settings") == null)
                 return "Settings.asset not found";
 
-            RuntimePlatform active = ActiveGameAnalyticsPlatform();
-            string platformName = active == RuntimePlatform.IPhonePlayer ? "iOS" : "Android";
-            return HasGameAnalyticsKeys(active) ? $"{platformName} configured" : $"{platformName} key missing";
+            bool android = HasGameAnalyticsKeys(RuntimePlatform.Android);
+            bool ios = HasGameAnalyticsKeys(RuntimePlatform.IPhonePlayer);
+            if (android && ios) return "Android + iOS configured";
+            return $"Android {(android ? "✓" : "missing")} · iOS {(ios ? "✓" : "missing")}";
+        }
+
+        /// <summary>Key-pair status for the platform the active build target does NOT map to - lets the
+        /// window warn (not fail) when only the sibling platform is unconfigured.</summary>
+        public static bool HasGameAnalyticsKeysForOtherPlatform()
+        {
+            RuntimePlatform other = ActiveGameAnalyticsPlatform() == RuntimePlatform.IPhonePlayer
+                ? RuntimePlatform.Android
+                : RuntimePlatform.IPhonePlayer;
+            return HasGameAnalyticsKeys(other);
         }
 
         /// <summary>
