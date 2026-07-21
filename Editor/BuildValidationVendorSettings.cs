@@ -53,12 +53,13 @@ namespace Sorolla.Palette.Editor
                 if (rewardedMissing && interstitialMissing)
                 {
                     // Fix hint doesn't tell you to open the window you're already inside (F6, 2026-07-21
-                    // audit) - the MAX Ad Units fields are in this same window's SDK Keys section below.
+                    // audit) - the MAX Ad Units fields are in this same window's AppLovin MAX group,
+                    // below this row (vendor-consolidation cycle, 2026-07-21 15:35: SDK Keys is gone).
                     results.Add(Warning(
                         CheckCategory.MaxSettings,
                         $"MAX has no rewarded or interstitial ad unit ID set for {activePlatform} in SorollaConfig.\n" +
                         "  Ad calls will fail to load on this platform until an ad unit ID is set.",
-                        "Enter the AppLovin MAX ad unit IDs for this platform in SDK Keys below"));
+                        "Enter the AppLovin MAX ad unit IDs for this platform below"));
                     return results;
                 }
             }
@@ -115,13 +116,14 @@ namespace Sorolla.Palette.Editor
             if (adjustStatus == SdkConfigDetector.ConfigStatus.NotConfigured)
             {
                 // Fix hint no longer tells you to open the window you're already inside (F6, 2026-07-21
-                // audit) - the Adjust App Token field is in this same window's SDK Keys section below.
+                // audit) - the Adjust App Token field is in this same window's Adjust group, below this
+                // row (vendor-consolidation cycle, 2026-07-21 15:35: SDK Keys is gone).
                 results.Add(Error(
                     CheckCategory.AdjustSettings,
                     "Adjust app token is not configured!\n" +
                     "  Attribution tracking will not work without a valid app token.\n" +
-                    "  Enter your Adjust app token in the SDK Keys section below.",
-                    "Enter Adjust app token in SDK Keys below"));
+                    "  Enter your Adjust app token below.",
+                    "Enter Adjust app token below"));
             }
             else
             {

@@ -37,7 +37,6 @@ namespace Sorolla.Palette.Editor
         readonly HashSet<string> _installingPackages = new HashSet<string>();
         SorollaConfig _config;
         SerializedObject _serializedConfig;
-        VisualElement _configContainer;
         VisualElement _heroContainer;
         VisualElement _greenlightContainer;
         ScrollView _scrollView;
@@ -151,12 +150,11 @@ namespace Sorolla.Palette.Editor
             // auto-fixes) on every refresh and before every build; its row list is gone too (F12),
             // folded into the same Greenlight groups.
 
-            // p3-config: DrawConfigSection() was the FIRST call in DrawLowerSections, so porting it
-            // is a clean peel from the front of the already-shrunk IMGUIContainerB region.
-            _configContainer = CreatePortedSectionContainer();
-            _configContainer.style.marginBottom = 10;
-            scrollView.Add(_configContainer);
-            RefreshConfigUI();
+            // The standalone SDK Keys section is gone too (vendor-consolidation cycle, Arthur ruling
+            // 2026-07-21 15:35): MAX ad units, Adjust tokens, and the TikTok toggle/fields now render
+            // as config inputs inside their own vendor group in the Greenlight section above (see
+            // BuildConfigInputsForGroup / BuildTikTokGroup), so a vendor's status, check rows, and
+            // config all live under one foldout. Verbose Logging moved into Build & Project's group.
 
             // p3-quickstart: DrawInfoSection() was the FIRST (now only non-Links) call in
             // DrawLowerSections, so porting it is another clean front-peel. Static content (no
@@ -323,142 +321,134 @@ namespace Sorolla.Palette.Editor
             EditorGUILayout.Space(5);
         }
 
-        /// <summary>Ported to UI Toolkit (p3-sdkconfig): real UnityEditor.UIElements.PropertyField
-        /// bound to _serializedConfig, not a phase-2 component - PropertyField is Unity's own
-        /// SerializedObject-binding mechanism (undo, dirty-marking, multi-edit, [Header] decorator
-        /// rendering all come for free) and is the behavior-preserving equivalent of the old
-        /// EditorGUILayout.PropertyField calls, not a re-implementation. Indent levels become an
-        /// explicit marginLeft (same approximation Build Health already used for its indented
-        /// Firebase sub-rows). Rebuild-on-change same pattern as buildhealth/sdkoverview: called
-        /// from CreateGUI, RunBuildValidation()'s completion (mode/install changes affect
-        /// showMax/showAdjust), and the TikTok toggle callback (its own field visibility).</summary>
-        void RefreshConfigUI()
+        /// <summary>Vendor-consolidation cycle (Arthur ruling 2026-07-21 15:35): the standalone SDK
+        /// Keys section is gone. Each vendor's config inputs now render as part of that vendor's own
+        /// Greenlight group, after its check rows - one owner per vendor for status AND config, not
+        /// two places. Called from RefreshGreenlightUI for every group in GroupOrder; returns an empty
+        /// list for groups with nothing to configure (GameAnalytics/Facebook/Firebase/DeviceAndQa - GA
+        /// keys stay on GA Settings, no duplicated inputs here). Inputs render in BOTH studio and
+        /// internal views (they're studio-controlled variants, not zero-leverage info rows), and a
+        /// required-but-empty input (Adjust's app token) must not let its group collapse away as clean
+        /// - RefreshGreenlightUI's studio filter treats a non-empty result from this method as reason
+        /// enough to keep the group open even with no other actionable check row.</summary>
+        List<VisualElement> BuildConfigInputsForGroup(GreenlightAdapter.VendorGroup group)
         {
-            if (_configContainer == null) return;
-
-            _configContainer.Clear();
+            var inputs = new List<VisualElement>();
 
             if (_config == null || _serializedConfig == null)
             {
-                _configContainer.Add(new HelpBox("No config found. Click below to create one.", HelpBoxMessageType.Warning));
-                _configContainer.Add(new Button(() =>
+                if (group == GreenlightAdapter.VendorGroup.BuildAndProject)
                 {
-                    CreateConfig();
-                    _serializedConfig = new SerializedObject(_config);
-                    RefreshConfigUI();
-                })
-                { text = "Create Configuration Asset" });
-                return;
+                    inputs.Add(new HelpBox("No config found. Click below to create one.", HelpBoxMessageType.Warning));
+                    inputs.Add(new Button(() =>
+                    {
+                        CreateConfig();
+                        _serializedConfig = new SerializedObject(_config);
+                        RefreshGreenlightUI();
+                    })
+                    { text = "Create Configuration Asset" });
+                }
+                return inputs;
             }
 
-            bool isPrototype = SorollaSettings.IsPrototype;
-            bool showMax = SdkDetector.IsInstalled(SdkId.AppLovinMAX);
-            bool showAdjust = !isPrototype && SdkDetector.IsInstalled(SdkId.Adjust);
-
-            _configContainer.Add(SectionHeader.Create("SDK Keys"));
-
-            // MAX Ad Units. Arthur's follow-up: the struct-level revert (plain PropertyField for
-            // the whole PlatformAdUnitId) was the right call against double-labeling, but the
-            // design intent still applies ONE LEVEL DOWN - each Android/iOS string is a real leaf
-            // property, so it gets ValidatedField same as Adjust's fields, inside a manually-built
-            // Foldout that keeps the exact same expand/collapse structure PropertyField used to
-            // give us for free. Header rendered explicitly for the same reason as Adjust's.
-            if (showMax)
+            switch (group)
             {
-                var maxHeader = new Label("MAX Ad Units");
-                maxHeader.AddToClassList("sorolla-config-group-header");
-                _configContainer.Add(maxHeader);
+                // MAX Ad Units. Arthur's follow-up: the struct-level revert (plain PropertyField for
+                // the whole PlatformAdUnitId) was the right call against double-labeling, but the
+                // design intent still applies ONE LEVEL DOWN - each Android/iOS string is a real leaf
+                // property, so it gets ValidatedField same as Adjust's fields, inside a manually-built
+                // Foldout that keeps the exact same expand/collapse structure PropertyField used to
+                // give us for free.
+                case GreenlightAdapter.VendorGroup.AppLovinMax:
+                    if (SdkDetector.IsInstalled(SdkId.AppLovinMAX))
+                    {
+                        inputs.Add(BuildAdUnitFoldout("Rewarded", "rewardedAdUnit"));
+                        inputs.Add(BuildAdUnitFoldout("Interstitial", "interstitialAdUnit"));
+                        // "(optional)" casing matches every other optional-vendor label in this window
+                        // (F13.3, 2026-07-21 audit) - this was the one outlier capitalizing it.
+                        inputs.Add(BuildAdUnitFoldout("Banner (optional)", "bannerAdUnit"));
+                    }
+                    break;
 
-                _configContainer.Add(BuildAdUnitFoldout("Rewarded", "rewardedAdUnit"));
-                _configContainer.Add(BuildAdUnitFoldout("Interstitial", "interstitialAdUnit"));
-                // "(optional)" casing matches every other optional-vendor label in this window (F13.3,
-                // 2026-07-21 audit) - this was the one outlier capitalizing it.
-                _configContainer.Add(BuildAdUnitFoldout("Banner (optional)", "bannerAdUnit"));
+                // Adjust (full mode only). adjustAppToken is the ONE documented hard build gate
+                // (BuildValidationVendorSettings.cs / SdkConfigDetector.cs: empty or length<=5 fails a
+                // Full-mode build) - Invalid state + subtext only while unresolved, no subtext once
+                // valid. ValidatedField.CreateBound uses a plain bound TextField, not PropertyField, so
+                // no [Header]-driven decorator applies here (see ValidatedField.cs for why); the group's
+                // own vendor header already names the vendor, so no redundant sub-header text.
+                case GreenlightAdapter.VendorGroup.Adjust:
+                    if (!SorollaSettings.IsPrototype && SdkDetector.IsInstalled(SdkId.Adjust))
+                    {
+                        var appToken = ValidatedField.CreateBound(_serializedConfig.FindProperty("adjustAppToken"), "App Token", value =>
+                        {
+                            bool valid = !string.IsNullOrEmpty(value) && value.Length > 5;
+                            return valid
+                                ? (ValidatedField.State.Valid, (string)null)
+                                : (ValidatedField.State.Invalid, "Required for Full-mode builds");
+                        });
+                        inputs.Add(appToken);
+                        _adjustAppTokenField = appToken;
+                        inputs.Add(BoundField("adjustPurchaseEventToken", "Purchase Event Token"));
+                    }
+                    else
+                    {
+                        _adjustAppTokenField = null;
+                    }
+                    break;
+
+                // Non-vendor inputs land in Build & Project (vendor-consolidation ruling). "Logging"
+                // header comes from verboseLogging's own [Header] attribute.
+                case GreenlightAdapter.VendorGroup.BuildAndProject:
+                    var verboseLogging = new PropertyField(_serializedConfig.FindProperty("verboseLogging"), "Verbose Logging");
+                    verboseLogging.tooltip = "Enable verbose debug output for all vendor SDKs (MAX, Adjust, TikTok). Forced OFF in release builds.";
+                    inputs.Add(verboseLogging);
+                    break;
             }
 
-            // Adjust (full mode only). adjustAppToken is the ONE documented hard build gate
-            // (BuildValidationVendorSettings.cs / SdkConfigDetector.cs: empty or length<=5 fails a
-            // Full-mode build) - Invalid state + subtext only while unresolved, no subtext once valid.
-            // Group header is now rendered explicitly (not the [Header] attribute's auto-decorator):
-            // ValidatedField.CreateBound uses a plain bound TextField, not PropertyField, so the
-            // attribute-driven decorator no longer applies here (see ValidatedField.cs for why).
-            if (showAdjust)
-            {
-                // "(Full Mode Only)" dropped (F13.2, 2026-07-21 audit): showAdjust is already gated on
-                // !isPrototype, so this header only ever renders in Full mode - the qualifier was dead.
-                var adjustHeader = new Label("Adjust");
-                adjustHeader.AddToClassList("sorolla-config-group-header");
-                _configContainer.Add(adjustHeader);
+            return inputs;
+        }
 
-                var appToken = ValidatedField.CreateBound(_serializedConfig.FindProperty("adjustAppToken"), "App Token", value =>
+        /// <summary>TikTok is a parked vendor (roadmap "Parking decisions" - no QA/diagnostics
+        /// investment), so it has no Greenlight check rows / GreenlightAdapter.VendorGroup entry - it
+        /// renders as its own optional, collapsed-by-default group (vendor-consolidation ruling) reusing
+        /// BuildExpandableGroup rather than a synthetic check-row group. Same in both studio and internal
+        /// views (a config toggle, not a zero-leverage info row). Plain unbound Toggle, not a bound
+        /// PropertyField: a PropertyField's ValueChangeCallback also fires once during Bind()'s own
+        /// initial sync, and refreshing the whole container from inside that sync recurses (a fresh
+        /// PropertyField created by the refresh gets bound again, fires again...) - Unity's own recursion
+        /// guard caught this at ~490 deep during verification.</summary>
+        VisualElement BuildTikTokGroup()
+        {
+            var header = new Label("TikTok (optional)");
+            header.AddToClassList("sorolla-config-group-header");
+
+            var rows = new List<VisualElement>();
+            if (_config != null && _serializedConfig != null)
+            {
+                var tiktokToggle = new Toggle("Enabled") { value = _config.enableTikTok };
+                tiktokToggle.RegisterValueChangedCallback(evt =>
                 {
-                    bool valid = !string.IsNullOrEmpty(value) && value.Length > 5;
-                    return valid
-                        ? (ValidatedField.State.Valid, (string)null)
-                        : (ValidatedField.State.Invalid, "Required for Full-mode builds");
+                    _config.enableTikTok = evt.newValue;
+                    EditorUtility.SetDirty(_config);
+                    RefreshGreenlightUI(); // fields show/hide with this same flag
                 });
-                appToken.style.marginLeft = 15;
-                _configContainer.Add(appToken);
-                _adjustAppTokenField = appToken;
+                rows.Add(tiktokToggle);
 
-                _configContainer.Add(Indented(BoundField("adjustPurchaseEventToken", "Purchase Event Token")));
-            }
-            else
-            {
-                _adjustAppTokenField = null;
-            }
-
-            // TikTok is a parked vendor (roadmap "Parking decisions" - no QA/diagnostics investment),
-            // so it's a plain config toggle here, not a Greenlight check row / vendor group (grouping-
-            // review ruling, 2026-07-21: it was pulled out of the check-row list entirely). Also
-            // PlatformAdUnitId (nested Android/iOS struct, same as the MAX ad units above), not a leaf
-            // string - stays plain PropertyField for the same reason.
-            var tiktokHeader = new Label("TikTok (optional)");
-            tiktokHeader.AddToClassList("sorolla-config-group-header");
-            _configContainer.Add(tiktokHeader);
-
-            // Plain unbound Toggle, not a bound PropertyField: a PropertyField's ValueChangeCallback
-            // also fires once during Bind()'s own initial sync, and refreshing the whole container from
-            // inside that sync recurses (a fresh PropertyField created by the refresh gets bound again,
-            // fires again...) - Unity's own recursion guard caught this at ~490 deep during verification.
-            // Same fix shape as the pre-restructure TikTok row, which used an unbound Toggle for exactly
-            // this reason.
-            var tiktokToggle = new Toggle("Enabled") { value = _config.enableTikTok };
-            tiktokToggle.style.marginLeft = 15;
-            tiktokToggle.RegisterValueChangedCallback(evt =>
-            {
-                _config.enableTikTok = evt.newValue;
-                EditorUtility.SetDirty(_config);
-                RefreshConfigUI(); // fields show/hide with this same flag
-            });
-            _configContainer.Add(tiktokToggle);
-
-            if (_config.enableTikTok)
-            {
-                var tiktokAppIdField = new PropertyField(_serializedConfig.FindProperty("tiktokAppId"), "TikTok App ID");
-                _configContainer.Add(Indented(tiktokAppIdField));
-                _tiktokAppIdField = tiktokAppIdField;
-                _configContainer.Add(Indented(new PropertyField(_serializedConfig.FindProperty("tiktokEmAppId"), "App ID (EM)")));
-                _configContainer.Add(Indented(new PropertyField(_serializedConfig.FindProperty("tiktokAccessToken"), "Access Token")));
-            }
-            else
-            {
-                _tiktokAppIdField = null;
+                if (_config.enableTikTok)
+                {
+                    var tiktokAppIdField = new PropertyField(_serializedConfig.FindProperty("tiktokAppId"), "TikTok App ID");
+                    rows.Add(tiktokAppIdField);
+                    _tiktokAppIdField = tiktokAppIdField;
+                    rows.Add(new PropertyField(_serializedConfig.FindProperty("tiktokEmAppId"), "App ID (EM)"));
+                    rows.Add(new PropertyField(_serializedConfig.FindProperty("tiktokAccessToken"), "Access Token"));
+                }
+                else
+                {
+                    _tiktokAppIdField = null;
+                }
             }
 
-            // Verbose Logging (master toggle) - "Logging" header comes from verboseLogging's own
-            // [Header] attribute, same as Adjust/TikTok above.
-            var verboseLogging = new PropertyField(_serializedConfig.FindProperty("verboseLogging"), "Verbose Logging");
-            verboseLogging.tooltip = "Enable verbose debug output for all vendor SDKs (MAX, Adjust, TikTok). Forced OFF in release builds.";
-            _configContainer.Add(verboseLogging);
-
-            _configContainer.Bind(_serializedConfig);
-
-            // Auto-sync MAX SDK key to AppLovinSettings whenever any field on this config changes,
-            // matching the old "if (_serializedConfig.ApplyModifiedProperties()) { ... if (showMax)
-            // sync }" behavior - TrackSerializedObjectValue fires once per change, same semantics.
-            if (showMax)
-                _configContainer.TrackSerializedObjectValue(_serializedConfig, _ => MaxSettingsSanitizer.SyncEmbeddedSdkKey());
+            return BuildExpandableGroup("tiktok-config", header, rows, defaultExpanded: false);
         }
 
         /// <summary>ValidatedField-styled row for a plain optional string property (p4-config,
@@ -1192,20 +1182,27 @@ namespace Sorolla.Palette.Editor
                         }
                     }
 
+                    // Vendor-consolidation cycle: config inputs (MAX ad units, Adjust tokens, Verbose
+                    // Logging) render after the check rows, inside the same group - one owner per vendor
+                    // for status, check rows, AND config.
+                    rowElements.AddRange(BuildConfigInputsForGroup(group));
+
                     VisualElement header = BuildVendorGroupHeader(group) ?? BuildPlainGroupHeader(GroupTitle(group), rows);
                     bool anyAttention = rows.Any(r => r.Status == CheckRow.Status.Fail || r.Status == CheckRow.Status.Warn || r.Status == CheckRow.Status.Wait);
                     _greenlightContainer.Add(BuildExpandableGroup($"internal:{group}", header, rowElements, anyAttention));
                 }
 
+                _greenlightContainer.Add(BuildTikTokGroup());
+                BindConfigInputs();
                 return;
             }
 
             // Studio view: same grouping, same filter as before regrouping - only studio-red actionable
             // rows render, per group (vendor-grouping cycle, supervisor 2026-07-21 ~13:50). A group with
-            // nothing actionable renders NOT AT ALL (zero-leverage rule) - no exceptions: TikTok is a
-            // parked vendor (roadmap "Parking decisions" - no QA/diagnostics investment) and lives as a
-            // plain config toggle in the SDK Keys area now, not as a check row, so it no longer forces
-            // Build & Project to stay visible when clean (grouping-review ruling, 2026-07-21).
+            // nothing actionable renders NOT AT ALL (zero-leverage rule) - UNLESS it has config inputs to
+            // show (vendor-consolidation ruling, 2026-07-21 15:35): inputs are studio-controlled variants,
+            // not zero-leverage info, so e.g. MAX's ad-unit fields keep its group open even when every MAX
+            // check row is clean, and a required-but-empty input can never collapse away as "all clear".
             // Manual/dashboard attestation checklist rows are Sorolla QA process (studio pilot not yet
             // delegated), so they never render here either, per ruling 2 - EXCEPT the uncertified-pin case
             // (Disposition.Omitted), which is genuinely studio-actionable (F1 ruling, 2026-07-21 ~12:30).
@@ -1226,7 +1223,8 @@ namespace Sorolla.Palette.Editor
                     actionableRows.Add(row);
                 }
 
-                if (actionableRows.Count == 0) continue;
+                List<VisualElement> configInputs = BuildConfigInputsForGroup(group);
+                if (actionableRows.Count == 0 && configInputs.Count == 0) continue;
                 anyOpen = true;
 
                 var groupContainer = new VisualElement();
@@ -1237,6 +1235,8 @@ namespace Sorolla.Palette.Editor
                 rowsWrap.style.marginLeft = 20;
                 foreach (GreenlightEvaluator.Row row in actionableRows)
                     rowsWrap.Add(BuildGreenlightRow(row, includeAttestation: false, group));
+                foreach (VisualElement input in configInputs)
+                    rowsWrap.Add(input);
                 groupContainer.Add(rowsWrap);
 
                 _greenlightContainer.Add(groupContainer);
@@ -1252,6 +1252,26 @@ namespace Sorolla.Palette.Editor
                 clear.AddToClassList("sorolla-type-small");
                 _greenlightContainer.Add(clear);
             }
+
+            // TikTok is an optional, config-only vendor - it renders regardless of anyOpen (same
+            // behavior as the old SDK Keys section, which wasn't gated on Greenlight cleanliness either).
+            _greenlightContainer.Add(BuildTikTokGroup());
+            BindConfigInputs();
+        }
+
+        /// <summary>Binds every config input added to _greenlightContainer this refresh (MAX ad units,
+        /// Adjust tokens, TikTok fields, Verbose Logging) and re-wires the MAX auto-sync side effect -
+        /// same behavior the old _configContainer.Bind()/.TrackSerializedObjectValue() calls provided,
+        /// now scoped to the merged container. Called once per RefreshGreenlightUI (both views), after
+        /// all groups (including TikTok) have been added.</summary>
+        void BindConfigInputs()
+        {
+            if (_serializedConfig == null) return;
+
+            _greenlightContainer.Bind(_serializedConfig);
+
+            if (SdkDetector.IsInstalled(SdkId.AppLovinMAX))
+                _greenlightContainer.TrackSerializedObjectValue(_serializedConfig, _ => MaxSettingsSanitizer.SyncEmbeddedSdkKey());
         }
 
         static readonly GreenlightAdapter.VendorGroup[] GroupOrder =
@@ -1523,7 +1543,6 @@ namespace Sorolla.Palette.Editor
             // Run validation checks
             _validationResults = BuildValidator.RunAllChecks();
             Repaint();
-            RefreshConfigUI();
             RefreshGreenlightUI();
         }
 
