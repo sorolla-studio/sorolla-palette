@@ -21,6 +21,21 @@ Awareness-first, not a gate: a studio may intentionally ship one platform at a t
 check below warns rather than blocks the build. Each warning states the root cause, the on-device
 signal it produces, and the fix.
 
+### Changed (2026-07-21 editor window simplification)
+- **One menu entry, period.** `Tools > Sorolla Palette SDK` is the only Palette entry this package
+  adds. The `Tools > Sorolla Palette SDK Internal` checkable toggle is gone.
+- **Studio window shows only what a studio controls.** SDK Overview, the full Build Health row list,
+  the Greenlight fail/warn/wait count strip, Copy Report (JSON), Export Gate Catalog, and the manual
+  attestation/dashboard checklist rows no longer render in the shipped window. Build Health still
+  runs and auto-fixes on every refresh and before every build; only its section is gone. The
+  Greenlight verdict badge still aggregates every row (including hidden ones), and Copy Report (text)
+  still carries every row - nothing here changes what gets checked or exported, only what's rendered.
+- **Fixed**: detail/requirement text on Greenlight and Build Health rows no longer truncates off the
+  right edge - it wraps.
+- Sorolla's own full-depth debugging surface (SDK Overview, every Build Health row, every Greenlight
+  row incl. attestations, JSON/catalog exports) has moved out of this package entirely, into a
+  gitignored, non-shipping harness in the testbed. Not part of the public API or this package.
+
 ### Changed (2026-07-20 hungrysnake iOS re-QA fixes)
 - **A fresh build can no longer report itself HEALTHY.** The "did this session exercise anything"
   judgment now reads the per-build coverage ledger instead of counting events, because a normal boot

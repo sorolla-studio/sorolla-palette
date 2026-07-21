@@ -137,10 +137,13 @@ namespace Sorolla.Palette.Editor
             // p3-sdkoverview: DrawSdkOverviewSection() was the LAST call in DrawUpperSections, so
             // porting it is a clean peel from the end of the already-shrunk IMGUIContainerA region,
             // not a new middle-split - it just slots in right before Build Health.
-            // SDK Overview + the full Build Health row list are INTERNAL depth. Build Health itself still
-            // runs (and still auto-fixes) on every refresh and before every build - only its section is
-            // hidden, so a studio gets the fixes without the wall of rows.
-            if (InternalView)
+            // SDK Overview + the full Build Health row list are INTERNAL depth (editor-window-
+            // simplification-2026-07-21 ruling 2/4): they no longer render in the shipped studio
+            // window at all. Build Health itself still runs (and still auto-fixes) on every refresh
+            // and before every build - only its section is gone from this window; the internal
+            // harness (Assets/SorollaInternal/Editor/ in the testbed) renders the full depth by
+            // toggling ShowInternalDepth and calling this same CreateGUI.
+            if (ShowInternalDepth)
             {
                 _sdkOverviewContainer = CreatePortedSectionContainer();
                 _sdkOverviewContainer.style.marginTop = 10;
@@ -260,39 +263,29 @@ namespace Sorolla.Palette.Editor
             window.ShowUtility();
         }
 
-        // ── Internal (Sorolla) view ───────────────────────────────────
+        // ── Internal (Sorolla) depth ───────────────────────────────────
         //
         // A studio sees one verdict card, their configuration, and quick start. The full depth (SDK
-        // overview, every Build Health row, JSON/catalog exports, every greenlight row) is not removed
-        // and not build-gated - it is one checkable menu item away, so Sorolla debugs exactly the window
-        // the studio is looking at.
+        // overview, every Build Health row, JSON/catalog exports, every greenlight row) lives ONLY in
+        // the testbed-local internal harness (Assets/SorollaInternal/Editor/, gitignored, non-shipping).
+        // No EditorPrefs toggle and no second MenuItem in this package (editor-window-simplification-
+        // 2026-07-21 ruling 1/4) - the harness is the sole caller of <see cref="ShowInternal"/>, which
+        // flips this instance flag before the window paints, so the one evaluator/report/export/
+        // validator model backs both frontends with no duplicated logic.
 
-        const string InternalViewMenuPath = "Tools/Sorolla Palette SDK Internal";
-        const string InternalViewPrefKey = "sorolla.window.internal";
+        internal bool ShowInternalDepth;
 
-        internal static bool InternalView
+        /// <summary>Sole entry point for the internal harness (via InternalsVisibleTo) to open the
+        /// full-depth window. Not exposed via any MenuItem in this package.</summary>
+        internal static SorollaWindow ShowInternal()
         {
-            get => EditorPrefs.GetBool(InternalViewPrefKey, false);
-            set => EditorPrefs.SetBool(InternalViewPrefKey, value);
-        }
-
-        [MenuItem(InternalViewMenuPath)]
-        static void ToggleInternalView()
-        {
-            InternalView = !InternalView;
-            foreach (SorollaWindow window in Resources.FindObjectsOfTypeAll<SorollaWindow>())
-            {
-                window.rootVisualElement.Clear();
-                window.CreateGUI();
-                window.Repaint();
-            }
-        }
-
-        [MenuItem(InternalViewMenuPath, true)]
-        static bool ToggleInternalViewValidate()
-        {
-            Menu.SetChecked(InternalViewMenuPath, InternalView);
-            return true;
+            var window = CreateInstance<SorollaWindow>();
+            window.ShowInternalDepth = true;
+            window.titleContent = new GUIContent("Sorolla Palette SDK (Internal)");
+            window.minSize = new Vector2(420, 380);
+            window.position = new Rect(100, 100, 560, 800);
+            window.ShowUtility();
+            return window;
         }
 
         [InitializeOnLoadMethod]
@@ -1004,7 +997,7 @@ namespace Sorolla.Palette.Editor
             headerRow.style.alignItems = Align.Center;
             headerRow.style.marginBottom = 8;
 
-            var headerLabel = new Label(InternalView ? "Greenlight (internal)" : "Greenlight");
+            var headerLabel = new Label(ShowInternalDepth ? "Greenlight (internal)" : "Greenlight");
             headerLabel.AddToClassList("sorolla-type-section");
             headerRow.Add(headerLabel);
 
@@ -1017,7 +1010,7 @@ namespace Sorolla.Palette.Editor
 
             _greenlightContainer.Add(headerRow);
 
-            if (InternalView)
+            if (ShowInternalDepth)
             {
                 string countStrip = $"{report.FailCount} fail · {report.WarnCount} warn · {report.WaitCount} wait · {report.PassCount} pass";
                 var countLabel = new Label(countStrip);
@@ -1059,7 +1052,7 @@ namespace Sorolla.Palette.Editor
             copyButton.AddToClassList("sorolla-button-small");
             actionsRow.Add(copyButton);
 
-            if (InternalView)
+            if (ShowInternalDepth)
             {
                 var copyJsonButton = new Button(() =>
                         EditorGUIUtility.systemCopyBuffer = GreenlightReportExport.ToJson(report.Health, report.Fingerprint, report.Context))
@@ -1083,11 +1076,11 @@ namespace Sorolla.Palette.Editor
             privacyNote.style.marginBottom = 6;
             _greenlightContainer.Add(privacyNote);
 
-            if (InternalView)
+            if (ShowInternalDepth)
             {
                 var rowElements = new List<VisualElement>();
                 foreach (GreenlightEvaluator.Row row in report.Rows)
-                    rowElements.Add(BuildGreenlightRow(row));
+                    rowElements.Add(BuildGreenlightRow(row, includeAttestation: true));
 
                 string summary = GreenlightEvaluator.RowSummary(report);
                 Foldout rowGroup = CollapsibleCheckGroup.Create(summary, rowElements, _greenlightChecksExpanded);
@@ -1096,14 +1089,17 @@ namespace Sorolla.Palette.Editor
                 return;
             }
 
-            // Studio view: only what still needs work. A passing row is not information a studio has to
-            // read, and hiding it here hides nothing from the verdict - the badge above already aggregates
-            // every row, and the copied report still carries all of them.
+            // Studio view: only studio-red actionable rows - structural failures/config problems with
+            // a fix. A passing row is not information a studio has to read, and hiding it here hides
+            // nothing from the verdict - the badge above already aggregates every row, and the copied
+            // report still carries all of them. Manual/dashboard attestation checklist rows are Sorolla
+            // QA process (studio pilot not yet delegated), so they never render here either, per ruling 2.
             bool anyOpen = false;
             foreach (GreenlightEvaluator.Row row in report.Rows)
             {
                 if (row.Status == CheckRow.Status.Pass) continue;
-                _greenlightContainer.Add(BuildGreenlightRow(row));
+                if (GreenlightManualChecklist.DescriptorForLabel(row.Label) != null) continue;
+                _greenlightContainer.Add(BuildGreenlightRow(row, includeAttestation: false));
                 anyOpen = true;
             }
 
@@ -1115,10 +1111,12 @@ namespace Sorolla.Palette.Editor
             }
         }
 
-        /// <summary>A CheckRow plus its Fix/deep-link line and, for manual checklist rows, a
-        /// Verified toggle - manual/dashboard rows never render as a bare unchecked box (brief
-        /// requirement: always carry fix text + deep link).</summary>
-        VisualElement BuildGreenlightRow(GreenlightEvaluator.Row row)
+        /// <summary>A CheckRow plus its Fix/deep-link line and, for manual checklist rows in the
+        /// internal harness, a Verified toggle - manual/dashboard rows never render as a bare
+        /// unchecked box (brief requirement: always carry fix text + deep link). Studio callers pass
+        /// includeAttestation: false since attestation checklist rows never reach the studio render
+        /// (ruling 2 - they're Sorolla QA process, not a studio row at all).</summary>
+        VisualElement BuildGreenlightRow(GreenlightEvaluator.Row row, bool includeAttestation)
         {
             var container = new VisualElement();
 
@@ -1140,6 +1138,8 @@ namespace Sorolla.Palette.Editor
                 linkButton.style.marginLeft = 24;
                 container.Add(linkButton);
             }
+
+            if (!includeAttestation) return container;
 
             // Manual gates are satisfied by a SCOPED attestation recorded against the current build identity
             // (Cycle 4b), not a legacy tick. The Attest button records who/when/which-build/what-proof; the

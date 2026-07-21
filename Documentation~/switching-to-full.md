@@ -49,16 +49,10 @@ If any package name, bundle ID, app token, or ad unit belongs to a different app
 1. Open **Tools > Sorolla Palette SDK**.
 2. Click **Switch to Full**.
 3. Let Unity install and resolve the Full-mode packages.
-4. Reopen **Tools > Sorolla Palette SDK** and check **Build Health**.
+4. Reopen **Tools > Sorolla Palette SDK** and check the **Greenlight** verdict.
 
-Build Health should be green for:
-
-- SDK Versions
-- Mode Consistency
-- Scoped Registries
-- Firebase Coherence
-- Config Sync
-- Android Manifest
+Greenlight should show no outstanding rows for SDK versions, mode consistency, scoped registries,
+Firebase coherence, config sync, or Android manifest.
 
 Do not hand-edit `Packages/manifest.json` unless Sorolla support asks you to. The mode switch owns required package changes.
 

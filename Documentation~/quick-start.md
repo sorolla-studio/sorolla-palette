@@ -98,7 +98,11 @@ Assets/google-services.json
 Assets/GoogleService-Info.plist
 ```
 
-In **Tools > Sorolla Palette SDK**, install Firebase from the Firebase row if it is not already installed. Then refresh **Build Health** and confirm Firebase config files are found.
+Firebase is optional in Prototype mode, so it is not auto-installed by the mode switch. Add
+`com.google.firebase.app`, `com.google.firebase.analytics`, `com.google.firebase.crashlytics`, and
+`com.google.firebase.remote-config` to `Packages/manifest.json` (see [Firebase Setup](guides/firebase.md)
+for exact refs), let Unity resolve, then reopen **Tools > Sorolla Palette SDK** and click **Refresh**
+under Greenlight to confirm the config files are found.
 
 Full details: [Firebase Setup](guides/firebase.md).
 
@@ -114,7 +118,7 @@ Confirm:
 - GameAnalytics is configured.
 - Facebook SDK is configured.
 - Firebase is installed and config files are present.
-- **Build Health** has no blocking issues.
+- The **Greenlight** verdict has no outstanding rows.
 
 Keep Prototype mode lean. Do not configure MAX, Adjust, IAP, consent, or store privacy yet. TikTok is a parked vendor: new integrations should not configure it, though an existing compatibility config may remain (see the [TikTok guide](guides/tiktok.md)).
 

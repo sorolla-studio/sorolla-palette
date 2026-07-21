@@ -14,8 +14,8 @@ Common issues and solutions for Sorolla SDK integration.
 | Adjust not connecting | Disable VPN/ad blockers/private DNS and retry | [→](#android-vpn--dns-blocking) |
 | Remote config returns defaults | Ensure values are **published** in console | [→](#remote-config) |
 | Firebase errors | Verify config files match bundle ID | [→](#firebase-issues) |
-| Build failing | Check **Build Health** in Configuration window | [→](#build-health) |
-| Runtime crash on Android | Open `Tools > Sorolla Palette SDK`, check Build Health | [→](#android-specific-issues) |
+| Build failing | Check the **Greenlight** verdict in `Tools > Sorolla Palette SDK` | [→](#build-health) |
+| Runtime crash on Android | Open `Tools > Sorolla Palette SDK`, check the Greenlight verdict | [→](#android-specific-issues) |
 | iOS provisioning errors | Open Xcode, enable "Automatically manage signing" | [→](#ios-specific-issues) |
 | TestFlight rejects `libFirebaseCpp*.a` (ITMS-90171) | Set the `.a` libs to "Do Not Embed" in Xcode | [→](known-issues.md) |
 
@@ -23,18 +23,11 @@ Common issues and solutions for Sorolla SDK integration.
 
 ## Build Health
 
-The Configuration window includes a **Build Health** section that validates your SDK setup before building. It runs 6 technical checks:
-
-| Check | What it validates |
-|-------|-------------------|
-| SDK Versions | Installed versions meet minimum requirements |
-| Mode Consistency | Installed SDKs match current mode (Prototype/Full) |
-| Scoped Registries | UPM registries are properly configured |
-| Firebase Coherence | Firebase modules have FirebaseApp installed |
-| Config Sync | SorollaConfig matches installed packages |
-| Android Manifest | No orphaned SDK entries that cause crashes |
-
-**Note**: SDK installation status is shown in the **SDK Overview** section above Build Health.
+Build Health validates your SDK setup before building - 6 technical checks (SDK versions, mode
+consistency, scoped registries, Firebase coherence, config sync, Android manifest) - and always
+runs and auto-fixes on every refresh and before every build. A failing or warning check surfaces as
+an actionable row (with its fix) under the **Greenlight** section of `Tools > Sorolla Palette SDK`;
+a passing check is not shown, since there is nothing for you to act on.
 
 **Auto-fix**: The validator automatically fixes AndroidManifest issues when the window opens or before builds.
 

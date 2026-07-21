@@ -234,6 +234,8 @@
 .sorolla-check-row-status {
     font-size: 11px;
     -unity-font-style: bold;
+    white-space: normal;
+    flex-shrink: 1;
 }
 
 .sorolla-check-pass { color: var(--sorolla-status-pass); }
