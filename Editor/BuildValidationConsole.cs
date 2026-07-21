@@ -29,7 +29,13 @@ namespace Sorolla.Palette.Editor
             // Log each result
             foreach (ValidationResult result in results)
             {
-                string fixText = string.IsNullOrEmpty(result.Fix) ? "" : $"\n  Fix: {result.Fix}";
+                // Several Fix hints were trimmed to window-relative phrasing ("SDK Keys below", "the mode
+                // switch above") once the row's own button/field made the old menu-path instruction
+                // redundant (F6, 2026-07-21 audit) - that phrasing is meaningless with no window open, so
+                // the console variant re-adds the entry point those hints now assume.
+                string fixText = string.IsNullOrEmpty(result.Fix)
+                    ? ""
+                    : $"\n  Fix: Open Tools > Sorolla Palette SDK - {result.Fix}";
 
                 switch (result.Status)
                 {

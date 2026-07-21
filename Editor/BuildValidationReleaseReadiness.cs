@@ -33,11 +33,14 @@ namespace Sorolla.Palette.Editor
 
             if (config.verboseLogging)
             {
+                // Fix hint no longer tells you to open the window you're already reading this row inside
+                // (F6, 2026-07-21 audit) - the field is the "Verbose Logging" toggle in this same window's
+                // SDK Keys section, a few rows below.
                 results.Add(Warning(
                     category,
                     "SorollaConfig.verboseLogging is on.\n" +
                     "  Runtime already forces this off in non-development builds, so this is drift hygiene, not a leak risk.",
-                    "Turn off verboseLogging in Tools > Sorolla Palette SDK before committing, unless this is a dev/QA build on purpose"));
+                    "Turn off Verbose Logging in the SDK Keys section below before committing, unless this is a dev/QA build on purpose"));
             }
             else
             {
@@ -116,11 +119,16 @@ namespace Sorolla.Palette.Editor
             var config = Resources.Load<SorollaConfig>("SorollaConfig");
             if (config != null && config.adjustSandboxMode)
             {
+                // Fix hint repointed at reality (F6, 2026-07-21 audit): adjustSandboxMode has no toggle in
+                // Tools > Sorolla Palette SDK at all (RefreshConfigUI renders MAX units, Adjust tokens,
+                // TikTok, verboseLogging only) - the field is only reachable on the raw SorollaConfig.asset
+                // Inspector, which has no custom Editor so every serialized field (including this one)
+                // shows there by default.
                 results.Add(Warning(
                     category,
                     "SorollaConfig.adjustSandboxMode is on.\n" +
                     "  Sandbox events are excluded from Adjust's live dashboards/attribution - must be off before store submission.",
-                    "Turn off Adjust Sandbox mode in Tools > Sorolla Palette SDK before a release build"));
+                    "Select Assets/Resources/SorollaConfig.asset in the Project window and untick Adjust Sandbox Mode in the Inspector"));
             }
             else
             {

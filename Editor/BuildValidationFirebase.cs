@@ -43,10 +43,12 @@ namespace Sorolla.Palette.Editor
             else if (!SorollaSettings.IsPrototype)
             {
                 // Firebase missing in Full mode — warn
+                // Fix hint no longer tells you to open the window you're already inside (F6, 2026-07-21
+                // audit) - points at the actual SDK Overview row below instead.
                 results.Add(Warning(
                     CheckCategory.FirebaseCoherence,
                     "Firebase not installed (required in Full mode)",
-                    "Open Tools > Sorolla Palette SDK to install Firebase."));
+                    "Install Firebase from the SDK Overview row below."));
             }
             else
             {

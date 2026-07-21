@@ -42,6 +42,11 @@ namespace Sorolla.Palette.Editor
         VisualElement _configContainer;
         VisualElement _heroContainer;
         VisualElement _greenlightContainer;
+        ScrollView _scrollView;
+        // Captured so the Greenlight rows for these fields can scroll/focus straight to them instead of
+        // leaving "enter it below" as a pointer with no action (F9, 2026-07-21 audit).
+        VisualElement _adjustAppTokenField;
+        VisualElement _tiktokAppIdField;
         bool _buildHealthChecksExpanded;
         bool _greenlightChecksExpanded;
         List<BuildValidator.ValidationResult> _validationResults = new List<BuildValidator.ValidationResult>();
@@ -122,6 +127,7 @@ namespace Sorolla.Palette.Editor
             scrollView.contentContainer.style.paddingLeft = ContentPadding;
             scrollView.contentContainer.style.paddingRight = ContentPadding;
             rootVisualElement.Add(scrollView);
+            _scrollView = scrollView;
 
             scrollView.Add(new IMGUIContainer(DrawUpperSections));
 
@@ -405,8 +411,13 @@ namespace Sorolla.Palette.Editor
                 });
                 appToken.style.marginLeft = 15;
                 _configContainer.Add(appToken);
+                _adjustAppTokenField = appToken;
 
                 _configContainer.Add(Indented(BoundField("adjustPurchaseEventToken", "Purchase Event Token")));
+            }
+            else
+            {
+                _adjustAppTokenField = null;
             }
 
             // TikTok (optional - shown only when enabled in SDK Overview). Also PlatformAdUnitId
@@ -414,9 +425,15 @@ namespace Sorolla.Palette.Editor
             // stays plain PropertyField for the same reason.
             if (_config.enableTikTok)
             {
-                _configContainer.Add(Indented(new PropertyField(_serializedConfig.FindProperty("tiktokAppId"), "TikTok App ID")));
+                var tiktokAppIdField = new PropertyField(_serializedConfig.FindProperty("tiktokAppId"), "TikTok App ID");
+                _configContainer.Add(Indented(tiktokAppIdField));
+                _tiktokAppIdField = tiktokAppIdField;
                 _configContainer.Add(Indented(new PropertyField(_serializedConfig.FindProperty("tiktokEmAppId"), "App ID (EM)")));
                 _configContainer.Add(Indented(new PropertyField(_serializedConfig.FindProperty("tiktokAccessToken"), "Access Token")));
+            }
+            else
+            {
+                _tiktokAppIdField = null;
             }
 
             // Verbose Logging (master toggle) - "Logging" header comes from verboseLogging's own
@@ -437,6 +454,17 @@ namespace Sorolla.Palette.Editor
         /// <summary>ValidatedField-styled row for a plain optional string property (p4-config,
         /// item 7): no documented required/invalid rule for these fields, so state is just
         /// filled-vs-empty and there's no subtext to show.</summary>
+        /// <summary>Scrolls the field into view and focuses it - the remedy for "enter it below" rows
+        /// whose field already lives lower in this same window (F9, 2026-07-21 audit: same treatment as
+        /// the Device Snapshot row's Connect Device embed, ruling 5). No-op if the field isn't currently
+        /// rendered (e.g. TikTok disabled, or Adjust fields hidden in Prototype mode).</summary>
+        void FocusConfigField(VisualElement field)
+        {
+            if (field == null || _scrollView == null) return;
+            _scrollView.ScrollTo(field);
+            field.Focus();
+        }
+
         VisualElement BoundField(string propertyName, string label)
         {
             var property = _serializedConfig.FindProperty(propertyName);
@@ -961,6 +989,13 @@ namespace Sorolla.Palette.Editor
                 actionLabel = "Dashboard";
                 onAction = () => Application.OpenURL("https://business.tiktok.com/");
             }
+            else if (enabled)
+            {
+                // "Set App ID below" used to be a pointer with no action (F9, 2026-07-21 audit) - now
+                // scrolls/focuses the actual field, same treatment as the Adjust row above.
+                actionLabel = "Set ID";
+                onAction = () => FocusConfigField(_tiktokAppIdField);
+            }
 
             return BuildVendorRow(new SdkOverviewRowData
             {
@@ -1053,10 +1088,13 @@ namespace Sorolla.Palette.Editor
             }
             else
             {
-                // Full mode: MAX + Adjust required
+                // Full mode: MAX + Adjust required. "Enter app token below" used to be a pointer with no
+                // action (F9, 2026-07-21 audit) - now scrolls/focuses the actual field, same treatment as
+                // the Device Snapshot row's embedded Connect Device action (ruling 5).
                 _sdkOverviewContainer.Add(BuildMaxOverviewRow(maxSettingsSynced, true));
                 _sdkOverviewContainer.Add(BuildSdkOverviewRow(
-                    SdkRegistry.All[SdkId.Adjust], adjustStatus, "Enter app token below", null, true));
+                    SdkRegistry.All[SdkId.Adjust], adjustStatus, "Enter app token below",
+                    () => FocusConfigField(_adjustAppTokenField), true));
             }
 
             // Firebase (required in Full, optional in Prototype)
@@ -1284,6 +1322,19 @@ namespace Sorolla.Palette.Editor
                 connectRowButton.style.marginLeft = 24;
                 connectRowButton.SetEnabled(!connecting);
                 container.Add(connectRowButton);
+            }
+
+            // Mode Consistency's fix is literally this window's own hero-header mode switch (F6,
+            // 2026-07-21 audit) - render it as a row action instead of prose alone. RequestModeSwitch()
+            // always targets "the other mode" (only two exist), so it's correct whichever direction this
+            // row's issue actually points.
+            if (row.GateId == GateIds.BuildModeConsistency && row.Status != CheckRow.Status.Pass)
+            {
+                var switchModeButton = new Button(RequestModeSwitch) { text = "Switch Mode" };
+                switchModeButton.AddToClassList("sorolla-button-small");
+                switchModeButton.style.marginLeft = 24;
+                switchModeButton.SetEnabled(!EditorApplication.isPlaying);
+                container.Add(switchModeButton);
             }
 
             if (!includeAttestation) return container;

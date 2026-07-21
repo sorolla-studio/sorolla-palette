@@ -150,9 +150,12 @@ namespace Sorolla.Palette.Editor
 
             if (!SorollaSettings.IsConfigured)
             {
+                // Fix hint no longer tells you to open the window you're already inside (F6, 2026-07-21
+                // audit) - points at the mode switch control in this same window's hero header instead.
                 results.Add(Warning(
                     CheckCategory.ModeConsistency,
-                    "No SDK mode configured. Open Tools > Sorolla Palette SDK to select Prototype or Full mode."));
+                    "No SDK mode configured.",
+                    "Select Prototype or Full using the mode switch above"));
                 return results;
             }
 
@@ -235,10 +238,17 @@ namespace Sorolla.Palette.Editor
                 if (!configuredScopes.Contains(sdk.Scope))
                 {
                     hasIssues = true;
+                    // Fix hint repointed at reality (F6, 2026-07-21 audit): there is no registry UI in this
+                    // window at all (scopedRegistries lives only in Packages/manifest.json). For a REQUIRED
+                    // SDK, FixConfigSync's EnsureRequiredRegistries already re-adds it on every Refresh - so
+                    // the actual fix is the Refresh button already in this window. For an optional SDK
+                    // outside that auto-repair path, removing and reinstalling it restores the registry
+                    // (SdkInstaller.Install writes it).
                     results.Add(Error(
                         CheckCategory.ScopedRegistries,
                         $"Missing scoped registry for {sdk.Name}\n  Required scope: {sdk.Scope}",
-                        "Open Tools > Sorolla Palette SDK to fix registry configuration"));
+                        "Click Refresh (required SDKs auto-repair their registry); for an optional SDK, " +
+                        "remove and reinstall it from the SDK Overview row below"));
                 }
             }
 
