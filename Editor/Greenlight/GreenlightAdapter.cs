@@ -502,6 +502,15 @@ namespace Sorolla.Palette.Editor.Greenlight
         /// Device &amp; QA.</summary>
         internal static VendorGroup GroupFor(string gateId)
         {
+            // Single-vendor attestation rows live under their own vendor, not the cross-vendor/device
+            // catch-all (Arthur's standing ruling: everything for a vendor - status, check rows, config,
+            // AND manual gates that are genuinely about that one vendor - lives under its foldout).
+            // Genuinely cross-vendor/device-scoped manual gates (Cross-Vendor Dashboard Drift, Consent
+            // Persistence, Background/Resume, IAP Store Config) and the device snapshot stay below in
+            // Device & QA - they don't belong to one vendor.
+            if (gateId == GateIds.ManualGaPlatformRegistered) return VendorGroup.GameAnalytics;
+            if (gateId == GateIds.ManualAdjustPurchaseVerification) return VendorGroup.Adjust;
+
             if (string.IsNullOrEmpty(gateId) ||
                 gateId.StartsWith("manual.") || gateId.StartsWith("device.") || gateId.StartsWith("iap."))
                 return VendorGroup.DeviceAndQa;

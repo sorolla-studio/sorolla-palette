@@ -54,8 +54,11 @@ namespace Sorolla.Palette.Editor
                     break;
 
                 case GameAnalyticsCredentialValidator.ProbeState.CredentialsValid:
-                    results.Add(Valid(category, probe.Detail,
-                        "Also verify in the GA dashboard that the active platform is added for this game - the credential probe cannot check that."));
+                    // The "also verify the active platform is added" reminder moved off this row (refuter
+                    // follow-up, 2026-07-21): it now duplicates the GameAnalytics Platform Registered
+                    // attestation row, which lives in this same vendor group as of the manual-gate regroup
+                    // and says the identical thing with its own action - one owner, not two.
+                    results.Add(Valid(category, probe.Detail));
                     break;
             }
 

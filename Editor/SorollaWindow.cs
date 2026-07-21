@@ -995,7 +995,12 @@ namespace Sorolla.Palette.Editor
         /// <summary>Worst-of header for the two non-vendor catch-all groups (Build & Project, Device &
         /// QA) - same BuildVendorRow visual shape as the vendor headers, just glyph/count-derived from
         /// the group's own rows instead of a vendor-specific status check, and no Edit/Console/Install
-        /// action (there's no single settings asset to open for a heterogeneous group).</summary>
+        /// action (there's no single settings asset to open for a heterogeneous group).
+        /// <paramref name="rows"/> must be the same rows the caller is about to render below this header
+        /// (the studio caller passes its already-filtered actionable subset, not the full internal-only
+        /// row list) - otherwise the count here can cite rows the viewer never sees below it (refuter
+        /// follow-up, 2026-07-21: studio's "Device & QA - 7 need attention" counted internal-only manual
+        /// rows while only Device Snapshot rendered).</summary>
         static VisualElement BuildPlainGroupHeader(string title, List<GreenlightEvaluator.Row> rows)
         {
             bool anyFail = rows.Any(r => r.Status == CheckRow.Status.Fail);
@@ -1005,7 +1010,9 @@ namespace Sorolla.Palette.Editor
             Color color = anyFail ? ColorRed : anyWarn ? ColorYellow : anyWait ? ColorGray : ColorGreen;
             string glyph = anyFail ? "✗" : anyWarn ? "⚠" : anyWait ? "•" : "✓";
             int issues = rows.Count(r => r.Status == CheckRow.Status.Fail || r.Status == CheckRow.Status.Warn || r.Status == CheckRow.Status.Wait);
-            string configText = issues > 0 ? $"{issues} need attention" : "All clear";
+            // Singular count reads oddly as "1 need attention" and, per ruling, a lone item doesn't need a
+            // number at all - drop it rather than fix the grammar.
+            string configText = issues == 0 ? "All clear" : issues == 1 ? "Needs attention" : $"{issues} need attention";
 
             var nameLabel = new Label(title);
             nameLabel.AddToClassList("sorolla-sdk-row-name");
@@ -1233,7 +1240,9 @@ namespace Sorolla.Palette.Editor
 
                 var groupContainer = new VisualElement();
                 groupContainer.style.marginBottom = 8;
-                groupContainer.Add(BuildVendorGroupHeader(group) ?? BuildPlainGroupHeader(GroupTitle(group), rows));
+                // actionableRows, not the full rows list: the plain header's count must match what
+                // actually renders below it in studio (refuter follow-up, 2026-07-21).
+                groupContainer.Add(BuildVendorGroupHeader(group) ?? BuildPlainGroupHeader(GroupTitle(group), actionableRows));
 
                 var rowsWrap = new VisualElement();
                 rowsWrap.style.marginLeft = 20;
@@ -1403,19 +1412,16 @@ namespace Sorolla.Palette.Editor
             // Pass rows suppress Fix text and remedy buttons entirely (product-audit finding F4,
             // 2026-07-21): a green row with mandatory "Fix:" homework and an action button pointing at
             // nothing-to-act-on is the glyph-vs-text contradiction family, one level deeper than the
-            // ruled defects. The GA credential probe's platform-registration reminder is the ONE
-            // deliberate exception (its own scope comment says never drop it, since the probe genuinely
-            // cannot verify that fact) - it still renders on a Pass row, re-prefixed "Note:" instead of
-            // "Fix:" so it doesn't read as an outstanding requirement.
+            // ruled defects. The GA credential probe's platform-registration reminder used to be the one
+            // deliberate exception here - it moved off this row (refuter follow-up, 2026-07-21) since it
+            // now duplicates the GameAnalytics Platform Registered attestation row in the same group.
             // Info rows (deliberate skip/absence, F5 residual) get the same treatment as Pass - no Fix
             // text and no action button, since a skip is not a caveat to resolve.
             bool isPass = row.Status == CheckRow.Status.Pass || row.Status == CheckRow.Status.Info;
-            bool isGaCredentialNote = row.GateId == GateIds.BuildGameAnalyticsCredentials;
 
-            if (!string.IsNullOrEmpty(row.Fix) && (!isPass || isGaCredentialNote))
+            if (!string.IsNullOrEmpty(row.Fix) && !isPass)
             {
-                string prefix = isPass ? "Note" : "Fix";
-                var fixLabel = new Label($"{prefix}: {row.Fix}");
+                var fixLabel = new Label($"Fix: {row.Fix}");
                 fixLabel.AddToClassList("sorolla-type-small");
                 fixLabel.style.marginLeft = 24;
                 fixLabel.style.whiteSpace = WhiteSpace.Normal;
@@ -1424,8 +1430,11 @@ namespace Sorolla.Palette.Editor
 
             if (!isPass && !string.IsNullOrEmpty(row.DeepLinkUrl))
             {
+                // Bordered button, not link-style text (refuter follow-up, 2026-07-21): same defect class
+                // as the Open GA Settings fix - a row action reads as an action, not prose, regardless of
+                // whether it opens an in-editor asset or an external dashboard.
                 var linkButton = new Button(() => Application.OpenURL(row.DeepLinkUrl)) { text = row.DeepLinkLabel ?? "Open" };
-                linkButton.AddToClassList("sorolla-footer-link");
+                linkButton.AddToClassList("sorolla-button-small");
                 linkButton.style.marginLeft = 24;
                 container.Add(linkButton);
             }
@@ -1497,7 +1506,7 @@ namespace Sorolla.Palette.Editor
             {
                 var reportButton = new Button(() => Application.OpenURL("https://github.com/sorolla-studio/sorolla-palette/issues"))
                     { text = "Report Issue" };
-                reportButton.AddToClassList("sorolla-footer-link");
+                reportButton.AddToClassList("sorolla-button-small");
                 reportButton.style.marginLeft = 24;
                 container.Add(reportButton);
             }
