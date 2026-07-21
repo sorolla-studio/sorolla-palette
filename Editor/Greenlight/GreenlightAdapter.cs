@@ -456,5 +456,67 @@ namespace Sorolla.Palette.Editor.Greenlight
                     map[pair.Value] = name;
             return map;
         }
+
+        // ── Vendor grouping (vendor-grouping cycle spec, supervisor 2026-07-21 ~13:50) ──
+
+        /// <summary>One expandable group per vendor + two catch-alls, per the endorsed restructure. Not a
+        /// second verdict/aggregation concept - purely a display bucket the window groups rows into.</summary>
+        internal enum VendorGroup
+        {
+            GameAnalytics,
+            Facebook,
+            Firebase,
+            AppLovinMax,
+            Adjust,
+            /// <summary>Every Build Health category that isn't vendor-specific: gradle/manifest/registries/
+            /// config/mode/versions/logging/dev-build.</summary>
+            BuildAndProject,
+            /// <summary>Everything with no BuildValidator.CheckCategory at all: device snapshot, IAP
+            /// attestation, manual/dashboard QA gates (cross-vendor drift included), and the synthetic
+            /// Report Integrity row.</summary>
+            DeviceAndQa,
+        }
+
+        static readonly Dictionary<BuildValidator.CheckCategory, VendorGroup> CategoryToGroup =
+            new Dictionary<BuildValidator.CheckCategory, VendorGroup>
+            {
+                [BuildValidator.CheckCategory.GameAnalyticsSettings] = VendorGroup.GameAnalytics,
+                [BuildValidator.CheckCategory.GameAnalyticsResourceWhitelist] = VendorGroup.GameAnalytics,
+                [BuildValidator.CheckCategory.GameAnalyticsCredentialProbe] = VendorGroup.GameAnalytics,
+                [BuildValidator.CheckCategory.FacebookPlatformConfig] = VendorGroup.Facebook,
+                [BuildValidator.CheckCategory.FirebaseCoherence] = VendorGroup.Firebase,
+                [BuildValidator.CheckCategory.FirebaseConfig] = VendorGroup.Firebase,
+                [BuildValidator.CheckCategory.MaxSettings] = VendorGroup.AppLovinMax,
+                [BuildValidator.CheckCategory.AdjustSettings] = VendorGroup.Adjust,
+                [BuildValidator.CheckCategory.AdjustSandboxMode] = VendorGroup.Adjust,
+                // Everything else (RequiredSdks, VersionMismatches, ModeConsistency, ScopedRegistries,
+                // ConfigSync, AndroidManifest, Edm4uSettings, GradleConfig, VerboseLogging,
+                // DevelopmentBuild, AndroidKeystore, GradleJavaHome, AddressablesContent, SdkPin) falls
+                // through to the BuildAndProject default below - grouping key is the category itself, not
+                // an explicit enumeration, so a newly added non-vendor category lands here automatically.
+            };
+
+        /// <summary>Grouping key is the gate's existing category from the catalog/validators, never label
+        /// string-matching. A gate id with no BuildValidator category at all (manual.*, device.*, iap.*,
+        /// or the synthetic Report Integrity row's null id) is QA/device process, not vendor build state -
+        /// Device &amp; QA.</summary>
+        internal static VendorGroup GroupFor(string gateId)
+        {
+            if (string.IsNullOrEmpty(gateId) ||
+                gateId.StartsWith("manual.") || gateId.StartsWith("device.") || gateId.StartsWith("iap."))
+                return VendorGroup.DeviceAndQa;
+
+            foreach (KeyValuePair<BuildValidator.CheckCategory, string> pair in CategoryToGateId)
+            {
+                if (pair.Value != gateId) continue;
+                return CategoryToGroup.TryGetValue(pair.Key, out VendorGroup group) ? group : VendorGroup.BuildAndProject;
+            }
+
+            // Unmapped build.* gate id: treat as Build & Project rather than silently dropping it - a
+            // grouping bucket, not a verdict, so fail-open here is safe (the unmapped-category-id path in
+            // BuildHealthObservations already makes the underlying observation fail loud if it's a truly
+            // unknown gate).
+            return VendorGroup.BuildAndProject;
+        }
     }
 }

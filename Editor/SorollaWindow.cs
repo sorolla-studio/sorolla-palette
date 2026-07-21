@@ -37,7 +37,6 @@ namespace Sorolla.Palette.Editor
         readonly HashSet<string> _installingPackages = new HashSet<string>();
         SorollaConfig _config;
         SerializedObject _serializedConfig;
-        VisualElement _sdkOverviewContainer;
         VisualElement _configContainer;
         VisualElement _heroContainer;
         VisualElement _greenlightContainer;
@@ -46,7 +45,9 @@ namespace Sorolla.Palette.Editor
         // leaving "enter it below" as a pointer with no action (F9, 2026-07-21 audit).
         VisualElement _adjustAppTokenField;
         VisualElement _tiktokAppIdField;
-        bool _greenlightChecksExpanded;
+        // Per-group expand/collapse memory (vendor-grouping cycle, supervisor 2026-07-21 ~13:50),
+        // replaces the old single _greenlightChecksExpanded bool for the one flat row list.
+        readonly Dictionary<string, bool> _groupExpanded = new Dictionary<string, bool>();
         List<BuildValidator.ValidationResult> _validationResults = new List<BuildValidator.ValidationResult>();
         readonly GreenlightDeviceSnapshot.State _snapshotState = new GreenlightDeviceSnapshot.State();
 
@@ -73,7 +74,7 @@ namespace Sorolla.Palette.Editor
             foreach (var package in args.added)
                 _installingPackages.Add(package.name);
             Repaint();
-            RefreshSdkOverviewUI();
+            RefreshGreenlightUI(); // vendor group headers show Installing... (vendor-grouping cycle)
         }
 
         void OnPackagesRegistered(PackageRegistrationEventArgs args)
@@ -84,7 +85,7 @@ namespace Sorolla.Palette.Editor
             // Re-run validation after packages are installed (no auto-install, just detect)
             EditorApplication.delayCall += () => RunBuildValidation();
             Repaint();
-            RefreshSdkOverviewUI();
+            RefreshGreenlightUI();
         }
 
         /// <summary>The ported rows' Install-button enabled state mirrors the old GUI.enabled =
@@ -93,7 +94,7 @@ namespace Sorolla.Palette.Editor
         /// explicit rebuild trigger here (same call-site-addition pattern as the package events).</summary>
         void OnPlayModeStateChanged(PlayModeStateChange change)
         {
-            RefreshSdkOverviewUI();
+            RefreshGreenlightUI(); // vendor group headers' Install-button enabled state
             RefreshHeroHeaderUI(); // mode switch dims/undims with play mode (F13.8, 2026-07-21 audit)
         }
 
@@ -142,21 +143,13 @@ namespace Sorolla.Palette.Editor
             scrollView.Add(_greenlightContainer);
             RefreshGreenlightUI();
 
-            // p3-sdkoverview: DrawSdkOverviewSection() was the LAST call in DrawUpperSections, so
-            // porting it is a clean peel from the end of the already-shrunk IMGUIContainerA region,
-            // not a new middle-split - it just slots in right before Build Health.
-            // SDK Overview is studio-facing (fix-cycle ruling 1, 2026-07-21 11:30): vendor status
-            // rows + Edit/Console/Install affordances are exactly the kind of self-serve control a
-            // studio needs, so it renders unconditionally, same as Greenlight/Config. Build Health
-            // itself still runs (and still auto-fixes) on every refresh and before every build
-            // regardless of which sections are visible; its own row list/section is gone entirely
-            // (F12 ruling, 2026-07-21 ~12:30) - its unique bits (profile selector, auto-fix log,
-            // Firebase sub-rows) now render inside the internal Greenlight section instead of a second,
-            // disagreeing row list on the same surface.
-            _sdkOverviewContainer = CreatePortedSectionContainer();
-            _sdkOverviewContainer.style.marginTop = 10;
-            scrollView.Add(_sdkOverviewContainer);
-            RefreshSdkOverviewUI();
+            // The separate SDK Overview section is gone (vendor-grouping cycle, supervisor 2026-07-21
+            // ~13:50): its per-vendor status + Edit/Console/Install affordances now ARE the vendor
+            // group headers inside the Greenlight section above - one owner per vendor, structurally,
+            // instead of the same fact computed twice (SDK Overview's own status check AND the
+            // Greenlight gate row) and kept in sync by hand. Build Health itself still runs (and still
+            // auto-fixes) on every refresh and before every build; its row list is gone too (F12),
+            // folded into the same Greenlight groups.
 
             // p3-config: DrawConfigSection() was the FIRST call in DrawLowerSections, so porting it
             // is a clean peel from the front of the already-shrunk IMGUIContainerB region.
@@ -796,9 +789,8 @@ namespace Sorolla.Palette.Editor
         /// what Greenlight is warning about for the same vendor (product-audit fix cycle ruling 3,
         /// 2026-07-21 11:55). The Edit button always opens GA Settings regardless of which finding is
         /// worse - it is the one place both facts get fixed. <paramref name="whitelistWarn"/> is computed
-        /// once by the caller (<see cref="RefreshSdkOverviewUI"/>) and also feeds the section badge, so the
-        /// row and the badge can never disagree about it (residual of ruling 4, 2026-07-21 fix-cycle
-        /// review: the badge must reflect the worst row beneath it).</summary>
+        /// once by the caller (now the GameAnalytics group header builder in RefreshGreenlightUI) so this
+        /// row and the group's own worst-of glyph can never disagree about it.</summary>
         VisualElement BuildGameAnalyticsOverviewRow(SdkConfigDetector.ConfigStatus keyStatus, bool whitelistWarn)
         {
             SdkInfo sdk = SdkRegistry.All[SdkId.GameAnalytics];
@@ -955,7 +947,7 @@ namespace Sorolla.Palette.Editor
             {
                 _config.enableTikTok = evt.newValue;
                 EditorUtility.SetDirty(_config);
-                RefreshSdkOverviewUI();
+                RefreshGreenlightUI(); // TikTok's row lives in the Build & Project group now
                 RefreshConfigUI(); // TikTok's config fields show/hide with this same flag
             });
 
@@ -1004,99 +996,80 @@ namespace Sorolla.Palette.Editor
             });
         }
 
-        /// <summary>Ported to UI Toolkit (p3-sdkoverview): same readiness computation and row order
-        /// as the old DrawSdkOverviewSection(), rendered as real VisualElements. Clear-and-rebuild
-        /// on data change only, same guarded pattern as the other ported sections - triggers are
-        /// RunBuildValidation()'s completion (config/mode changes), the package registration events,
-        /// play-mode transitions (Install-button enabled state), and the TikTok toggle itself.</summary>
-        void RefreshSdkOverviewUI()
+        /// <summary>The vendor group header IS the overview row (vendor-grouping cycle, supervisor
+        /// 2026-07-21 ~13:50) - the separate SDK Overview section is gone; RefreshGreenlightUI calls this
+        /// once per vendor group to get the exact same row component that section used to render, now
+        /// used as that group's collapsible header instead. One owner per vendor, structurally: this is
+        /// the ONLY place these five vendors' status gets computed, instead of a second independent
+        /// computation duplicating what the group's own gate rows already say.</summary>
+        VisualElement BuildVendorGroupHeader(GreenlightAdapter.VendorGroup group)
         {
-            if (_sdkOverviewContainer == null) return;
-
-            _sdkOverviewContainer.Clear();
-
-            bool isPrototype = SorollaSettings.IsPrototype;
-
-            SdkConfigDetector.ConfigStatus gaStatus = SdkConfigDetector.GetGameAnalyticsStatus();
-            SdkConfigDetector.ConfigStatus fbStatus = SdkConfigDetector.GetFacebookStatus();
-            SdkConfigDetector.ConfigStatus adjustStatus = SdkConfigDetector.GetAdjustStatus(_config);
-            bool maxInstalled = SdkDetector.IsInstalled(SdkId.AppLovinMAX);
-            if (maxInstalled)
-                MaxSettingsSanitizer.SyncEmbeddedSdkKey();
-            bool maxSettingsSynced = !maxInstalled || MaxSettingsSanitizer.IsSdkKeyConfigured();
-
-            // Computed once here so the badge and the GameAnalytics row below can never disagree about it
-            // (fix-cycle review residual, 2026-07-21: the badge must reflect the worst row beneath it, the
-            // same rule ruling 4 already applied one level up between Greenlight and this section).
-            bool gaWhitelistWarn = _validationResults.Any(r =>
-                r.Category == BuildValidator.CheckCategory.GameAnalyticsResourceWhitelist &&
-                r.Status == BuildValidator.ValidationStatus.Warning);
-
-            bool isReady = gaStatus == SdkConfigDetector.ConfigStatus.Configured &&
-                           !gaWhitelistWarn &&
-                           (isPrototype
-                               ? fbStatus == SdkConfigDetector.ConfigStatus.Configured
-                               : maxInstalled &&
-                                 maxSettingsSynced &&
-                                 adjustStatus == SdkConfigDetector.ConfigStatus.Configured);
-
-            var headerRow = new VisualElement();
-            headerRow.style.flexDirection = FlexDirection.Row;
-            headerRow.style.alignItems = Align.Center;
-            headerRow.style.marginBottom = 8;
-
-            var headerLabel = new Label("SDK Overview");
-            headerLabel.AddToClassList("sorolla-type-section");
-            headerRow.Add(headerLabel);
-
-            var headerSpacer = new VisualElement();
-            headerSpacer.style.flexGrow = 1;
-            headerRow.Add(headerSpacer);
-
-            // Scoped wording (product-audit fix cycle ruling 4, 2026-07-21 11:55) AND worst-row
-            // agreement (fix-cycle review residual, 2026-07-21): this badge reflects whether EVERY row in
-            // this section is clean, not just whether the required vendors are installed+keyed - isReady
-            // now folds in gaWhitelistWarn so the badge can't render green while the GameAnalytics row
-            // beneath it is amber. Still scoped wording so it doesn't read as a second, competing verdict
-            // next to the Greenlight badge above it.
-            headerRow.Add(isReady
-                ? StatusBadge.Create("VENDORS READY", StatusBadge.Severity.Pass)
-                : StatusBadge.Create("VENDOR ATTENTION", StatusBadge.Severity.Advisory));
-
-            _sdkOverviewContainer.Add(headerRow);
-
-            // GameAnalytics (always required). Reflects the WORST editor-side finding for this vendor
-            // (product-audit fix cycle ruling 3, 2026-07-21 11:55): per-platform key status AND the
-            // Resource Whitelist check Build Health also runs for GameAnalytics - a studio must not see a
-            // flat green "Configured" here while Greenlight is warning about the same vendor.
-            _sdkOverviewContainer.Add(BuildGameAnalyticsOverviewRow(gaStatus, gaWhitelistWarn));
-
-            // Facebook (always required)
-            _sdkOverviewContainer.Add(BuildSdkOverviewRow(
-                SdkRegistry.All[SdkId.Facebook], fbStatus, "Set App ID",
-                SdkConfigDetector.OpenFacebookSettings, true));
-
-            if (isPrototype)
+            switch (group)
             {
-                // MAX (optional in Prototype) - expandable for ad unit IDs
-                _sdkOverviewContainer.Add(BuildMaxOverviewRow(maxSettingsSynced, false));
+                case GreenlightAdapter.VendorGroup.GameAnalytics:
+                {
+                    // Reflects the WORST editor-side finding for this vendor (product-audit fix cycle
+                    // ruling 3): per-platform key status AND the Resource Whitelist check.
+                    SdkConfigDetector.ConfigStatus gaStatus = SdkConfigDetector.GetGameAnalyticsStatus();
+                    bool gaWhitelistWarn = _validationResults.Any(r =>
+                        r.Category == BuildValidator.CheckCategory.GameAnalyticsResourceWhitelist &&
+                        r.Status == BuildValidator.ValidationStatus.Warning);
+                    return BuildGameAnalyticsOverviewRow(gaStatus, gaWhitelistWarn);
+                }
+                case GreenlightAdapter.VendorGroup.Facebook:
+                    return BuildSdkOverviewRow(
+                        SdkRegistry.All[SdkId.Facebook], SdkConfigDetector.GetFacebookStatus(), "Set App ID",
+                        SdkConfigDetector.OpenFacebookSettings, true);
+                case GreenlightAdapter.VendorGroup.Firebase:
+                    return BuildFirebaseOverviewRow();
+                case GreenlightAdapter.VendorGroup.AppLovinMax:
+                {
+                    bool maxInstalled = SdkDetector.IsInstalled(SdkId.AppLovinMAX);
+                    if (maxInstalled)
+                        MaxSettingsSanitizer.SyncEmbeddedSdkKey();
+                    bool maxSettingsSynced = !maxInstalled || MaxSettingsSanitizer.IsSdkKeyConfigured();
+                    return BuildMaxOverviewRow(maxSettingsSynced, !SorollaSettings.IsPrototype);
+                }
+                case GreenlightAdapter.VendorGroup.Adjust:
+                    // "Enter app token below" used to be a pointer with no action (F9) - now scrolls/
+                    // focuses the actual field. Required only in Full mode; still shown (as optional) in
+                    // Prototype since the Adjust category's own gate rows exist there too (harmless
+                    // Skipped/"not required" entries) - a group with rows deserves a header.
+                    return BuildSdkOverviewRow(
+                        SdkRegistry.All[SdkId.Adjust], SdkConfigDetector.GetAdjustStatus(_config),
+                        "Enter app token below", () => FocusConfigField(_adjustAppTokenField),
+                        !SorollaSettings.IsPrototype);
+                default:
+                    return null; // Build & Project / Device & QA use the plain worst-of header instead.
             }
-            else
+        }
+
+        /// <summary>Worst-of header for the two non-vendor catch-all groups (Build & Project, Device &
+        /// QA) - same BuildVendorRow visual shape as the vendor headers, just glyph/count-derived from
+        /// the group's own rows instead of a vendor-specific status check, and no Edit/Console/Install
+        /// action (there's no single settings asset to open for a heterogeneous group).</summary>
+        static VisualElement BuildPlainGroupHeader(string title, List<GreenlightEvaluator.Row> rows)
+        {
+            bool anyFail = rows.Any(r => r.Status == CheckRow.Status.Fail);
+            bool anyWarn = rows.Any(r => r.Status == CheckRow.Status.Warn);
+            bool anyWait = rows.Any(r => r.Status == CheckRow.Status.Wait);
+
+            Color color = anyFail ? ColorRed : anyWarn ? ColorYellow : anyWait ? ColorGray : ColorGreen;
+            string glyph = anyFail ? "✗" : anyWarn ? "⚠" : anyWait ? "•" : "✓";
+            int issues = rows.Count(r => r.Status == CheckRow.Status.Fail || r.Status == CheckRow.Status.Warn || r.Status == CheckRow.Status.Wait);
+            string configText = issues > 0 ? $"{issues} need attention" : "All clear";
+
+            var nameLabel = new Label(title);
+            nameLabel.AddToClassList("sorolla-sdk-row-name");
+
+            return BuildVendorRow(new SdkOverviewRowData
             {
-                // Full mode: MAX + Adjust required. "Enter app token below" used to be a pointer with no
-                // action (F9, 2026-07-21 audit) - now scrolls/focuses the actual field, same treatment as
-                // the Device Snapshot row's embedded Connect Device action (ruling 5).
-                _sdkOverviewContainer.Add(BuildMaxOverviewRow(maxSettingsSynced, true));
-                _sdkOverviewContainer.Add(BuildSdkOverviewRow(
-                    SdkRegistry.All[SdkId.Adjust], adjustStatus, "Enter app token below",
-                    () => FocusConfigField(_adjustAppTokenField), true));
-            }
-
-            // Firebase (required in Full, optional in Prototype)
-            _sdkOverviewContainer.Add(BuildFirebaseOverviewRow());
-
-            // TikTok (optional in all modes)
-            _sdkOverviewContainer.Add(BuildTikTokOverviewRow());
+                NameElement = nameLabel,
+                IconGlyph = glyph,
+                IconColor = color,
+                ConfigText = configText,
+                ConfigColor = color,
+            });
         }
 
         #endregion
@@ -1200,6 +1173,18 @@ namespace Sorolla.Palette.Editor
             // studio surface where attestations don't exist, and a permanent fixture above every
             // actionable row on both surfaces either way.
 
+            // Rows regroup by their existing catalog/validator category (vendor-grouping cycle,
+            // supervisor 2026-07-21 ~13:50) - never by label string-matching. One dictionary build feeds
+            // both the internal and studio render below.
+            var grouped = new Dictionary<GreenlightAdapter.VendorGroup, List<GreenlightEvaluator.Row>>();
+            foreach (GreenlightEvaluator.Row row in report.Rows)
+            {
+                GreenlightAdapter.VendorGroup group = GreenlightAdapter.GroupFor(row.GateId);
+                if (!grouped.TryGetValue(group, out List<GreenlightEvaluator.Row> list))
+                    grouped[group] = list = new List<GreenlightEvaluator.Row>();
+                list.Add(row);
+            }
+
             if (ShowInternalDepth)
             {
                 // Build Health's unique bits folded in here, its duplicate row list deleted (F12 ruling,
@@ -1225,58 +1210,92 @@ namespace Sorolla.Palette.Editor
                     _greenlightContainer.Add(fixLabel);
                 }
 
-                var rowElements = new List<VisualElement>();
-                foreach (GreenlightEvaluator.Row row in report.Rows)
+                foreach (GreenlightAdapter.VendorGroup group in GroupOrder)
                 {
-                    rowElements.Add(BuildGreenlightRow(row, includeAttestation: true));
+                    if (!grouped.TryGetValue(group, out List<GreenlightEvaluator.Row> rows) || rows.Count == 0)
+                        continue;
 
-                    // Firebase sub-rows, active target only (F7 fix, carried over from the deleted Build
-                    // Health list): attached right under the Firebase Coherence gate row.
-                    if (row.GateId == GateIds.BuildFirebaseCoherence && SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
+                    var rowElements = new List<VisualElement>();
+                    foreach (GreenlightEvaluator.Row row in rows)
                     {
-                        bool isIos = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS;
-                        VisualElement platformRow = isIos
-                            ? CheckRow.Create("GoogleService-Info.plist",
-                                SdkConfigDetector.IsFirebaseIOSConfigured() ? CheckRow.Status.Pass : CheckRow.Status.Warn,
-                                SdkConfigDetector.IsFirebaseIOSConfigured() ? "Found" : "Missing")
-                            : CheckRow.Create("google-services.json",
-                                SdkConfigDetector.IsFirebaseAndroidConfigured() ? CheckRow.Status.Pass : CheckRow.Status.Warn,
-                                SdkConfigDetector.IsFirebaseAndroidConfigured() ? "Found" : "Missing");
-                        platformRow.style.marginLeft = 24;
-                        rowElements.Add(platformRow);
+                        rowElements.Add(BuildGreenlightRow(row, includeAttestation: true));
+
+                        // Firebase sub-rows, active target only (F7 fix, carried over from the deleted
+                        // Build Health list): attached right under the Firebase Coherence gate row, now
+                        // nested inside the Firebase group instead of a separate section.
+                        if (row.GateId == GateIds.BuildFirebaseCoherence && SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
+                        {
+                            bool isIos = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS;
+                            VisualElement platformRow = isIos
+                                ? CheckRow.Create("GoogleService-Info.plist",
+                                    SdkConfigDetector.IsFirebaseIOSConfigured() ? CheckRow.Status.Pass : CheckRow.Status.Warn,
+                                    SdkConfigDetector.IsFirebaseIOSConfigured() ? "Found" : "Missing")
+                                : CheckRow.Create("google-services.json",
+                                    SdkConfigDetector.IsFirebaseAndroidConfigured() ? CheckRow.Status.Pass : CheckRow.Status.Warn,
+                                    SdkConfigDetector.IsFirebaseAndroidConfigured() ? "Found" : "Missing");
+                            platformRow.style.marginLeft = 24;
+                            rowElements.Add(platformRow);
+                        }
                     }
+
+                    // TikTok has no gate/category at all (a pure config toggle, not a Build Health check) -
+                    // it doesn't fit the grouping key ("the gate's existing category"), so it can't earn its
+                    // own group without inventing a fourth one. Appended as an extra row in Build & Project,
+                    // the catch-all for project-level config that isn't vendor-specific.
+                    if (group == GreenlightAdapter.VendorGroup.BuildAndProject)
+                        rowElements.Add(BuildTikTokOverviewRow());
+
+                    VisualElement header = BuildVendorGroupHeader(group) ?? BuildPlainGroupHeader(GroupTitle(group), rows);
+                    bool anyAttention = rows.Any(r => r.Status == CheckRow.Status.Fail || r.Status == CheckRow.Status.Warn || r.Status == CheckRow.Status.Wait);
+                    _greenlightContainer.Add(BuildExpandableGroup($"internal:{group}", header, rowElements, anyAttention));
                 }
 
-                string summary = GreenlightEvaluator.RowSummary(report);
-                Foldout rowGroup = CollapsibleCheckGroup.Create(summary, rowElements, _greenlightChecksExpanded);
-                rowGroup.RegisterValueChangedCallback(evt => _greenlightChecksExpanded = evt.newValue);
-                _greenlightContainer.Add(rowGroup);
                 return;
             }
 
-            // Studio view: only studio-red actionable rows - structural failures/config problems with
-            // a fix. A passing row is not information a studio has to read, and hiding it here hides
-            // nothing from the verdict - the badge above already aggregates every row, and the copied
-            // report still carries all of them. Manual/dashboard attestation checklist rows are Sorolla
-            // QA process (studio pilot not yet delegated), so they never render here either, per ruling 2 -
-            // EXCEPT the uncertified-pin case (Disposition.Omitted), which shares the same manual/Invariant
-            // gate shape but is genuinely studio-actionable (its fix is "pin a tagged release in
-            // manifest.json") - the filter must never hide a studio-actionable cause (F1 ruling, 2026-07-21
-            // ~12:30).
+            // Studio view: same grouping, same filter as before regrouping - only studio-red actionable
+            // rows render, per group (vendor-grouping cycle, supervisor 2026-07-21 ~13:50). A group with
+            // nothing actionable renders NOT AT ALL (zero-leverage rule) - EXCEPT Build & Project, which
+            // always carries the TikTok enable/configure control regardless of whether any gate row in
+            // that group needs attention, since that's a studio-facing control, not a diagnostic.
+            // Manual/dashboard attestation checklist rows are Sorolla QA process (studio pilot not yet
+            // delegated), so they never render here either, per ruling 2 - EXCEPT the uncertified-pin case
+            // (Disposition.Omitted), which is genuinely studio-actionable (F1 ruling, 2026-07-21 ~12:30).
             bool anyOpen = false;
-            foreach (GreenlightEvaluator.Row row in report.Rows)
+            foreach (GreenlightAdapter.VendorGroup group in GroupOrder)
             {
-                // Info rows are a deliberate skip/absence, not a fix a studio can act on (F5 residual,
-                // 2026-07-21 audit review: giving them their own neutral status must not make them start
-                // appearing on the studio surface, which only ever showed them while they were Pass -
-                // "GameAnalytics not installed" etc. carries zero leverage for a studio the same way a
-                // passing row does).
-                if (row.Status == CheckRow.Status.Pass || row.Status == CheckRow.Status.Info) continue;
-                bool isManualChecklistRow = GreenlightManualChecklist.DescriptorForLabel(row.Label) != null;
-                bool isStudioActionablePinIssue = row.Disposition == GateDisposition.Omitted;
-                if (isManualChecklistRow && !isStudioActionablePinIssue) continue;
-                _greenlightContainer.Add(BuildGreenlightRow(row, includeAttestation: false));
-                anyOpen = true;
+                grouped.TryGetValue(group, out List<GreenlightEvaluator.Row> rows);
+                rows ??= new List<GreenlightEvaluator.Row>();
+
+                var actionableRows = new List<GreenlightEvaluator.Row>();
+                foreach (GreenlightEvaluator.Row row in rows)
+                {
+                    // Info rows are a deliberate skip/absence, not a fix a studio can act on (F5 residual).
+                    if (row.Status == CheckRow.Status.Pass || row.Status == CheckRow.Status.Info) continue;
+                    bool isManualChecklistRow = GreenlightManualChecklist.DescriptorForLabel(row.Label) != null;
+                    bool isStudioActionablePinIssue = row.Disposition == GateDisposition.Omitted;
+                    if (isManualChecklistRow && !isStudioActionablePinIssue) continue;
+                    actionableRows.Add(row);
+                }
+
+                bool isBuildAndProject = group == GreenlightAdapter.VendorGroup.BuildAndProject;
+                if (actionableRows.Count == 0 && !isBuildAndProject) continue;
+
+                if (actionableRows.Count > 0) anyOpen = true;
+
+                var groupContainer = new VisualElement();
+                groupContainer.style.marginBottom = 8;
+                groupContainer.Add(BuildVendorGroupHeader(group) ?? BuildPlainGroupHeader(GroupTitle(group), rows));
+
+                var rowsWrap = new VisualElement();
+                rowsWrap.style.marginLeft = 20;
+                foreach (GreenlightEvaluator.Row row in actionableRows)
+                    rowsWrap.Add(BuildGreenlightRow(row, includeAttestation: false));
+                if (isBuildAndProject)
+                    rowsWrap.Add(BuildTikTokOverviewRow());
+                groupContainer.Add(rowsWrap);
+
+                _greenlightContainer.Add(groupContainer);
             }
 
             if (!anyOpen)
@@ -1289,6 +1308,74 @@ namespace Sorolla.Palette.Editor
                 clear.AddToClassList("sorolla-type-small");
                 _greenlightContainer.Add(clear);
             }
+        }
+
+        static readonly GreenlightAdapter.VendorGroup[] GroupOrder =
+        {
+            GreenlightAdapter.VendorGroup.GameAnalytics,
+            GreenlightAdapter.VendorGroup.Facebook,
+            GreenlightAdapter.VendorGroup.Firebase,
+            GreenlightAdapter.VendorGroup.AppLovinMax,
+            GreenlightAdapter.VendorGroup.Adjust,
+            GreenlightAdapter.VendorGroup.BuildAndProject,
+            GreenlightAdapter.VendorGroup.DeviceAndQa,
+        };
+
+        static string GroupTitle(GreenlightAdapter.VendorGroup group) => group switch
+        {
+            GreenlightAdapter.VendorGroup.GameAnalytics => "GameAnalytics",
+            GreenlightAdapter.VendorGroup.Facebook => "Facebook",
+            GreenlightAdapter.VendorGroup.Firebase => "Firebase",
+            GreenlightAdapter.VendorGroup.AppLovinMax => "AppLovin MAX",
+            GreenlightAdapter.VendorGroup.Adjust => "Adjust",
+            GreenlightAdapter.VendorGroup.BuildAndProject => "Build & Project",
+            GreenlightAdapter.VendorGroup.DeviceAndQa => "Device & QA",
+            _ => group.ToString(),
+        };
+
+        /// <summary>A vendor/plain header (the overview row) plus a collapsible rows container, toggled
+        /// by a small arrow so clicking the header's own Edit/Console/Install button doesn't also
+        /// fold/unfold the group. <paramref name="persistKey"/> remembers the user's manual toggle across
+        /// refreshes within this window session (replaces the old single _greenlightChecksExpanded bool,
+        /// now one per group); <paramref name="defaultExpanded"/> only applies the first time a key is
+        /// seen.</summary>
+        VisualElement BuildExpandableGroup(string persistKey, VisualElement header, List<VisualElement> rows, bool defaultExpanded)
+        {
+            bool expanded = _groupExpanded.TryGetValue(persistKey, out bool remembered) ? remembered : defaultExpanded;
+
+            var container = new VisualElement();
+            container.style.marginBottom = 8;
+
+            var headerRow = new VisualElement();
+            headerRow.style.flexDirection = FlexDirection.Row;
+            headerRow.style.alignItems = Align.Center;
+
+            var arrow = new Label(expanded ? "▾" : "▸");
+            arrow.style.width = 16;
+            arrow.style.unityTextAlign = TextAnchor.MiddleCenter;
+            arrow.pickingMode = PickingMode.Position;
+            headerRow.Add(arrow);
+
+            header.style.flexGrow = 1;
+            headerRow.Add(header);
+            container.Add(headerRow);
+
+            var rowsWrap = new VisualElement();
+            rowsWrap.style.marginLeft = 20;
+            rowsWrap.style.display = expanded ? DisplayStyle.Flex : DisplayStyle.None;
+            foreach (VisualElement row in rows)
+                rowsWrap.Add(row);
+            container.Add(rowsWrap);
+
+            arrow.RegisterCallback<ClickEvent>(_ =>
+            {
+                bool nowExpanded = rowsWrap.style.display == DisplayStyle.None;
+                rowsWrap.style.display = nowExpanded ? DisplayStyle.Flex : DisplayStyle.None;
+                arrow.text = nowExpanded ? "▾" : "▸";
+                _groupExpanded[persistKey] = nowExpanded;
+            });
+
+            return container;
         }
 
         /// <summary>A CheckRow plus its Fix/deep-link line and, for manual checklist rows in the
@@ -1469,7 +1556,6 @@ namespace Sorolla.Palette.Editor
             // Run validation checks
             _validationResults = BuildValidator.RunAllChecks();
             Repaint();
-            RefreshSdkOverviewUI();
             RefreshConfigUI();
             RefreshGreenlightUI();
         }
