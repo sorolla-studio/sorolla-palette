@@ -396,13 +396,25 @@ namespace Sorolla.Palette.Editor
                     }
                     break;
 
-                // Non-vendor inputs land in Build & Project (vendor-consolidation ruling). "Logging"
-                // header comes from verboseLogging's own [Header] attribute.
+                // Non-vendor inputs land in Build & Project (vendor-consolidation ruling). Plain bound
+                // Toggle, not PropertyField (round-4 refuter follow-up, 2026-07-21): PropertyField would
+                // auto-render verboseLogging's own [Header("Logging")] attribute as a standalone-looking
+                // "Logging" header line above the checkbox - the same redundant-header problem already
+                // avoided for MAX/Adjust's inputs, whose group header already names the section.
                 case GreenlightAdapter.VendorGroup.BuildAndProject:
-                    var verboseLogging = new PropertyField(_serializedConfig.FindProperty("verboseLogging"), "Verbose Logging");
-                    verboseLogging.tooltip = "Enable verbose debug output for all vendor SDKs (MAX, Adjust, TikTok). Forced OFF in release builds.";
-                    inputs.Add(verboseLogging);
+                {
+                    SerializedProperty verboseLoggingProp = _serializedConfig.FindProperty("verboseLogging");
+                    var verboseLoggingToggle = new Toggle("Verbose Logging") { value = verboseLoggingProp.boolValue };
+                    verboseLoggingToggle.tooltip = "Enable verbose debug output for all vendor SDKs (MAX, Adjust, TikTok). Forced OFF in release builds.";
+                    verboseLoggingToggle.RegisterValueChangedCallback(evt =>
+                    {
+                        verboseLoggingProp.boolValue = evt.newValue;
+                        _serializedConfig.ApplyModifiedProperties();
+                        EditorUtility.SetDirty(_config);
+                    });
+                    inputs.Add(verboseLoggingToggle);
                     break;
+                }
             }
 
             return inputs;
@@ -1233,6 +1245,14 @@ namespace Sorolla.Palette.Editor
                     var rowElements = new List<VisualElement>();
                     foreach (GreenlightEvaluator.Row row in rows)
                     {
+                        // One owner (round-4 refuter follow-up, 2026-07-21): this read-only check row
+                        // ("Verbose Logging ... verboseLogging off") duplicated the config checkbox
+                        // rendered below in this same group. Presentation-only skip - the underlying gate
+                        // still runs and still counts in the report/count strip, only this window's row
+                        // list drops it.
+                        if (group == GreenlightAdapter.VendorGroup.BuildAndProject && row.GateId == GateIds.BuildVerboseLogging)
+                            continue;
+
                         rowElements.Add(BuildGreenlightRow(row, includeAttestation: true, group));
 
                         // Firebase sub-rows, active target only (F7 fix, carried over from the deleted
@@ -1288,6 +1308,9 @@ namespace Sorolla.Palette.Editor
                 {
                     // Info rows are a deliberate skip/absence, not a fix a studio can act on (F5 residual).
                     if (row.Status == CheckRow.Status.Pass || row.Status == CheckRow.Status.Info) continue;
+                    // One owner (round-4 refuter follow-up): this check row duplicates the Verbose Logging
+                    // config checkbox rendered in this same group.
+                    if (group == GreenlightAdapter.VendorGroup.BuildAndProject && row.GateId == GateIds.BuildVerboseLogging) continue;
                     bool isManualChecklistRow = GreenlightManualChecklist.DescriptorForLabel(row.Label) != null;
                     bool isStudioActionablePinIssue = row.Disposition == GateDisposition.Omitted;
                     if (isManualChecklistRow && !isStudioActionablePinIssue) continue;
@@ -1295,14 +1318,13 @@ namespace Sorolla.Palette.Editor
                 }
 
                 List<VisualElement> configInputs = BuildConfigInputsForGroup(group);
-                // Build & Project's only config input (Verbose Logging) is a plain settings toggle, not a
-                // required/validated fix like MAX's ad units or Adjust's tokens - it doesn't earn the
-                // group an exception to the zero-leverage rule (round-3 refuter follow-up, 2026-07-21:
-                // "Build & Project - All clear" was the one clean group still rendering a header line in
-                // studio; Facebook/Firebase vanish entirely when clean, MAX/Adjust correctly stay open
-                // because their inputs are the fix for something). One rule: a clean group renders in
-                // studio only if it has a config input worth forcing open.
-                bool inputsForceOpen = configInputs.Count > 0 && group != GreenlightAdapter.VendorGroup.BuildAndProject;
+                // One rule, no per-group exceptions (round-4 refuter follow-up, 2026-07-21: the round-3
+                // "Build & Project doesn't count as having an input" exception was itself the defect - it
+                // made the Verbose Logging checkbox unreachable in studio along with the header line it
+                // was trying to suppress). A clean group with no config input renders nothing (Facebook/
+                // Firebase); a clean group WITH a config input still renders its header + input (MAX/
+                // Adjust, and now Build & Project too, since Verbose Logging is a real config input).
+                bool inputsForceOpen = configInputs.Count > 0;
                 if (actionableRows.Count == 0 && !inputsForceOpen) continue;
                 anyOpen = true;
 
