@@ -10,8 +10,11 @@ namespace Sorolla.Palette.Editor.UI
         /// <summary>modeIsFull reflects the CURRENT mode (drives which segment renders filled).
         /// onSwitchRequested fires only when the user clicks the INACTIVE segment - the caller owns
         /// the actual switch flow (confirmation dialog + SorollaSettings.SetMode); clicking the
-        /// active segment is a no-op here, never invoking the callback.</summary>
-        internal static VisualElement Create(string title, string version, bool modeIsFull, Action onSwitchRequested)
+        /// active segment is a no-op here, never invoking the callback. disabled dims the switch and
+        /// drops its click manipulator entirely (Play Mode blocks package resolution, so the switch is a
+        /// silent no-op there otherwise - F13.8, 2026-07-21 audit: dim/disable instead of silently
+        /// swallowing the click).</summary>
+        internal static VisualElement Create(string title, string version, bool modeIsFull, Action onSwitchRequested, bool disabled = false)
         {
             var row = new VisualElement();
             row.AddToClassList("sorolla-hero");
@@ -33,15 +36,20 @@ namespace Sorolla.Palette.Editor.UI
 
             row.Add(textColumn);
 
-            row.Add(BuildModeSwitch(modeIsFull, onSwitchRequested));
+            row.Add(BuildModeSwitch(modeIsFull, onSwitchRequested, disabled));
 
             return row;
         }
 
-        static VisualElement BuildModeSwitch(bool modeIsFull, Action onSwitchRequested)
+        static VisualElement BuildModeSwitch(bool modeIsFull, Action onSwitchRequested, bool disabled)
         {
             var switchRow = new VisualElement();
             switchRow.AddToClassList("sorolla-mode-switch");
+            if (disabled)
+            {
+                switchRow.style.opacity = 0.5f;
+                switchRow.tooltip = "Exit Play Mode to switch SDK modes - Package Manager does not resolve packages during Play Mode.";
+            }
 
             var prototypeSegment = new Label("Prototype");
             prototypeSegment.AddToClassList("sorolla-mode-segment");
@@ -54,16 +62,20 @@ namespace Sorolla.Palette.Editor.UI
             // Only the inactive segment can trigger a switch; clicking the already-active segment
             // is a no-op (no manipulator registered on it at all, not just a guarded callback).
             // Label defaults to PickingMode.Ignore (not interactive), so the clickable segment
-            // needs an explicit PickingMode.Position or ClickEvent never reaches it.
-            if (modeIsFull)
+            // needs an explicit PickingMode.Position or ClickEvent never reaches it. disabled drops the
+            // manipulator entirely (dimmed above) instead of registering a callback that silently no-ops.
+            if (!disabled)
             {
-                prototypeSegment.pickingMode = PickingMode.Position;
-                prototypeSegment.RegisterCallback<ClickEvent>(_ => onSwitchRequested());
-            }
-            else
-            {
-                fullSegment.pickingMode = PickingMode.Position;
-                fullSegment.RegisterCallback<ClickEvent>(_ => onSwitchRequested());
+                if (modeIsFull)
+                {
+                    prototypeSegment.pickingMode = PickingMode.Position;
+                    prototypeSegment.RegisterCallback<ClickEvent>(_ => onSwitchRequested());
+                }
+                else
+                {
+                    fullSegment.pickingMode = PickingMode.Position;
+                    fullSegment.RegisterCallback<ClickEvent>(_ => onSwitchRequested());
+                }
             }
 
             switchRow.Add(prototypeSegment);

@@ -537,9 +537,6 @@ namespace Sorolla.Palette.Editor.Greenlight
             _ => null, // don't constrain platform for unsupported targets
         };
 
-        static bool GetBool(Dictionary<string, object> dict, string key) =>
-            dict != null && dict.TryGetValue(key, out object v) && v is bool b && b;
-
         // Strict integer read: a missing key or a non-numeric value returns false rather than a permissive
         // zero (review F4-03) so a malformed sdk_errors cannot silently read as "no errors".
         static bool TryGetLong(Dictionary<string, object> dict, string key, out long value)

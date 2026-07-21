@@ -132,9 +132,12 @@ namespace Sorolla.Palette.Editor
                 version: GA_VERSION,
                 scope: "com.gameanalytics"
             ),
+            // Names dropped the "SDK" suffix (F13.3, 2026-07-21 audit) to match GameAnalytics/Firebase/
+            // AppLovin MAX's plain vendor-name style - "Facebook SDK"/"Adjust SDK" were the only two
+            // outliers rendering an inconsistent vocabulary in the same row list.
             [SdkId.Facebook] = new SdkInfo(
                 id: SdkId.Facebook,
-                name: "Facebook SDK",
+                name: "Facebook",
                 packageId: "com.lacrearthur.facebook-sdk-for-unity",
                 requirement: SdkRequirement.Core,
                 detectionAssemblies: new[] { "Facebook.Unity" },
@@ -153,7 +156,7 @@ namespace Sorolla.Palette.Editor
             ),
             [SdkId.Adjust] = new SdkInfo(
                 id: SdkId.Adjust,
-                name: "Adjust SDK",
+                name: "Adjust",
                 packageId: "com.adjust.sdk",
                 requirement: SdkRequirement.FullOnly,
                 detectionAssemblies: new[] { "com.adjust.sdk", "adjustsdk.scripts", "adjust" },

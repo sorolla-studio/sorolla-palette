@@ -253,7 +253,9 @@ namespace Sorolla.Palette.Editor
                     category,
                     $"com.sorolla.sdk is not pinned to a #vX.Y.Z tag in manifest.json (current: {sdkRef}).\n" +
                     "  master/hash pins are normal for dev/QA but make a release build irreproducible.",
-                    "Pin com.sorolla.sdk to a published tag (e.g. #v3.18.3) before a release build"));
+                    // Example tag kept current with package.json (F13.10, 2026-07-21 audit: was stale at
+                    // #v3.18.3 against the 4.0.0 line).
+                    "Pin com.sorolla.sdk to a published tag (e.g. #v4.0.0) before a release build"));
             }
 
             return results;

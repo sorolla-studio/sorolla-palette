@@ -93,7 +93,11 @@ namespace Sorolla.Palette.Editor
         /// !EditorApplication.isPlaying gate, which used to re-evaluate every IMGUI frame for free.
         /// A cleared/rebuilt VisualElement doesn't repaint itself, so play-mode entry/exit is an
         /// explicit rebuild trigger here (same call-site-addition pattern as the package events).</summary>
-        void OnPlayModeStateChanged(PlayModeStateChange change) => RefreshSdkOverviewUI();
+        void OnPlayModeStateChanged(PlayModeStateChange change)
+        {
+            RefreshSdkOverviewUI();
+            RefreshHeroHeaderUI(); // mode switch dims/undims with play mode (F13.8, 2026-07-21 audit)
+        }
 
         void CreateGUI()
         {
@@ -223,7 +227,8 @@ namespace Sorolla.Palette.Editor
             var container = CreatePortedSectionContainer();
             bool isPrototype = SorollaSettings.Mode == SorollaMode.Prototype;
             container.Add(HeroHeader.Create("Palette SDK", $"v{Version} - Plug & Play Publisher Stack",
-                modeIsFull: !isPrototype, onSwitchRequested: RequestModeSwitch));
+                modeIsFull: !isPrototype, onSwitchRequested: RequestModeSwitch,
+                disabled: EditorApplication.isPlaying));
 
             // Preview toggle for the internal harness only (fix-cycle ruling 2): flips the same
             // instance flag CreateGUI already reads and rebuilds in place - no second window, no
@@ -387,7 +392,9 @@ namespace Sorolla.Palette.Editor
 
                 _configContainer.Add(BuildAdUnitFoldout("Rewarded", "rewardedAdUnit"));
                 _configContainer.Add(BuildAdUnitFoldout("Interstitial", "interstitialAdUnit"));
-                _configContainer.Add(BuildAdUnitFoldout("Banner (Optional)", "bannerAdUnit"));
+                // "(optional)" casing matches every other optional-vendor label in this window (F13.3,
+                // 2026-07-21 audit) - this was the one outlier capitalizing it.
+                _configContainer.Add(BuildAdUnitFoldout("Banner (optional)", "bannerAdUnit"));
             }
 
             // Adjust (full mode only). adjustAppToken is the ONE documented hard build gate
@@ -398,7 +405,9 @@ namespace Sorolla.Palette.Editor
             // attribute-driven decorator no longer applies here (see ValidatedField.cs for why).
             if (showAdjust)
             {
-                var adjustHeader = new Label("Adjust (Full Mode Only)");
+                // "(Full Mode Only)" dropped (F13.2, 2026-07-21 audit): showAdjust is already gated on
+                // !isPrototype, so this header only ever renders in Full mode - the qualifier was dead.
+                var adjustHeader = new Label("Adjust");
                 adjustHeader.AddToClassList("sorolla-config-group-header");
                 _configContainer.Add(adjustHeader);
 
@@ -492,7 +501,7 @@ namespace Sorolla.Palette.Editor
         {
             var foldout = new Foldout { text = label, value = true };
             foldout.Add(AdUnitField("Android", propertyPath + ".android"));
-            foldout.Add(AdUnitField("Ios", propertyPath + ".ios"));
+            foldout.Add(AdUnitField("iOS", propertyPath + ".ios"));
             return foldout;
         }
 
@@ -1175,9 +1184,12 @@ namespace Sorolla.Palette.Editor
             // Copy the AUDITABLE canonical report (review F4): the readable rendering carries every row's
             // disposition/requirement/proof + a build fingerprint, so a pasted result is unambiguous. The old
             // flattened summary is no longer the export - it dropped inert rows and provenance.
+            // "(text)" only disambiguates against the JSON sibling that exists in the internal view - on
+            // the studio surface there is no sibling to disambiguate against, so the suffix is meaningless
+            // noise there (F13.4, 2026-07-21 audit).
             var copyButton = new Button(() =>
                     EditorGUIUtility.systemCopyBuffer = GreenlightReportExport.ToText(report.Health, report.Fingerprint, report.Context))
-                { text = "Copy Report (text)" };
+                { text = ShowInternalDepth ? "Copy Report (text)" : "Copy Report" };
             copyButton.AddToClassList("sorolla-button-small");
             actionsRow.Add(copyButton);
 
@@ -1249,7 +1261,27 @@ namespace Sorolla.Palette.Editor
         {
             var container = new VisualElement();
 
-            container.Add(CheckRow.Create(row.Label, row.Status, row.Detail));
+            // Looked up once, up front: used below both to decide how this row's detail text lays out
+            // (F10) and, further down, to render the Attest button (unchanged behavior, just no longer a
+            // second lookup of the same descriptor).
+            GreenlightManualChecklist.Descriptor manual = GreenlightManualChecklist.DescriptorForLabel(row.Label);
+
+            // Manual gates carry a multi-sentence "why this matters" paragraph as Detail, which CheckRow
+            // puts in its bold, right-aligned, single-line status slot - ragged 5-7 line blue columns
+            // colliding with neighbor rows (F10, 2026-07-21 audit). The status slot gets a short state
+            // word instead; the full paragraph renders full-width under the label, same as Fix text.
+            bool longDetail = manual != null && row.Status != CheckRow.Status.Pass;
+            string statusSlotText = longDetail ? row.Status.ToString().ToUpperInvariant() : row.Detail;
+            container.Add(CheckRow.Create(row.Label, row.Status, statusSlotText));
+
+            if (longDetail && !string.IsNullOrEmpty(row.Detail))
+            {
+                var whyLabel = new Label(row.Detail);
+                whyLabel.AddToClassList("sorolla-type-small");
+                whyLabel.style.marginLeft = 24;
+                whyLabel.style.whiteSpace = WhiteSpace.Normal;
+                container.Add(whyLabel);
+            }
 
             // Pass rows suppress Fix text and remedy buttons entirely (product-audit finding F4,
             // 2026-07-21): a green row with mandatory "Fix:" homework and an action button pointing at
@@ -1337,12 +1369,23 @@ namespace Sorolla.Palette.Editor
                 container.Add(switchModeButton);
             }
 
+            // The Report Integrity row (a schema/contract error, GateId null) had "report it to Sorolla"
+            // with no channel to do so (F13.9, 2026-07-21 audit) - the footer already links to the GitHub
+            // issues page, so point the row straight at it instead of leaving the instruction unactionable.
+            if (row.Label == "Report Integrity" && row.Status != CheckRow.Status.Pass)
+            {
+                var reportButton = new Button(() => Application.OpenURL("https://github.com/sorolla-studio/sorolla-palette/issues"))
+                    { text = "Report Issue" };
+                reportButton.AddToClassList("sorolla-footer-link");
+                reportButton.style.marginLeft = 24;
+                container.Add(reportButton);
+            }
+
             if (!includeAttestation) return container;
 
             // Manual gates are satisfied by a SCOPED attestation recorded against the current build identity
             // (Cycle 4b), not a legacy tick. The Attest button records who/when/which-build/what-proof; the
             // gate only reads PASS while that attestation matches the current build and is fresh.
-            GreenlightManualChecklist.Descriptor manual = GreenlightManualChecklist.DescriptorForLabel(row.Label);
             if (manual != null)
             {
                 var attestButton = new Button(() =>

@@ -174,6 +174,12 @@
     padding: var(--sorolla-space-1) var(--sorolla-space-3);
     font-size: 11px;
     -unity-font-style: bold;
+    /* Sizes to its label instead of stretching to the parent's width (F13.7, 2026-07-21 audit): every
+       per-row container here is a plain (column-flex, align-items: stretch by default) VisualElement, so
+       without this a row-level chip (Connect Device, Attest, Switch Mode) rendered as a full-width gray
+       bar reading as a section separator, not a button. No effect on the header's row-direction actions
+       row, which never stretched its children on the cross (vertical) axis anyway. */
+    align-self: flex-start;
 }
 
 .sorolla-button-small:hover {
@@ -390,9 +396,17 @@
     margin: 0;
 }
 
+/* Flexible width + wrap (F11, 2026-07-21 audit): a fixed 150px with no shrink/wrap let long
+   config text render straight through the Edit button at the window's own 420px min size.
+   flex-basis keeps the natural 150px width when there's room; flex-shrink + white-space:normal
+   let it shrink and wrap onto a second line instead of overlapping the button when there isn't. */
 .sorolla-sdk-row-config {
-    width: 150px;
+    flex-basis: 150px;
+    flex-shrink: 1;
+    flex-grow: 0;
+    min-width: 0;
     font-size: 11px;
+    white-space: normal;
 }
 
 /* Footer links (p3-footer): three text-link buttons + separators, centered. */
