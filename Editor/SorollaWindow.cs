@@ -22,10 +22,6 @@ namespace Sorolla.Palette.Editor
         const string TokensUssPath = "Packages/com.sorolla.sdk/Editor/UI/tokens.uss";
 
         // Icon colors (avoid style mutation)
-        static readonly Color ColorGreen = new Color(0.2f, 0.8f, 0.2f);
-        static readonly Color ColorYellow = new Color(1f, 0.7f, 0.2f);
-        static readonly Color ColorRed = new Color(0.9f, 0.4f, 0.4f);
-        static readonly Color ColorGray = Color.gray;
 
         // Version from package.json (cached)
         static string s_version;
@@ -38,6 +34,7 @@ namespace Sorolla.Palette.Editor
         SorollaConfig _config;
         SerializedObject _serializedConfig;
         VisualElement _heroContainer;
+        VisualElement _headerActionsHost;
         VisualElement _greenlightContainer;
         ScrollView _scrollView;
         // Captured so the Greenlight rows for these fields can scroll/focus straight to them instead of
@@ -124,6 +121,15 @@ namespace Sorolla.Palette.Editor
             rootVisualElement.Add(_heroContainer);
             RefreshHeroHeaderUI();
 
+            // Global actions (Refresh / Connect Device / Copy Report + internal-only exports) live
+            // here, fixed below the hero and above the scrolled content (Arthur ruling 2026-07-21
+            // ~17:50) - one home for window-wide actions, no in-content duplicates.
+            _headerActionsHost = new VisualElement();
+            _headerActionsHost.style.paddingLeft = ContentPadding;
+            _headerActionsHost.style.paddingRight = ContentPadding;
+            _headerActionsHost.style.paddingBottom = ContentPadding;
+            rootVisualElement.Add(_headerActionsHost);
+
             var scrollView = new ScrollView(ScrollViewMode.Vertical);
             scrollView.style.flexGrow = 1;
             scrollView.contentContainer.style.paddingLeft = ContentPadding;
@@ -208,22 +214,8 @@ namespace Sorolla.Palette.Editor
                 modeIsFull: !isPrototype, onSwitchRequested: RequestModeSwitch,
                 disabled: EditorApplication.isPlaying));
 
-            // Preview toggle for the internal harness only (fix-cycle ruling 2): flips the same
-            // instance flag CreateGUI already reads and rebuilds in place - no second window, no
-            // second menu item. Never shown on a plain studio machine (_isHarnessWindow stays false
-            // there since InternalDepthDefault is never set without the harness's InitializeOnLoad).
-            if (_isHarnessWindow)
-            {
-                var studioViewToggle = new Toggle("Studio view") { value = !ShowInternalDepth };
-                studioViewToggle.RegisterValueChangedCallback(evt =>
-                {
-                    ShowInternalDepth = !evt.newValue;
-                    rootVisualElement.Clear();
-                    CreateGUI();
-                });
-                container.Add(studioViewToggle);
-            }
-
+            // No Studio-view toggle: the internal depth is a separate dedicated window (ShowInternal),
+            // so the shipped window carries zero internal chrome (Arthur ruling 2026-07-21 ~17:55).
             _heroContainer.Add(container);
         }
 
@@ -253,9 +245,19 @@ namespace Sorolla.Palette.Editor
         /// second one - AutoOpenOnLoad below is the only other caller and goes through this same
         /// method.</summary>
         [MenuItem("Tools/Sorolla Palette SDK")]
-        public static void ShowWindow()
+        public static void ShowWindow() => Open(internalDepth: false);
+
+        /// <summary>Entry point for the Sorolla-internal harness (via InternalsVisibleTo): a SEPARATE
+        /// full-depth window, so the shipped window is always exactly what studios see - no Studio-view
+        /// toggle, no internal chrome (Arthur ruling 2026-07-21 ~17:55, superseding the earlier
+        /// one-window/one-menu-entry design). Same evaluator/report/export/validator model and the same
+        /// frontend code behind both; only the per-instance depth flag differs.</summary>
+        internal static void ShowInternal() => Open(internalDepth: true);
+
+        static void Open(bool internalDepth)
         {
-            var existing = Resources.FindObjectsOfTypeAll<SorollaWindow>().FirstOrDefault();
+            SorollaWindow existing = Resources.FindObjectsOfTypeAll<SorollaWindow>()
+                .FirstOrDefault(w => w.ShowInternalDepth == internalDepth);
             if (existing != null)
             {
                 existing.Focus();
@@ -263,27 +265,16 @@ namespace Sorolla.Palette.Editor
             }
 
             var window = CreateInstance<SorollaWindow>();
-            window._isHarnessWindow = InternalDepthDefault;
-            window.ShowInternalDepth = InternalDepthDefault;
-            window.titleContent = new GUIContent(InternalDepthDefault ? "Sorolla Palette SDK (Internal)" : "Sorolla Palette SDK");
+            window.ShowInternalDepth = internalDepth;
+            window.titleContent = new GUIContent(internalDepth ? "Sorolla Palette SDK (Internal)" : "Sorolla Palette SDK");
             window.minSize = new Vector2(420, 380);
             window.position = new Rect(100, 100, 560, 800);
             window.ShowUtility();
         }
 
-        // ── Internal (Sorolla) depth ───────────────────────────────────
-        //
-        // ONE menu entry everywhere, including machines running the testbed-local internal harness
-        // (fix-cycle ruling 2, 2026-07-21 11:30) - the harness must not declare its own MenuItem. The
-        // harness instead sets <see cref="InternalDepthDefault"/> to true from its own
-        // [InitializeOnLoad] initializer (via InternalsVisibleTo), so the package's single
-        // Tools/Sorolla Palette SDK entry opens the full-depth window on a Sorolla machine and the
-        // ordinary studio window everywhere else - same evaluator/report/export/validator model, same
-        // frontend code, no second window, no second menu item.
-
-        internal static bool InternalDepthDefault;
-        internal bool ShowInternalDepth;
-        bool _isHarnessWindow;
+        // Serialized so the internal window stays internal across domain reloads instead of silently
+        // reverting to the studio view.
+        [SerializeField] internal bool ShowInternalDepth;
 
         [InitializeOnLoadMethod]
         static void AutoOpenOnLoad() => EditorApplication.delayCall += () =>
@@ -616,16 +607,22 @@ namespace Sorolla.Palette.Editor
         // per-group special case in the VISIBILITY decision (RowVisible / group-has-children below).
 
         /// <summary>A vendor's independent config-validity signal (installed? configured?), separate
-        /// from its check rows. Most vendor states fit the shared Fail/Warn/Wait/Pass severity scale
-        /// (<see cref="Severity"/>); the two states that don't - a package mid-install, or an optional
-        /// vendor simply not installed - use <see cref="SpecialGlyph"/>/<see cref="SpecialColor"/>
-        /// instead. Build & Project / Device & QA / TikTok have no such signal (null OwnState on their
-        /// GroupModel) - their header is derived purely from their visible rows.</summary>
+        /// from its check rows. <see cref="Phase"/> covers the whole lifecycle explicitly - the two
+        /// install phases plus the Fail/Warn/Pass config scale - instead of the old nullable-severity +
+        /// special-glyph split. Build & Project / Device & QA / TikTok have no such signal (null
+        /// OwnState on their GroupModel) - their header is derived purely from their visible rows.</summary>
         sealed class OwnVendorState
         {
-            public CheckRow.Status? Severity;
-            public string SpecialGlyph;
-            public Color SpecialColor;
+            public enum Phase
+            {
+                Installing,
+                NotInstalled,
+                Fail,
+                Warn,
+                Pass,
+            }
+
+            public Phase State;
             public string Text;
             public bool Optional;
             public string ActionLabel;
@@ -646,62 +643,14 @@ namespace Sorolla.Palette.Editor
             public OwnVendorState OwnState;
         }
 
-        /// <summary>Row data for the shared header/overview row builder. NameElement is a full
-        /// VisualElement, not just a string, so the title can carry the " (optional)" suffix without a
-        /// second code path.</summary>
-        sealed class SdkOverviewRowData
+        /// <summary>Header tag for a group's effective status - the greenlight's own vocabulary
+        /// (GREEN / INCOMPLETE / WARN / ERROR), rendered as a right-aligned StatusBadge pill.</summary>
+        static (string text, StatusBadge.Severity severity) BadgeFor(CheckRow.Status status) => status switch
         {
-            public VisualElement NameElement;
-            public string IconGlyph;
-            public Color IconColor;
-            public string ConfigText;
-            public Color ConfigColor;
-            public string ActionLabel;
-            public Action OnAction;
-            public bool ActionEnabled = true;
-        }
-
-        /// <summary>The ONE shared row shape every group header (and nothing else) renders through:
-        /// icon + name + status text + optional trailing action button. No vendor ever builds its own
-        /// header VisualElement outside this method.</summary>
-        static VisualElement BuildVendorRow(SdkOverviewRowData data)
-        {
-            var row = new VisualElement();
-            row.AddToClassList("sorolla-sdk-row");
-
-            var icon = new Label(data.IconGlyph);
-            icon.AddToClassList("sorolla-sdk-row-icon");
-            icon.style.color = data.IconColor;
-            row.Add(icon);
-
-            row.Add(data.NameElement);
-
-            var configLabel = new Label(data.ConfigText);
-            configLabel.AddToClassList("sorolla-sdk-row-config");
-            configLabel.style.color = data.ConfigColor;
-            row.Add(configLabel);
-
-            var spacer = new VisualElement();
-            spacer.style.flexGrow = 1;
-            row.Add(spacer);
-
-            if (!string.IsNullOrEmpty(data.ActionLabel))
-            {
-                var button = new Button(() => data.OnAction?.Invoke()) { text = data.ActionLabel };
-                button.AddToClassList("sorolla-button-small");
-                button.SetEnabled(data.ActionEnabled);
-                row.Add(button);
-            }
-
-            return row;
-        }
-
-        static (string glyph, Color color) GlyphColorFor(CheckRow.Status status) => status switch
-        {
-            CheckRow.Status.Fail => ("✗", ColorRed),
-            CheckRow.Status.Warn => ("⚠", ColorYellow),
-            CheckRow.Status.Wait => ("•", ColorGray),
-            _ => ("✓", ColorGreen), // Pass and Info both read as clean at the group-header level
+            CheckRow.Status.Fail => ("ERROR", StatusBadge.Severity.Fail),
+            CheckRow.Status.Warn => ("WARN", StatusBadge.Severity.Advisory),
+            CheckRow.Status.Wait => ("INCOMPLETE", StatusBadge.Severity.Wait),
+            _ => ("GREEN", StatusBadge.Severity.Pass), // Pass and Info both read as clean at the group level
         };
 
         /// <summary>Worst status among a set of rows (Fail &gt; Warn &gt; Wait &gt; Pass/Info) - the ONE
@@ -734,13 +683,16 @@ namespace Sorolla.Palette.Editor
             bool isInstalling = _installingPackages.Contains(sdk.PackageId);
 
             if (isInstalling)
-                return new OwnVendorState { SpecialGlyph = "⏳", SpecialColor = ColorYellow, Text = "Installing..." };
+                return new OwnVendorState { State = OwnVendorState.Phase.Installing, Text = "Installing..." };
 
             if (!isInstalled)
             {
-                var state = isRequired
-                    ? new OwnVendorState { Severity = CheckRow.Status.Fail, Text = isAutoInstalled ? "Auto-installs on mode switch" : "—" }
-                    : new OwnVendorState { SpecialGlyph = "○", SpecialColor = ColorGray, Text = isAutoInstalled ? "Auto-installs on mode switch" : "—", Optional = true };
+                var state = new OwnVendorState
+                {
+                    State = isRequired ? OwnVendorState.Phase.Fail : OwnVendorState.Phase.NotInstalled,
+                    Text = isAutoInstalled ? "Auto-installs on mode switch" : null,
+                    Optional = !isRequired,
+                };
                 if (!isAutoInstalled)
                 {
                     state.ActionLabel = "Install";
@@ -753,18 +705,16 @@ namespace Sorolla.Palette.Editor
             if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
                 return new OwnVendorState
                 {
-                    Severity = CheckRow.Status.Pass,
-                    Text = configuredDetail != null ? $"✓ {configuredDetail}" : "✓ Configured",
+                    State = OwnVendorState.Phase.Pass,
+                    Text = configuredDetail ?? "Configured",
                     Optional = !isRequired,
                     ActionLabel = openSettings != null ? "Edit" : null,
                     Action = openSettings,
                 };
 
-            // Glyph now matches text severity (product-audit ruling 2: "status glyph and status text
-            // must agree") - amber warn, not a green check over an amber hint.
             return new OwnVendorState
             {
-                Severity = CheckRow.Status.Warn,
+                State = OwnVendorState.Phase.Warn,
                 Text = configHint,
                 Optional = !isRequired,
                 ActionLabel = openSettings != null ? "Configure" : null,
@@ -775,7 +725,7 @@ namespace Sorolla.Palette.Editor
         /// <summary>GameAnalytics' own signal is per-platform key status only - the Resource Whitelist
         /// check (a second thing Build Health validates for this vendor) is a normal check ROW routed
         /// into this same group by the catalog, so it escalates the header via the shared worst-of merge
-        /// in <see cref="BuildGroupHeader"/> exactly like any other vendor's rows - no bespoke
+        /// in <see cref="BuildGroupSection"/> exactly like any other vendor's rows - no bespoke
         /// "whitelistWarn" side-channel needed once rows drive the merge generically.</summary>
         OwnVendorState GameAnalyticsOwnState()
         {
@@ -785,22 +735,21 @@ namespace Sorolla.Palette.Editor
             string keyDetail = SdkConfigDetector.GetGameAnalyticsPlatformDetail();
 
             if (isInstalling)
-                return new OwnVendorState { SpecialGlyph = "⏳", SpecialColor = ColorYellow, Text = "Installing..." };
+                return new OwnVendorState { State = OwnVendorState.Phase.Installing, Text = "Installing..." };
             if (!isInstalled)
-                return new OwnVendorState { Severity = CheckRow.Status.Fail, Text = "—" };
+                return new OwnVendorState { State = OwnVendorState.Phase.Fail };
 
             // Active platform missing = Fail (the build in front of you won't report). Only the sibling
             // platform missing = Warn: still shippable today, but games ship both platforms, so it
             // surfaces instead of hiding behind the active target (Arthur ruling 2026-07-21 ~17:40).
             SdkConfigDetector.ConfigStatus keyStatus = SdkConfigDetector.GetGameAnalyticsStatus();
-            CheckRow.Status severity = keyStatus != SdkConfigDetector.ConfigStatus.Configured
-                ? CheckRow.Status.Fail
-                : SdkConfigDetector.HasGameAnalyticsKeysForOtherPlatform() ? CheckRow.Status.Pass : CheckRow.Status.Warn;
+            OwnVendorState.Phase phase = keyStatus != SdkConfigDetector.ConfigStatus.Configured
+                ? OwnVendorState.Phase.Fail
+                : SdkConfigDetector.HasGameAnalyticsKeysForOtherPlatform() ? OwnVendorState.Phase.Pass : OwnVendorState.Phase.Warn;
 
             return new OwnVendorState
             {
-                Severity = severity,
-                Text = severity == CheckRow.Status.Pass ? $"✓ {keyDetail}" : keyDetail,
+                State = phase, Text = keyDetail,
                 ActionLabel = "Edit", Action = SdkConfigDetector.OpenGameAnalyticsSettings,
             };
         }
@@ -814,13 +763,16 @@ namespace Sorolla.Palette.Editor
             bool isInstalling = _installingPackages.Contains(sdk.PackageId);
 
             if (isInstalling)
-                return new OwnVendorState { SpecialGlyph = "⏳", SpecialColor = ColorYellow, Text = "Installing..." };
+                return new OwnVendorState { State = OwnVendorState.Phase.Installing, Text = "Installing..." };
 
             if (!isInstalled)
             {
-                var state = isRequired
-                    ? new OwnVendorState { Severity = CheckRow.Status.Fail, Text = isAutoInstalled ? "Auto-installs on mode switch" : "—" }
-                    : new OwnVendorState { SpecialGlyph = "○", SpecialColor = ColorGray, Text = isAutoInstalled ? "Auto-installs on mode switch" : "—", Optional = true };
+                var state = new OwnVendorState
+                {
+                    State = isRequired ? OwnVendorState.Phase.Fail : OwnVendorState.Phase.NotInstalled,
+                    Text = isAutoInstalled ? "Auto-installs on mode switch" : null,
+                    Optional = !isRequired,
+                };
                 if (!isAutoInstalled)
                 {
                     state.ActionLabel = "Install";
@@ -832,10 +784,10 @@ namespace Sorolla.Palette.Editor
 
             MaxSettingsSanitizer.SyncEmbeddedSdkKey();
             if (MaxSettingsSanitizer.IsSdkKeyConfigured())
-                return new OwnVendorState { Severity = CheckRow.Status.Pass, Text = "✓ Auto-synced" };
+                return new OwnVendorState { State = OwnVendorState.Phase.Pass, Text = "Auto-synced" };
             return new OwnVendorState
             {
-                Severity = CheckRow.Status.Fail, Text = "Auto-sync failed",
+                State = OwnVendorState.Phase.Fail, Text = "Auto-sync failed",
                 ActionLabel = "Refresh", Action = RunBuildValidation,
             };
         }
@@ -852,13 +804,13 @@ namespace Sorolla.Palette.Editor
                                 _installingPackages.Contains("com.google.firebase.remote-config");
 
             if (isInstalling)
-                return new OwnVendorState { SpecialGlyph = "⏳", SpecialColor = ColorYellow, Text = "Installing..." };
+                return new OwnVendorState { State = OwnVendorState.Phase.Installing, Text = "Installing..." };
 
             if (!isInstalled)
             {
                 var state = isRequired
-                    ? new OwnVendorState { Severity = CheckRow.Status.Fail, Text = "Auto-installs on mode switch" }
-                    : new OwnVendorState { SpecialGlyph = "○", SpecialColor = ColorGray, Text = "—", Optional = true };
+                    ? new OwnVendorState { State = OwnVendorState.Phase.Fail, Text = "Auto-installs on mode switch" }
+                    : new OwnVendorState { State = OwnVendorState.Phase.NotInstalled, Optional = true };
                 if (!isRequired) // isPrototype - Full mode auto-installs Firebase, no manual Install button
                 {
                     state.ActionLabel = "Install";
@@ -877,19 +829,19 @@ namespace Sorolla.Palette.Editor
             if (configStatus == SdkConfigDetector.ConfigStatus.Configured)
                 return new OwnVendorState
                 {
-                    Severity = CheckRow.Status.Pass, Text = "✓ Configured", Optional = !isRequired,
+                    State = OwnVendorState.Phase.Pass, Text = "Configured", Optional = !isRequired,
                     ActionLabel = "Console", Action = () => Application.OpenURL("https://console.firebase.google.com/"),
                 };
             return new OwnVendorState
             {
-                Severity = CheckRow.Status.Warn, Text = "Add config files", Optional = !isRequired,
+                State = OwnVendorState.Phase.Warn, Text = "Add config files", Optional = !isRequired,
                 ActionLabel = "Console", Action = () => Application.OpenURL("https://console.firebase.google.com/"),
             };
         }
 
         /// <summary>Dispatches to each vendor's own-validity computation; null for the three groups with
         /// no such signal (Build & Project, Device & QA, TikTok) - their header derives purely from
-        /// their visible rows in <see cref="BuildGroupHeader"/>.</summary>
+        /// their visible rows in <see cref="BuildGroupSection"/>.</summary>
         OwnVendorState OwnStateFor(GreenlightAdapter.VendorGroup id) => id switch
         {
             GreenlightAdapter.VendorGroup.GameAnalytics => GameAnalyticsOwnState(),
@@ -934,88 +886,213 @@ namespace Sorolla.Palette.Editor
             return groups;
         }
 
+        /// <summary>Build checks a studio should see even when green (Arthur ruling 2026-07-21 ~17:55:
+        /// "keep the important ones") - the facts a studio actually acts on or asks about: is every SDK
+        /// present at the right version in the right mode, and is the Android build config sane. The
+        /// internal-hygiene rest (registries, config sync, EDM4U, gradle java home, addressables, pin)
+        /// stays internal-only when passing.</summary>
+        static readonly HashSet<string> StudioVisibleWhenPass = new HashSet<string>
+        {
+            GateIds.BuildRequiredSdks,
+            GateIds.BuildSdkVersions,
+            GateIds.BuildModeConsistency,
+            GateIds.BuildAndroidManifest,
+            GateIds.BuildGradleConfig,
+            GateIds.BuildDevelopmentBuild,
+        };
+
         /// <summary>The ONE pure view filter (rendering contract): internal view shows every row;
-        /// studio shows only non-pass/non-info rows that aren't Sorolla-QA-only attestation content
-        /// (except the one genuinely studio-actionable pin issue, Disposition.Omitted). No per-group
-        /// exceptions - a group's visibility is a pure function of "does it have >= 1 row this returns
+        /// studio shows every non-pass/non-info row that isn't Sorolla-QA-only attestation content
+        /// (except the one genuinely studio-actionable pin issue, Disposition.Omitted), plus the
+        /// <see cref="StudioVisibleWhenPass"/> whitelist of important build facts shown even when
+        /// green. A group's visibility is a pure function of "does it have >= 1 row this returns
         /// true for, or >= 1 input" (inputs always visible, checked separately by the caller).</summary>
         static bool RowVisible(GreenlightEvaluator.Row row, bool internalView)
         {
             if (internalView) return true;
-            if (row.Status == CheckRow.Status.Pass || row.Status == CheckRow.Status.Info) return false;
+            if (row.Status == CheckRow.Status.Pass || row.Status == CheckRow.Status.Info)
+                return StudioVisibleWhenPass.Contains(row.GateId);
             bool isManual = GreenlightManualChecklist.DescriptorForLabel(row.Label) != null;
             bool isStudioActionablePinIssue = row.Disposition == GateDisposition.Omitted;
             return !isManual || isStudioActionablePinIssue;
         }
 
-        /// <summary>Builds a group's header from its own-validity state (if any) merged with the worst
-        /// status among its VISIBLE rows - computed after filtering, from the same list the caller is
-        /// about to render below it, so a header can never contradict its visible children by
-        /// construction. A vendor's own-Pass state only ever escalates (never downgrades an already
-        /// Fail/Warn/N/A/Installing own state) when a visible row is worse.</summary>
-        static VisualElement BuildGroupHeader(GroupModel g, List<GreenlightEvaluator.Row> visibleRows)
+        /// <summary>One group section in the shared section-header style (caps title + rule, like Quick
+        /// Start): foldout arrow + title + rule + status detail + optional action button + status tag,
+        /// above a collapsible rows container. Effective status = own vendor state, escalated (never
+        /// downgraded) by the worst VISIBLE row - computed from the same list rendered below, so the tag
+        /// can never contradict its children. Only the arrow toggles folding, so the header's
+        /// Edit/Console/Install button stays a plain click; the manual fold state persists per
+        /// <paramref name="persistKey"/> for the window session, and the attention-based default only
+        /// applies the first time a key is seen.</summary>
+        VisualElement BuildGroupSection(string persistKey, GroupModel g, List<GreenlightEvaluator.Row> visibleRows, List<VisualElement> rowElements)
         {
-            string glyph, text;
-            Color color;
+            string title = g.Title;
+            string detail;
+            string badgeText;
+            StatusBadge.Severity badgeSeverity;
             string actionLabel = null;
             Action action = null;
             bool actionEnabled = true;
-            string title = g.Title;
 
+            CheckRow.Status rowsWorst = WorstOfRows(visibleRows);
             if (g.OwnState != null)
             {
                 OwnVendorState own = g.OwnState;
-                (glyph, color) = own.Severity.HasValue ? GlyphColorFor(own.Severity.Value) : (own.SpecialGlyph, own.SpecialColor);
-                text = own.Text;
+                detail = own.Text;
                 actionLabel = own.ActionLabel;
                 action = own.Action;
                 actionEnabled = own.ActionEnabled;
                 if (own.Optional) title = $"{title} (optional)";
 
-                if (own.Severity == CheckRow.Status.Pass)
+                (badgeText, badgeSeverity) = own.State switch
                 {
-                    CheckRow.Status rowsWorst = WorstOfRows(visibleRows);
-                    if (rowsWorst != CheckRow.Status.Pass)
-                    {
-                        (glyph, color) = GlyphColorFor(rowsWorst);
-                        string baseText = text.StartsWith("✓ ") ? text.Substring(2) : text;
-                        text = baseText + (rowsWorst == CheckRow.Status.Wait ? " · Awaiting attestation" : " · Needs attention");
-                    }
-                }
+                    OwnVendorState.Phase.Installing => ("INSTALLING", StatusBadge.Severity.Wait),
+                    OwnVendorState.Phase.NotInstalled => ("NOT INSTALLED", StatusBadge.Severity.Gated),
+                    OwnVendorState.Phase.Fail => BadgeFor(CheckRow.Status.Fail),
+                    OwnVendorState.Phase.Warn => BadgeFor(CheckRow.Status.Warn),
+                    _ => BadgeFor(rowsWorst), // Pass: visible rows may escalate, never downgrade
+                };
             }
             else
             {
-                CheckRow.Status worst = WorstOfRows(visibleRows);
-                (glyph, color) = GlyphColorFor(worst);
-                int issues = visibleRows.Count(r => r.Status == CheckRow.Status.Fail || r.Status == CheckRow.Status.Warn || r.Status == CheckRow.Status.Wait);
+                (badgeText, badgeSeverity) = BadgeFor(rowsWorst);
+                int issues = visibleRows.Count(r => r.Status != CheckRow.Status.Pass && r.Status != CheckRow.Status.Info);
                 // A lone item doesn't need a number (round-3 ruling) - "1 need attention" reads oddly.
-                text = issues == 0 ? "All clear" : issues == 1 ? "Needs attention" : $"{issues} need attention";
+                detail = issues == 0 ? null : issues == 1 ? "Needs attention" : $"{issues} need attention";
             }
 
-            var nameLabel = new Label(title);
-            nameLabel.AddToClassList("sorolla-sdk-row-name");
-            return BuildVendorRow(new SdkOverviewRowData
+            bool attention = badgeSeverity != StatusBadge.Severity.Pass && badgeSeverity != StatusBadge.Severity.Gated;
+            bool expanded = _groupExpanded.TryGetValue(persistKey, out bool remembered) ? remembered : attention;
+
+            var container = new VisualElement();
+            container.style.marginBottom = 8;
+
+            var headerRow = new VisualElement();
+            headerRow.AddToClassList("sorolla-section-header");
+
+            var arrow = new Label(expanded ? "▾" : "▸");
+            arrow.style.width = 16;
+            arrow.style.unityTextAlign = TextAnchor.MiddleCenter;
+            arrow.pickingMode = PickingMode.Position;
+            headerRow.Add(arrow);
+
+            var titleLabel = new Label(title.ToUpperInvariant());
+            titleLabel.AddToClassList("sorolla-section-header-label");
+            headerRow.Add(titleLabel);
+
+            var rule = new VisualElement();
+            rule.AddToClassList("sorolla-section-header-rule");
+            headerRow.Add(rule);
+
+            if (!string.IsNullOrEmpty(detail))
             {
-                NameElement = nameLabel,
-                IconGlyph = glyph,
-                IconColor = color,
-                ConfigText = text,
-                ConfigColor = color,
-                ActionLabel = actionLabel,
-                OnAction = action,
-                ActionEnabled = actionEnabled,
+                var detailLabel = new Label(detail);
+                detailLabel.AddToClassList("sorolla-type-small");
+                detailLabel.style.marginRight = 6;
+                headerRow.Add(detailLabel);
+            }
+
+            if (!string.IsNullOrEmpty(actionLabel))
+            {
+                var button = new Button(() => action?.Invoke()) { text = actionLabel };
+                button.AddToClassList("sorolla-button-small");
+                button.style.marginRight = 6;
+                button.SetEnabled(actionEnabled);
+                headerRow.Add(button);
+            }
+
+            headerRow.Add(StatusBadge.Create(badgeText, badgeSeverity));
+            container.Add(headerRow);
+
+            var rowsWrap = new VisualElement();
+            rowsWrap.style.marginLeft = 20;
+            rowsWrap.style.display = expanded ? DisplayStyle.Flex : DisplayStyle.None;
+            foreach (VisualElement row in rowElements)
+                rowsWrap.Add(row);
+            container.Add(rowsWrap);
+
+            arrow.RegisterCallback<ClickEvent>(_ =>
+            {
+                bool nowExpanded = rowsWrap.style.display == DisplayStyle.None;
+                rowsWrap.style.display = nowExpanded ? DisplayStyle.Flex : DisplayStyle.None;
+                arrow.text = nowExpanded ? "▾" : "▸";
+                _groupExpanded[persistKey] = nowExpanded;
             });
+
+            return container;
         }
 
         #endregion
 
         #region Greenlight
 
-        /// <summary>Rebuilds the Greenlight section: verdict badge + count strip, grouped rows, a
-        /// Connect Device button (drives <see cref="GreenlightDeviceSnapshot"/>), and a Copy Report
-        /// button. Clear-and-rebuild on data change only - same guarded pattern as the other ported
-        /// sections (RunBuildValidation's completion, the manual checklist toggles, and the device
-        /// snapshot's onSettled callback).</summary>
+        /// <summary>The window-wide actions (Refresh / Connect Device / Copy Report, plus the
+        /// internal-only JSON + gate-catalog exports), fixed in the header below the hero (Arthur
+        /// ruling 2026-07-21 ~17:50) - one home for global actions, no in-content duplicates.
+        /// Repopulated on every greenlight refresh so the Connect button's connecting/enabled state
+        /// tracks the snapshot phase.</summary>
+        void RefreshHeaderActions(GreenlightEvaluator.Report report)
+        {
+            if (_headerActionsHost == null) return;
+            _headerActionsHost.Clear();
+
+            var container = CreatePortedSectionContainer();
+            var actionsRow = new VisualElement();
+            actionsRow.style.flexDirection = FlexDirection.Row;
+            actionsRow.style.flexWrap = Wrap.Wrap;
+
+            var refreshButton = new Button(RunBuildValidation) { text = "Refresh" };
+            refreshButton.AddToClassList("sorolla-button-small");
+            actionsRow.Add(refreshButton);
+
+            var connectButton = new Button(() => GreenlightDeviceSnapshot.Run(_snapshotState, () =>
+            {
+                RefreshGreenlightUI();
+                Repaint();
+            }))
+            {
+                text = _snapshotState.Phase == GreenlightDeviceSnapshot.Phase.Running ? "Connecting..." : "Connect Device (Android/iOS USB)",
+                tooltip = "Pulls the live QA snapshot from the connected device over USB. "
+                    + "Android uses adb (USB debugging on); iOS uses iproxy from libimobiledevice (device unlocked + trusted). "
+                    + "Keep the game foregrounded on the device while connecting.",
+            };
+            connectButton.AddToClassList("sorolla-button-small");
+            connectButton.SetEnabled(_snapshotState.Phase != GreenlightDeviceSnapshot.Phase.Running);
+            actionsRow.Add(connectButton);
+
+            // Copy the AUDITABLE canonical report (review F4): the readable rendering carries every row's
+            // disposition/requirement/proof + a build fingerprint, so a pasted result is unambiguous.
+            // "(text)" only disambiguates against the JSON sibling that exists in the internal view.
+            var copyButton = new Button(() =>
+                    EditorGUIUtility.systemCopyBuffer = GreenlightReportExport.ToText(report.Health, report.Fingerprint, report.Context))
+                { text = ShowInternalDepth ? "Copy Report (text)" : "Copy Report" };
+            copyButton.AddToClassList("sorolla-button-small");
+            actionsRow.Add(copyButton);
+
+            if (ShowInternalDepth)
+            {
+                var copyJsonButton = new Button(() =>
+                        EditorGUIUtility.systemCopyBuffer = GreenlightReportExport.ToJson(report.Health, report.Fingerprint, report.Context))
+                    { text = "Copy Report (JSON)" };
+                copyJsonButton.AddToClassList("sorolla-button-small");
+                actionsRow.Add(copyJsonButton);
+
+                var exportCatalogButton = new Button(GateCatalogExporter.ShowSavePanel)
+                    { text = "Export Gate Catalog (JSON)" };
+                exportCatalogButton.AddToClassList("sorolla-button-small");
+                actionsRow.Add(exportCatalogButton);
+            }
+
+            container.Add(actionsRow);
+            _headerActionsHost.Add(container);
+        }
+
+        /// <summary>Rebuilds the Greenlight section: verdict badge + count strip, grouped rows, and
+        /// the fixed header actions (see <see cref="RefreshHeaderActions"/>). Clear-and-rebuild on
+        /// data change only - same guarded pattern as the other ported sections (RunBuildValidation's
+        /// completion, the manual checklist toggles, and the device snapshot's onSettled
+        /// callback).</summary>
         void RefreshGreenlightUI()
         {
             if (_greenlightContainer == null) return;
@@ -1051,57 +1128,7 @@ namespace Sorolla.Palette.Editor
                 _greenlightContainer.Add(countLabel);
             }
 
-            var actionsRow = new VisualElement();
-            actionsRow.style.flexDirection = FlexDirection.Row;
-            actionsRow.style.flexWrap = Wrap.Wrap;
-            actionsRow.style.marginBottom = 8;
-
-            var refreshButton = new Button(RunBuildValidation) { text = "Refresh" };
-            refreshButton.AddToClassList("sorolla-button-small");
-            actionsRow.Add(refreshButton);
-
-            var connectButton = new Button(() => GreenlightDeviceSnapshot.Run(_snapshotState, () =>
-            {
-                RefreshGreenlightUI();
-                Repaint();
-            }))
-            {
-                text = _snapshotState.Phase == GreenlightDeviceSnapshot.Phase.Running ? "Connecting..." : "Connect Device (Android/iOS USB)",
-                tooltip = "Pulls the live QA snapshot from the connected device over USB. "
-                    + "Android uses adb (USB debugging on); iOS uses iproxy from libimobiledevice (device unlocked + trusted). "
-                    + "Keep the game foregrounded on the device while connecting.",
-            };
-            connectButton.AddToClassList("sorolla-button-small");
-            connectButton.SetEnabled(_snapshotState.Phase != GreenlightDeviceSnapshot.Phase.Running);
-            actionsRow.Add(connectButton);
-
-            // Copy the AUDITABLE canonical report (review F4): the readable rendering carries every row's
-            // disposition/requirement/proof + a build fingerprint, so a pasted result is unambiguous. The old
-            // flattened summary is no longer the export - it dropped inert rows and provenance.
-            // "(text)" only disambiguates against the JSON sibling that exists in the internal view - on
-            // the studio surface there is no sibling to disambiguate against, so the suffix is meaningless
-            // noise there (F13.4, 2026-07-21 audit).
-            var copyButton = new Button(() =>
-                    EditorGUIUtility.systemCopyBuffer = GreenlightReportExport.ToText(report.Health, report.Fingerprint, report.Context))
-                { text = ShowInternalDepth ? "Copy Report (text)" : "Copy Report" };
-            copyButton.AddToClassList("sorolla-button-small");
-            actionsRow.Add(copyButton);
-
-            if (ShowInternalDepth)
-            {
-                var copyJsonButton = new Button(() =>
-                        EditorGUIUtility.systemCopyBuffer = GreenlightReportExport.ToJson(report.Health, report.Fingerprint, report.Context))
-                    { text = "Copy Report (JSON)" };
-                copyJsonButton.AddToClassList("sorolla-button-small");
-                actionsRow.Add(copyJsonButton);
-
-                var exportCatalogButton = new Button(GateCatalogExporter.ShowSavePanel)
-                    { text = "Export Gate Catalog (JSON)" };
-                exportCatalogButton.AddToClassList("sorolla-button-small");
-                actionsRow.Add(exportCatalogButton);
-            }
-
-            _greenlightContainer.Add(actionsRow);
+            RefreshHeaderActions(report);
 
             // Privacy banner REMOVED entirely, both surfaces, no copy-time replacement (F13.5 ruling,
             // 2026-07-21 ~12:30) - it was internal QA vocabulary ("tester names", "evidence notes") on a
@@ -1142,8 +1169,6 @@ namespace Sorolla.Palette.Editor
                 if (visibleRows.Count == 0 && g.Inputs.Count == 0) continue;
                 anyOpen = true;
 
-                VisualElement header = BuildGroupHeader(g, visibleRows);
-
                 var rowElements = new List<VisualElement>();
                 foreach (GreenlightEvaluator.Row row in visibleRows)
                 {
@@ -1167,9 +1192,9 @@ namespace Sorolla.Palette.Editor
                 }
                 rowElements.AddRange(g.Inputs);
 
-                bool anyAttention = WorstOfRows(visibleRows) != CheckRow.Status.Pass;
-                string persistKey = ShowInternalDepth ? $"internal:{g.Id}" : $"studio:{g.Id}";
-                _greenlightContainer.Add(BuildExpandableGroup(persistKey, header, rowElements, anyAttention));
+                // Fold-state key is just the group id: internal and studio are separate window
+                // instances now, each with its own _groupExpanded dictionary.
+                _greenlightContainer.Add(BuildGroupSection(g.Id.ToString(), g, visibleRows, rowElements));
             }
 
             if (!ShowInternalDepth && !anyOpen)
@@ -1244,51 +1269,6 @@ namespace Sorolla.Palette.Editor
             GreenlightAdapter.VendorGroup.TikTok => "TikTok (optional)",
             _ => group.ToString(),
         };
-
-        /// <summary>A vendor/plain header (the overview row) plus a collapsible rows container, toggled
-        /// by a small arrow so clicking the header's own Edit/Console/Install button doesn't also
-        /// fold/unfold the group. <paramref name="persistKey"/> remembers the user's manual toggle across
-        /// refreshes within this window session (replaces the old single _greenlightChecksExpanded bool,
-        /// now one per group); <paramref name="defaultExpanded"/> only applies the first time a key is
-        /// seen.</summary>
-        VisualElement BuildExpandableGroup(string persistKey, VisualElement header, List<VisualElement> rows, bool defaultExpanded)
-        {
-            bool expanded = _groupExpanded.TryGetValue(persistKey, out bool remembered) ? remembered : defaultExpanded;
-
-            var container = new VisualElement();
-            container.style.marginBottom = 8;
-
-            var headerRow = new VisualElement();
-            headerRow.style.flexDirection = FlexDirection.Row;
-            headerRow.style.alignItems = Align.Center;
-
-            var arrow = new Label(expanded ? "▾" : "▸");
-            arrow.style.width = 16;
-            arrow.style.unityTextAlign = TextAnchor.MiddleCenter;
-            arrow.pickingMode = PickingMode.Position;
-            headerRow.Add(arrow);
-
-            header.style.flexGrow = 1;
-            headerRow.Add(header);
-            container.Add(headerRow);
-
-            var rowsWrap = new VisualElement();
-            rowsWrap.style.marginLeft = 20;
-            rowsWrap.style.display = expanded ? DisplayStyle.Flex : DisplayStyle.None;
-            foreach (VisualElement row in rows)
-                rowsWrap.Add(row);
-            container.Add(rowsWrap);
-
-            arrow.RegisterCallback<ClickEvent>(_ =>
-            {
-                bool nowExpanded = rowsWrap.style.display == DisplayStyle.None;
-                rowsWrap.style.display = nowExpanded ? DisplayStyle.Flex : DisplayStyle.None;
-                arrow.text = nowExpanded ? "▾" : "▸";
-                _groupExpanded[persistKey] = nowExpanded;
-            });
-
-            return container;
-        }
 
         /// <summary>A CheckRow plus its Fix/deep-link line and, for manual checklist rows in the
         /// internal harness, a Verified toggle - manual/dashboard rows never render as a bare
@@ -1368,15 +1348,12 @@ namespace Sorolla.Palette.Editor
             // one sits under a group header whose Edit button performs the identical action (Arthur
             // ruling 2026-07-21 ~17:40 - the duplicate affordance was noise).
 
-            // The device snapshot row's remedy IS the Connect Device action already in this section's
-            // header - point straight at it instead of leaving a bare "evidence missing" line with no
-            // button (product-audit fix cycle ruling 5, 2026-07-21 11:55).
+            // The device snapshot row's remedy is the Connect Device button fixed in the window header
+            // (Arthur ruling 2026-07-21 ~17:50: one home, no per-row duplicate button). The row still
+            // surfaces the failure reason - Connect attempts used to fail completely silently (F3,
+            // 2026-07-21): every failure path writes State.DetailMessage but nothing rendered it.
             if (row.GateId == GateIds.DeviceNoSdkErrors && row.Status != CheckRow.Status.Pass)
             {
-                // Connect Device failures were completely silent (F3, 2026-07-21): every failure path
-                // writes State.DetailMessage but nothing ever rendered it, so pressing the button with no
-                // device attached looked like a broken no-op. Surface the actual reason once the attempt
-                // has settled without producing a parsed snapshot.
                 bool settledWithoutSnapshot = _snapshotState.Phase == GreenlightDeviceSnapshot.Phase.Done &&
                                                _snapshotState.Outcome != GreenlightDeviceSnapshot.Outcome.Parsed;
                 if (settledWithoutSnapshot && !string.IsNullOrEmpty(_snapshotState.DetailMessage))
@@ -1387,18 +1364,6 @@ namespace Sorolla.Palette.Editor
                     detailLabel.style.whiteSpace = WhiteSpace.Normal;
                     container.Add(detailLabel);
                 }
-
-                bool connecting = _snapshotState.Phase == GreenlightDeviceSnapshot.Phase.Running;
-                var connectRowButton = new Button(() => GreenlightDeviceSnapshot.Run(_snapshotState, () =>
-                {
-                    RefreshGreenlightUI();
-                    Repaint();
-                }))
-                { text = connecting ? "Connecting..." : "Connect Device" };
-                connectRowButton.AddToClassList("sorolla-button-small");
-                connectRowButton.style.marginLeft = 24;
-                connectRowButton.SetEnabled(!connecting);
-                container.Add(connectRowButton);
             }
 
             // Mode Consistency's fix is literally this window's own hero-header mode switch (F6,
