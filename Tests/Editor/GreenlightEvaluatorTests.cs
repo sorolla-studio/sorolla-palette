@@ -24,7 +24,6 @@ namespace Sorolla.Palette.Editor.Tests
             Mode = EvalMode.Full,
             Platform = EvalPlatform.Android,
             InstalledModules = HealthEnums.AllModuleBits,
-            RequestedPhase = GatePhase.QaPass,
             Profile = ReportProfile.SorollaFull,
         };
 
@@ -46,21 +45,15 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(EvalPlatform.Unknown, GreenlightAdapter.ToEvalPlatform(BuildTarget.StandaloneOSX));
         }
 
+        /// <summary>ReleaseOnly is read from the catalog and means only "don't log this on a development
+        /// build". The keystore qualifies; the checks a studio must act on - sandbox mode, GA keys - do not,
+        /// and no check is release-only merely because it sounds release-shaped.</summary>
         [Test]
-        public void RequestedPhase_IsDerivedFromWhichWindowAsks()
+        public void IsReleaseOnly_OnlyTheKeystore()
         {
-            // No profile knob to set or forget (2026-07-22): Sorolla's internal window is where release
-            // decisions are made, so it evaluates at ReleaseShip and sees the release-only gates; a studio
-            // window evaluates at QaPass, because release approval is not delegated to studios.
-            Assert.AreEqual(GatePhase.ReleaseShip, GreenlightAdapter.RequestedPhaseFor(internalDepth: true));
-            Assert.AreEqual(GatePhase.QaPass, GreenlightAdapter.RequestedPhaseFor(internalDepth: false));
-        }
-
-        [Test]
-        public void BuildContext_CarriesTheDerivedPhase()
-        {
-            Assert.AreEqual(GatePhase.ReleaseShip, GreenlightAdapter.BuildContext(internalDepth: true).RequestedPhase);
-            Assert.AreEqual(GatePhase.QaPass, GreenlightAdapter.BuildContext(internalDepth: false).RequestedPhase);
+            Assert.IsTrue(GreenlightAdapter.IsReleaseOnly(BuildValidator.CheckCategory.AndroidKeystore));
+            Assert.IsFalse(GreenlightAdapter.IsReleaseOnly(BuildValidator.CheckCategory.AdjustSandboxMode));
+            Assert.IsFalse(GreenlightAdapter.IsReleaseOnly(BuildValidator.CheckCategory.GameAnalyticsSettings));
         }
 
         // ── Adapter: Build Health row-class → observation ─────────────────
@@ -155,7 +148,7 @@ namespace Sorolla.Palette.Editor.Tests
                 ValidationErrors = new[] { "Unknown gate id in observations: 'ghost'" },
             };
             GreenlightEvaluator.Report report = GreenlightEvaluator.ToReport(health);
-            Assert.IsTrue(report.Rows.Any(r => r.Status == CheckRow.Status.Wait && r.Detail.Contains("ghost")),
+            Assert.IsTrue(report.Rows.Any(r => r.Status == RowStatus.Wait && r.Detail.Contains("ghost")),
                 "The validation error must be a visible Wait row.");
         }
 
@@ -183,7 +176,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
                 InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
-                RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
+                ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
             HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, new List<GateObservation>());
             GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceNoSdkErrors);
@@ -202,7 +195,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Unknown,
                 InstalledModules = SdkModule.UnityIap,
-                RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
+                ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
             HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, new List<GateObservation>());
             GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceNoSdkErrors);
@@ -296,7 +289,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
                 InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
-                RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
+                ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
                 ctx, null, new GreenlightDeviceSnapshot.State());
@@ -317,7 +310,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Unknown,
                 InstalledModules = SdkModule.GameAnalytics,
-                RequestedPhase = GatePhase.QaPass, ModulesResolved = true, Profile = ReportProfile.SorollaFull,
+                ModulesResolved = true, Profile = ReportProfile.SorollaFull,
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
                 ctx, null, new GreenlightDeviceSnapshot.State());
@@ -351,15 +344,14 @@ namespace Sorolla.Palette.Editor.Tests
             string guid = GreenlightDeviceSnapshot.BuildGuidOf(ParsedIosSnapshot("6f5d5572536a40db9136bbf61a3bcd89"));
             Assert.AreEqual("6f5d5572536a40db9136bbf61a3bcd89", guid, "BuildGuidOf must read the iOS snapshot's build GUID.");
 
-            var fingerprint = GreenlightReportExport.Fingerprint.Capture(Ctx(), guid);
+            var fingerprint = GreenlightReportExport.Fingerprint.Capture(guid);
             Assert.AreEqual(guid, fingerprint.DeviceBuildGuid);
         }
 
         [Test]
         public void NoConnectedDevice_ReportSaysSo_RatherThanImplyingOne()
         {
-            var fingerprint = GreenlightReportExport.Fingerprint.Capture(
-                Ctx(), GreenlightDeviceSnapshot.BuildGuidOf(new GreenlightDeviceSnapshot.State()));
+            var fingerprint = GreenlightReportExport.Fingerprint.Capture(GreenlightDeviceSnapshot.BuildGuidOf(new GreenlightDeviceSnapshot.State()));
             Assert.AreEqual("(no device connected)", fingerprint.DeviceBuildGuid);
         }
 
@@ -376,7 +368,7 @@ namespace Sorolla.Palette.Editor.Tests
             var protoCtx = new EvaluationContext
             {
                 Mode = EvalMode.Prototype, Platform = EvalPlatform.Android,
-                InstalledModules = SdkModule.None, RequestedPhase = GatePhase.QaPass,
+                InstalledModules = SdkModule.None,
                 Profile = ReportProfile.SorollaFull,
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
@@ -396,7 +388,7 @@ namespace Sorolla.Palette.Editor.Tests
             var ctx = new EvaluationContext
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
-                InstalledModules = SdkModule.Firebase, RequestedPhase = GatePhase.QaPass,
+                InstalledModules = SdkModule.Firebase,
                 Profile = ReportProfile.SorollaFull,
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
@@ -418,7 +410,6 @@ namespace Sorolla.Palette.Editor.Tests
                 Mode = EvalMode.Full,
                 Platform = EvalPlatform.Android,
                 InstalledModules = HealthEnums.AllModuleBits,
-                RequestedPhase = GatePhase.QaPass,
                 Profile = ReportProfile.SorollaFull,
             };
             var observations = new List<GateObservation>
@@ -473,24 +464,6 @@ namespace Sorolla.Palette.Editor.Tests
                 () => GreenlightEvaluator.BadgeSeverity((GateOutcome)999));
         }
 
-        [Test]
-        public void RowSummary_Incomplete_NeverReadsRowsChecked()
-        {
-            var report = new GreenlightEvaluator.Report { Outcome = GateOutcome.Incomplete, WaitCount = 2 };
-            report.Rows.Add(new GreenlightEvaluator.Row { Status = CheckRow.Status.Wait });
-            report.Rows.Add(new GreenlightEvaluator.Row { Status = CheckRow.Status.Wait });
-            StringAssert.DoesNotContain("rows checked", GreenlightEvaluator.RowSummary(report));
-        }
-
-        [Test]
-        public void RowSummary_Pass_ReadsRowsChecked()
-        {
-            var report = new GreenlightEvaluator.Report { Outcome = GateOutcome.Pass, PassCount = 2 };
-            report.Rows.Add(new GreenlightEvaluator.Row { Status = CheckRow.Status.Pass });
-            report.Rows.Add(new GreenlightEvaluator.Row { Status = CheckRow.Status.Pass });
-            Assert.AreEqual("2 rows checked", GreenlightEvaluator.RowSummary(report));
-        }
-
         // ── End-to-end: no evidence must never render green ───────────────
 
         [Test]
@@ -501,8 +474,7 @@ namespace Sorolla.Palette.Editor.Tests
             // whatever the ambient editor mode/platform.
             GreenlightEvaluator.Report report = GreenlightEvaluator.Evaluate(
                 buildHealthResults: null,
-                snapshotState: new GreenlightDeviceSnapshot.State(),
-                internalDepth: true);
+                snapshotState: new GreenlightDeviceSnapshot.State());
 
             Assert.AreEqual(GateOutcome.Incomplete, report.Outcome,
                 "A report with no run evidence must be INCOMPLETE, not HEALTHY.");
@@ -528,12 +500,11 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = HealthEnums.AllModuleBits,
-                RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+                ModulesResolved = true,
                 Profile = ReportProfile.SorollaFull,
             };
 
             var observations = GateCatalog.Canonical.All
-                .Where(d => (d.Phases & ctx.RequestedPhase) != 0)
                 .Where(d => d.Requirement(ctx).Value == Requirement.Required)
                 .Select(d => new GateObservation
                 {

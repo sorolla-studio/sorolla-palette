@@ -96,9 +96,12 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     adjustSandboxMode must be off before store submission. The gate is release-phase only
-        ///     (<see cref="Health.GateIds.BuildAdjustSandboxMode"/>), so a QA-pass report never selects this
-        ///     result - QA builds legitimately run in sandbox.
+        ///     adjustSandboxMode must be off before store submission. Shown on EVERY surface, to studios too
+        ///     (2026-07-22): sandbox is switched on once, internally, to confirm events reach Adjust, and then
+        ///     goes off for good - so a sandbox-on project is almost always someone about to ship their
+        ///     attribution data into a dashboard nobody reads, not a QA build mid-iteration. It was previously
+        ///     a release-phase-only gate, which meant the only people who could see it were the people who
+        ///     already knew.
         /// </summary>
         static List<ValidationResult> CheckAdjustSandboxMode()
         {
@@ -107,23 +110,18 @@ namespace Sorolla.Palette.Editor
 
             if (!SdkDetector.IsInstalled(SdkId.Adjust))
             {
-                results.Add(Valid(category, "Adjust not installed"));
+                results.Add(Skipped(category, "Adjust not installed"));
                 return results;
             }
 
             var config = Resources.Load<SorollaConfig>("SorollaConfig");
             if (config != null && config.adjustSandboxMode)
             {
-                // Fix hint repointed at reality (F6, 2026-07-21 audit): adjustSandboxMode has no toggle in
-                // Tools > Sorolla Palette SDK at all (RefreshConfigUI renders MAX units, Adjust tokens,
-                // TikTok, verboseLogging only) - the field is only reachable on the raw SorollaConfig.asset
-                // Inspector, which has no custom Editor so every serialized field (including this one)
-                // shows there by default.
                 results.Add(Warning(
                     category,
                     "SorollaConfig.adjustSandboxMode is on.\n" +
                     "  Sandbox events are excluded from Adjust's live dashboards/attribution - must be off before store submission.",
-                    "Select Assets/Resources/SorollaConfig.asset in the Project window and untick Adjust Sandbox Mode in the Inspector"));
+                    "Untick the Sandbox Mode box below, unless you are verifying right now that events reach Adjust"));
             }
             else
             {
@@ -135,8 +133,9 @@ namespace Sorolla.Palette.Editor
 
         /// <summary>
         ///     Android target only: a release AAB/APK signed with the debug/auto keystore cannot be uploaded
-        ///     to Play Console as a production release. Release-phase gate, so a QA-pass report never selects
-        ///     this result.
+        ///     to Play Console as a production release. Marked ReleaseOnly in the catalog: the row shows in
+        ///     every window, but the build preprocessor stays quiet about it on development builds, where an
+        ///     unset release keystore is the normal state rather than news.
         /// </summary>
         static List<ValidationResult> CheckAndroidKeystore()
         {
@@ -145,7 +144,7 @@ namespace Sorolla.Palette.Editor
 
             if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
             {
-                results.Add(Valid(category, "Skipped (not Android)"));
+                results.Add(Skipped(category, "not an Android build target"));
                 return results;
             }
 
@@ -210,8 +209,7 @@ namespace Sorolla.Palette.Editor
 
         /// <summary>
         ///     Warns when com.sorolla.sdk in manifest.json isn't pinned to a published #vX.Y.Z tag
-        ///     (master/hash pins are irreproducible for a release build). Release-phase gate: a QA-pass
-        ///     report never selects it, because master/hash is normal during development.
+        ///     (master/hash pins are irreproducible for a release build).
         /// </summary>
         static List<ValidationResult> CheckSdkPin(Dictionary<string, object> dependencies)
         {

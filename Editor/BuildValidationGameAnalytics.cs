@@ -7,10 +7,16 @@ namespace Sorolla.Palette.Editor
     public static partial class BuildValidator
     {
         /// <summary>
-        ///     Check that GameAnalytics has a game key + secret key pair for the active build target.
-        ///     A key configured for a different platform still reads "Configured" in the old
-        ///     Count&gt;0 proxy, so a prototype game (GA as sole vendor) silently drops 100% of its
-        ///     events on the unconfigured platform (issue #8).
+        ///     Check that GameAnalytics has a game key + secret key pair for BOTH platforms, graded by which
+        ///     one the build in front of you targets. A key configured for a different platform still reads
+        ///     "Configured" in the old Count&gt;0 proxy, so a prototype game (GA as sole vendor) silently
+        ///     drops 100% of its events on the unconfigured platform (issue #8).
+        ///
+        ///     Severity (2026-07-22, superseding the earlier awareness-first ruling): the ACTIVE platform
+        ///     missing is an Error, which blocks the build like the Adjust token does. A build whose sole
+        ///     analytics vendor cannot report a single event is not a build worth making, and the previous
+        ///     Warning made that fact easy to scroll past. The SIBLING platform missing stays a Warning:
+        ///     games ship both platforms, so it must be visible, but it does not break the build at hand.
         /// </summary>
         static List<ValidationResult> CheckGameAnalyticsSettings()
         {
@@ -23,26 +29,39 @@ namespace Sorolla.Palette.Editor
                 return results;
             }
 
-            string platformName = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS ? "iOS" : "Android";
+            bool activeIsIos = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS;
+            string activeName = activeIsIos ? "iOS" : "Android";
+            string siblingName = activeIsIos ? "Android" : "iOS";
+            bool activeConfigured = SdkConfigDetector.GetGameAnalyticsStatus() == SdkConfigDetector.ConfigStatus.Configured;
+            bool siblingConfigured = SdkConfigDetector.HasGameAnalyticsKeysForOtherPlatform();
 
-            if (SdkConfigDetector.GetGameAnalyticsStatus() == SdkConfigDetector.ConfigStatus.Configured)
+            // Fix hints deliberately omit the "Window > GameAnalytics > Select Settings" navigation step: the
+            // row's "Edit" button performs exactly that navigation (product-audit fix cycle residual,
+            // 2026-07-21) - the hint states only what to do once there.
+            if (!activeConfigured)
             {
-                results.Add(Valid(category, $"GameAnalytics configured for {platformName}"));
+                string alsoSibling = siblingConfigured
+                    ? ""
+                    : $"\n  {siblingName} has no key pair either, so no platform of this game reports at all.";
+                results.Add(Error(
+                    category,
+                    $"{activeName} has no game key + secret key pair in Assets/Resources/GameAnalytics/Settings.asset.\n" +
+                    $"  GameAnalytics will drop 100% of events on {activeName}, the platform this build targets; " +
+                    "device log shows the SDK never leaving \"not initialized\"." + alsoSibling,
+                    $"Add {activeName} and paste the game key + secret key from the GameAnalytics dashboard"));
+            }
+            else if (!siblingConfigured)
+            {
+                results.Add(Warning(
+                    category,
+                    $"{siblingName} has no game key + secret key pair in Assets/Resources/GameAnalytics/Settings.asset.\n" +
+                    $"  {activeName} (the active target) is fine, so this build reports - but GameAnalytics will " +
+                    $"drop 100% of events on {siblingName} the moment this game ships there.",
+                    $"Add {siblingName} and paste the game key + secret key from the GameAnalytics dashboard"));
             }
             else
             {
-                // Awareness-first severity ruling (Arthur, via supervisor): a studio may intentionally
-                // ship one platform at a time, so a missing per-platform vendor key is not a build
-                // blocker - it is a warning with a clear root cause, signal, and fix.
-                // Fix hint deliberately omits the "Window > GameAnalytics > Select Settings" navigation
-                // step: the Greenlight row's "Open GA Settings" button now performs that exact navigation
-                // (product-audit fix cycle residual, 2026-07-21) - the hint states only what to do once
-                // there, not where the button already took you.
-                results.Add(Warning(
-                    category,
-                    $"{platformName} has no game key + secret key pair in Assets/Resources/GameAnalytics/Settings.asset.\n" +
-                    $"  GameAnalytics will drop 100% of events on {platformName}; device log shows the SDK never leaving \"not initialized\".",
-                    $"Add {platformName} and paste the game key + secret key from the GameAnalytics dashboard"));
+                results.Add(Valid(category, SdkConfigDetector.GetGameAnalyticsPlatformDetail()));
             }
 
             return results;
@@ -68,7 +87,7 @@ namespace Sorolla.Palette.Editor
             var settings = Resources.Load("GameAnalytics/Settings");
             if (settings == null)
             {
-                results.Add(Valid(category, "Settings.asset not found (covered by GameAnalytics Platform Keys check)"));
+                results.Add(Skipped(category, "Settings.asset not found (covered by GameAnalytics Platform Keys check)"));
                 return results;
             }
 

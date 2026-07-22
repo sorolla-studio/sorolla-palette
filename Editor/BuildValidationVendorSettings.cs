@@ -46,27 +46,39 @@ namespace Sorolla.Palette.Editor
             if (!SorollaSettings.IsPrototype)
             {
                 var config = Resources.Load<SorollaConfig>("SorollaConfig");
-                string activePlatform = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS ? "iOS" : "Android";
-                bool rewardedMissing = string.IsNullOrEmpty(config?.rewardedAdUnit?.Current);
-                bool interstitialMissing = string.IsNullOrEmpty(config?.interstitialAdUnit?.Current);
 
-                if (rewardedMissing && interstitialMissing)
+                // Every format x platform, not "both formats empty on the active platform" (2026-07-22). The
+                // old condition passed a game with a rewarded unit and no interstitial - every interstitial
+                // call then failed to load with the row green - and it never looked at the platform it was
+                // not building, so an iOS ship could carry no ad units at all.
+                var missing = new List<string>();
+                foreach ((string format, PlatformAdUnitId unit) in new[]
+                         {
+                             ("Rewarded", config?.rewardedAdUnit),
+                             ("Interstitial", config?.interstitialAdUnit),
+                         })
+                {
+                    if (string.IsNullOrEmpty(unit?.android)) missing.Add($"{format} (Android)");
+                    if (string.IsNullOrEmpty(unit?.ios)) missing.Add($"{format} (iOS)");
+                }
+
+                if (missing.Count > 0)
                 {
                     // Fix hint doesn't tell you to open the window you're already inside (F6, 2026-07-21
                     // audit) - the MAX Ad Units fields are in this same window's AppLovin MAX group,
                     // below this row (vendor-consolidation cycle, 2026-07-21 15:35: SDK Keys is gone).
                     results.Add(Warning(
                         CheckCategory.MaxSettings,
-                        $"MAX has no rewarded or interstitial ad unit ID set for {activePlatform} in SorollaConfig.\n" +
-                        "  Ad calls will fail to load on this platform until an ad unit ID is set.",
-                        "Enter the AppLovin MAX ad unit IDs for this platform below"));
+                        $"MAX ad unit IDs missing in SorollaConfig: {string.Join(", ", missing)}.\n" +
+                        "  Every ad call for a missing format/platform pair fails to load; banner units are not checked (optional format).",
+                        "Enter the AppLovin MAX ad unit IDs for both platforms below"));
                     return results;
                 }
             }
 
             results.Add(Valid(CheckCategory.MaxSettings, "MAX settings synced"));
 #else
-            results.Add(Valid(CheckCategory.MaxSettings, "MAX not installed"));
+            results.Add(Skipped(CheckCategory.MaxSettings, "MAX not installed"));
 #endif
 
             return results;
@@ -84,21 +96,21 @@ namespace Sorolla.Palette.Editor
         ///     schema limitation on an unsupported setup, deliberately not fixed (see
         ///     greenlight-backtest-2026-07.md, "Vendor platform-scoping sweep").
         /// </summary>
-        static List<ValidationResult> CheckAdjustSettings()
+        static List<ValidationResult> CheckAdjustSettings(Dictionary<string, object> dependencies)
         {
             var results = new List<ValidationResult>();
 
             // Only check in Full mode when Adjust is installed
             if (!SorollaSettings.IsConfigured || SorollaSettings.IsPrototype)
             {
-                results.Add(Valid(CheckCategory.AdjustSettings, "Adjust not required"));
+                results.Add(Skipped(CheckCategory.AdjustSettings, "Adjust not required"));
                 return results;
             }
 
             if (!SdkDetector.IsInstalled(SdkId.Adjust))
             {
                 // Installation is checked by CheckRequiredSdks - just skip config check here
-                results.Add(Valid(CheckCategory.AdjustSettings, "Adjust not installed"));
+                results.Add(Skipped(CheckCategory.AdjustSettings, "Adjust not installed"));
                 return results;
             }
 
@@ -128,6 +140,19 @@ namespace Sorolla.Palette.Editor
             else
             {
                 results.Add(Valid(CheckCategory.AdjustSettings, "Adjust app token OK"));
+            }
+
+            // The purchase event token was validated NOWHERE before 2026-07-22, so a game could wire IAP,
+            // ship, and simply never see revenue in Adjust - Palette.TrackPurchase needs this token to send
+            // the revenue event. Only meaningful once the game actually sells something, so it is scoped to
+            // projects that have Unity IAP installed.
+            if (dependencies.ContainsKey("com.unity.purchasing") && string.IsNullOrEmpty(config.adjustPurchaseEventToken))
+            {
+                results.Add(Warning(
+                    CheckCategory.AdjustSettings,
+                    "Unity IAP is installed but SorollaConfig has no Adjust purchase event token.\n" +
+                    "  Purchases will track everywhere else and send no revenue event to Adjust.",
+                    "Adjust dashboard > this app > All Settings > Events: add a revenue/\"Purchase\" event and paste its 6-character event token below"));
             }
 
             return results;

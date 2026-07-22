@@ -9,7 +9,9 @@ namespace Sorolla.Palette.Editor
             public string Message;
             public ValidationStatus Status;
 
-            public ValidationResult(ValidationStatus status, string message, string fix = null, CheckCategory category = CheckCategory.VersionMismatches)
+            /// <summary>Category is required, never defaulted: it routes the result to its gate and its
+            /// vendor group, so an omitted one used to silently file the result under SDK Versions.</summary>
+            public ValidationResult(ValidationStatus status, string message, string fix, CheckCategory category)
             {
                 Status = status;
                 Message = message;

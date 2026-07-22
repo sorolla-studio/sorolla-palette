@@ -32,8 +32,7 @@ namespace Sorolla.Palette.Health
             //    not silently pass; the whole report degrades to INCOMPLETE via a validation error.
             ValidateContext(context, validationErrors);
             // Null-safe: a null context is recorded above; do NOT dereference it (review F4-03).
-            bool contextUsable =
-                context != null && HealthEnums.IsSinglePhase(context.RequestedPhase); // defined single phase (C3-03)
+            bool contextUsable = context != null;
 
             // 1. Index observations by gate id, validating each value at the boundary (C3-06). Unknown ids and
             //    duplicates are validation errors - never ignored, never last-write-wins.
@@ -63,10 +62,12 @@ namespace Sorolla.Palette.Health
                     validationErrors.Add($"Duplicate observations ({pair.Value.Count}) for gate id: '{pair.Key}'");
             }
 
-            // 2. The evaluator - not the caller - selects the definitions that belong to the requested phase
-            //    (review C3-03). An unusable phase means no definitions can be trusted → INCOMPLETE.
+            // 2. Every gate in the catalog is evaluated: there is no phase/audience selection any more
+            //    (2026-07-22). Which rows a surface RENDERS is a frontend concern; what the report CONTAINS
+            //    never depends on who is asking. An unusable context means no definition can be trusted →
+            //    INCOMPLETE.
             IEnumerable<GateDefinition> selected = contextUsable
-                ? catalog.All.Where(d => (d.Phases & context.RequestedPhase) != 0)
+                ? catalog.All
                 : Array.Empty<GateDefinition>();
 
             foreach (GateDefinition def in selected)
@@ -247,8 +248,6 @@ namespace Sorolla.Palette.Health
                 errors.Add("Evaluation context has an undefined platform value.");
             if (!HealthEnums.HasOnlyDefinedBits(context.InstalledModules))
                 errors.Add("Evaluation context has undefined installed-module bits.");
-            if (!HealthEnums.IsSinglePhase(context.RequestedPhase))
-                errors.Add("Evaluation context requests an unknown/unsupported phase.");
             // An undeclared audience is a boundary error: the evaluator must not guess whether certified
             // invariants may be collapsed. Unknown CERTIFICATION, by contrast, is legal - it behaves as
             // uncertified and only changes the evidence wording.

@@ -108,16 +108,6 @@ namespace Sorolla.Palette.Health
         CertifiedRelease,
     }
 
-    /// <summary>Which validation phase(s) a gate belongs to. A definition with no phase is unreachable.</summary>
-    [Flags]
-    internal enum GatePhase
-    {
-        None = 0,
-        PreBuild = 1 << 0,
-        QaPass = 1 << 1,
-        ReleaseShip = 1 << 2,
-    }
-
     /// <summary>Neutral build mode owned by this assembly - NOT the Editor-only <c>SorollaMode</c>. Each
     /// producer maps its own mode source into this (Editor build path, on-device derivation).</summary>
     internal enum EvalMode
@@ -176,7 +166,11 @@ namespace Sorolla.Palette.Health
         /// <summary>Ownership class - a required constructor argument with NO default, so every call site
         /// must decide and an unclassified gate cannot be added by omission.</summary>
         public GateClassification Classification { get; }
-        public GatePhase Phases { get; }
+        /// <summary>The gate asks a question only a store submission answers, so it is normally unsatisfied
+        /// during development (a release keystore). EVERY gate reaches every report surface - this flag does
+        /// NOT hide a row - it only keeps the build preprocessor from logging the warning on development
+        /// builds, where the unsatisfied state is expected rather than informative.</summary>
+        public bool ReleaseOnly { get; }
         public ProofScope RequiredProof { get; }
         public Func<EvaluationContext, RequirementDecision> Requirement { get; }
 
@@ -184,16 +178,16 @@ namespace Sorolla.Palette.Health
             string id,
             string version,
             GateClassification classification,
-            GatePhase phases,
             ProofScope requiredProof,
-            Func<EvaluationContext, RequirementDecision> requirement)
+            Func<EvaluationContext, RequirementDecision> requirement,
+            bool releaseOnly = false)
         {
             Id = id;
             Version = version;
             Classification = classification;
-            Phases = phases;
             RequiredProof = requiredProof;
             Requirement = requirement;
+            ReleaseOnly = releaseOnly;
         }
     }
 
@@ -226,9 +220,6 @@ namespace Sorolla.Palette.Health
         public EvalMode Mode;
         public EvalPlatform Platform;
         public SdkModule InstalledModules;
-        /// <summary>The phase this report is for (review C3-03). The evaluator - not the caller - selects the
-        /// definitions that belong to this phase. A single defined phase bit is expected.</summary>
-        public GatePhase RequestedPhase;
         /// <summary>Whether the installed-module set was resolved from the trusted source (the package
         /// manifest, review C4-02). Unknown manifest state must NOT be treated as an empty module set - it
         /// forces INCOMPLETE. Defaults true; a producer that cannot read the manifest sets it false.</summary>
@@ -277,7 +268,6 @@ namespace Sorolla.Palette.Health
     internal static class HealthEnums
     {
         internal const ProofScope AllProofBits = ProofScope.Static | ProofScope.DeviceDispatch | ProofScope.VendorAccepted;
-        internal const GatePhase AllPhaseBits = GatePhase.PreBuild | GatePhase.QaPass | GatePhase.ReleaseShip;
         internal const SdkModule AllModuleBits = SdkModule.GameAnalytics | SdkModule.Facebook |
                                                  SdkModule.Firebase | SdkModule.AppLovinMax | SdkModule.Adjust |
                                                  SdkModule.UnityIap;
@@ -308,12 +298,7 @@ namespace Sorolla.Palette.Health
         internal static bool IsDefinedPlatform(EvalPlatform v) =>
             v == EvalPlatform.Unknown || v == EvalPlatform.Android || v == EvalPlatform.iOS;
 
-        /// <summary>A single, defined, non-None phase bit (the shape a request must take).</summary>
-        internal static bool IsSinglePhase(GatePhase v) =>
-            v == GatePhase.PreBuild || v == GatePhase.QaPass || v == GatePhase.ReleaseShip;
-
         internal static bool HasOnlyDefinedBits(ProofScope v) => (v & ~AllProofBits) == 0;
-        internal static bool HasOnlyDefinedBits(GatePhase v) => (v & ~AllPhaseBits) == 0;
         internal static bool HasOnlyDefinedBits(SdkModule v) => (v & ~AllModuleBits) == 0;
     }
 }

@@ -22,7 +22,7 @@ namespace Sorolla.Palette.Editor.Greenlight
         internal const string Schema = "sorolla.greenlight-report/1";
 
         /// <summary>Identity + context a report was produced under, so a copied result is never ambiguous about
-        /// which build/phase it describes (review F4). Captured at evaluation time.</summary>
+        /// which build it describes (review F4). Captured at evaluation time.</summary>
         internal readonly struct Fingerprint
         {
             public readonly string SdkVersion;
@@ -32,25 +32,23 @@ namespace Sorolla.Palette.Editor.Greenlight
             public readonly string Mode;
             public readonly string AppVersion;
             public readonly string DeviceBuildGuid;
-            public readonly string Phase;
             public readonly string GeneratedAtUtc;
 
             Fingerprint(string sdk, string sdkCommit, string appId, string platform, string mode, string appVersion,
-                string deviceBuildGuid, string phase, string generatedAtUtc)
+                string deviceBuildGuid, string generatedAtUtc)
             {
                 SdkVersion = sdk; SdkCommit = sdkCommit; ApplicationId = appId; Platform = platform; Mode = mode;
-                AppVersion = appVersion; DeviceBuildGuid = deviceBuildGuid; Phase = phase;
+                AppVersion = appVersion; DeviceBuildGuid = deviceBuildGuid;
                 GeneratedAtUtc = generatedAtUtc;
             }
 
-            internal static Fingerprint Capture(EvaluationContext context, string deviceBuildGuid)
+            internal static Fingerprint Capture(string deviceBuildGuid)
             {
                 return new Fingerprint(
                     Palette.SdkVersion, SdkProvenance.ResolveSdkCommit(),
                     Application.identifier, PlatformName(EditorUserBuildSettings.activeBuildTarget),
                     ModeName(SorollaSettings.Mode), Application.version,
                     string.IsNullOrEmpty(deviceBuildGuid) ? "(no device connected)" : deviceBuildGuid,
-                    context?.RequestedPhase.ToString() ?? "(none)",
                     DateTime.UtcNow.ToString("o"));
             }
 
@@ -78,7 +76,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             sb.AppendLine($"outcome: {(health?.Outcome ?? GateOutcome.Incomplete)}");
             sb.AppendLine($"sdk: {fingerprint.SdkVersion} (commit {fingerprint.SdkCommit}) | " +
                           $"app: {fingerprint.ApplicationId} {fingerprint.AppVersion} | " +
-                          $"platform: {fingerprint.Platform} | mode: {fingerprint.Mode} | phase: {fingerprint.Phase}");
+                          $"platform: {fingerprint.Platform} | mode: {fingerprint.Mode}");
             sb.AppendLine($"device build: {fingerprint.DeviceBuildGuid}");
             sb.AppendLine($"profile: {context?.Profile ?? ReportProfile.Unknown} | " +
                           $"sdk certification: {context?.Certification ?? SdkCertification.Unknown} " +

@@ -45,6 +45,52 @@ machinery whose evidence was a person asserting something, or tooling that check
   it already carries every row plus the exact SDK commit that produced it. The private
   catalog-vs-catalog validator they fed has been retired with them.
 
+### Changed (2026-07-22 one studio window)
+
+The SDK ships exactly ONE editor window, curated for studios. The parallel full-depth "internal"
+window is deleted: the canonical Copy Report already renders every gate - including the inert and
+passing ones the window filters out of view - so a second window was only a second thing to keep in
+sync. Nothing about what gets CHECKED changes.
+
+- **Check rows read top-down instead of edge-to-edge.** A row is now the check's name and a short
+  status word (PASS / WARN / FAIL / PENDING) on one line, with the check's own message and its fix
+  wrapped underneath. The message used to sit in the row's right-hand slot, bold and colored, where
+  full-sentence validator output wrapped into a ragged column fighting the name for width; a passing
+  row with no message rendered a blank slot instead of "PASS". Both are gone structurally.
+- **Firebase reports each platform separately.** `build.firebase_config` is split into
+  `build.firebase_config_android` and `build.firebase_config_ios`, so `google-services.json` and
+  `GoogleService-Info.plist` each get their own row. They shared one check category, and a category
+  collapses to its worst result, so a missing plist could hide a healthy google-services.json and
+  vice versa. **Breaking for anything parsing gate ids out of a report.** Canonical catalog: 24 → 25.
+- **Fixed: a stray `GoogleService-Info.plist` anywhere in the project no longer pins the report
+  amber.** iOS config discovery searched the whole project while Android checked exact paths only, so
+  any second copy (a vendor sample, a backup folder) made the shipping config "ambiguous" forever.
+  Both platforms now check the same exact paths Unity actually ships from.
+- **Fixed: config edits re-run validation immediately.** Editing the config left the row that grades
+  it showing a snapshot taken when the window opened - stale in BOTH directions, including a green
+  "sandbox off" row over a config with sandbox on. Every check that reads the config now updates as
+  you type or click, with no Refresh press.
+- **Fixed: a check waiting on a network answer resolves itself.** The GameAnalytics credential check
+  reads PENDING while it probes the vendor, and the row stayed on that stale PENDING until someone
+  pressed Refresh. It now updates the moment the probe answers, the way the Facebook platform check
+  already did.
+- **The whole vendor header folds its group.** Folding responded only to the small arrow glyph, so
+  clicking the vendor name - or anywhere else along the header - did nothing. The full header row is
+  now the target, with a hover tint to advertise it and a larger arrow; the header's own action
+  button still just performs its action instead of also folding.
+- **The Adjust sandbox checkbox sits under the warning that explains it**, instead of telling you to
+  go find it in the vendor's field list below. It stays visible when the check passes, so turning
+  sandbox ON for a verification run is possible from the same place.
+- **Fixed: Quick Start code snippets render.** They were blank - the monospace font request returned
+  null during window construction and a null font renders a label empty. Copy always worked, which
+  is why it went unnoticed. The snippets now use the editor's default font.
+- **The fail/warn/pending/pass counts are back, in the studio window.** The verdict pill says a
+  report is not green without saying how far off, and the pass count is the visible proof that the
+  row list is a filtered view rather than every check that ran.
+- Internals: `SorollaWindow` is a shell again (lifecycle, layout, the validation run); what it shows
+  moved into a view layer. The MAX settings sync no longer runs from inside UI construction, so
+  rendering the window no longer writes to disk.
+
 ### Changed (2026-07-21 editor window simplification)
 - **One menu entry, period.** `Tools > Sorolla Palette SDK` is the only Palette entry this package
   adds. The `Tools > Sorolla Palette SDK Internal` checkable toggle is gone.

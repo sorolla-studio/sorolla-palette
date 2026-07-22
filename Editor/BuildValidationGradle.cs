@@ -74,13 +74,13 @@ namespace Sorolla.Palette.Editor
 
             if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
             {
-                results.Add(Valid(category, "Skipped (not Android)"));
+                results.Add(Skipped(category, "not an Android build target"));
                 return results;
             }
 
             if (!File.Exists(GradlePropertiesPath))
             {
-                results.Add(Valid(category, "gradleTemplate.properties not found (covered by Gradle Configuration check)"));
+                results.Add(Skipped(category, "gradleTemplate.properties not found (covered by Gradle Configuration check)"));
                 return results;
             }
 
@@ -163,7 +163,7 @@ namespace Sorolla.Palette.Editor
 
             if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
             {
-                results.Add(Valid(CheckCategory.GradleConfig, "R8/AGP checks skipped (not Android)"));
+                results.Add(Skipped(CheckCategory.GradleConfig, "R8/AGP checks skipped (not Android)"));
                 return results;
             }
 

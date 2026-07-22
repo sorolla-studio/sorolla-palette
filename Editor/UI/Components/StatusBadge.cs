@@ -3,25 +3,19 @@ using UnityEngine.UIElements;
 namespace Sorolla.Palette.Editor.UI
 {
     /// <summary>
-    /// Small colored pill labeling a status. BLOCKER/ADVISORY/FULL/PASS/FAIL/WAIT render as solid
-    /// fills (confident, resolved states). GATED renders as a muted solid fill (blocked on
-    /// something else finishing first). UNVERIFIABLE renders as an outline-only "ghost" pill with
-    /// no fill - it must not look as confident as a real pass/fail, since the loop has no way to
-    /// confirm it (see PLAN.md's "verified-column honesty" and the QA-bridge honesty rule in
-    /// CLAUDE.md's known runtime landmines).
+    /// Small colored pill labeling a status. ADVISORY/PASS/FAIL/WAIT render as solid fills
+    /// (confident, resolved states). GATED renders as a muted solid fill - the vendor is absent or
+    /// switched off, so nothing was verified and the pill must not look like a pass.
     /// </summary>
     static class StatusBadge
     {
         internal enum Severity
         {
-            Blocker,
             Advisory,
-            Full,
             Pass,
             Fail,
             Wait,
             Gated,
-            Unverifiable,
         }
 
         internal static VisualElement Create(string text, Severity severity)
@@ -36,27 +30,13 @@ namespace Sorolla.Palette.Editor.UI
             return pill;
         }
 
-        static string ClassFor(Severity severity)
+        static string ClassFor(Severity severity) => severity switch
         {
-            switch (severity)
-            {
-                case Severity.Blocker:
-                case Severity.Fail:
-                    return "sorolla-badge-fail";
-                case Severity.Advisory:
-                    return "sorolla-badge-warn";
-                case Severity.Full:
-                case Severity.Pass:
-                    return "sorolla-badge-pass";
-                case Severity.Wait:
-                    return "sorolla-badge-wait";
-                case Severity.Gated:
-                    return "sorolla-badge-gated";
-                case Severity.Unverifiable:
-                    return "sorolla-badge-unverifiable";
-                default:
-                    return "sorolla-badge-gated";
-            }
-        }
+            Severity.Fail => "sorolla-badge-fail",
+            Severity.Advisory => "sorolla-badge-warn",
+            Severity.Pass => "sorolla-badge-pass",
+            Severity.Wait => "sorolla-badge-wait",
+            _ => "sorolla-badge-gated",
+        };
     }
 }

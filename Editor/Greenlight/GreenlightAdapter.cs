@@ -81,62 +81,33 @@ namespace Sorolla.Palette.Editor.Greenlight
             }
         }
 
-        /// <summary>
-        ///     Overrides the audience the next context is built for. Sorolla-side only: it lets an internal
-        ///     session review a studio game as the studio will see it (and lets the reference-game
-        ///     certification run simulate a tagged pin). Null = use the resolved provenance. It can only make
-        ///     a report SHOW more or less; it never changes whether an observed failure counts.
-        /// </summary>
-        internal static ReportProfile? ForcedProfile;
-
-        /// <summary>Overrides the resolved certification alongside <see cref="ForcedProfile"/> (simulating a
-        /// tagged pin from an embedded working tree). Null = use the resolved provenance.</summary>
-        internal static SdkCertification? ForcedCertification;
-
-        internal static EvaluationContext BuildContext(bool internalDepth)
+        internal static EvaluationContext BuildContext()
         {
             bool resolved = TryDetectInstalledModules(out SdkModule modules);
             SdkProvenance.Origin origin = SdkProvenance.ResolveOrigin();
-            ReportProfile profile = ForcedProfile ?? origin.Profile;
-            SdkCertification certification = ForcedCertification ?? origin.Certification;
-            string certificationEvidence = ForcedProfile == null && ForcedCertification == null
-                ? origin.Evidence
-                : $"{origin.Evidence} [overridden for review: profile={profile}, certification={certification}]";
             return new EvaluationContext
             {
-                Profile = profile,
-                Certification = certification,
-                CertificationEvidence = certificationEvidence,
+                Profile = origin.Profile,
+                Certification = origin.Certification,
+                CertificationEvidence = origin.Evidence,
                 Mode = ToEvalMode(SorollaSettings.Mode),
                 Platform = ToEvalPlatform(EditorUserBuildSettings.activeBuildTarget),
                 InstalledModules = modules,
                 ModulesResolved = resolved,
-                RequestedPhase = RequestedPhaseFor(internalDepth),
             };
         }
 
         /// <summary>
-        ///     The phase a report is requested at, DERIVED from which window is asking - there is no profile
-        ///     knob to set or forget (2026-07-22). Sorolla's internal window is the surface where a release
-        ///     decision gets made, so it evaluates at ReleaseShip and sees the store-submission gates (release
-        ///     keystore, Adjust sandbox off). A studio window evaluates at QaPass: release approval is not
-        ///     delegated to studios, so those gates would be noise they cannot act on. Note this is about
-        ///     SUBMISSION readiness only - a check a studio can act on belongs in both phases (see
-        ///     <c>build.sdk_pin</c>, deliberately not release-only).
-        /// </summary>
-        internal static GatePhase RequestedPhaseFor(bool internalDepth) =>
-            internalDepth ? GatePhase.ReleaseShip : GatePhase.QaPass;
-
-        /// <summary>
-        ///     True when this Build Health category's gate exists only in the release phase, so its result is
-        ///     about store-submission readiness rather than "is this build sound". The catalog's phase tags are
-        ///     the single source of truth - this asks them rather than keeping a second list of category names.
-        ///     Used by the build preprocessor to keep release-readiness warnings off every development build.
+        ///     True when this Build Health category's gate asks a question only a store submission answers, so
+        ///     it is normally unsatisfied during development. The catalog's <see cref="GateDefinition.ReleaseOnly"/>
+        ///     flag is the single source of truth - this asks it rather than keeping a second list of category
+        ///     names. Used ONLY by the build preprocessor, to keep such a warning off development builds; it
+        ///     never hides a row from any window (2026-07-22: every gate reaches every surface).
         /// </summary>
         internal static bool IsReleaseOnly(BuildValidator.CheckCategory category) =>
             CategoryToGateId.TryGetValue(category, out string gateId) &&
             GateCatalog.Canonical.ById(gateId, throwIfMissing: false) is GateDefinition def &&
-            (def.Phases & GatePhase.QaPass) == 0;
+            def.ReleaseOnly;
 
         // ── Observations ──────────────────────────────────────────────
 
@@ -174,7 +145,8 @@ namespace Sorolla.Palette.Editor.Greenlight
             new Dictionary<BuildValidator.CheckCategory, SdkModule>
             {
                 [BuildValidator.CheckCategory.FirebaseCoherence] = SdkModule.Firebase,
-                [BuildValidator.CheckCategory.FirebaseConfig] = SdkModule.Firebase,
+                [BuildValidator.CheckCategory.FirebaseConfigAndroid] = SdkModule.Firebase,
+                [BuildValidator.CheckCategory.FirebaseConfigIos] = SdkModule.Firebase,
                 [BuildValidator.CheckCategory.MaxSettings] = SdkModule.AppLovinMax,
                 [BuildValidator.CheckCategory.AdjustSettings] = SdkModule.Adjust,
                 [BuildValidator.CheckCategory.AdjustSandboxMode] = SdkModule.Adjust,
@@ -291,7 +263,8 @@ namespace Sorolla.Palette.Editor.Greenlight
                 [BuildValidator.CheckCategory.AdjustSettings] = GateIds.BuildAdjustSettings,
                 [BuildValidator.CheckCategory.Edm4uSettings] = GateIds.BuildEdm4uSettings,
                 [BuildValidator.CheckCategory.GradleConfig] = GateIds.BuildGradleConfig,
-                [BuildValidator.CheckCategory.FirebaseConfig] = GateIds.BuildFirebaseConfig,
+                [BuildValidator.CheckCategory.FirebaseConfigAndroid] = GateIds.BuildFirebaseConfigAndroid,
+                [BuildValidator.CheckCategory.FirebaseConfigIos] = GateIds.BuildFirebaseConfigIos,
                 [BuildValidator.CheckCategory.GameAnalyticsSettings] = GateIds.BuildGameAnalyticsKeys,
                 [BuildValidator.CheckCategory.FacebookPlatformConfig] = GateIds.BuildFacebookPlatform,
                 [BuildValidator.CheckCategory.VerboseLogging] = GateIds.BuildVerboseLogging,
@@ -351,7 +324,8 @@ namespace Sorolla.Palette.Editor.Greenlight
                 [BuildValidator.CheckCategory.GameAnalyticsCredentialProbe] = VendorGroup.GameAnalytics,
                 [BuildValidator.CheckCategory.FacebookPlatformConfig] = VendorGroup.Facebook,
                 [BuildValidator.CheckCategory.FirebaseCoherence] = VendorGroup.Firebase,
-                [BuildValidator.CheckCategory.FirebaseConfig] = VendorGroup.Firebase,
+                [BuildValidator.CheckCategory.FirebaseConfigAndroid] = VendorGroup.Firebase,
+                [BuildValidator.CheckCategory.FirebaseConfigIos] = VendorGroup.Firebase,
                 [BuildValidator.CheckCategory.MaxSettings] = VendorGroup.AppLovinMax,
                 [BuildValidator.CheckCategory.AdjustSettings] = VendorGroup.Adjust,
                 [BuildValidator.CheckCategory.AdjustSandboxMode] = VendorGroup.Adjust,

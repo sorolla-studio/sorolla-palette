@@ -52,59 +52,84 @@ namespace Sorolla.Palette.Editor
             }
             else
             {
-                // Firebase missing in Prototype mode — silently valid (optional)
-                results.Add(Valid(CheckCategory.FirebaseCoherence, "Firebase not installed (optional in Prototype)"));
+                // Firebase missing in Prototype mode - optional, so this is an absence notice, not a pass:
+                // nothing was verified here.
+                results.Add(Skipped(CheckCategory.FirebaseCoherence, "Firebase not installed (optional in Prototype)"));
             }
 
             return results;
         }
 
         /// <summary>
-        ///     Check the Firebase config file for the active build target: not just present, but carrying the
-        ///     ACTIVE application id (a copied wrong-game google-services.json / GoogleService-Info.plist is a
-        ///     silent-data-corruption source Firebase cannot report at runtime). Presence-vs-required severity
-        ///     is unchanged (Full blocks, Prototype warns); present-but-mismatched always FAILs; an unreadable/
-        ///     unparseable file or several candidate files is INCOMPLETE (Unverifiable), never a false pass.
-        ///     Honest limit: the bundle-id match cannot prove Firebase PROJECT identity (see
-        ///     <see cref="FirebaseConfigMatch"/>).
+        ///     Check the Firebase config files for BOTH platforms: not just present, but carrying the matching
+        ///     application id (a copied wrong-game google-services.json / GoogleService-Info.plist is a
+        ///     silent-data-corruption source Firebase cannot report at runtime). Honest limit: the bundle-id
+        ///     match cannot prove Firebase PROJECT identity (see <see cref="FirebaseConfigMatch"/>).
+        ///
+        ///     Both platforms are checked regardless of the active target (2026-07-22): checking only the
+        ///     active one meant a missing GoogleService-Info.plist was invisible for as long as anyone built
+        ///     Android, and the gap surfaced at the iOS store build instead. Each platform owns a separate
+        ///     check category (and gate), so both always get their own row - sharing one category meant the
+        ///     worst-result collapse let a missing plist hide a healthy google-services.json, and vice versa.
+        ///     The ACTIVE platform keeps its severity (Full blocks, Prototype warns, mismatch always fails);
+        ///     the SIBLING platform is always a Warning - it must be seen, but a file for the platform you are
+        ///     not building must never block the build you are making.
         /// </summary>
         static List<ValidationResult> CheckFirebaseConfigFiles(Dictionary<string, object> dependencies)
         {
-            var results = new List<ValidationResult>();
-            const CheckCategory category = CheckCategory.FirebaseConfig;
-
             bool hasFirebase = dependencies.ContainsKey(SdkRegistry.All[SdkId.FirebaseAnalytics].PackageId);
             if (!hasFirebase)
-            {
-                results.Add(Valid(category, "Firebase not installed, config check skipped"));
-                return results;
-            }
+                return BothSkipped("Firebase not installed, config check skipped");
 
             // In Full mode Firebase is required, so a missing active-platform config file that makes Firebase
             // initialization fail must BLOCK, not merely warn (review F4-05) - otherwise the "Required" label
             // on the config gate is decoration. In Prototype Firebase is optional, so a MISSING file stays a
             // warning (awareness-first: a studio may intentionally ship one platform at a time).
             bool required = !SorollaSettings.IsPrototype;
-            BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
 
-            switch (target)
+            switch (EditorUserBuildSettings.activeBuildTarget)
             {
                 case BuildTarget.Android:
-                    results.Add(CheckAndroidConfig(category, required));
-                    break;
+                    return new List<ValidationResult>
+                    {
+                        CheckAndroidConfig(required),
+                        AsSibling(CheckIosConfig(required: false)),
+                    };
                 case BuildTarget.iOS:
-                    results.Add(CheckIosConfig(category, required));
-                    break;
+                    return new List<ValidationResult>
+                    {
+                        AsSibling(CheckAndroidConfig(required: false)),
+                        CheckIosConfig(required),
+                    };
                 default:
-                    results.Add(Skipped(category, "Firebase config match applies to Android/iOS builds only"));
-                    break;
+                    return BothSkipped("Firebase config match applies to Android/iOS builds only");
             }
-
-            return results;
         }
 
-        static ValidationResult CheckAndroidConfig(CheckCategory category, bool required)
+        static List<ValidationResult> BothSkipped(string message) => new List<ValidationResult>
         {
+            Skipped(CheckCategory.FirebaseConfigAndroid, message),
+            Skipped(CheckCategory.FirebaseConfigIos, message),
+        };
+
+        /// <summary>Re-frames a result produced for the platform NOT being built: says so up front, and
+        /// demotes an Error - reachable only from an app-id mismatch, since a sibling is never required - to
+        /// a Warning, so the row is impossible to miss but cannot fail the build being made. A passing
+        /// sibling is returned untouched: its row is simply a pass for the platform you are not building.</summary>
+        static ValidationResult AsSibling(ValidationResult result)
+        {
+            if (result.Status == ValidationStatus.Valid)
+                return result;
+
+            string message = $"Not the active build target: {result.Message}";
+            return result.Status == ValidationStatus.Error
+                ? Warning(result.Category, message, result.Fix)
+                : new ValidationResult(result.Status, message, result.Fix, result.Category);
+        }
+
+        static ValidationResult CheckAndroidConfig(bool required)
+        {
+            const CheckCategory category = CheckCategory.FirebaseConfigAndroid;
             List<string> candidates = SdkConfigDetector.FirebaseAndroidConfigPaths();
             if (candidates.Count == 0)
                 return MissingConfig(category, required,
@@ -123,11 +148,11 @@ namespace Sorolla.Palette.Editor
             switch (FirebaseConfigMatch.MatchAndroid(json, appId, out IReadOnlyCollection<string> found))
             {
                 case FirebaseConfigMatchResult.Match:
-                    return Valid(category, $"google-services.json matches the active application id ({appId}).");
+                    return Valid(category, $"google-services.json matches the Android application id ({appId}).");
                 case FirebaseConfigMatchResult.Mismatch:
                     return Error(category,
                         "google-services.json is for a different app (wrong google-services.json copied in?).\n" +
-                        $"  Active application id: {appId}\n" +
+                        $"  Android application id: {appId}\n" +
                         $"  Config package name(s): {(found.Count == 0 ? "(none found)" : string.Join(", ", found))}",
                         "Download the google-services.json for THIS app from Firebase Console > Project Settings, or correct the Android application id.");
                 default:
@@ -137,8 +162,9 @@ namespace Sorolla.Palette.Editor
             }
         }
 
-        static ValidationResult CheckIosConfig(CheckCategory category, bool required)
+        static ValidationResult CheckIosConfig(bool required)
         {
+            const CheckCategory category = CheckCategory.FirebaseConfigIos;
             List<string> candidates = SdkConfigDetector.FirebaseIosConfigPaths();
             if (candidates.Count == 0)
                 return MissingConfig(category, required,
@@ -157,11 +183,11 @@ namespace Sorolla.Palette.Editor
             switch (FirebaseConfigMatch.MatchIos(plist, bundleId, out string found))
             {
                 case FirebaseConfigMatchResult.Match:
-                    return Valid(category, $"GoogleService-Info.plist matches the active bundle id ({bundleId}).");
+                    return Valid(category, $"GoogleService-Info.plist matches the iOS bundle id ({bundleId}).");
                 case FirebaseConfigMatchResult.Mismatch:
                     return Error(category,
                         "GoogleService-Info.plist is for a different app (wrong GoogleService-Info.plist copied in?).\n" +
-                        $"  Active bundle id: {bundleId}\n" +
+                        $"  iOS bundle id: {bundleId}\n" +
                         $"  Config BUNDLE_ID: {found ?? "(none found)"}",
                         "Download the GoogleService-Info.plist for THIS app from Firebase Console > Project Settings, or correct the iOS bundle id.");
                 default:

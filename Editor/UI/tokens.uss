@@ -108,11 +108,6 @@
 .sorolla-badge-fail { background-color: var(--sorolla-status-fail); }
 .sorolla-badge-wait { background-color: var(--sorolla-status-wait); }
 .sorolla-badge-gated { background-color: var(--sorolla-status-info); }
-.sorolla-badge-unverifiable {
-    background-color: rgba(0, 0, 0, 0);
-    border-color: var(--sorolla-text-tertiary);
-}
-.sorolla-badge-unverifiable .sorolla-badge-label { color: var(--sorolla-text-tertiary); }
 
 /* CalloutCard (p2-callout): tinted banner, colored left accent bar, title + body + optional
    inline action button. Info reuses bg-card-alt (neutral, no new token needed); the other three
@@ -208,6 +203,24 @@
     background-color: var(--sorolla-bg-elevated);
 }
 
+/* Foldable group header: the whole row is the toggle target (only the vendor action button inside
+   opts out, by stopping propagation), so it gets padding for a comfortable hit area and a hover
+   tint to advertise that it is clickable. Separate from .sorolla-section-header because that base
+   class also draws the non-foldable Quick Start header. */
+.sorolla-section-header-foldable {
+    padding-top: var(--sorolla-space-2);
+    padding-bottom: var(--sorolla-space-2);
+}
+
+.sorolla-section-header-foldable:hover { background-color: var(--sorolla-bg-card-alt); }
+
+.sorolla-section-header-arrow {
+    width: 20px;
+    font-size: 14px;
+    color: var(--sorolla-text-secondary);
+    -unity-text-align: middle-center;
+}
+
 /* Was borderless/backgroundless text (read as a plain label, not a button); Arthur's design
    review first asked for a real button affordance (matching Edit/Console), then asked for it to
    be the SAME chip as Edit/Console rather than its own accent-colored variant - this class now
@@ -217,11 +230,18 @@
     margin-left: var(--sorolla-space-3);
 }
 
-/* CheckRow + CollapsibleCheckGroup (p2-checkrow) */
+/* CheckRow: a column of lines (head / detail / fix), not a single row. The head is the only
+   horizontal line, and its status slot holds ONE short word - never a message - so it can be
+   nowrap + flex-shrink:0 and can never wrap against the name beside it. Detail and fix wrap
+   full-width under the name, indented past the icon column. */
 .sorolla-check-row {
+    flex-direction: column;
+    padding: var(--sorolla-space-1) 0;
+}
+
+.sorolla-check-row-head {
     flex-direction: row;
     align-items: center;
-    padding: var(--sorolla-space-1) 0;
 }
 
 .sorolla-check-row-icon {
@@ -240,8 +260,29 @@
 .sorolla-check-row-status {
     font-size: 11px;
     -unity-font-style: bold;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: var(--sorolla-space-2);
+}
+
+.sorolla-check-row-detail,
+.sorolla-check-row-fix {
+    font-size: 11px;
+    color: var(--sorolla-text-secondary);
     white-space: normal;
-    flex-shrink: 1;
+    margin-left: 18px;
+}
+
+.sorolla-check-row-fix {
+    margin-top: 1px;
+}
+
+/* A control a check offers as its own remedy (the Adjust sandbox toggle, Switch Mode, Report Issue):
+   same indent as the check's text lines, hugging its own width instead of stretching the row. */
+.sorolla-check-row-action {
+    align-self: flex-start;
+    margin-left: 18px;
+    margin-top: var(--sorolla-space-1);
 }
 
 .sorolla-check-pass { color: var(--sorolla-status-pass); }
@@ -249,13 +290,6 @@
 .sorolla-check-fail { color: var(--sorolla-status-fail); }
 .sorolla-check-wait { color: var(--sorolla-status-wait); }
 .sorolla-check-info { color: var(--sorolla-status-info); }
-
-.sorolla-check-group {
-    color: var(--sorolla-text-primary);
-    -unity-font-style: bold;
-    font-size: 12px;
-    margin-bottom: var(--sorolla-space-2);
-}
 
 /* ValidatedField (p2-validatedfield): label + text input + inline valid/required/invalid state.
    Arthur's design review (follow-up): rows must use the STANDARD editor form geometry - inline

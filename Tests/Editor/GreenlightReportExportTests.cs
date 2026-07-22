@@ -8,7 +8,7 @@ namespace Sorolla.Palette.Editor.Tests
 {
     /// <summary>
     ///     The auditable canonical report export (review F4/F9): the copied report must carry EVERY catalog row
-    ///     for the requested phase - including the inert NotApplicable/OptionalSkipped rows the UI collapses -
+    ///     - including the inert NotApplicable/OptionalSkipped rows the UI collapses -
     ///     with its stable id, definition version, requirement + reason, disposition, outcome, and proof, plus a
     ///     build/context fingerprint. These pin that nothing load-bearing is dropped on the way to the clipboard.
     ///     One export format only (the parallel JSON was deleted 2026-07-22 - nothing consumed it).
@@ -21,7 +21,7 @@ namespace Sorolla.Palette.Editor.Tests
         {
             Mode = EvalMode.Full, Platform = EvalPlatform.Android,
             InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
-            RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+            ModulesResolved = true,
             Profile = ReportProfile.SorollaFull,
         };
 
@@ -31,7 +31,7 @@ namespace Sorolla.Palette.Editor.Tests
         {
             Mode = EvalMode.Full, Platform = EvalPlatform.Unknown,
             InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
-            RequestedPhase = GatePhase.QaPass, ModulesResolved = true,
+            ModulesResolved = true,
             Profile = ReportProfile.SorollaFull,
         };
 
@@ -43,7 +43,7 @@ namespace Sorolla.Palette.Editor.Tests
         {
             EvaluationContext ctx = OffMobileContext();
             HealthReport health = Report(ctx);
-            var fp = GreenlightReportExport.Fingerprint.Capture(ctx, null);
+            var fp = GreenlightReportExport.Fingerprint.Capture(null);
             string text = GreenlightReportExport.ToText(health, fp, ctx);
 
             // Every evaluated row id appears in the export - inert rows are not silently dropped.
@@ -62,7 +62,7 @@ namespace Sorolla.Palette.Editor.Tests
         {
             EvaluationContext ctx = MixedContext();
             HealthReport health = Report(ctx);
-            var fp = GreenlightReportExport.Fingerprint.Capture(ctx, "device-guid-xyz");
+            var fp = GreenlightReportExport.Fingerprint.Capture("device-guid-xyz");
             string text = GreenlightReportExport.ToText(health, fp, ctx);
 
             StringAssert.Contains("device-guid-xyz", text);
@@ -70,9 +70,7 @@ namespace Sorolla.Palette.Editor.Tests
             // B3: assert the resolved commit VALUE reaches the report, not just the "commit" label - the
             // label is present even when the value is empty, which is the failure this guards.
             Assert.IsFalse(string.IsNullOrWhiteSpace(fp.SdkCommit), "the fingerprint must resolve a commit or an explicit unknown");
-            StringAssert.Contains($"commit {fp.SdkCommit}", text);
-            StringAssert.Contains("phase: QaPass", text);
-            StringAssert.Contains("proof req=", text);
+            StringAssert.Contains($"commit {fp.SdkCommit}", text);            StringAssert.Contains("proof req=", text);
             StringAssert.Contains("disp=", text);
             StringAssert.Contains("reason:", text);
         }
@@ -84,7 +82,7 @@ namespace Sorolla.Palette.Editor.Tests
             // identifies the build. In this embedded package it resolves to a real hash.
             string commit = SdkProvenance.ResolveSdkCommit();
             Assert.IsFalse(string.IsNullOrEmpty(commit));
-            var fp = GreenlightReportExport.Fingerprint.Capture(MixedContext(), null);
+            var fp = GreenlightReportExport.Fingerprint.Capture(null);
             Assert.AreEqual(commit, fp.SdkCommit);
         }
 
@@ -93,7 +91,7 @@ namespace Sorolla.Palette.Editor.Tests
         {
             EvaluationContext ctx = MixedContext();
             HealthReport health = Report(ctx);
-            var fp = GreenlightReportExport.Fingerprint.Capture(ctx, "device-guid-xyz");
+            var fp = GreenlightReportExport.Fingerprint.Capture("device-guid-xyz");
             string text = GreenlightReportExport.ToText(health, fp);
 
             StringAssert.Contains("disp=OptionalSkipped", text);
@@ -111,7 +109,7 @@ namespace Sorolla.Palette.Editor.Tests
             // supervisor cold-reviews is genuine tool output, not hand-written.
             EvaluationContext ctx = MixedContext();
             HealthReport health = Report(ctx);
-            var fp = GreenlightReportExport.Fingerprint.Capture(ctx, "sample-device-guid");
+            var fp = GreenlightReportExport.Fingerprint.Capture("sample-device-guid");
             string text = GreenlightReportExport.ToText(health, fp, ctx);
 
             System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sorolla-sample-report.txt"), text);
@@ -129,7 +127,7 @@ namespace Sorolla.Palette.Editor.Tests
                 Outcome = GateOutcome.Incomplete,
                 ValidationErrors = new[] { "Unknown gate id in observations: 'ghost'" },
             };
-            var fp = GreenlightReportExport.Fingerprint.Capture(MixedContext(), null);
+            var fp = GreenlightReportExport.Fingerprint.Capture(null);
             StringAssert.Contains("ghost", GreenlightReportExport.ToText(health, fp));
         }
     }

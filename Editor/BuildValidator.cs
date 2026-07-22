@@ -25,7 +25,8 @@ namespace Sorolla.Palette.Editor
             AdjustSettings,
             Edm4uSettings,
             GradleConfig,
-            FirebaseConfig,
+            FirebaseConfigAndroid,
+            FirebaseConfigIos,
             GameAnalyticsSettings,
             FacebookPlatformConfig,
             VerboseLogging,
@@ -49,7 +50,7 @@ namespace Sorolla.Palette.Editor
             Unverifiable,
             /// <summary>The check did not run because it does not apply here (vendor not installed,
             /// wrong platform, wrong validation profile) - never a build blocker, but NOT an affirmative
-            /// pass either: renders as a neutral notice (<see cref="Sorolla.Palette.Editor.UI.CheckRow.Status.Info"/>),
+            /// pass either: renders as a neutral notice (<see cref="Greenlight.RowStatus.Info"/>),
             /// never a green check, so absence/skip can't be misread as "verified healthy" (product-audit
             /// finding F5, 2026-07-21).</summary>
             Skipped,
@@ -73,7 +74,8 @@ namespace Sorolla.Palette.Editor
             [CheckCategory.AdjustSettings] = "Adjust Settings",
             [CheckCategory.Edm4uSettings] = "EDM4U Settings",
             [CheckCategory.GradleConfig] = "Gradle Configuration",
-            [CheckCategory.FirebaseConfig] = "Firebase Config Files",
+            [CheckCategory.FirebaseConfigAndroid] = "Firebase Android Config",
+            [CheckCategory.FirebaseConfigIos] = "Firebase iOS Config",
             [CheckCategory.GameAnalyticsSettings] = "GameAnalytics Platform Keys",
             [CheckCategory.FacebookPlatformConfig] = "Facebook Platform",
             [CheckCategory.VerboseLogging] = "Verbose Logging",
@@ -154,7 +156,7 @@ namespace Sorolla.Palette.Editor
                 _lastManifestDiagnostics = null;
                 results.AddRange(CheckAndroidManifest(manifestDiag));
                 results.AddRange(CheckMaxSettings());
-                results.AddRange(CheckAdjustSettings());
+                results.AddRange(CheckAdjustSettings(dependencies));
                 results.AddRange(CheckEdm4uSettings());
                 results.AddRange(CheckGradleConfig());
                 results.AddRange(CheckR8AgpConfig());

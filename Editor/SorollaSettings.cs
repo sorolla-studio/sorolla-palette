@@ -114,7 +114,13 @@ namespace Sorolla.Palette.Editor
             ? ConfigOverride
             : Resources.Load<SorollaConfig>(ConfigResourcePath);
 
-        static SorollaConfig GetOrCreateRuntimeConfig()
+        /// <summary>The ONE way to reach the config asset from the Editor: the same
+        /// <c>Resources.Load("SorollaConfig")</c> the runtime and every validator read, created at the
+        /// exact path that load requires when absent. The window used to run its own
+        /// <c>FindAssets("t:SorollaConfig")</c> + <c>GenerateUniqueAssetPath</c> pair, which could edit a
+        /// stray second asset (or silently create "SorollaConfig 1.asset") while every check kept reading
+        /// the original - two sources of truth for one file.</summary>
+        internal static SorollaConfig GetOrCreateRuntimeConfig()
         {
             var config = LoadRuntimeConfig();
             if (config != null)

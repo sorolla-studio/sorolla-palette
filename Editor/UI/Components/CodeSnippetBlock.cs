@@ -3,16 +3,16 @@ using UnityEngine.UIElements;
 
 namespace Sorolla.Palette.Editor.UI
 {
-    /// <summary>Title bar (label + Copy button) over a monospace code body. Copy writes the code
-    /// text to the system clipboard via GUIUtility.systemCopyBuffer.</summary>
+    /// <summary>Title bar (label + Copy button) over a code body. Copy writes the code text to the
+    /// system clipboard via GUIUtility.systemCopyBuffer.
+    /// The body deliberately uses the editor's default font. It used to request a monospace OS font via
+    /// Font.CreateDynamicFontFromOSFont, which returns null during window construction; assigning a
+    /// FontDefinition wrapping a null Font renders the Label completely blank, so the snippets shipped
+    /// invisible while Copy (which closes over the string, not the Label) kept working. Deferring the
+    /// assignment did not reliably fix it either. A styled-but-unreadable snippet is strictly worse than
+    /// a readable one in the default face, and nothing else in the SDK needs a font at runtime.</summary>
     static class CodeSnippetBlock
     {
-        static Font s_monoFont;
-
-        static Font MonoFont => s_monoFont != null
-            ? s_monoFont
-            : s_monoFont = Font.CreateDynamicFontFromOSFont(new[] { "Menlo", "Consolas", "Courier New" }, 12);
-
         internal static VisualElement Create(string title, string code)
         {
             var card = new VisualElement();
@@ -36,28 +36,9 @@ namespace Sorolla.Palette.Editor.UI
 
             var body = new Label(code);
             body.AddToClassList("sorolla-snippet-body");
-            ApplyMonoFont(body);
             card.Add(body);
 
             return card;
-        }
-
-        /// <summary>Font.CreateDynamicFontFromOSFont silently returns null when called synchronously
-        /// during CreateGUI() construction (verified: the identical call succeeds when made from any
-        /// other context) - assigning a FontDefinition wrapping a null Font then renders the Label
-        /// completely blank instead of falling back to the default font, which is how this shipped
-        /// with invisible Quick Start snippet bodies. Deferring via the UI Toolkit scheduler runs the
-        /// assignment on a later update tick, outside CreateGUI's synchronous call stack, where the
-        /// same API call succeeds; if it's ever still null, skip the assignment entirely rather than
-        /// risk another null-FontDefinition blank-render.</summary>
-        static void ApplyMonoFont(Label label)
-        {
-            label.schedule.Execute(() =>
-            {
-                Font font = MonoFont;
-                if (font != null)
-                    label.style.unityFontDefinition = new StyleFontDefinition(FontDefinition.FromFont(font));
-            });
         }
     }
 }

@@ -260,27 +260,13 @@ namespace Sorolla.Palette.Editor
             EditorApplication.ExecuteMenuItem("Facebook/Edit Settings");
         }
 
-        /// <summary>
-        ///     Checks if Firebase Android config file exists. Exact-path only: FindAssets("google-services")
-        ///     fuzzy-matches the auto-generated google-services-desktop.json and false-positives when the
-        ///     real file is missing.
-        /// </summary>
-        public static bool IsFirebaseAndroidConfigured()
-        {
-            return System.IO.File.Exists("Assets/google-services.json") ||
-                   System.IO.File.Exists("Assets/StreamingAssets/google-services.json");
-        }
-
-        /// <summary>
-        ///     Checks if Firebase iOS config file exists.
-        /// </summary>
-        public static bool IsFirebaseIOSConfigured()
-        {
-            // Check common locations for GoogleService-Info.plist
-            return System.IO.File.Exists("Assets/GoogleService-Info.plist") ||
-                   System.IO.File.Exists("Assets/StreamingAssets/GoogleService-Info.plist") ||
-                   AssetDatabase.FindAssets("GoogleService-Info").Length > 0;
-        }
+        // The presence-only Firebase helpers (IsFirebaseAndroidConfigured / IsFirebaseIOSConfigured /
+        // GetFirebaseStatus) were deleted 2026-07-22 along with their only callers - the Firebase group
+        // header and its internal per-file sub-rows. Presence of a file is not evidence the file belongs to
+        // this game, and the iOS one matched ANY asset named like GoogleService-Info anywhere in the project,
+        // so a stray copy could paint the header green. The Firebase Config Files check is the one answer
+        // now: both platforms, each matched against the app id it must carry, using the exact-path helpers
+        // below.
 
         /// <summary>
         ///     Existing google-services.json paths for the active Android config (exact locations only, so the
@@ -297,44 +283,21 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Existing GoogleService-Info.plist paths for the active iOS config: the exact locations plus any
-        ///     project-wide matches, deduped (a file at an exact path is also returned by the project search).
-        ///     Reports zero/one/many so the caller never silently picks one of several plists.
+        ///     Existing GoogleService-Info.plist paths for the active iOS config - the SAME exact locations
+        ///     the Android helper checks, and only those. A project-wide AssetDatabase search used to be
+        ///     folded in here, which made the two platforms behave differently: any stray second plist
+        ///     anywhere in the project (a vendor sample, a backup folder, another game's copy) made the
+        ///     shipping config "ambiguous" and pinned the report permanently non-green, while the correct
+        ///     file sat at Assets/GoogleService-Info.plist. Only the paths Unity actually ships from count.
         /// </summary>
         public static System.Collections.Generic.List<string> FirebaseIosConfigPaths()
         {
-            var paths = new System.Collections.Generic.HashSet<string>();
+            var paths = new System.Collections.Generic.List<string>();
             foreach (string p in new[] { "Assets/GoogleService-Info.plist", "Assets/StreamingAssets/GoogleService-Info.plist" })
                 if (System.IO.File.Exists(p))
                     paths.Add(p);
-            foreach (string guid in AssetDatabase.FindAssets("GoogleService-Info"))
-            {
-                string p = AssetDatabase.GUIDToAssetPath(guid);
-                if (!string.IsNullOrEmpty(p) && p.EndsWith(".plist", StringComparison.OrdinalIgnoreCase))
-                    paths.Add(p);
-            }
-            return new System.Collections.Generic.List<string>(paths);
+            return paths;
         }
 
-        /// <summary>
-        ///     Checks if Firebase is fully configured (config files present).
-        /// </summary>
-        /// <summary>
-        ///     Configured = the ACTIVE build target's config file is present, not "either platform" - the
-        ///     same single-platform false-green the GameAnalytics fix removed for GA (product-audit finding
-        ///     F7, 2026-07-21): an Android-only project used to read a flat green here while the Firebase
-        ///     Config Files gate/sub-rows correctly warned about the missing Android file.
-        /// </summary>
-        public static ConfigStatus GetFirebaseStatus(SorollaConfig config)
-        {
-            if (!SdkDetector.IsInstalled(SdkId.FirebaseAnalytics))
-                return ConfigStatus.NotInstalled;
-
-            bool activeConfigured = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS
-                ? IsFirebaseIOSConfigured()
-                : IsFirebaseAndroidConfigured();
-
-            return activeConfigured ? ConfigStatus.Configured : ConfigStatus.NotConfigured;
-        }
     }
 }

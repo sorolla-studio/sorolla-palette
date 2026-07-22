@@ -16,7 +16,7 @@ namespace Sorolla.Palette.Editor.Tests
         static EvaluationContext Ctx(EvalMode mode, EvalPlatform platform, SdkModule modules = SdkModule.None) =>
             new EvaluationContext
             {
-                Mode = mode, Platform = platform, InstalledModules = modules, RequestedPhase = GatePhase.QaPass,
+                Mode = mode, Platform = platform, InstalledModules = modules,
                 Profile = ReportProfile.SorollaFull,
             };
 
@@ -39,12 +39,11 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
-        public void EveryGate_CarriesAVersionAndAPhase()
+        public void EveryGate_CarriesAVersion()
         {
             foreach (GateDefinition def in GateCatalog.Canonical.All)
             {
                 Assert.IsFalse(string.IsNullOrEmpty(def.Version), $"Gate '{def.Id}' has no version.");
-                Assert.AreNotEqual(GatePhase.None, def.Phases, $"Gate '{def.Id}' has no phase.");
             }
         }
 
@@ -105,9 +104,16 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void FirebaseConfig_RequiredInFull_OptionalInPrototype()
         {
-            // C4-05: the Firebase config-files gate follows Firebase's own requirement, not the advisory list.
-            Assert.AreEqual(Requirement.Required, ReqOf(GateIds.BuildFirebaseConfig, Ctx(EvalMode.Full, EvalPlatform.Android)));
-            Assert.AreEqual(Requirement.Optional, ReqOf(GateIds.BuildFirebaseConfig, Ctx(EvalMode.Prototype, EvalPlatform.Android)));
+            // C4-05: the Firebase config-file gates follow Firebase's own requirement, not the advisory list.
+            // Both platforms carry the same requirement on either target: the file for the platform you are
+            // not building is still required to exist, it just cannot BLOCK this build (the producer demotes
+            // its severity), so the asymmetry lives in the observation and never in the requirement.
+            foreach (string id in new[] { GateIds.BuildFirebaseConfigAndroid, GateIds.BuildFirebaseConfigIos })
+            {
+                Assert.AreEqual(Requirement.Required, ReqOf(id, Ctx(EvalMode.Full, EvalPlatform.Android)), id);
+                Assert.AreEqual(Requirement.Required, ReqOf(id, Ctx(EvalMode.Full, EvalPlatform.iOS)), id);
+                Assert.AreEqual(Requirement.Optional, ReqOf(id, Ctx(EvalMode.Prototype, EvalPlatform.Android)), id);
+            }
         }
 
         // ── Platform-gated ─────────────────────────────────────────────────
@@ -142,37 +148,56 @@ namespace Sorolla.Palette.Editor.Tests
                 GateCatalog.Canonical.ById(GateIds.DeviceNoSdkErrors).RequiredProof);
         }
 
+        /// <summary>ReleaseOnly means ONE thing: the build preprocessor stays quiet about this check on a
+        /// development build, because the check asks a question only a store submission answers. It must never
+        /// come to mean "hidden from studios" again - that is what the deleted phase axis did, and it is why a
+        /// studio could ship in Adjust sandbox without a single warning. Only the keystore qualifies: sandbox
+        /// mode is switched on once, deliberately, to verify events reach Adjust, so a sandbox-on project is
+        /// worth a console warning on every build.</summary>
         [Test]
-        public void ReleaseOnlyGates_ExcludedFromQaPass_TaggedReleaseShip()
+        public void OnlyTheKeystoreIsReleaseOnly()
         {
-            // C4-04: a QA-pass report must not select store-submission checks - the validator always runs
-            // them, and phase selection is what keeps them out of a studio/QA report.
-            foreach (string id in new[]
-            {
-                GateIds.BuildAndroidKeystore, GateIds.BuildAdjustSandboxMode,
-            })
-            {
-                GatePhase phases = GateCatalog.Canonical.ById(id).Phases;
-                Assert.AreEqual(GatePhase.None, phases & GatePhase.QaPass, $"{id} must not be a QaPass gate.");
-                Assert.AreNotEqual(GatePhase.None, phases & GatePhase.ReleaseShip, $"{id} must be a ReleaseShip gate.");
-            }
+            Assert.IsTrue(GateCatalog.Canonical.ById(GateIds.BuildAndroidKeystore).ReleaseOnly,
+                "a release keystore is normally unset mid-development; don't nag on dev builds");
+
+            foreach (GateDefinition def in GateCatalog.Canonical.All.Where(d => d.Id != GateIds.BuildAndroidKeystore))
+                Assert.IsFalse(def.ReleaseOnly, $"{def.Id} must not be release-only.");
         }
 
-        /// <summary>`build.sdk_pin` is deliberately NOT release-only (2026-07-22). A studio pinned to a branch
-        /// is on an SDK line Sorolla never certified; it must see that in its own window, with the fix, not
-        /// only in Sorolla's release-phase report. This is the direct replacement for the deleted indirect
-        /// mechanism (uncertified pin → invariant rows INCOMPLETE), so if this gate ever loses the QaPass
-        /// phase, nothing tells a studio it is on the development line.</summary>
+        /// <summary>Every gate reaches every report: no gate is selected away by who is asking (2026-07-22).
+        /// This is the regression guard for the phase axis - a studio's window must contain the store-submission
+        /// checks (sandbox mode, keystore) alongside the core ones, because studios submit their own games.</summary>
+        [Test]
+        public void StudioReport_ContainsReleaseSubmissionGates()
+        {
+            var studioCtx = new EvaluationContext
+            {
+                Mode = EvalMode.Full, Platform = EvalPlatform.Android,
+                InstalledModules = HealthEnums.AllModuleBits,
+                Profile = ReportProfile.Studio, Certification = SdkCertification.Uncertified,
+            };
+            HealthReport studioReport = HealthEvaluator.Evaluate(
+                GateCatalog.Canonical, studioCtx, new System.Collections.Generic.List<GateObservation>());
+
+            foreach (string id in new[]
+            {
+                GateIds.BuildAdjustSandboxMode, GateIds.BuildAndroidKeystore, GateIds.BuildRequiredSdks,
+            })
+                Assert.IsTrue(studioReport.Rows.Any(r => r.GateId == id), $"{id} must reach a studio report");
+        }
+
+        /// <summary>`build.sdk_pin` must stay studio-visible: a studio pinned to a branch is on an SDK line
+        /// Sorolla never certified, and must see that with the fix. This is the direct replacement for the
+        /// deleted indirect mechanism (uncertified pin → invariant rows INCOMPLETE).</summary>
         [Test]
         public void SdkPinGate_IsVisibleToStudios_NotReleaseOnly()
         {
-            GatePhase phases = GateCatalog.Canonical.ById(GateIds.BuildSdkPin).Phases;
-            Assert.AreNotEqual(GatePhase.None, phases & GatePhase.QaPass, "the pin check must reach a studio report");
+            Assert.IsFalse(GateCatalog.Canonical.ById(GateIds.BuildSdkPin).ReleaseOnly);
 
             var studioCtx = new EvaluationContext
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
-                InstalledModules = HealthEnums.AllModuleBits, RequestedPhase = GatePhase.QaPass,
+                InstalledModules = HealthEnums.AllModuleBits,
                 Profile = ReportProfile.Studio, Certification = SdkCertification.Uncertified,
             };
             HealthReport report = HealthEvaluator.Evaluate(
@@ -192,35 +217,17 @@ namespace Sorolla.Palette.Editor.Tests
                 "a branch-pinned studio build must not render a clean green verdict");
         }
 
+        /// <summary>Gate versions are the comparison instrument's restart signal: bumping one restarts exactly
+        /// that gate's agreement count. The GA keys gate was bumped when it stopped being an
+        /// active-platform-only check, so pin it - a silent meaning change with a stale version corrupts the
+        /// comparison. The Firebase config gates instead got NEW ids when they split per platform, which
+        /// restarts their counts by construction, so both start at version 1.</summary>
         [Test]
-        public void ReleaseShipPhase_ReachesReleaseOnlyGatesAndCore_QaPassExcludesReleaseOnly()
+        public void PlatformCoverageChanges_CarryTheRightRestartSignal()
         {
-            // End-to-end: the release phase (what the internal Sorolla window asks for) makes release-only
-            // gates reachable through the real evaluator, while the QA-pass phase (a studio window) excludes
-            // them; and ReleaseShip keeps the core prerequisites.
-            var release = new EvaluationContext
-            {
-                Mode = EvalMode.Full, Platform = EvalPlatform.Android,
-                InstalledModules = HealthEnums.AllModuleBits, RequestedPhase = GatePhase.ReleaseShip,
-                Profile = ReportProfile.SorollaFull,
-            };
-            HealthReport releaseReport = HealthEvaluator.Evaluate(
-                GateCatalog.Canonical, release, new System.Collections.Generic.List<GateObservation>());
-            Assert.IsTrue(releaseReport.Rows.Any(r => r.GateId == GateIds.BuildAndroidKeystore),
-                "release-only keystore reachable under ReleaseShip");
-            Assert.IsTrue(releaseReport.Rows.Any(r => r.GateId == GateIds.BuildRequiredSdks),
-                "core prerequisite present under ReleaseShip");
-
-            var qa = new EvaluationContext
-            {
-                Mode = EvalMode.Full, Platform = EvalPlatform.Android,
-                InstalledModules = HealthEnums.AllModuleBits, RequestedPhase = GatePhase.QaPass,
-                Profile = ReportProfile.SorollaFull,
-            };
-            HealthReport qaReport = HealthEvaluator.Evaluate(
-                GateCatalog.Canonical, qa, new System.Collections.Generic.List<GateObservation>());
-            Assert.IsFalse(qaReport.Rows.Any(r => r.GateId == GateIds.BuildAndroidKeystore),
-                "release-only keystore excluded under QaPass");
+            Assert.AreEqual("2", GateCatalog.Canonical.ById(GateIds.BuildGameAnalyticsKeys).Version);
+            Assert.AreEqual("1", GateCatalog.Canonical.ById(GateIds.BuildFirebaseConfigAndroid).Version);
+            Assert.AreEqual("1", GateCatalog.Canonical.ById(GateIds.BuildFirebaseConfigIos).Version);
         }
 
         // ── Every gate is machine-checkable (2026-07-22 deletion) ──────────
@@ -286,16 +293,18 @@ namespace Sorolla.Palette.Editor.Tests
                 "device.ready", "iap.tracking_attached", "build.adjust_resolved_version", "build.prototype_mode_intent",
                 "iap.store_configured", "manual.ga_platform_registered", "manual.cross_vendor_dashboard_drift",
                 "manual.adjust_purchase_verification", "manual.relaunch_persistence", "manual.background_resume_cycle",
+                // Split into build.firebase_config_android + build.firebase_config_ios (2026-07-22).
+                "build.firebase_config",
             })
                 Assert.IsNull(GateCatalog.Canonical.ById(id, throwIfMissing: false), id);
         }
 
         [Test]
-        public void Canonical_Has24Gates()
+        public void Canonical_Has25Gates()
         {
-            // 30 before the 2026-07-22 deletion of the six human-attested gates. (The old assertion here
-            // said 31 and was RED against a 30-gate catalog - a stale count nobody had reconciled.)
-            Assert.AreEqual(24, GateCatalog.Canonical.All.Count);
+            // 30 before the 2026-07-22 deletion of the six human-attested gates; 24 after, then 25 once the
+            // Firebase config gate split into one per platform so both files get their own row.
+            Assert.AreEqual(25, GateCatalog.Canonical.All.Count);
         }
     }
 }

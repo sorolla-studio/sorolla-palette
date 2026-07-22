@@ -7,19 +7,18 @@ namespace Sorolla.Palette.Editor.Tests
     /// <summary>
     ///     Truth table for the ONE shared aggregation (<see cref="HealthEvaluator.Evaluate"/>) on the repaired
     ///     model (review C3-01..C3-07): FAIL survives missing proof; the context-derived 4-state requirement;
-    ///     phase selection in the evaluator; OptionalSkipped ≠ NotApplicable; contradictory NotApplicable
+    ///     every definition evaluated (no phase selection); OptionalSkipped ≠ NotApplicable; contradictory NotApplicable
     ///     observations are validation errors; boundary validation of corrupted enum/flag values; the
     ///     FAIL &gt; INCOMPLETE &gt; CAVEATS &gt; PASS precedence and the no-affirmative floor; plus the strict
     ///     catalog validation.
     /// </summary>
     public class HealthEvaluatorTests
     {
-        static EvaluationContext Ctx(GatePhase phase = GatePhase.QaPass) => new EvaluationContext
+        static EvaluationContext Ctx() => new EvaluationContext
         {
             Mode = EvalMode.Full,
             Platform = EvalPlatform.Android,
             InstalledModules = SdkModule.GameAnalytics,
-            RequestedPhase = phase,
             Profile = ReportProfile.SorollaFull,
         };
 
@@ -27,17 +26,16 @@ namespace Sorolla.Palette.Editor.Tests
             string id,
             Requirement requirement = Requirement.Required,
             ProofScope proof = ProofScope.None,
-            GatePhase phases = GatePhase.QaPass,
             GateClassification classification = GateClassification.Structural)
         {
-            return new GateDefinition(id, "1.0.0", classification, phases, proof,
+            return new GateDefinition(id, "1.0.0", classification, proof,
                 _ => new RequirementDecision(requirement, "test reason"));
         }
 
         static GateDefinition DefReq(string id, System.Func<EvaluationContext, RequirementDecision> req,
-            ProofScope proof = ProofScope.None, GatePhase phases = GatePhase.QaPass,
+            ProofScope proof = ProofScope.None,
             GateClassification classification = GateClassification.Structural) =>
-            new GateDefinition(id, "1.0.0", classification, phases, proof, req);
+            new GateDefinition(id, "1.0.0", classification, proof, req);
 
         static GateObservation Obs(string id, GateOutcome outcome, ProofScope proof = ProofScope.Static) =>
             new GateObservation { GateId = id, Outcome = outcome, ObservedProof = proof };
@@ -238,34 +236,22 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
         }
 
-        // ── C3-03: phase selection lives in the evaluator ──────────────────
+        // ── Every gate is evaluated: no phase/audience selection (2026-07-22) ──
 
         [Test]
-        public void DefinitionOutsideRequestedPhase_IsExcluded()
+        public void EveryDefinitionIsEvaluated_NoPhaseSelection()
         {
-            // 'a' is PreBuild-only; requesting QaPass excludes it entirely, leaving only required 'b'.
+            // The phase axis is gone: what a report CONTAINS never depends on who asked for it. Both gates
+            // resolve - 'a' from its observation, 'b' omitted-required - and neither is filtered out.
             HealthReport r = HealthEvaluator.Evaluate(
-                Catalog(Def("a", Requirement.Required, phases: GatePhase.PreBuild), Def("b")),
-                Ctx(GatePhase.QaPass),
+                Catalog(Def("a", Requirement.Required), Def("b")),
+                Ctx(),
                 new List<GateObservation> { Obs("a", GateOutcome.Pass) });
 
-            Assert.IsNull(Row(r, "a"), "a PreBuild gate must not appear in a QaPass report");
+            Assert.IsNotNull(Row(r, "a"));
+            Assert.IsNotNull(Row(r, "b"));
+            Assert.AreEqual(GateDisposition.Omitted, Row(r, "b").Disposition);
             Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
-        }
-
-        [Test]
-        public void UnsupportedRequestedPhase_IsIncomplete()
-        {
-            HealthReport none = HealthEvaluator.Evaluate(Catalog(Def("a")), Ctx(GatePhase.None),
-                new List<GateObservation> { Obs("a", GateOutcome.Pass) });
-            Assert.IsNotEmpty(none.ValidationErrors);
-            Assert.AreEqual(GateOutcome.Incomplete, none.Outcome);
-
-            HealthReport combined = HealthEvaluator.Evaluate(Catalog(Def("a")),
-                Ctx(GatePhase.PreBuild | GatePhase.QaPass),
-                new List<GateObservation> { Obs("a", GateOutcome.Pass) });
-            Assert.IsNotEmpty(combined.ValidationErrors);
-            Assert.AreEqual(GateOutcome.Incomplete, combined.Outcome);
         }
 
         // ── C3-06: corrupted enum/flag values must not fail open ───────────
@@ -309,7 +295,7 @@ namespace Sorolla.Palette.Editor.Tests
             var ctx = new EvaluationContext
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android, InstalledModules = SdkModule.None,
-                RequestedPhase = GatePhase.QaPass, ModulesResolved = false,
+                ModulesResolved = false,
                 Profile = ReportProfile.SorollaFull,
             };
             HealthReport r = HealthEvaluator.Evaluate(Catalog(Def("a")), ctx,
@@ -324,7 +310,7 @@ namespace Sorolla.Palette.Editor.Tests
             var ctx = new EvaluationContext
             {
                 Mode = (EvalMode)999, Platform = EvalPlatform.Android,
-                InstalledModules = SdkModule.None, RequestedPhase = GatePhase.QaPass,
+                InstalledModules = SdkModule.None,
                 Profile = ReportProfile.SorollaFull,
             };
             HealthReport r = HealthEvaluator.Evaluate(Catalog(Def("a")), ctx,
@@ -364,7 +350,7 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void Validate_EmptyVersion_IsProblem()
         {
-            var def = new GateDefinition("a", "", GateClassification.Structural, GatePhase.QaPass, ProofScope.None,
+            var def = new GateDefinition("a", "", GateClassification.Structural, ProofScope.None,
                 _ => new RequirementDecision(Requirement.Required));
             Assert.IsNotEmpty(GateCatalog.Validate(new[] { def }, Grid));
         }
@@ -372,14 +358,8 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void Validate_MissingRequirementPredicate_IsProblem()
         {
-            var def = new GateDefinition("a", "1", GateClassification.Structural, GatePhase.QaPass, ProofScope.None, null);
+            var def = new GateDefinition("a", "1", GateClassification.Structural, ProofScope.None, null);
             Assert.IsNotEmpty(GateCatalog.Validate(new[] { def }, Grid));
-        }
-
-        [Test]
-        public void Validate_NoPhase_IsProblem()
-        {
-            Assert.IsNotEmpty(GateCatalog.Validate(new[] { Def("a", phases: GatePhase.None) }, Grid));
         }
 
         [Test]
@@ -403,7 +383,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 new EvaluationContext
                 {
-                    Mode = EvalMode.Full, Platform = EvalPlatform.Android, RequestedPhase = GatePhase.QaPass,
+                    Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                     Profile = ReportProfile.SorollaFull,
                 },
             };
@@ -500,7 +480,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = SdkModule.UnityIap,
-                RequestedPhase = GatePhase.QaPass, Profile = ReportProfile.SorollaFull,
+                Profile = ReportProfile.SorollaFull,
             };
             HealthReport r = HealthEvaluator.Evaluate(Catalog(def), installed, new List<GateObservation>());
             Assert.AreEqual(GateDisposition.Omitted, Row(r, "mod").Disposition);
@@ -513,14 +493,13 @@ namespace Sorolla.Palette.Editor.Tests
             Mode = EvalMode.Full,
             Platform = EvalPlatform.Android,
             InstalledModules = SdkModule.GameAnalytics,
-            RequestedPhase = GatePhase.QaPass,
             Profile = ReportProfile.Studio,
             Certification = certification,
             CertificationEvidence = "tag v9.9.9",
         };
 
         static GateDefinition Invariant(string id, Requirement requirement = Requirement.Required) =>
-            Def(id, requirement, ProofScope.DeviceDispatch, GatePhase.QaPass, GateClassification.Invariant);
+            Def(id, requirement, ProofScope.DeviceDispatch, GateClassification.Invariant);
 
         [Test]
         public void StudioCertified_InvariantIsCollapsed_AndOnlyVariantRowsVote()
@@ -591,8 +570,7 @@ namespace Sorolla.Palette.Editor.Tests
         {
             HealthReport r = HealthEvaluator.Evaluate(
                 Catalog(
-                    Def("inv", Requirement.NotApplicable, ProofScope.DeviceDispatch, GatePhase.QaPass,
-                        GateClassification.Invariant),
+                    Def("inv", Requirement.NotApplicable, ProofScope.DeviceDispatch, GateClassification.Invariant),
                     Def("var", classification: GateClassification.Variant)),
                 StudioCtx(SdkCertification.CertifiedRelease),
                 new List<GateObservation> { Obs("var", GateOutcome.Pass) });

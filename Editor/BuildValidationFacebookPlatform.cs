@@ -43,8 +43,12 @@ namespace Sorolla.Palette.Editor
 
                 // Awareness-first severity ruling (Arthur, via supervisor): a studio may intentionally
                 // ship one platform at a time, so a missing/rejected FB platform registration is not a
-                // build blocker - it is a warning with a clear root cause, signal, and fix.
+                // build blocker - it is a warning with a clear root cause, signal, and fix. The sibling
+                // platform's registration is graded from the same Graph response (2026-07-22) and warns
+                // too: an app registered for one platform only is invisible from the other platform's
+                // build, which is how it survives to ship.
                 case FacebookPlatformValidator.ProbeState.PlatformMissing:
+                case FacebookPlatformValidator.ProbeState.SiblingPlatformMissing:
                     results.Add(Warning(
                         category,
                         probe.Detail,

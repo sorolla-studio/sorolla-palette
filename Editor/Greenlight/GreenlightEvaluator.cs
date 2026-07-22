@@ -24,7 +24,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             /// from the display label.</summary>
             public string GateId;
             public string Label;
-            public CheckRow.Status Status;
+            public RowStatus Status;
             public string Detail;
             /// <summary>Fix text shown for non-Pass rows.</summary>
             public string Fix;
@@ -47,15 +47,13 @@ namespace Sorolla.Palette.Editor.Greenlight
             public GreenlightReportExport.Fingerprint Fingerprint;
         }
 
-        /// <param name="internalDepth">Which window is asking. Sorolla's internal window evaluates at the
-        /// release phase (it is where release decisions get made); a studio window evaluates at QA-pass.
-        /// See <see cref="GreenlightAdapter.RequestedPhaseFor"/>.</param>
+        /// <summary>One report for every surface: what it CONTAINS never depends on which window asked
+        /// (2026-07-22). Internal vs studio is purely a rendering-depth filter in the window.</summary>
         internal static Report Evaluate(
             List<BuildValidator.ValidationResult> buildHealthResults,
-            GreenlightDeviceSnapshot.State snapshotState,
-            bool internalDepth)
+            GreenlightDeviceSnapshot.State snapshotState)
         {
-            EvaluationContext context = GreenlightAdapter.BuildContext(internalDepth);
+            EvaluationContext context = GreenlightAdapter.BuildContext();
             List<GateObservation> observations =
                 GreenlightAdapter.BuildObservations(context, buildHealthResults, snapshotState);
             HealthReport health = HealthEvaluator.Evaluate(GateCatalog.Canonical, context, observations);
@@ -63,7 +61,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             report.Health = health;
             report.Context = context;
             report.Fingerprint = GreenlightReportExport.Fingerprint.Capture(
-                context, GreenlightDeviceSnapshot.BuildGuidOf(snapshotState));
+                GreenlightDeviceSnapshot.BuildGuidOf(snapshotState));
             return report;
         }
 
@@ -83,14 +81,14 @@ namespace Sorolla.Palette.Editor.Greenlight
                 if (r.Disposition == GateDisposition.OptionalSkipped || r.Disposition == GateDisposition.NotApplicable)
                     continue;
 
-                CheckRow.Status status = ToStatus(r.Outcome);
+                RowStatus status = ToStatus(r.Outcome);
                 // A deliberate skip/absence still aggregates as Pass (non-blocking), but must never render
                 // as an affirmative green check (F5 residual, 2026-07-21 audit review: this collapsed back
                 // into Pass end-to-end once the Build Health row list - which special-cased it locally - was
                 // deleted by F12). Display-only override; PassCount below still counts it (the `default`
                 // arm covers both Pass and Info), so the verdict/aggregation is untouched.
-                if (r.Informational && status == CheckRow.Status.Pass)
-                    status = CheckRow.Status.Info;
+                if (r.Informational && status == RowStatus.Pass)
+                    status = RowStatus.Info;
                 report.Rows.Add(new Row
                 {
                     GateId = r.GateId,
@@ -102,9 +100,9 @@ namespace Sorolla.Palette.Editor.Greenlight
 
                 switch (status)
                 {
-                    case CheckRow.Status.Fail: report.FailCount++; break;
-                    case CheckRow.Status.Warn: report.WarnCount++; break;
-                    case CheckRow.Status.Wait: report.WaitCount++; break;
+                    case RowStatus.Fail: report.FailCount++; break;
+                    case RowStatus.Warn: report.WarnCount++; break;
+                    case RowStatus.Wait: report.WaitCount++; break;
                     default: report.PassCount++; break;
                 }
             }
@@ -117,7 +115,7 @@ namespace Sorolla.Palette.Editor.Greenlight
                 report.Rows.Add(new Row
                 {
                     Label = "Report Integrity",
-                    Status = CheckRow.Status.Wait,
+                    Status = RowStatus.Wait,
                     Detail = error,
                     Fix = "This is an SDK/report contract error, not a studio config issue - report it to Sorolla.",
                 });
@@ -127,22 +125,25 @@ namespace Sorolla.Palette.Editor.Greenlight
             return report;
         }
 
+        /// <summary>The row's own message, or null when there is nothing to say. Null, never "": a passing
+        /// gate with no evidence line has no second line to render, and an empty string would render one
+        /// (blank) instead of none.</summary>
         static string DetailFor(GateResult r)
         {
             if (!string.IsNullOrEmpty(r.Evidence))
                 return r.Evidence;
             if (r.Requirement == Requirement.Unknown)
                 return r.RequirementReason ?? "Requirement could not be determined";
-            return r.Outcome == GateOutcome.Incomplete ? "Required evidence missing or not yet gathered" : "";
+            return r.Outcome == GateOutcome.Incomplete ? "Required evidence missing or not yet gathered" : null;
         }
 
         /// <summary>Aggregate/row outcome → display status. Pure mapping, not a precedence computation.</summary>
-        static CheckRow.Status ToStatus(GateOutcome outcome) => outcome switch
+        static RowStatus ToStatus(GateOutcome outcome) => outcome switch
         {
-            GateOutcome.Fail => CheckRow.Status.Fail,
-            GateOutcome.PassWithCaveats => CheckRow.Status.Warn,
-            GateOutcome.Incomplete => CheckRow.Status.Wait,
-            GateOutcome.Pass => CheckRow.Status.Pass,
+            GateOutcome.Fail => RowStatus.Fail,
+            GateOutcome.PassWithCaveats => RowStatus.Warn,
+            GateOutcome.Incomplete => RowStatus.Wait,
+            GateOutcome.Pass => RowStatus.Pass,
             _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Unhandled gate outcome."),
         };
 
@@ -176,26 +177,5 @@ namespace Sorolla.Palette.Editor.Greenlight
             _ => throw new ArgumentOutOfRangeException(
                 nameof(outcome), outcome, "Unhandled greenlight outcome - add a badge severity mapping."),
         };
-
-        /// <summary>
-        ///     One-line summary for the collapsed rows foldout. Wait rows count as "need attention"
-        ///     alongside Fail/Warn, and an INCOMPLETE report NEVER reads "rows checked" - a pending or
-        ///     evidence-less report must not imply its rows were affirmatively checked.
-        /// </summary>
-        internal static string RowSummary(Report report)
-        {
-            int total = report.Rows.Count;
-            int needsAttention = report.FailCount + report.WarnCount + report.WaitCount;
-
-            if (report.Outcome == GateOutcome.Incomplete)
-                return needsAttention > 0
-                    ? $"{needsAttention} of {total} rows need evidence or attention"
-                    : $"{total} rows, evidence incomplete";
-
-            if (needsAttention > 0)
-                return $"{needsAttention} of {total} rows need attention";
-
-            return $"{total} rows checked";
-        }
     }
 }
