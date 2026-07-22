@@ -1,4 +1,5 @@
 using System.Linq;
+using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
@@ -35,8 +36,15 @@ namespace Sorolla.Palette.Editor
                 );
             }
 
-            // Log warnings but don't block build
-            var warnings = results.Where(r => r.Status == BuildValidator.ValidationStatus.Warning).ToList();
+            // Release-readiness warnings (no release keystore, Adjust still in sandbox) are about store
+            // submission, and a development build is by definition not that - warning on every dev/QA build
+            // is the noise that trains people to ignore the log. The build tells us which kind it is, so
+            // nothing has to be configured or remembered (2026-07-22, replacing the deleted profile knob).
+            bool releaseBuild = (report.summary.options & BuildOptions.Development) == 0;
+            var warnings = results
+                .Where(r => r.Status == BuildValidator.ValidationStatus.Warning)
+                .Where(r => releaseBuild || !Greenlight.GreenlightAdapter.IsReleaseOnly(r.Category))
+                .ToList();
             foreach (BuildValidator.ValidationResult warning in warnings)
                 Debug.LogWarning($"[Palette BuildValidator] WARNING: {warning.Message}");
 

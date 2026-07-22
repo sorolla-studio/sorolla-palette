@@ -96,19 +96,14 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Release profile only: adjustSandboxMode must be off before store submission.
-        ///     QA-pass builds legitimately run in sandbox.
+        ///     adjustSandboxMode must be off before store submission. The gate is release-phase only
+        ///     (<see cref="Health.GateIds.BuildAdjustSandboxMode"/>), so a QA-pass report never selects this
+        ///     result - QA builds legitimately run in sandbox.
         /// </summary>
         static List<ValidationResult> CheckAdjustSandboxMode()
         {
             var results = new List<ValidationResult>();
             const CheckCategory category = CheckCategory.AdjustSandboxMode;
-
-            if (!BuildValidationProfileSettings.IsRelease)
-            {
-                results.Add(Valid(category, "Skipped (QA Pass profile)"));
-                return results;
-            }
 
             if (!SdkDetector.IsInstalled(SdkId.Adjust))
             {
@@ -139,19 +134,14 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Release profile only, Android target only: a release AAB/APK signed with the
-        ///     debug/auto keystore cannot be uploaded to Play Console as a production release.
+        ///     Android target only: a release AAB/APK signed with the debug/auto keystore cannot be uploaded
+        ///     to Play Console as a production release. Release-phase gate, so a QA-pass report never selects
+        ///     this result.
         /// </summary>
         static List<ValidationResult> CheckAndroidKeystore()
         {
             var results = new List<ValidationResult>();
             const CheckCategory category = CheckCategory.AndroidKeystore;
-
-            if (!BuildValidationProfileSettings.IsRelease)
-            {
-                results.Add(Valid(category, "Skipped (QA Pass profile)"));
-                return results;
-            }
 
             if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
             {
@@ -219,9 +209,9 @@ namespace Sorolla.Palette.Editor
         static readonly Regex SdkTagPattern = new Regex(@"#v\d+\.\d+\.\d+$");
 
         /// <summary>
-        ///     Release profile: warns when com.sorolla.sdk in manifest.json isn't pinned to a
-        ///     published #vX.Y.Z tag (master/hash pins are irreproducible for a release build).
-        ///     QA-pass profile: same ref surfaced as an informational row - master/hash is normal there.
+        ///     Warns when com.sorolla.sdk in manifest.json isn't pinned to a published #vX.Y.Z tag
+        ///     (master/hash pins are irreproducible for a release build). Release-phase gate: a QA-pass
+        ///     report never selects it, because master/hash is normal during development.
         /// </summary>
         static List<ValidationResult> CheckSdkPin(Dictionary<string, object> dependencies)
         {
@@ -236,12 +226,6 @@ namespace Sorolla.Palette.Editor
 
             string sdkRef = sdkRefObj?.ToString() ?? "";
             bool isTagPinned = SdkTagPattern.IsMatch(sdkRef);
-
-            if (!BuildValidationProfileSettings.IsRelease)
-            {
-                results.Add(Valid(category, $"com.sorolla.sdk ref: {sdkRef}"));
-                return results;
-            }
 
             if (isTagPinned)
             {

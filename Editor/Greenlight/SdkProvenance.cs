@@ -36,9 +36,15 @@ namespace Sorolla.Palette.Editor.Greenlight
         ///     Tag-as-certificate resolution. A git dependency pinned to the version tag matching the package's
         ///     own version is a certified release (Sorolla's release process tags only a commit that passed the
         ///     full internal pass on the reference game). A branch/commit pin is a studio report with NO
-        ///     certificate - which is exactly what stops a game pinned to the development line from rendering
-        ///     green. An embedded/local package is Sorolla working on the SDK itself, so it gets the STRICTER
-        ///     full-depth profile. Anything unresolvable fails closed: Studio + Unknown certification.
+        ///     certificate. An embedded/local package is Sorolla working on the SDK itself, so it gets the
+        ///     STRICTER full-depth profile. Anything unresolvable fails closed: Studio + Unknown certification.
+        ///     <para>
+        ///     Note (2026-07-22): the certificate currently changes only the report's printed provenance line,
+        ///     because resolving it against gate rows requires at least one Invariant gate and the catalog has
+        ///     none since the human-attested gates were deleted. What actually stops a studio sitting silently
+        ///     on the development line is now the direct <c>build.sdk_pin</c> check, which warns in the studio
+        ///     window with the fix. Add an Invariant gate and this resolution becomes load-bearing again.
+        ///     </para>
         /// </summary>
         internal static Origin ResolveOrigin()
         {

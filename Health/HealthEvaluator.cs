@@ -188,8 +188,13 @@ namespace Sorolla.Palette.Health
         ///     a locally OBSERVED FAIL always survives (a certificate proves the SDK behaved on the reference
         ///     game, it can never overrule this build misbehaving here); only then may the release certificate
         ///     resolve the row. An uncertified/unknown source gets NO excuse - a required invariant omits →
-        ///     INCOMPLETE, which is what mechanically stops a game pinned to the development line from ever
-        ///     rendering studio-green.
+        ///     INCOMPLETE.
+        ///     <para>
+        ///     Currently DORMANT, not dead (2026-07-22): the catalog has no Invariant gates since the
+        ///     human-attested ones were deleted, so nothing reaches here in production. The path stays
+        ///     implemented and unit-tested so adding a real invariant (SDK behavior identical for every game,
+        ///     proven by device evidence) needs a catalog entry and nothing else.
+        ///     </para>
         /// </summary>
         static void ResolveCertifiedInvariant(
             EvaluationContext context, Requirement requirement, List<GateObservation> matches, GateResult row)

@@ -3,17 +3,19 @@ using System.Collections.Generic;
 using System.Text;
 using Sorolla.Palette.Health;
 using UnityEditor;
+using UnityEngine;
 
 namespace Sorolla.Palette.Editor.Greenlight
 {
     /// <summary>
     ///     The AUDITABLE canonical report export (review F4). The Editor greenlight's flattened display rows
-    ///     drop almost everything the comparison instrument needs and hide inert rows; this exporter serializes
-    ///     the FULL shared <see cref="HealthReport"/> instead - every row (including NotApplicable and
-    ///     OptionalSkipped) with its stable id, definition version, requirement + reason, disposition, outcome,
-    ///     required/observed proof, evidence, and fix - plus a build/context fingerprint so a pasted result can
-    ///     be tied to the exact game, build, mode, platform, phase, and SDK that produced it. JSON for machine
-    ///     comparison, a readable text rendering for a human; the clipboard stays the transport.
+    ///     drop almost everything a reviewer needs and hide inert rows; this exporter renders the FULL shared
+    ///     <see cref="HealthReport"/> instead - every row (including NotApplicable and OptionalSkipped) with
+    ///     its stable id, definition version, requirement + reason, disposition, outcome, required/observed
+    ///     proof, evidence, and fix - plus a build/context fingerprint so a pasted result can be tied to the
+    ///     exact game, build, mode, platform, phase, and SDK COMMIT that produced it. One readable text
+    ///     rendering, clipboard as the transport (the parallel JSON export was deleted 2026-07-22: nothing
+    ///     consumed it, and one report beats two that can disagree).
     /// </summary>
     static class GreenlightReportExport
     {
@@ -43,55 +45,28 @@ namespace Sorolla.Palette.Editor.Greenlight
 
             internal static Fingerprint Capture(EvaluationContext context, string deviceBuildGuid)
             {
-                QaBuildIdentity id = QaBuildIdentity.Current();
                 return new Fingerprint(
                     Palette.SdkVersion, SdkProvenance.ResolveSdkCommit(),
-                    id.ApplicationId, id.Platform, id.Mode, id.AppVersion,
+                    Application.identifier, PlatformName(EditorUserBuildSettings.activeBuildTarget),
+                    ModeName(SorollaSettings.Mode), Application.version,
                     string.IsNullOrEmpty(deviceBuildGuid) ? "(no device connected)" : deviceBuildGuid,
                     context?.RequestedPhase.ToString() ?? "(none)",
                     DateTime.UtcNow.ToString("o"));
             }
-        }
 
-        /// <summary>The full canonical report as JSON: fingerprint + outcome + validation errors + every row's
-        /// stable metadata. Inert rows are NOT dropped (review F4/F9).</summary>
-        internal static string ToJson(HealthReport health, Fingerprint fingerprint, EvaluationContext context = null)
-        {
-            var rows = new List<object>();
-            foreach (GateResult r in health?.Rows ?? Array.Empty<GateResult>())
+            static string PlatformName(BuildTarget target) => target switch
             {
-                rows.Add(new Dictionary<string, object>
-                {
-                    ["id"] = r.GateId,
-                    ["version"] = r.DefinitionVersion,
-                    ["classification"] = r.Classification.ToString(),
-                    ["requirement"] = r.Requirement.ToString(),
-                    ["requirement_reason"] = r.RequirementReason ?? "",
-                    ["disposition"] = r.Disposition.ToString(),
-                    // A deliberate skip/absence must never export as an affirmative [Pass] (F5 residual,
-                    // 2026-07-21 audit review) - the raw Outcome still aggregates as Pass (non-blocking), but
-                    // the exported label and an explicit flag both say Skipped so a reader can't mistake it
-                    // for evaluated evidence.
-                    ["outcome"] = r.Informational ? "Skipped" : r.Outcome.ToString(),
-                    ["informational"] = r.Informational,
-                    ["required_proof"] = ProofNames(r.RequiredProof),
-                    ["observed_proof"] = ProofNames(r.ObservedProof),
-                    ["evidence"] = r.Evidence ?? "",
-                    ["fix"] = r.FixHint ?? "",
-                });
-            }
-
-            var root = new Dictionary<string, object>
-            {
-                ["schema"] = Schema,
-                ["fingerprint"] = FingerprintObject(fingerprint),
-                ["certification"] = CertificationObject(context),
-                ["outcome"] = (health?.Outcome ?? GateOutcome.Incomplete).ToString(),
-                ["validation_errors"] = new List<object>(health?.ValidationErrors ?? Array.Empty<string>()),
-                ["row_count"] = rows.Count,
-                ["rows"] = rows,
+                BuildTarget.Android => "Android",
+                BuildTarget.iOS => "IPhonePlayer",
+                _ => target.ToString(),
             };
-            return MiniJson.Serialize(root, prettyPrint: true);
+
+            static string ModeName(SorollaMode mode) => mode switch
+            {
+                SorollaMode.Full => "full",
+                SorollaMode.Prototype => "prototype",
+                _ => "unknown",
+            };
         }
 
         /// <summary>Human-readable rendering of the same canonical report - includes disposition + requirement
@@ -113,8 +88,8 @@ namespace Sorolla.Palette.Editor.Greenlight
 
             foreach (GateResult r in health?.Rows ?? Array.Empty<GateResult>())
             {
-                // Same Skipped relabel as the JSON export above - never print an affirmative [Pass] for a
-                // deliberate skip/absence result (F5 residual, 2026-07-21 audit review).
+                // Never print an affirmative [Pass] for a deliberate skip/absence result (F5 residual,
+                // 2026-07-21 audit review): it aggregates as Pass, but it is not evaluated evidence.
                 string outcomeLabel = r.Informational ? "Skipped" : r.Outcome.ToString();
                 sb.AppendLine($"[{outcomeLabel}] {r.GateId} (v{r.DefinitionVersion}, {r.Classification}) " +
                               $"req={r.Requirement} disp={r.Disposition} " +
@@ -133,39 +108,14 @@ namespace Sorolla.Palette.Editor.Greenlight
             return sb.ToString();
         }
 
-        /// <summary>Who the report was evaluated FOR and whether a release certificate covered its invariant
-        /// gates - without this a Studio report's collapsed rows would be unreadable after the fact. A null
-        /// context reports Unknown/Unknown, never an assumed audience.</summary>
-        static Dictionary<string, object> CertificationObject(EvaluationContext context) =>
-            new Dictionary<string, object>
-            {
-                ["profile"] = (context?.Profile ?? ReportProfile.Unknown).ToString(),
-                ["certification"] = (context?.Certification ?? SdkCertification.Unknown).ToString(),
-                ["evidence"] = context?.CertificationEvidence ?? "",
-            };
-
-        static Dictionary<string, object> FingerprintObject(Fingerprint f) => new Dictionary<string, object>
+        static string ProofString(ProofScope proof)
         {
-            ["sdk_version"] = f.SdkVersion,
-            ["sdk_commit"] = f.SdkCommit,
-            ["application_id"] = f.ApplicationId,
-            ["platform"] = f.Platform,
-            ["mode"] = f.Mode,
-            ["app_version"] = f.AppVersion,
-            ["device_build_guid"] = f.DeviceBuildGuid,
-            ["phase"] = f.Phase,
-            ["generated_at_utc"] = f.GeneratedAtUtc,
-        };
-
-        static List<object> ProofNames(ProofScope proof)
-        {
-            var names = new List<object>();
+            if (proof == ProofScope.None) return "None";
+            var names = new List<string>();
             if ((proof & ProofScope.Static) != 0) names.Add("Static");
             if ((proof & ProofScope.DeviceDispatch) != 0) names.Add("DeviceDispatch");
             if ((proof & ProofScope.VendorAccepted) != 0) names.Add("VendorAccepted");
-            return names;
+            return string.Join("+", names);
         }
-
-        static string ProofString(ProofScope proof) => proof == ProofScope.None ? "None" : string.Join("+", ProofNames(proof));
     }
 }

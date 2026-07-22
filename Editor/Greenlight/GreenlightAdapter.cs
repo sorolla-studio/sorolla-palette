@@ -9,13 +9,13 @@ using UnityEngine;
 namespace Sorolla.Palette.Editor.Greenlight
 {
     /// <summary>
-    ///     Maps the Editor greenlight's evidence classes (Build Health results, the device snapshot, the
-    ///     manual checklist) onto the neutral <see cref="Sorolla.Palette.Health"/> model, and builds the
-    ///     trusted <see cref="EvaluationContext"/>, so the single <see cref="HealthEvaluator.Evaluate"/> owns
-    ///     the verdict. The adapter is the trusted context evaluator for the Editor path: it never decides a
+    ///     Maps the Editor greenlight's evidence classes (Build Health results and the device snapshot) onto
+    ///     the neutral <see cref="Sorolla.Palette.Health"/> model, and builds the trusted
+    ///     <see cref="EvaluationContext"/>, so the single <see cref="HealthEvaluator.Evaluate"/> owns the
+    ///     verdict. The adapter is the trusted context evaluator for the Editor path: it never decides a
     ///     gate's applicability or required proof (those live on the catalog) - it only reports what it
-    ///     observed. Display metadata (human labels, dashboard deep links) is a side channel here; the
-    ///     observation carries only evidence + fix.
+    ///     observed, and every observation it can produce is machine-derived. Display metadata (human labels)
+    ///     is a side channel here; the observation carries only evidence + fix.
     /// </summary>
     static class GreenlightAdapter
     {
@@ -93,7 +93,7 @@ namespace Sorolla.Palette.Editor.Greenlight
         /// tagged pin from an embedded working tree). Null = use the resolved provenance.</summary>
         internal static SdkCertification? ForcedCertification;
 
-        internal static EvaluationContext BuildContext()
+        internal static EvaluationContext BuildContext(bool internalDepth)
         {
             bool resolved = TryDetectInstalledModules(out SdkModule modules);
             SdkProvenance.Origin origin = SdkProvenance.ResolveOrigin();
@@ -111,56 +111,32 @@ namespace Sorolla.Palette.Editor.Greenlight
                 Platform = ToEvalPlatform(EditorUserBuildSettings.activeBuildTarget),
                 InstalledModules = modules,
                 ModulesResolved = resolved,
-                // Follow the active Build Health profile (the "Validation Profile" QaPass/Release selector in
-                // the window, SorollaWindow's Build Health section) so ReleaseShip-tagged gates are reachable
-                // under Release and a profile-"Skipped" check maps to the right phase, not hard-coded QaPass.
-                RequestedPhase = RequestedPhaseFor(BuildValidationProfileSettings.IsRelease),
+                RequestedPhase = RequestedPhaseFor(internalDepth),
             };
         }
 
-        /// <summary>Maps the Build Health validation profile to the health phase the greenlight requests.
-        /// QaPass by default; Release makes the ReleaseShip-tagged gates reachable.</summary>
-        internal static GatePhase RequestedPhaseFor(bool isRelease) =>
-            isRelease ? GatePhase.ReleaseShip : GatePhase.QaPass;
+        /// <summary>
+        ///     The phase a report is requested at, DERIVED from which window is asking - there is no profile
+        ///     knob to set or forget (2026-07-22). Sorolla's internal window is the surface where a release
+        ///     decision gets made, so it evaluates at ReleaseShip and sees the store-submission gates (release
+        ///     keystore, Adjust sandbox off). A studio window evaluates at QaPass: release approval is not
+        ///     delegated to studios, so those gates would be noise they cannot act on. Note this is about
+        ///     SUBMISSION readiness only - a check a studio can act on belongs in both phases (see
+        ///     <c>build.sdk_pin</c>, deliberately not release-only).
+        /// </summary>
+        internal static GatePhase RequestedPhaseFor(bool internalDepth) =>
+            internalDepth ? GatePhase.ReleaseShip : GatePhase.QaPass;
 
         /// <summary>
-        ///     Records a scoped attestation for a manual gate against the current build identity + gate version
-        ///     + active phase + required proof scope, plus the tester identity, the human evidence note and (for
-        ///     device-session gates) the connected build GUID (the greenlight "Attest" action, C45-06/05/C1).
-        ///     <paramref name="actor"/> is the exported tester identity - null/blank falls back to the machine
-        ///     username. Returns false if the gate is unknown, a device gate has no connected build to bind to,
-        ///     or a vendor gate has no evidence note - the affirmation must be honest.
+        ///     True when this Build Health category's gate exists only in the release phase, so its result is
+        ///     about store-submission readiness rather than "is this build sound". The catalog's phase tags are
+        ///     the single source of truth - this asks them rather than keeping a second list of category names.
+        ///     Used by the build preprocessor to keep release-readiness warnings off every development build.
         /// </summary>
-        internal static bool AttestManualGate(string gateId, string actor, string evidenceNote, string deviceBuildGuid)
-        {
-            GateDefinition def = GateCatalog.Canonical.ById(gateId, throwIfMissing: false);
-            if (def == null) return false;
-
-            bool deviceGate = (def.RequiredProof & ProofScope.DeviceDispatch) != 0;
-            bool vendorGate = (def.RequiredProof & ProofScope.VendorAccepted) != 0;
-            if (deviceGate && string.IsNullOrEmpty(deviceBuildGuid)) return false; // must bind to a connected build
-            if (vendorGate && string.IsNullOrWhiteSpace(evidenceNote)) return false; // dashboard claim needs a note
-
-            QaBuildIdentity id = QaBuildIdentity.Current();
-            QaAttestationStore.Record(new QaAttestationRecord
-            {
-                schema = QaAttestationValidator.Schema,
-                gateId = gateId,
-                gateVersion = def.Version,
-                phase = RequestedPhaseFor(BuildValidationProfileSettings.IsRelease).ToString(),
-                actor = string.IsNullOrWhiteSpace(actor) ? Environment.UserName : actor.Trim(),
-                timestampUtc = DateTime.UtcNow.ToString("o"),
-                applicationId = id.ApplicationId,
-                platform = id.Platform,
-                mode = id.Mode,
-                appVersion = id.AppVersion,
-                outcome = "Pass",
-                proofScope = def.RequiredProof.ToString(),
-                evidenceNote = evidenceNote,
-                deviceBuildGuid = deviceGate ? deviceBuildGuid : null,
-            });
-            return true;
-        }
+        internal static bool IsReleaseOnly(BuildValidator.CheckCategory category) =>
+            CategoryToGateId.TryGetValue(category, out string gateId) &&
+            GateCatalog.Canonical.ById(gateId, throwIfMissing: false) is GateDefinition def &&
+            (def.Phases & GatePhase.QaPass) == 0;
 
         // ── Observations ──────────────────────────────────────────────
 
@@ -168,8 +144,7 @@ namespace Sorolla.Palette.Editor.Greenlight
         ///     Builds the neutral observations. Producer-side context guards ensure it never fabricates
         ///     evidence for a gate the context makes NotApplicable (which would be a C3-05 context mismatch):
         ///     device observations are emitted only on a platform that has a shipping transport (Android via
-        ///     adb, iOS via iproxy - F10); and the Adjust purchase-verification manual row only in Full mode
-        ///     (no Adjust in Prototype). These are facts about which evidence EXISTS, not requirement
+        ///     adb, iOS via iproxy - F10). These are facts about which evidence EXISTS, not requirement
         ///     decisions - the catalog still owns those.
         /// </summary>
         internal static List<GateObservation> BuildObservations(
@@ -180,96 +155,14 @@ namespace Sorolla.Palette.Editor.Greenlight
             var observations = new List<GateObservation>();
             observations.AddRange(BuildHealthObservations(buildHealthResults, context.InstalledModules));
 
-            string deviceBuildGuid = null;
             // Emit device evidence on any platform that has a shipping snapshot collector. Both mobile
             // transports ship now: Android over `adb forward`, iOS over `iproxy` (libimobiledevice USB). Off
             // mobile the device gates are NotApplicable, so emitting there would be a C3-05 mismatch; a mobile
-            // target that is never connected still emits a not-connected DeviceReady → INCOMPLETE.
+            // target that is never connected still emits a not-connected observation → INCOMPLETE.
             if (context.Platform == EvalPlatform.Android || context.Platform == EvalPlatform.iOS)
-            {
                 observations.AddRange(GreenlightDeviceSnapshot.ToObservations(snapshotState));
-                // Binds device-session manual attestations (relaunch/background) to the exact connected build on
-                // iOS as well as Android (C45-05, F10) - the snapshot's build_guid is the shared identity.
-                deviceBuildGuid = GreenlightDeviceSnapshot.BuildGuidOf(snapshotState);
-            }
 
-            observations.AddRange(ManualObservations(context, deviceBuildGuid));
             return observations;
-        }
-
-        /// <summary>
-        ///     One observation per applicable manual gate, sourced from scoped attestations (Cycle 4b, hardened
-        ///     per C45-01/04/05). A valid attestation - exact gate id + current gate version + requested phase
-        ///     + matching app identity + (for device gates) the connected build GUID, with a Pass outcome and
-        ///     required evidence - carries the gate's required proof scope → PASS. Stale (wrong build/version/
-        ///     phase/expired) or invalid → INCOMPLETE; an unattested gate → INCOMPLETE with guidance. A corrupt
-        ///     attestation store makes every manual gate INCOMPLETE with an integrity note (C45-04). The Adjust
-        ///     gate is only relevant in Full mode.
-        /// </summary>
-        internal static IEnumerable<GateObservation> ManualObservations(EvaluationContext context, string deviceBuildGuid)
-        {
-            List<QaAttestationRecord> records = QaAttestationStore.Load(out bool corrupt);
-            QaBuildIdentity identity = QaBuildIdentity.Current();
-            string phase = context.RequestedPhase.ToString();
-            DateTime now = DateTime.UtcNow;
-
-            foreach (GreenlightManualChecklist.Descriptor d in GreenlightManualChecklist.Descriptors)
-            {
-                if (d.GateId == GateIds.ManualAdjustPurchaseVerification && context.Mode != EvalMode.Full)
-                    continue; // no Adjust in Prototype - the gate is NotApplicable there
-                if (d.GateId == GateIds.IapStoreConfigured && (context.InstalledModules & SdkModule.UnityIap) == 0)
-                    continue; // Unity IAP not installed - the iap gate is NotApplicable there
-
-                if (corrupt)
-                {
-                    yield return new GateObservation
-                    {
-                        GateId = d.GateId, Outcome = GateOutcome.Incomplete, ObservedProof = ProofScope.None,
-                        Evidence = "The attestation store is unreadable/corrupt - its evidence cannot be trusted.",
-                        FixHint = "Re-attest this gate to rewrite a valid attestation store.",
-                    };
-                    continue;
-                }
-
-                GateDefinition def = GateCatalog.Canonical.ById(d.GateId, throwIfMissing: false);
-                ProofScope required = def?.RequiredProof ?? ProofScope.None;
-                var expectation = new QaAttestationExpectation(
-                    d.GateId, def?.Version, phase, required, identity, deviceBuildGuid);
-
-                QaAttestationRecord record = QaAttestationStore.ForGate(records, d.GateId);
-                AttestationValidity validity =
-                    QaAttestationValidator.Evaluate(record, expectation, now, out string reason);
-
-                yield return validity == AttestationValidity.Valid
-                    ? new GateObservation
-                    {
-                        GateId = d.GateId, Outcome = GateOutcome.Pass, ObservedProof = required,
-                        // Carry the human evidence note into the row (safe, length-limited) so the canonical
-                        // report export shows provenance beyond "attested by X at T" (review F4).
-                        Evidence = WithNote(reason, record.evidenceNote),
-                    }
-                    : new GateObservation
-                    {
-                        GateId = d.GateId,
-                        Outcome = GateOutcome.Incomplete,
-                        ObservedProof = ProofScope.None,
-                        Evidence = validity == AttestationValidity.Missing ? d.Why : reason,
-                        FixHint = validity == AttestationValidity.Missing ? d.Fix : "Re-attest against the current build.",
-                    };
-            }
-        }
-
-        /// <summary>Appends a length-limited evidence note to an attestation's provenance line for the export
-        /// (review F4). Empty notes leave the line unchanged; long notes are truncated to keep the report tidy
-        /// and avoid dumping arbitrary operator text.</summary>
-        const int MaxNoteLength = 280;
-
-        static string WithNote(string reason, string note)
-        {
-            if (string.IsNullOrWhiteSpace(note)) return reason;
-            string trimmed = note.Trim();
-            if (trimmed.Length > MaxNoteLength) trimmed = trimmed.Substring(0, MaxNoteLength) + "…";
-            return $"{reason} — note: {trimmed}";
         }
 
         /// <summary>Vendor-coherence categories whose "not installed" result is vendor ABSENCE, not evidence
@@ -371,24 +264,12 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         static string FirstLine(string message) => string.IsNullOrEmpty(message) ? "" : message.Split('\n')[0];
 
-        // ── Display metadata (labels + deep links, keyed by gate id) ───
+        // ── Display metadata (human labels, keyed by gate id) ───
 
         internal static string LabelFor(string gateId)
         {
             if (BuildGateLabels.TryGetValue(gateId, out string buildLabel)) return buildLabel;
-            if (DeviceLabels.TryGetValue(gateId, out string deviceLabel)) return deviceLabel;
-            GreenlightManualChecklist.Descriptor manual = GreenlightManualChecklist.Descriptors
-                .FirstOrDefault(d => d.GateId == gateId);
-            return manual?.Label ?? gateId;
-        }
-
-        internal static (string url, string label) DeepLinkFor(string gateId)
-        {
-            GreenlightManualChecklist.Descriptor manual = GreenlightManualChecklist.Descriptors
-                .FirstOrDefault(d => d.GateId == gateId);
-            return manual != null && !string.IsNullOrEmpty(manual.DeepLinkUrl)
-                ? (manual.DeepLinkUrl, "Open Dashboard")
-                : (null, null);
+            return DeviceLabels.TryGetValue(gateId, out string deviceLabel) ? deviceLabel : gateId;
         }
 
         static readonly Dictionary<string, string> DeviceLabels = new Dictionary<string, string>
@@ -452,9 +333,8 @@ namespace Sorolla.Palette.Editor.Greenlight
             /// <summary>Every Build Health category that isn't vendor-specific: gradle/manifest/registries/
             /// config/mode/versions/logging/dev-build.</summary>
             BuildAndProject,
-            /// <summary>Everything with no BuildValidator.CheckCategory at all: device snapshot, IAP
-            /// attestation, manual/dashboard QA gates (cross-vendor drift included), and the synthetic
-            /// Report Integrity row.</summary>
+            /// <summary>Everything with no BuildValidator.CheckCategory at all: the device snapshot and the
+            /// synthetic Report Integrity row.</summary>
             DeviceAndQa,
             /// <summary>Parked vendor (roadmap "Parking decisions" - no QA/diagnostics investment): no
             /// BuildValidator category, no gate ever routes here via GroupFor - it exists purely so the
@@ -483,22 +363,11 @@ namespace Sorolla.Palette.Editor.Greenlight
             };
 
         /// <summary>Grouping key is the gate's existing category from the catalog/validators, never label
-        /// string-matching. A gate id with no BuildValidator category at all (manual.*, device.*, iap.*,
-        /// or the synthetic Report Integrity row's null id) is QA/device process, not vendor build state -
-        /// Device &amp; QA.</summary>
+        /// string-matching. A gate id with no BuildValidator category at all (device.*, or the synthetic
+        /// Report Integrity row's null id) is QA/device process, not vendor build state - Device &amp; QA.</summary>
         internal static VendorGroup GroupFor(string gateId)
         {
-            // Single-vendor attestation rows live under their own vendor, not the cross-vendor/device
-            // catch-all (Arthur's standing ruling: everything for a vendor - status, check rows, config,
-            // AND manual gates that are genuinely about that one vendor - lives under its foldout).
-            // Genuinely cross-vendor/device-scoped manual gates (Cross-Vendor Dashboard Drift, Consent
-            // Persistence, Background/Resume, IAP Store Config) and the device snapshot stay below in
-            // Device & QA - they don't belong to one vendor.
-            if (gateId == GateIds.ManualGaPlatformRegistered) return VendorGroup.GameAnalytics;
-            if (gateId == GateIds.ManualAdjustPurchaseVerification) return VendorGroup.Adjust;
-
-            if (string.IsNullOrEmpty(gateId) ||
-                gateId.StartsWith("manual.") || gateId.StartsWith("device.") || gateId.StartsWith("iap."))
+            if (string.IsNullOrEmpty(gateId) || gateId.StartsWith("device."))
                 return VendorGroup.DeviceAndQa;
 
             foreach (KeyValuePair<BuildValidator.CheckCategory, string> pair in CategoryToGateId)

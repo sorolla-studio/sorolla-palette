@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Sorolla.Palette.Editor.UI;
 using Sorolla.Palette.Health;
 
@@ -8,8 +7,8 @@ namespace Sorolla.Palette.Editor.Greenlight
 {
     /// <summary>
     ///     Routes the Editor greenlight through the ONE shared aggregation
-    ///     (<see cref="HealthEvaluator.Evaluate"/>): the <see cref="GreenlightAdapter"/> maps Build Health,
-    ///     device, and manual evidence onto neutral observations + a trusted evaluation context, the shared
+    ///     (<see cref="HealthEvaluator.Evaluate"/>): the <see cref="GreenlightAdapter"/> maps Build Health and
+    ///     device evidence onto neutral observations + a trusted evaluation context, the shared
     ///     evaluator against the canonical <see cref="GateCatalog"/> produces the verdict, and this class only
     ///     maps the resulting <see cref="GateOutcome"/> to display. There is deliberately no second precedence
     ///     algorithm here - the label/badge/summary helpers MAP the aggregate outcome, they never recompute it
@@ -24,20 +23,11 @@ namespace Sorolla.Palette.Editor.Greenlight
             /// specific gate (product-audit fix cycle ruling 1/5, 2026-07-21 11:55) without re-deriving it
             /// from the display label.</summary>
             public string GateId;
-            /// <summary>Carried through so the studio row filter can tell "this manual/Invariant row is a
-            /// Sorolla-QA attestation ask" (skip on the studio surface) apart from "this manual/Invariant
-            /// row is actually the uncertified-pin fix line, which IS studio-actionable" (F1 ruling,
-            /// 2026-07-21 ~12:30) - both share the same GateId/label shape (manual descriptor lookup can't
-            /// tell them apart), but only the pin case reaches <see cref="GateDisposition.Omitted"/>.</summary>
-            public GateDisposition Disposition;
             public string Label;
             public CheckRow.Status Status;
             public string Detail;
-            /// <summary>Fix text shown for non-Pass rows. Manual/dashboard rows must always carry one -
-            /// never render as a bare unchecked box (brief requirement).</summary>
+            /// <summary>Fix text shown for non-Pass rows.</summary>
             public string Fix;
-            public string DeepLinkLabel;
-            public string DeepLinkUrl;
         }
 
         internal sealed class Report
@@ -57,11 +47,15 @@ namespace Sorolla.Palette.Editor.Greenlight
             public GreenlightReportExport.Fingerprint Fingerprint;
         }
 
+        /// <param name="internalDepth">Which window is asking. Sorolla's internal window evaluates at the
+        /// release phase (it is where release decisions get made); a studio window evaluates at QA-pass.
+        /// See <see cref="GreenlightAdapter.RequestedPhaseFor"/>.</param>
         internal static Report Evaluate(
             List<BuildValidator.ValidationResult> buildHealthResults,
-            GreenlightDeviceSnapshot.State snapshotState)
+            GreenlightDeviceSnapshot.State snapshotState,
+            bool internalDepth)
         {
-            EvaluationContext context = GreenlightAdapter.BuildContext();
+            EvaluationContext context = GreenlightAdapter.BuildContext(internalDepth);
             List<GateObservation> observations =
                 GreenlightAdapter.BuildObservations(context, buildHealthResults, snapshotState);
             HealthReport health = HealthEvaluator.Evaluate(GateCatalog.Canonical, context, observations);
@@ -97,17 +91,13 @@ namespace Sorolla.Palette.Editor.Greenlight
                 // arm covers both Pass and Info), so the verdict/aggregation is untouched.
                 if (r.Informational && status == CheckRow.Status.Pass)
                     status = CheckRow.Status.Info;
-                (string url, string linkLabel) = GreenlightAdapter.DeepLinkFor(r.GateId);
                 report.Rows.Add(new Row
                 {
                     GateId = r.GateId,
-                    Disposition = r.Disposition,
                     Label = GreenlightAdapter.LabelFor(r.GateId),
                     Status = status,
                     Detail = DetailFor(r),
                     Fix = r.FixHint,
-                    DeepLinkUrl = url,
-                    DeepLinkLabel = linkLabel,
                 });
 
                 switch (status)

@@ -22,13 +22,13 @@ Full procedure: [Adjust help center](https://help.adjust.com/en/article/set-up-a
 Nothing about Adjust dashboard configuration is probeable from the SDK today — there is no credential-only API call analogous to the Facebook Graph probe or the GameAnalytics HMAC probe that would prove the App Token is live and correctly scoped. Two things specifically need a manual dashboard check:
 
 - **Purchase verification toggle.** Whether server-side receipt verification is turned on for the Purchase event is an Adjust dashboard setting, not something the SDK can read back through any API it calls. If it's off, purchase events still submit but are not verified — revenue can be spoofed client-side.
-- **Cross-vendor Facebook app-id drift.** If this game also uses AppLovin MAX with Meta Audience Network mediation, Adjust's own Facebook integration setting and MAX's FAN setup both reference a Facebook App ID server-side, independently of each other and of the SDK's Facebook config. See [applovin-max.md](applovin-max.md) for why this specific drift is not probe-coverable and stays a permanent manual check.
+- **Cross-vendor Facebook app-id drift.** If this game also uses AppLovin MAX with Meta Audience Network mediation, Adjust's own Facebook integration setting and MAX's FAN setup both reference a Facebook App ID server-side, independently of each other and of the SDK's Facebook config. See [applovin-max.md](applovin-max.md) for why this specific drift is not probe-coverable and stays a manual dashboard check.
 
 ## What the verdict shows when it's wrong
 
 | Row | State | Meaning |
 |---|---|---|
-| Adjust Purchase Verification (Full mode) | **Wait**, until manually ticked | Only shown in Full mode. Permanent manual row — no probe can close this. Adjust dashboard → the app → Event settings → confirm purchase verification is ON, then tick the row. |
+| _(no window row)_ | Nothing — this is dashboard work | Full mode only. No probe can close this. Adjust dashboard → the app → Event settings → confirm purchase verification is ON. A wrong setting here surfaces on device as verification code 20007 despite a healthy store and Firebase path. |
 
 A wrong or stale App Token doesn't fail loud in the verdict today — it shows up as the `adjust` adapter state in a device snapshot (`/qa/snapshot` → `adapters.adjust`) not reaching an initialized state, or as `identity.adjust_adid_present` staying false. Check those if Adjust events aren't appearing in the dashboard despite the config looking right.
 

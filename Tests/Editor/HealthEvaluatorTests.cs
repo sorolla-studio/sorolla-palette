@@ -486,20 +486,24 @@ namespace Sorolla.Palette.Editor.Tests
             }
         }
 
-        // ── IAP gate: installed + no proof → INCOMPLETE by evaluator policy ─
+        // ── Module-keyed gate: installed + no proof → INCOMPLETE by evaluator policy ─
 
         [Test]
-        public void IapModuleRequirement_InstalledButUnobserved_IsOmittedIncomplete()
+        public void ModuleKeyedRequirement_InstalledButUnobserved_IsOmittedIncomplete()
         {
-            var def = DefReq("iap", Requirements.IapStoreConfiguredRequirement, ProofScope.VendorAccepted);
-            var ctx = new EvaluationContext
+            // A gate whose applicability keys on an installed module (the shape the Adjust-in-Full and
+            // Firebase gates use): installed and unobserved must omit → INCOMPLETE, never pass on silence.
+            var def = DefReq("mod", ctx => (ctx.InstalledModules & SdkModule.UnityIap) == 0
+                ? new RequirementDecision(Requirement.NotApplicable, "module not installed")
+                : new RequirementDecision(Requirement.Required, "module installed"));
+            var installed = new EvaluationContext
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = SdkModule.UnityIap,
                 RequestedPhase = GatePhase.QaPass, Profile = ReportProfile.SorollaFull,
             };
-            HealthReport r = HealthEvaluator.Evaluate(Catalog(def), ctx, new List<GateObservation>());
-            Assert.AreEqual(GateDisposition.Omitted, Row(r, "iap").Disposition);
+            HealthReport r = HealthEvaluator.Evaluate(Catalog(def), installed, new List<GateObservation>());
+            Assert.AreEqual(GateDisposition.Omitted, Row(r, "mod").Disposition);
             Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
         }
         // ── Invariant/variant split: the Studio profile + release certificate ─

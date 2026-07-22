@@ -16,7 +16,8 @@ namespace Sorolla.Palette.Editor
     ///     It does NOT and CANNOT prove the active platform is registered in the GA dashboard - the
     ///     GA collector's init/events endpoints accept any platform string with valid credentials
     ///     (confirmed live, greenlight probe spike 2026-07-10). Never widen this probe's claimed scope;
-    ///     platform registration stays a manual "verify in GA dashboard" checklist item.
+    ///     platform registration is not provable from here, so the passing row says so and points at the
+///     dashboard - the SDK never claims a fact it cannot observe.
     /// </summary>
     static class GameAnalyticsCredentialValidator
     {

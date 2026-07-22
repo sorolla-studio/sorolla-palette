@@ -514,7 +514,7 @@ namespace Sorolla.Palette.Editor.Greenlight
         }
 
         /// <summary>The connected snapshot's Unity build GUID (from its build-identity block), or null when no
-        /// parsed snapshot / no GUID. Used to bind device-session attestations to the exact build (C45-05).</summary>
+        /// parsed snapshot / no GUID. It identifies the exact binary a copied report describes.</summary>
         internal static string BuildGuidOf(State state)
         {
             if (state == null || state.Phase == Phase.NotStarted || state.Outcome != Outcome.Parsed)

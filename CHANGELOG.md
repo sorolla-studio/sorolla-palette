@@ -21,6 +21,30 @@ Awareness-first, not a gate: a studio may intentionally ship one platform at a t
 check below warns rather than blocks the build. Each warning states the root cause, the on-device
 signal it produces, and the fix.
 
+### Removed (2026-07-22 QA simplification)
+
+The health report now judges only what the SDK can observe for itself. Everything below was
+machinery whose evidence was a person asserting something, or tooling that checked other tooling.
+
+- **Manual/dashboard attestations are gone**, and so are the six gates that only an attestation
+  could satisfy: store-console configuration, GameAnalytics platform registration, Adjust purchase
+  verification, cross-vendor dashboard drift, consent persistence across relaunch, and the
+  background/resume cycle. A tick in an editor window never proved any of them. They remain real
+  checks in Sorolla's release process, evidenced by an actual device run, not by a checkbox.
+  Canonical catalog: 30 gates → 24.
+- **Consequence, and the point of the change: `HEALTHY` is now reachable.** Previously six required
+  gates could never pass from machine evidence, so a project with everything genuinely green still
+  reported INCOMPLETE - a verdict that is always amber teaches people to ignore it. Now INCOMPLETE
+  means something specific and fixable is missing.
+- **The Validation Profile (QA Pass / Release) selector is gone.** The phase is derived from which
+  window is asking: Sorolla's internal window evaluates at the release phase and therefore sees the
+  release-only checks (keystore, Adjust sandbox, SDK tag pin); a studio window evaluates at QA-pass
+  and does not, because release approval is not delegated to studios. Nothing to set, nothing to
+  forget, and the release checks now always run rather than reporting a hollow "Skipped".
+- **Copy Report (JSON) and Export Gate Catalog are gone.** One copyable text report is the product;
+  it already carries every row plus the exact SDK commit that produced it. The private
+  catalog-vs-catalog validator they fed has been retired with them.
+
 ### Changed (2026-07-21 editor window simplification)
 - **One menu entry, period.** `Tools > Sorolla Palette SDK` is the only Palette entry this package
   adds. The `Tools > Sorolla Palette SDK Internal` checkable toggle is gone.

@@ -141,7 +141,7 @@ namespace Sorolla.Palette.Editor
 
             // Greenlight sits above SDK Overview (studio-self-serve-greenlight-2026-07 plan,
             // §Editor window restructure): one mechanical verdict composing Build Health, editor
-            // probes, mode-intent, device snapshot, and the manual/dashboard checklist - the hero's
+            // probes, mode-intent, and the device snapshot - the hero's
             // verdict for "is this integration actually ready", above the section-by-section detail.
             _greenlightContainer = CreatePortedSectionContainer();
             _greenlightContainer.style.marginTop = 10;
@@ -901,20 +901,17 @@ namespace Sorolla.Palette.Editor
             GateIds.BuildDevelopmentBuild,
         };
 
-        /// <summary>The ONE pure view filter (rendering contract): internal view shows every row;
-        /// studio shows every non-pass/non-info row that isn't Sorolla-QA-only attestation content
-        /// (except the one genuinely studio-actionable pin issue, Disposition.Omitted), plus the
-        /// <see cref="StudioVisibleWhenPass"/> whitelist of important build facts shown even when
-        /// green. A group's visibility is a pure function of "does it have >= 1 row this returns
-        /// true for, or >= 1 input" (inputs always visible, checked separately by the caller).</summary>
+        /// <summary>The ONE pure view filter (rendering contract): internal view shows every row; studio
+        /// shows every row that needs attention, plus the <see cref="StudioVisibleWhenPass"/> whitelist of
+        /// important build facts shown even when green. Every remaining row is machine-checked and
+        /// studio-actionable (the Sorolla-QA attestation rows that used to need excluding here are gone),
+        /// so there is no per-row exception left. A group's visibility is a pure function of "does it have
+        /// >= 1 row this returns true for, or >= 1 input" (inputs always visible, checked by the caller).</summary>
         static bool RowVisible(GreenlightEvaluator.Row row, bool internalView)
         {
             if (internalView) return true;
-            if (row.Status == CheckRow.Status.Pass || row.Status == CheckRow.Status.Info)
-                return StudioVisibleWhenPass.Contains(row.GateId);
-            bool isManual = GreenlightManualChecklist.DescriptorForLabel(row.Label) != null;
-            bool isStudioActionablePinIssue = row.Disposition == GateDisposition.Omitted;
-            return !isManual || isStudioActionablePinIssue;
+            return row.Status != CheckRow.Status.Pass && row.Status != CheckRow.Status.Info
+                || StudioVisibleWhenPass.Contains(row.GateId);
         }
 
         /// <summary>One group section in the shared section-header style (caps title + rule, like Quick
@@ -1027,9 +1024,9 @@ namespace Sorolla.Palette.Editor
 
         #region Greenlight
 
-        /// <summary>The window-wide actions (Refresh / Connect Device / Copy Report, plus the
-        /// internal-only JSON + gate-catalog exports), fixed in the header below the hero (Arthur
-        /// ruling 2026-07-21 ~17:50) - one home for global actions, no in-content duplicates.
+        /// <summary>The window-wide actions (Refresh / Connect Device / Copy Report), fixed in the header
+        /// below the hero (Arthur ruling 2026-07-21 ~17:50) - one home for global actions, no in-content
+        /// duplicates.
         /// Repopulated on every greenlight refresh so the Connect button's connecting/enabled state
         /// tracks the snapshot phase.</summary>
         void RefreshHeaderActions(GreenlightEvaluator.Report report)
@@ -1062,27 +1059,14 @@ namespace Sorolla.Palette.Editor
             actionsRow.Add(connectButton);
 
             // Copy the AUDITABLE canonical report (review F4): the readable rendering carries every row's
-            // disposition/requirement/proof + a build fingerprint, so a pasted result is unambiguous.
-            // "(text)" only disambiguates against the JSON sibling that exists in the internal view.
+            // disposition/requirement/proof + a build fingerprint (including the exact SDK commit), so a
+            // pasted result is unambiguous. One report, both views - the JSON sibling and the gate-catalog
+            // export were deleted 2026-07-22 (nothing consumed them).
             var copyButton = new Button(() =>
                     EditorGUIUtility.systemCopyBuffer = GreenlightReportExport.ToText(report.Health, report.Fingerprint, report.Context))
-                { text = ShowInternalDepth ? "Copy Report (text)" : "Copy Report" };
+                { text = "Copy Report" };
             copyButton.AddToClassList("sorolla-button-small");
             actionsRow.Add(copyButton);
-
-            if (ShowInternalDepth)
-            {
-                var copyJsonButton = new Button(() =>
-                        EditorGUIUtility.systemCopyBuffer = GreenlightReportExport.ToJson(report.Health, report.Fingerprint, report.Context))
-                    { text = "Copy Report (JSON)" };
-                copyJsonButton.AddToClassList("sorolla-button-small");
-                actionsRow.Add(copyJsonButton);
-
-                var exportCatalogButton = new Button(GateCatalogExporter.ShowSavePanel)
-                    { text = "Export Gate Catalog (JSON)" };
-                exportCatalogButton.AddToClassList("sorolla-button-small");
-                actionsRow.Add(exportCatalogButton);
-            }
 
             container.Add(actionsRow);
             _headerActionsHost.Add(container);
@@ -1091,7 +1075,7 @@ namespace Sorolla.Palette.Editor
         /// <summary>Rebuilds the Greenlight section: verdict badge + count strip, grouped rows, and
         /// the fixed header actions (see <see cref="RefreshHeaderActions"/>). Clear-and-rebuild on
         /// data change only - same guarded pattern as the other ported sections (RunBuildValidation's
-        /// completion, the manual checklist toggles, and the device snapshot's onSettled
+        /// completion and the device snapshot's onSettled
         /// callback).</summary>
         void RefreshGreenlightUI()
         {
@@ -1099,7 +1083,8 @@ namespace Sorolla.Palette.Editor
 
             _greenlightContainer.Clear();
 
-            GreenlightEvaluator.Report report = GreenlightEvaluator.Evaluate(_validationResults, _snapshotState);
+            GreenlightEvaluator.Report report =
+                GreenlightEvaluator.Evaluate(_validationResults, _snapshotState, ShowInternalDepth);
 
             var headerRow = new VisualElement();
             headerRow.style.flexDirection = FlexDirection.Row;
@@ -1131,25 +1116,15 @@ namespace Sorolla.Palette.Editor
             RefreshHeaderActions(report);
 
             // Privacy banner REMOVED entirely, both surfaces, no copy-time replacement (F13.5 ruling,
-            // 2026-07-21 ~12:30) - it was internal QA vocabulary ("tester names", "evidence notes") on a
-            // studio surface where attestations don't exist, and a permanent fixture above every
-            // actionable row on both surfaces either way.
+            // 2026-07-21 ~12:30) - it was a permanent fixture above every actionable row on both
+            // surfaces, warning about operator text the report no longer collects at all.
 
             if (ShowInternalDepth)
             {
-                // Build Health's unique bits folded in here (F12 ruling, 2026-07-21 ~12:30): only the
-                // profile selector and the AUTO-FIXED log are unique to Build Health now; its row list and
-                // callout are gone, folded into the Greenlight groups below.
-                var profileField = new EnumField("Validation Profile", BuildValidationProfileSettings.Current);
-                profileField.AddToClassList("sorolla-type-small");
-                profileField.style.marginBottom = 6;
-                profileField.RegisterValueChangedCallback(evt =>
-                {
-                    BuildValidationProfileSettings.Current = (ValidationProfile)evt.newValue;
-                    RunBuildValidation();
-                });
-                _greenlightContainer.Add(profileField);
-
+                // Build Health's one remaining unique bit (F12 ruling, 2026-07-21 ~12:30): the AUTO-FIXED
+                // log. Its row list and callout folded into the Greenlight groups below; its Validation
+                // Profile selector was deleted 2026-07-22 - the phase is derived from which window is open
+                // (internal = release phase), so there is nothing left to pick.
                 foreach (string fix in _autoFixLog)
                 {
                     var fixLabel = new Label($"AUTO-FIXED: {fix}");
@@ -1172,7 +1147,7 @@ namespace Sorolla.Palette.Editor
                 var rowElements = new List<VisualElement>();
                 foreach (GreenlightEvaluator.Row row in visibleRows)
                 {
-                    rowElements.Add(BuildGreenlightRow(row, includeAttestation: ShowInternalDepth, g.Id));
+                    rowElements.Add(BuildGreenlightRow(row, g.Id));
 
                     // Firebase sub-rows, active target only, internal-only (F7 fix, carried over from the
                     // deleted Build Health list): attached right under the Firebase Coherence gate row.
@@ -1199,11 +1174,13 @@ namespace Sorolla.Palette.Editor
 
             if (!ShowInternalDepth && !anyOpen)
             {
-                // F1 ruling (2026-07-21 ~12:30): NOT a semantics change - INCOMPLETE-while-clean is
-                // correct order-of-operations (Sorolla QA precedes release), so the empty state now
-                // explains that instead of asserting "nothing outstanding" right next to a badge that
-                // still reads INCOMPLETE.
-                var clear = new Label("Your setup is clean - remaining checks are Sorolla's QA before release.");
+                // The empty state must agree with the badge beside it (F1 ruling, 2026-07-21 ~12:30). Since
+                // the human-attested gates were deleted (2026-07-22), a clean studio setup CAN reach HEALTHY,
+                // so the two cases are now genuinely different: green, or still waiting on evidence the
+                // studio can produce (a device run).
+                var clear = new Label(report.Outcome == GateOutcome.Pass
+                    ? "Your setup is clean - everything the SDK can check is green."
+                    : "Your setup is clean - the remaining evidence comes from a run on a connected device.");
                 clear.AddToClassList("sorolla-type-small");
                 _greenlightContainer.Add(clear);
             }
@@ -1270,36 +1247,21 @@ namespace Sorolla.Palette.Editor
             _ => group.ToString(),
         };
 
-        /// <summary>A CheckRow plus its Fix/deep-link line and, for manual checklist rows in the
-        /// internal harness, a Verified toggle - manual/dashboard rows never render as a bare
-        /// unchecked box (brief requirement: always carry fix text + deep link). Studio callers pass
-        /// includeAttestation: false since attestation checklist rows never reach the studio render
-        /// (ruling 2 - they're Sorolla QA process, not a studio row at all).</summary>
-        VisualElement BuildGreenlightRow(GreenlightEvaluator.Row row, bool includeAttestation, GreenlightAdapter.VendorGroup? group = null)
+        /// <summary>A CheckRow plus its Fix line and any in-editor remedy button for that gate. Every row
+        /// here is machine-checked and carries real fix text - the manual attestation rows (and their
+        /// Attest/Open Dashboard affordances) were deleted 2026-07-22.</summary>
+        VisualElement BuildGreenlightRow(GreenlightEvaluator.Row row, GreenlightAdapter.VendorGroup? group = null)
         {
             var container = new VisualElement();
 
-            // Looked up once, up front: used below both to decide how this row's detail text lays out
-            // (F10) and, further down, to render the Attest button (unchanged behavior, just no longer a
-            // second lookup of the same descriptor). Keyed on the FULL label, never the trimmed display
-            // text below - manual descriptor lookup, gate ids, and the exported report are unaffected by
-            // the vendor-prefix trim (grouping-review ruling, 2026-07-21: display-only).
-            GreenlightManualChecklist.Descriptor manual = GreenlightManualChecklist.DescriptorForLabel(row.Label);
-
-            // Manual gates carry a multi-sentence "why this matters" paragraph as Detail, which CheckRow
-            // puts in its bold, right-aligned, single-line status slot - ragged 5-7 line blue columns
-            // colliding with neighbor rows (F10, 2026-07-21 audit). The status slot gets a short state
-            // word instead; the full paragraph renders full-width under the label, same as Fix text.
-            // Device Snapshot gets the identical treatment (round-3 refuter follow-up, 2026-07-21): it
-            // isn't a manual-checklist descriptor, but it carries the same kind of descriptive-sentence
-            // Detail and was the only Wait row in Device & QA rendering that sentence in place of the
-            // WAIT tag instead of alongside it - inconsistent with its four sibling rows.
-            bool longDetail = (manual != null || row.GateId == GateIds.DeviceNoSdkErrors) && row.Status != CheckRow.Status.Pass;
-            // Studio humanizes the short state word (acceptance pass, 2026-07-21): internal view is a QA
-            // tool and can show the raw enum name (WAIT), but studio's every other surface already speaks
-            // plain English ("Needs attention", "Awaiting attestation") - includeAttestation doubles as
-            // "this is the internal view" at this method's one call site.
-            string statusWord = row.Status == CheckRow.Status.Wait && !includeAttestation
+            // The Device Snapshot row carries a descriptive-sentence Detail, which CheckRow would put in its
+            // bold, right-aligned, single-line status slot - a ragged multi-line blue column colliding with
+            // neighbor rows (F10, 2026-07-21 audit). The status slot gets a short state word instead; the
+            // full sentence renders full-width under the label, same as Fix text.
+            bool longDetail = row.GateId == GateIds.DeviceNoSdkErrors && row.Status != CheckRow.Status.Pass;
+            // Studio humanizes the short state word (acceptance pass, 2026-07-21): the internal view is a QA
+            // tool and can show the raw enum name (WAIT), but every other studio surface speaks plain English.
+            string statusWord = row.Status == CheckRow.Status.Wait && !ShowInternalDepth
                 ? "Pending"
                 : row.Status.ToString().ToUpperInvariant();
             string statusSlotText = longDetail ? statusWord : row.Detail;
@@ -1317,9 +1279,9 @@ namespace Sorolla.Palette.Editor
             // Pass rows suppress Fix text and remedy buttons entirely (product-audit finding F4,
             // 2026-07-21): a green row with mandatory "Fix:" homework and an action button pointing at
             // nothing-to-act-on is the glyph-vs-text contradiction family, one level deeper than the
-            // ruled defects. The GA credential probe's platform-registration reminder used to be the one
-            // deliberate exception here - it moved off this row (refuter follow-up, 2026-07-21) since it
-            // now duplicates the GameAnalytics Platform Registered attestation row in the same group.
+            // ruled defects. (The GA credential probe's platform-registration caveat is carried in that
+            // row's own message rather than as fix text, precisely so a passing row can still state what
+            // it did not prove.)
             // Info rows (deliberate skip/absence, F5 residual) get the same treatment as Pass - no Fix
             // text and no action button, since a skip is not a caveat to resolve.
             bool isPass = row.Status == CheckRow.Status.Pass || row.Status == CheckRow.Status.Info;
@@ -1331,17 +1293,6 @@ namespace Sorolla.Palette.Editor
                 fixLabel.style.marginLeft = 24;
                 fixLabel.style.whiteSpace = WhiteSpace.Normal;
                 container.Add(fixLabel);
-            }
-
-            if (!isPass && !string.IsNullOrEmpty(row.DeepLinkUrl))
-            {
-                // Bordered button, not link-style text (refuter follow-up, 2026-07-21): same defect class
-                // as the Open GA Settings fix - a row action reads as an action, not prose, regardless of
-                // whether it opens an in-editor asset or an external dashboard.
-                var linkButton = new Button(() => Application.OpenURL(row.DeepLinkUrl)) { text = row.DeepLinkLabel ?? "Open" };
-                linkButton.AddToClassList("sorolla-button-small");
-                linkButton.style.marginLeft = 24;
-                container.Add(linkButton);
             }
 
             // No per-row "Open GA/FB Settings" buttons: since the vendor foldouts, every row that had
@@ -1389,26 +1340,6 @@ namespace Sorolla.Palette.Editor
                 reportButton.AddToClassList("sorolla-button-small");
                 reportButton.style.marginLeft = 24;
                 container.Add(reportButton);
-            }
-
-            if (!includeAttestation) return container;
-
-            // Manual gates are satisfied by a SCOPED attestation recorded against the current build identity
-            // (Cycle 4b), not a legacy tick. The Attest button records who/when/which-build/what-proof; the
-            // gate only reads PASS while that attestation matches the current build and is fresh.
-            if (manual != null)
-            {
-                var attestButton = new Button(() =>
-                {
-                    // Opens a confirmation + evidence-note prompt; device gates bind to the connected build GUID
-                    // (review C45-06). No one-click PASS.
-                    string deviceBuildGuid = GreenlightDeviceSnapshot.BuildGuidOf(_snapshotState);
-                    QaAttestPromptWindow.Show(manual, deviceBuildGuid, RefreshGreenlightUI);
-                })
-                { text = "Attest for this build…" };
-                attestButton.AddToClassList("sorolla-button-small");
-                attestButton.style.marginLeft = 24;
-                container.Add(attestButton);
             }
 
             return container;

@@ -24,7 +24,7 @@ This is a real, previously-seen failure mode: a build reported `ready: true` wit
 |---|---|---|
 | GameAnalytics Credentials | **Fail** (HTTP 401 from collector) | Game key / secret key pair is invalid or mismatched. Re-copy from the GA dashboard. |
 | GameAnalytics Credentials | **Pass** | Keys are a live, matched pair. Does **not** mean the platform is registered. |
-| GA Platform Registered (manual checklist) | **Wait**, always, until manually ticked | Permanent manual row — no probe can close this. Open the GA dashboard and confirm the active platform is listed under the game's Settings, then tick the row. |
+| _(no window row)_ | The credential probe's passing row says "platform registration not verified" | No probe can close this, and the SDK no longer shows a row that only a person could tick. Open the GA dashboard and confirm the active platform is listed under the game's Settings. Valid keys do **not** prove it: GameAnalytics accepts events for a platform that is not registered, and they land nowhere useful. |
 
 ## Deep link
 
