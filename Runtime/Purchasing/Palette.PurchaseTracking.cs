@@ -50,6 +50,8 @@ namespace Sorolla.Palette
             // than forward corrupt revenue.
             if (raw.Value.RawPrice <= 0m || !IsIso4217(raw.Value.RawCurrency))
             {
+                SorollaDiagnostics.RecordPurchaseDropped(
+                    $"TrackPurchase(PendingOrder): invalid metadata for product_id='{raw.Value.ProductId}'");
                 PaletteLog.Error($"{Tag} TrackPurchase(PendingOrder): invalid metadata - " +
                     $"product_id='{raw.Value.ProductId}', localizedPrice={raw.Value.RawPrice}, isoCurrencyCode='{raw.Value.RawCurrency}'. " +
                     $"Dropping event.");
@@ -102,6 +104,7 @@ namespace Sorolla.Palette
         {
             if (amount <= 0)
             {
+                SorollaDiagnostics.RecordPurchaseDropped($"TrackPurchase: non-positive amount ({amount}) - dropping event");
                 PaletteLog.Warning($"{Tag} TrackPurchase: non-positive amount ({amount}) - dropping event. " +
                     $"Pass the local price paid (e.g. Product.metadata.localizedPrice), not a tier index. " +
                     $"Recommended: Palette.AttachPurchaseTracking(store), which derives this automatically from Unity IAP.");
@@ -116,6 +119,7 @@ namespace Sorolla.Palette
                 // Firebase strips `value` server-side on non-ISO currency (observed:
                 // firebase_error=19, error_value="currency" in BQ), and MMPs reject
                 // outright. Drop rather than forward corrupt revenue.
+                SorollaDiagnostics.RecordPurchaseDropped($"TrackPurchase: currency '{currency}' is not ISO 4217 - dropping event");
                 PaletteLog.Error($"{Tag} TrackPurchase: currency '{currency}' is not ISO 4217 - dropping event. " +
                     $"Pass Product.metadata.isoCurrencyCode or use Palette.AttachPurchaseTracking(store).");
                 ReportPurchaseDataQualityFailure(
@@ -145,6 +149,7 @@ namespace Sorolla.Palette
 
             storeEnvironment = StoreEnvironmentResolver.NormalizeStoreEnvironment(storeEnvironment);
 
+            SorollaDiagnostics.RecordPurchaseAccepted();
             PaletteLog.Vital($"{Tag} TrackPurchase: accepted product_id='{productId ?? "unknown"}', currency='{currency}', transactionId={PaletteLog.Present(transactionId)}, purchaseToken={PaletteLog.Present(purchaseToken)}, storeEnvironment='{storeEnvironment}'.");
 
             QueueOrExecute(() =>

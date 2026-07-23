@@ -55,6 +55,7 @@ namespace Sorolla.Palette
 
             SorollaDiagnostics.EnsureLogBridge();
             PaletteLog.Vital("[Palette] Auto-initializing...");
+            SorollaDiagnostics.RecordAutoInitStarted();
 
             var go = new GameObject("[Palette SDK]");
             MakePersistent(go);

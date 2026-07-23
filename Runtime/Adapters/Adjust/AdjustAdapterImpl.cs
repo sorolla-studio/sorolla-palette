@@ -193,8 +193,25 @@ namespace Sorolla.Palette.Adapters
                 PaletteLog.Vital($"[Palette:Adjust] iOS purchase verification: status={verificationResult.VerificationStatus}, code={verificationResult.Code}");
                 PaletteLog.Verbose($"[Palette:Adjust] iOS purchase verification message: {verificationResult.Message}");
                 AdapterDiagnostics.Record(AdapterDiagnosticVendor.Adjust, AdapterDiagnosticStatus.DispatchAccepted,
-                    "ios_purchase_verification", $"iOS purchase verification: {verificationResult.VerificationStatus}");
+                    VerificationCode(verificationResult),
+                    $"iOS purchase verification: status={verificationResult.VerificationStatus}, code={verificationResult.Code}");
             });
+        }
+
+        /// <summary>Adjust's answer, mapped to the code the diagnostics layer keys on, so no consumer has
+        /// to classify a verification result back out of its message text. 20040 is Adjust's deterministic
+        /// "this purchase belongs to the other environment" result: the call round-tripped, the purchase
+        /// itself is not verified.</summary>
+        static string VerificationCode(AdjustPurchaseVerificationResult result)
+        {
+            if (result == null) return "purchase_verification_failed";
+            if (result.Code == 20040) return "purchase_verification_environment_mismatch";
+
+            string status = result.VerificationStatus ?? "";
+            bool verified = status.IndexOf("success", StringComparison.OrdinalIgnoreCase) >= 0
+                || (status.IndexOf("verified", StringComparison.OrdinalIgnoreCase) >= 0
+                    && status.IndexOf("not_verified", StringComparison.OrdinalIgnoreCase) < 0);
+            return verified ? "purchase_verified" : "purchase_verification_failed";
         }
 
         public void TrackPurchaseAndroid(string eventToken, double amount, string currency, string productId, string purchaseToken, string deduplicationId)
@@ -212,7 +229,8 @@ namespace Sorolla.Palette.Adapters
                 PaletteLog.Vital($"[Palette:Adjust] Android purchase verification: status={verificationResult.VerificationStatus}, code={verificationResult.Code}");
                 PaletteLog.Verbose($"[Palette:Adjust] Android purchase verification message: {verificationResult.Message}");
                 AdapterDiagnostics.Record(AdapterDiagnosticVendor.Adjust, AdapterDiagnosticStatus.DispatchAccepted,
-                    "android_purchase_verification", $"Android purchase verification: {verificationResult.VerificationStatus}");
+                    VerificationCode(verificationResult),
+                    $"Android purchase verification: status={verificationResult.VerificationStatus}, code={verificationResult.Code}");
             });
         }
 

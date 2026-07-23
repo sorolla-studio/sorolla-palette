@@ -1,7 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Text;
-using Sorolla.Palette.Adapters;
 using UnityEngine;
 
 namespace Sorolla.Palette
@@ -24,8 +21,6 @@ namespace Sorolla.Palette
                     s_paletteErrorCount++;
                     s_lastPaletteError = SafeDetail(message);
                 }
-
-                ParsePaletteLog(message);
             }
         }
 
@@ -87,102 +82,5 @@ namespace Sorolla.Palette
             s_runtimeProblems.Add(problem);
         }
 
-        static void ParsePaletteLog(string message)
-        {
-            if (message.Contains("[Palette] Auto-initializing")) s_autoInitSeen = true;
-
-            if (message.Contains("[Palette] Initializing ("))
-            {
-                s_initializeSeen = true;
-                s_modeKnown = true;
-                s_fullMode = message.Contains("(Full mode");
-                s_initDetail = SafeDetail(message);
-            }
-
-            if (message.Contains("[Palette] Ready!")) s_readySeen = true;
-
-            if (message.Contains("[Palette:GA] Ready") || message.Contains("[Palette:GA] Already initialized"))
-                s_gaInitialized = true;
-
-            if (message.Contains("[Palette:FB] Initialized")) s_facebookInitialized = true;
-            if (message.Contains("[Palette:FB] Failed")) s_facebookFailed = true;
-
-            if (message.Contains("[Palette:MAX] Implementation registered")) s_maxRegistered = true;
-            if (message.Contains("[Palette:MAX] Initialized")) s_maxInitialized = true;
-            if (message.Contains("[Palette:MAX] ConsentStatus:"))
-            {
-                s_maxConsentSeen = true;
-                s_maxConsentDetail = SafeDetail(message);
-            }
-
-            if (message.Contains("[Palette] Consent summary:"))
-            {
-                s_maxConsentSeen = true;
-                s_maxConsentDetail = SafeDetail(message);
-            }
-
-            if (message.Contains("[Palette:Adjust] Implementation registered")) s_adjustRegistered = true;
-            if (message.Contains("[Palette] Initializing Adjust ("))
-            {
-                s_adjustInitializing = true;
-                s_adjustEnvironment = message.Contains("Production") ? "Production" : message.Contains("Sandbox") ? "Sandbox" : "Unknown";
-            }
-            if (message.Contains("[Palette:Adjust] Initialized")) s_adjustInitialized = true;
-            if (message.Contains("Adjust App Token not configured")) s_adjustMissingToken = true;
-
-            if (message.Contains("[Palette:FirebaseCore] Ready")) s_firebaseCoreReady = true;
-            if (message.Contains("[Palette:Firebase] Initialized")) s_firebaseAnalyticsReady = true;
-            if (message.Contains("[Palette:Crashlytics] Initialized")) s_crashlyticsReady = true;
-            if (message.Contains("[Palette:RemoteConfig] Fetch complete"))
-            {
-                s_remoteConfigFetchSeen = true;
-                s_remoteConfigFetchSuccess = message.Contains("lastFetchStatus: Success");
-                s_remoteConfigDetail = SafeDetail(message);
-            }
-            if (message.Contains("[Palette:RemoteConfig] Fetch failed"))
-            {
-                s_remoteConfigFetchSeen = true;
-                s_remoteConfigFetchSuccess = false;
-                s_remoteConfigDetail = SafeDetail(message);
-            }
-
-            // Any AttachPurchaseTracking log (wired, or a skip on null/duplicate store) means the wiring
-            // scenario ran this session (C2 scenario provenance); only the "wired" variant proves success.
-            if (message.Contains("[Palette:Purchasing] AttachPurchaseTracking"))
-                s_purchaseAttachAttempted = true;
-            if (message.Contains("[Palette:Purchasing] AttachPurchaseTracking: wired"))
-                s_purchaseTrackingAttached = true;
-            if (message.Contains("TrackPurchase: accepted")) s_purchaseAcceptedCount++;
-            if (message.Contains("TrackPurchase") && (message.Contains("invalid metadata") || message.Contains("dropping event")))
-                s_purchaseIssue = SafeDetail(message);
-            if (message.Contains("purchase verification:"))
-                s_purchaseVerification = SafeDetail(message);
-
-            if (message.Contains("[Palette:MAX] Rewarded ad loaded"))
-            {
-                s_rewardedLoaded = true;
-                s_lastAdIssue = "No issue observed";
-            }
-            if (message.Contains("[Palette:MAX] Rewarded ad completed"))
-            {
-                s_rewardedCompleted = true;
-                s_lastAdIssue = "No issue observed";
-            }
-            if (message.Contains("[Palette:MAX] Interstitial ad loaded"))
-            {
-                s_interstitialLoaded = true;
-                s_lastAdIssue = "No issue observed";
-            }
-            if (message.Contains("[Palette:MAX] Interstitial ad completed"))
-            {
-                s_interstitialCompleted = true;
-                s_lastAdIssue = "No issue observed";
-            }
-            // Ad-revenue is now recorded directly via RecordAdRevenue (DR-09); the old verbose-only
-            // "TrackAdRevenue:" log-sniff is removed so the Vitals row no longer depends on log level.
-            if (message.Contains("[Palette:MAX]") &&
-                (message.Contains("load failed") || message.Contains("display failed") || message.Contains("not ready")))
-                s_lastAdIssue = SafeDetail(message);
-        }
     }
 }

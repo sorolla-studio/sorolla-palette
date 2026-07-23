@@ -348,6 +348,7 @@ namespace Sorolla.Palette
             if (string.IsNullOrEmpty(Config.adjustAppToken))
             {
                 PaletteLog.Error($"{Tag} Adjust App Token not configured.");
+                SorollaDiagnostics.RecordAdjustConfiguration(false, "Unknown");
                 return;
             }
 
@@ -355,6 +356,7 @@ namespace Sorolla.Palette
                 ? AdjustEnvironment.Sandbox
                 : AdjustEnvironment.Production;
 
+            SorollaDiagnostics.RecordAdjustConfiguration(true, environment.ToString());
             PaletteLog.Vital($"{Tag} Initializing Adjust ({environment})...");
             AdjustAdapter.Initialize(Config.adjustAppToken, environment, VerboseLogging);
         }
@@ -403,7 +405,9 @@ namespace Sorolla.Palette
             ConsentCoordinator.ConsentSignals boot = ConsentCoordinator.ResolveBootSignals();
             s_adConsent = boot.AdStorage;
             s_lastAttStatus = ATTBridge.GetStatus(); // R1: baseline for the app-focus ATT re-propagation
-            PaletteLog.Vital($"{Tag} Initializing ({(isPrototype ? "Prototype" : "Full")} mode, analytics: {boot.Analytics}, adStorage: {boot.AdStorage}, verbose: {VerboseLogging})...");
+            string initDetail = $"Initializing ({(isPrototype ? "Prototype" : "Full")} mode, analytics: {boot.Analytics}, adStorage: {boot.AdStorage}, verbose: {VerboseLogging})";
+            PaletteLog.Vital($"{Tag} {initDetail}...");
+            SorollaDiagnostics.RecordInitializing(!isPrototype, initDetail);
 
             // Fan out boot consent to GA + Facebook + Firebase + diagnostics (idempotent). Adjust is
             // initialized later, inside OnMaxSdkInitialized, so it is skipped on this initial pass.
@@ -565,6 +569,7 @@ namespace Sorolla.Palette
             FlushPending();
             OnInitialized?.Invoke();
             PaletteLog.Vital($"{Tag} Ready!");
+            SorollaDiagnostics.RecordReady();
         }
 
         #endregion
@@ -749,6 +754,8 @@ namespace Sorolla.Palette
             {
                 bool canRequest = MaxAdapter.CanRequestAds;
                 PaletteLog.Vital($"{Tag} Consent summary: canRequestAds={canRequest}, consentStatus={MaxAdapter.ConsentStatus}");
+                SorollaDiagnostics.RecordConsentSummary(
+                    $"Consent summary: canRequestAds={canRequest}, consentStatus={MaxAdapter.ConsentStatus}");
             }
             catch (System.Exception e)
             {

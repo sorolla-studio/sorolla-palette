@@ -70,24 +70,11 @@ namespace Sorolla.Palette
         static bool s_fullMode;
         static string s_initDetail = "Not observed yet";
 
-        static bool s_gaInitialized;
-        static bool s_facebookInitialized;
-        static bool s_facebookFailed;
-        static bool s_maxRegistered;
-        static bool s_maxInitialized;
         static bool s_maxConsentSeen;
         static string s_maxConsentDetail = "Not observed yet";
-        static bool s_adjustRegistered;
         static bool s_adjustInitializing;
-        static bool s_adjustInitialized;
         static bool s_adjustMissingToken;
         static string s_adjustEnvironment = "Unknown";
-        static bool s_firebaseCoreReady;
-        static bool s_firebaseAnalyticsReady;
-        static bool s_crashlyticsReady;
-        static bool s_remoteConfigFetchSeen;
-        static bool s_remoteConfigFetchSuccess;
-        static string s_remoteConfigDetail = "Not observed yet";
 
         static bool s_purchaseTrackingAttached;
         // Whether Palette.AttachPurchaseTracking ran this session AT ALL (wired, or skipped on null/duplicate) -
@@ -96,11 +83,12 @@ namespace Sorolla.Palette
         static bool s_purchaseAttachAttempted;
         static int s_purchaseAcceptedCount;
         static int s_purchaseDuplicateCount;
-        static string s_purchaseIssue = "No issue observed";
+        static string s_purchaseIssue = NoAdIssue;
         /// <summary>The one "nothing came back yet" value for purchase verification: the coverage row and the
         /// Activity row both key on it, so it is a constant rather than a literal in three places.</summary>
         internal const string NotObserved = "Not observed";
         static string s_purchaseVerification = NotObserved;
+        static PurchaseVerificationState s_purchaseVerificationState = PurchaseVerificationState.NotObserved;
 
         static int s_progressionStartCount;
         static int s_progressionEndCount;
@@ -114,7 +102,9 @@ namespace Sorolla.Palette
         static bool s_interstitialLoaded;
         static bool s_interstitialCompleted;
         static bool s_adRevenueSeen;
-        static string s_lastAdIssue = "No issue observed";
+        /// <summary>The one "nothing went wrong" value for the ad and purchase issue rows.</summary>
+        internal const string NoAdIssue = "No issue observed";
+        static string s_lastAdIssue = NoAdIssue;
 
         static int s_paletteWarningCount;
         static int s_paletteErrorCount;
@@ -166,6 +156,82 @@ namespace Sorolla.Palette
 
             Application.logMessageReceived -= RecordUnityLog;
             s_unityLogInstalled = false;
+        }
+
+        /// <summary>
+        ///     Palette's own lifecycle, recorded where it happens. Vendor facts arrive typed on the adapter
+        ///     diagnostics channel instead; nothing here re-reads the SDK's own log lines.
+        /// </summary>
+        internal static void RecordAutoInitStarted()
+        {
+            lock (s_lock) { s_autoInitSeen = true; }
+        }
+
+        internal static void RecordInitializing(bool fullMode, string detail)
+        {
+            lock (s_lock)
+            {
+                s_initializeSeen = true;
+                s_modeKnown = true;
+                s_fullMode = fullMode;
+                s_initDetail = SafeDetail(detail);
+            }
+        }
+
+        internal static void RecordReady()
+        {
+            lock (s_lock) { s_readySeen = true; }
+        }
+
+        internal static void RecordConsentSummary(string detail)
+        {
+            lock (s_lock)
+            {
+                s_maxConsentSeen = true;
+                s_maxConsentDetail = SafeDetail(detail);
+            }
+        }
+
+        /// <summary>Adjust's per-game configuration, read from the config rather than from its log line.</summary>
+        internal static void RecordAdjustConfiguration(bool tokenConfigured, string environment)
+        {
+            lock (s_lock)
+            {
+                s_adjustMissingToken = !tokenConfigured;
+                if (!tokenConfigured) return;
+                s_adjustInitializing = true;
+                s_adjustEnvironment = environment;
+            }
+        }
+
+        internal static void RecordPurchaseAttach(bool wired)
+        {
+            lock (s_lock)
+            {
+                s_purchaseAttachAttempted = true;
+                if (wired) s_purchaseTrackingAttached = true;
+            }
+        }
+
+        internal static void RecordPurchaseAccepted()
+        {
+            lock (s_lock) { s_purchaseAcceptedCount++; }
+        }
+
+        internal static void RecordPurchaseDropped(string detail)
+        {
+            lock (s_lock) { s_purchaseIssue = SafeDetail(detail); }
+        }
+
+        /// <summary>The verification state Adjust reported, taken from its callback rather than classified
+        /// back out of the message text.</summary>
+        internal static void RecordPurchaseVerification(PurchaseVerificationState state, string detail)
+        {
+            lock (s_lock)
+            {
+                s_purchaseVerificationState = state;
+                s_purchaseVerification = SafeDetail(detail);
+            }
         }
 
         internal static void RecordProgression(string status)
@@ -511,6 +577,7 @@ namespace Sorolla.Palette
             public int PurchaseDuplicateCount;
             public string PurchaseIssue;
             public string PurchaseVerification;
+            public PurchaseVerificationState PurchaseVerificationState;
             public int ProgressionStartCount;
             public int ProgressionEndCount;
             public int EconomyEarnCount;

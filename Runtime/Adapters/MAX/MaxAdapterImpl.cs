@@ -335,6 +335,8 @@ namespace Sorolla.Palette.Adapters
             }
 
             PaletteLog.Vital($"[Palette:MAX] ConsentStatus: {ConsentStatus} (Geography: {config.ConsentFlowUserGeography})");
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Ready,
+                "consent_status", $"ConsentStatus: {ConsentStatus} (Geography: {config.ConsentFlowUserGeography})");
 
             if (oldStatus != ConsentStatus)
             {
@@ -447,6 +449,8 @@ namespace Sorolla.Palette.Adapters
             _onRewardComplete?.Invoke();
             _onRewardComplete = null;
             _onRewardFailed = null;
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Ready,
+                "rewarded_completed", "Rewarded ad completed");
             PaletteLog.Vital("[Palette:MAX] Rewarded ad completed");
         }
 
@@ -599,6 +603,8 @@ namespace Sorolla.Palette.Adapters
             _onInterstitialComplete = null;
             _onInterstitialFailed = null;
             cb?.Invoke();
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Ready,
+                "interstitial_completed", "Interstitial ad completed");
             PaletteLog.Vital("[Palette:MAX] Interstitial ad completed");
             LoadInterstitial();
         }

@@ -205,7 +205,7 @@ namespace Sorolla.Palette
                     rows.Add(new SorollaMenuMatrixRow("Adjust purchase verification",
                         (proved & SorollaCoverageFact.AdjustPurchaseVerification) != 0,
                         Cell(session, SorollaCoverageFact.AdjustPurchaseVerification, inputs.State.IapVerification),
-                        ClassifyPurchaseVerification(inputs.State.IapVerification) == PurchaseVerificationState.Failed
+                        inputs.State.IapVerificationState == PurchaseVerificationState.Failed
                             ? $"Adjust rejected the verification for this purchase ({inputs.State.IapVerification}); see Purchase verification under FIX THESE"
                             : "Complete one purchase; Adjust answers the verification call for it"));
             }
@@ -256,8 +256,8 @@ namespace Sorolla.Palette
         ///     which is the whole claim of the row. A rejection or an unknown status proves nothing and
         ///     leaves the requirement owed; the Activity row carries the failure and its fix.
         /// </summary>
-        internal static SorollaCoverageFact VerificationCoverage(string detail) =>
-            ClassifyPurchaseVerification(detail) switch
+        internal static SorollaCoverageFact VerificationCoverage(PurchaseVerificationState state) =>
+            state switch
             {
                 PurchaseVerificationState.Verified => SorollaCoverageFact.AdjustPurchaseVerification,
                 PurchaseVerificationState.EnvironmentMismatch => SorollaCoverageFact.AdjustPurchaseVerification,
@@ -288,7 +288,7 @@ namespace Sorolla.Palette
             if (state.RewardedLoaded && state.RewardedCompleted) facts |= SorollaCoverageFact.Rewarded;
             if (state.AdRevenueSeen) facts |= SorollaCoverageFact.AdRevenue;
             if (state.IapPurchaseCount > 0) facts |= SorollaCoverageFact.IapPurchase;
-            facts |= VerificationCoverage(state.IapVerification);
+            facts |= VerificationCoverage(state.IapVerificationState);
             return facts;
         }
 

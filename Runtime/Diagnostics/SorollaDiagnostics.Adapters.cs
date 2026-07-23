@@ -35,8 +35,80 @@ namespace Sorolla.Palette
             {
                 AdapterDiagnosticState next = BuildAdapterState(outcome, CurrentAdapterState(outcome.Vendor));
                 SetAdapterState(outcome.Vendor, next);
+                RecordAdLifecycle(outcome);
+                RecordPurchaseVerificationOutcome(outcome);
             }
         }
+
+        /// <summary>
+        ///     The ad facts a session accumulates, as opposed to the latest-outcome-per-vendor the state
+        ///     above keeps. A rewarded ad that loaded stays loaded for the session even after an
+        ///     interstitial outcome replaces MAX's latest state.
+        /// </summary>
+        static void RecordAdLifecycle(AdapterDiagnosticOutcome outcome)
+        {
+            if (outcome.Vendor != AdapterDiagnosticVendor.Max) return;
+
+            switch (outcome.Code)
+            {
+                case "rewarded_loaded":
+                    s_rewardedLoaded = true;
+                    s_lastAdIssue = NoAdIssue;
+                    break;
+                case "rewarded_completed":
+                    s_rewardedCompleted = true;
+                    s_lastAdIssue = NoAdIssue;
+                    break;
+                case "interstitial_loaded":
+                    s_interstitialLoaded = true;
+                    s_lastAdIssue = NoAdIssue;
+                    break;
+                case "interstitial_completed":
+                    s_interstitialCompleted = true;
+                    s_lastAdIssue = NoAdIssue;
+                    break;
+                case "rewarded_load_failed":
+                case "rewarded_display_failed":
+                case "rewarded_not_ready":
+                case "rewarded_not_initialized":
+                case "interstitial_not_initialized":
+                case "interstitial_load_failed":
+                case "interstitial_display_failed":
+                case "interstitial_not_ready":
+                    s_lastAdIssue = SafeDetail(outcome.Detail);
+                    break;
+            }
+        }
+
+        /// <summary>Adjust reports its verification answer as a typed code, so the state is read straight
+        /// off the channel rather than classified back out of the message text.</summary>
+        static void RecordPurchaseVerificationOutcome(AdapterDiagnosticOutcome outcome)
+        {
+            if (outcome.Vendor != AdapterDiagnosticVendor.Adjust) return;
+
+            switch (outcome.Code)
+            {
+                case "purchase_verified":
+                    s_purchaseVerificationState = PurchaseVerificationState.Verified;
+                    break;
+                case "purchase_verification_environment_mismatch":
+                    s_purchaseVerificationState = PurchaseVerificationState.EnvironmentMismatch;
+                    break;
+                case "purchase_verification_failed":
+                    s_purchaseVerificationState = PurchaseVerificationState.Failed;
+                    break;
+                default:
+                    return;
+            }
+            s_purchaseVerification = SafeDetail(outcome.Detail);
+        }
+
+        /// <summary>A fetch has been attempted iff Remote Config has reported one either way.</summary>
+        static bool RemoteConfigFetchSeen() =>
+            s_remoteConfigOutcome.Code == "fetch_complete" || s_remoteConfigOutcome.Code == "fetch_failed";
+
+        static string RemoteConfigDetail() =>
+            RemoteConfigFetchSeen() ? AdapterOutcomeDetail(s_remoteConfigOutcome) : "Not observed yet";
 
         static AdapterDiagnosticState BuildAdapterState(AdapterDiagnosticOutcome outcome, AdapterDiagnosticState previous)
         {

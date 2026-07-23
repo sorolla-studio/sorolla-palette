@@ -293,20 +293,6 @@ namespace Sorolla.Palette.Editor.Tests
 
         // ── Adjust verification: an answer is not a success ──────────────
 
-        // The expected state travels as a string: the enum is internal SDK vocabulary, and a public test
-        // signature cannot name it.
-        [TestCase(null, "NotObserved")]
-        [TestCase("Not observed", "NotObserved")]
-        [TestCase("iOS purchase verification: status=verified, code=20001", "Verified")]
-        [TestCase("Android purchase verification: success", "Verified")]
-        [TestCase("iOS purchase verification: status=not_verified, code=20040", "EnvironmentMismatch")]
-        [TestCase("iOS purchase verification: status=not_verified, code=20007", "Failed")]
-        [TestCase("iOS purchase verification: status=unknown, code=20002", "Failed")]
-        public void PurchaseVerification_IsClassifiedByWhatAdjustAnswered(string detail, string expected)
-        {
-            Assert.AreEqual(expected, SorollaDiagnostics.ClassifyPurchaseVerification(detail).ToString());
-        }
-
         [Test]
         public void RejectedVerification_DoesNotCompleteTheRequirement()
         {
@@ -318,6 +304,7 @@ namespace Sorolla.Palette.Editor.Tests
                 {
                     IapTrackingAttached = true,
                     IapVerification = "iOS purchase verification: status=not_verified, code=20007",
+                    IapVerificationState = PurchaseVerificationState.Failed,
                 },
                 Ads = Excluded, Adjust = Included, Iap = Included,
                 Proved = SorollaCoverageFact.Progression | SorollaCoverageFact.IapPurchase,
@@ -340,16 +327,16 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 IapTrackingAttached = true,
                 IapVerification = "iOS purchase verification: status=not_verified, code=20040",
+                IapVerificationState = PurchaseVerificationState.EnvironmentMismatch,
             };
 
-            Assert.AreEqual(PurchaseVerificationState.EnvironmentMismatch,
-                SorollaDiagnostics.ClassifyPurchaseVerification(state.IapVerification));
             Assert.AreEqual(SorollaCoverageFact.AdjustPurchaseVerification,
-                SorollaDiagnostics.VerificationCoverage(state.IapVerification));
+                SorollaDiagnostics.VerificationCoverage(state.IapVerificationState));
             Assert.AreEqual(SorollaCoverageFact.None,
-                SorollaDiagnostics.VerificationCoverage("iOS purchase verification: status=not_verified, code=20007"),
+                SorollaDiagnostics.VerificationCoverage(PurchaseVerificationState.Failed),
                 "a rejection proves nothing");
-            Assert.AreEqual(SorollaCoverageFact.None, SorollaDiagnostics.VerificationCoverage(null));
+            Assert.AreEqual(SorollaCoverageFact.None,
+                SorollaDiagnostics.VerificationCoverage(PurchaseVerificationState.NotObserved));
         }
 
         [Test]

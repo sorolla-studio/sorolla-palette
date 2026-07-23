@@ -314,7 +314,7 @@ namespace Sorolla.Palette
             AddObserved(rows, "Ads", "Ad revenue",
                 snapshot.AdRevenueSeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
                 snapshot.AdRevenueSeen ? "Observed" : "No revenue callback observed");
-            if (snapshot.LastAdIssue == "No issue observed")
+            if (snapshot.LastAdIssue == NoAdIssue)
                 Add(rows, "Ads", "Ad issues", SorollaDiagnosticSeverity.Pass, snapshot.LastAdIssue);
             else
                 AddDiagnosed(rows, "Ads", "Ad issues", SorollaDiagnosticSeverity.Warning, snapshot.LastAdIssue,
@@ -360,7 +360,7 @@ namespace Sorolla.Palette
             string detail = snapshot.PurchaseDuplicateCount > 0
                 ? $"{snapshot.PurchaseIssue}; duplicates={snapshot.PurchaseDuplicateCount}"
                 : snapshot.PurchaseIssue;
-            if (snapshot.PurchaseIssue == "No issue observed")
+            if (snapshot.PurchaseIssue == NoAdIssue)
                 AddObserved(rows, "Activity", "Purchase issues", SorollaDiagnosticSeverity.Pass, detail);
             else
                 AddDiagnosed(rows, "Activity", "Purchase issues", SorollaDiagnosticSeverity.Warning, detail,
@@ -621,22 +621,8 @@ namespace Sorolla.Palette
         ///     round-tripped, which is exactly what the requirement asks. The row says so rather than
         ///     claiming a verified purchase.
         /// </summary>
-        internal static PurchaseVerificationState ClassifyPurchaseVerification(string detail)
-        {
-            if (string.IsNullOrEmpty(detail) || detail == NotObserved)
-                return PurchaseVerificationState.NotObserved;
-            if (detail.Contains(EnvironmentMismatchCode))
-                return PurchaseVerificationState.EnvironmentMismatch;
-            if (detail.Contains("success") || (detail.Contains("verified") && !detail.Contains("not_verified")))
-                return PurchaseVerificationState.Verified;
-            return PurchaseVerificationState.Failed;
-        }
-
-        /// <summary>Adjust's deterministic "this purchase belongs to the other environment" result.</summary>
-        const string EnvironmentMismatchCode = "20040";
-
         static SorollaDiagnosticSeverity PurchaseVerificationSeverity(Snapshot snapshot) =>
-            ClassifyPurchaseVerification(snapshot.PurchaseVerification) switch
+            snapshot.PurchaseVerificationState switch
             {
                 PurchaseVerificationState.NotObserved => SorollaDiagnosticSeverity.Info,
                 PurchaseVerificationState.Failed => SorollaDiagnosticSeverity.Warning,
@@ -646,7 +632,7 @@ namespace Sorolla.Palette
         /// <summary>The row detail, with the environment mismatch spelled out - the raw vendor code alone
         /// reads like a failure to anyone who has not memorised it.</summary>
         static string PurchaseVerificationDetail(Snapshot snapshot) =>
-            ClassifyPurchaseVerification(snapshot.PurchaseVerification) == PurchaseVerificationState.EnvironmentMismatch
+            snapshot.PurchaseVerificationState == PurchaseVerificationState.EnvironmentMismatch
                 ? $"{snapshot.PurchaseVerification} - test purchase checked against the other Adjust environment; " +
                   "the call round-tripped, the purchase itself is not verified"
                 : snapshot.PurchaseVerification;

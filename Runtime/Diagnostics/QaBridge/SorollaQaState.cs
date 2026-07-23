@@ -89,6 +89,7 @@ namespace Sorolla.Palette
         public int IapPurchaseCount;
         public int IapDuplicateCount;
         public string IapVerification;
+        public PurchaseVerificationState IapVerificationState;
         public string IapLastIssue;
 
         // Red flags

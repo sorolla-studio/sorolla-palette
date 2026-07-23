@@ -46,15 +46,18 @@ namespace Sorolla.Palette
         {
             if (store == null)
             {
+                SorollaDiagnostics.RecordPurchaseAttach(wired: false);
                 PaletteLog.Warning($"{PurchasingTag} AttachPurchaseTracking: null StoreController - skipping.");
                 return;
             }
             if (!s_attachedStores.Add(store))
             {
+                SorollaDiagnostics.RecordPurchaseAttach(wired: false);
                 PaletteLog.Warning($"{PurchasingTag} AttachPurchaseTracking: StoreController already attached - skipping duplicate.");
                 return;
             }
             store.OnPurchasePending += TrackPurchase;
+            SorollaDiagnostics.RecordPurchaseAttach(wired: true);
             PaletteLog.Vital($"{PurchasingTag} AttachPurchaseTracking: wired OnPurchasePending -> Palette.TrackPurchase.");
         }
     }
