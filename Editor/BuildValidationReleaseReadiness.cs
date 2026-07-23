@@ -52,43 +52,38 @@ namespace Sorolla.Palette.Editor
 
         /// <summary>
         ///     Scans Library/BuildProfiles/*.asset for m_Development: 1 plus the legacy
-        ///     EditorUserBuildSettings.development flag. Both profiles - a stray Development Build
-        ///     flag is exactly as unwanted in a QA-pass build meant to mirror release as in a release
-        ///     build.
+        ///     EditorUserBuildSettings.development flag. Either source is enough: a stray Development
+        ///     Build flag is exactly as unwanted in a QA-pass build meant to mirror release as in a
+        ///     release build.
         /// </summary>
         static List<ValidationResult> CheckDevelopmentBuildFlag()
         {
             var results = new List<ValidationResult>();
             const CheckCategory category = CheckCategory.DevelopmentBuild;
 
-            var flaggedProfiles = new List<string>();
+            bool anyProfileFlagged = false;
             string profilesDir = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "Library", "BuildProfiles");
             if (Directory.Exists(profilesDir))
             {
                 foreach (string path in Directory.GetFiles(profilesDir, "*.asset"))
                 {
-                    if (File.ReadAllText(path).Contains("m_Development: 1"))
-                        flaggedProfiles.Add(Path.GetFileName(path));
+                    if (!File.ReadAllText(path).Contains("m_Development: 1")) continue;
+                    anyProfileFlagged = true;
+                    break;
                 }
             }
 
-            bool developmentBuildSetting = EditorUserBuildSettings.development;
-
-            if (flaggedProfiles.Count == 0 && !developmentBuildSetting)
+            if (!anyProfileFlagged && !EditorUserBuildSettings.development)
             {
                 results.Add(Valid(category, "Development Build off"));
                 return results;
             }
 
-            var signals = new List<string>();
-            if (developmentBuildSetting)
-                signals.Add("EditorUserBuildSettings.development is on");
-            if (flaggedProfiles.Count > 0)
-                signals.Add($"m_Development: 1 in {string.Join(", ", flaggedProfiles)}");
-
+            // Which profile asset carries the flag is not something a studio acts on: the files are
+            // GUID-named and the fix is the same either way.
             results.Add(Warning(
                 category,
-                $"Development Build is enabled ({string.Join("; ", signals)}).\n" +
+                "Development Build is enabled.\n" +
                 "  A store submission built with Development Build carries debug symbols/profiler hooks and can be rejected or bloat the binary.",
                 "Uncheck Development Build in File > Build Settings (or the active Build Profile) before a release build"));
 
