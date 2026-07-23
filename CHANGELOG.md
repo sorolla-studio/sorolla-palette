@@ -79,6 +79,10 @@ release verdict.
 
 ### Changed
 
+- **An unconfigured GameAnalytics resource whitelist is optional, not a warning.** GameAnalytics is
+  the secondary analytics surface and economy events reach Firebase regardless, so a game that never
+  opted in no longer shows a warning row. A whitelist that IS filled in but does not match what
+  Palette sends still warns, because those events are silently dropped.
 - **One support copy on the Vitals report screen**: `Copy report` now carries the verdict, the
   attention list, and the full SDK state. The separate `Copy SDK state` button beside the SDK-side
   issues is removed.

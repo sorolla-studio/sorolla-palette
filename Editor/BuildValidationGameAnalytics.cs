@@ -96,13 +96,15 @@ namespace Sorolla.Palette.Editor
 
             if (isEmpty)
             {
-                // Fix hint omits the "Window > GameAnalytics > Select Settings" navigation step for the
-                // same reason as CheckGameAnalyticsSettings above - the row's button already opens it.
-                results.Add(Warning(
+                // Not set up at all is optional, not a problem: GameAnalytics is the secondary analytics
+                // surface and Firebase already carries economy events. Warning severity here read as
+                // "something is broken" to a studio that had simply not opted in.
+                results.Add(Skipped(
                     category,
-                    "GameAnalytics ResourceCurrencies whitelist is empty.\n" +
-                    "  Only matters if this game tracks economy via Palette.Economy - GameAnalytics silently drops every resource event when the whitelist is empty.",
-                    "If the game tracks economy: add each currency name (e.g. coins) to Resource Currencies"));
+                    "GameAnalytics resource whitelists are not set up (optional).\n" +
+                    "  Economy events reach Firebase either way. Fill these in only if you also want them in " +
+                    "GameAnalytics, which drops resource events whose currency is not whitelisted.",
+                    "Optional: add each currency name (e.g. coins) to Resource Currencies"));
                 return results;
             }
 
