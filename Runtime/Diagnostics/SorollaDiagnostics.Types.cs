@@ -2,6 +2,43 @@ using System;
 
 namespace Sorolla.Palette
 {
+    /// <summary>
+    ///     Applicability of the SDK's MAX-backed advertising capability. Mode decides whether the
+    ///     capability is required; the compiled package set decides whether it exists. Diagnostics,
+    ///     coverage, and QA actions consume this value instead of each inventing their own rule.
+    /// </summary>
+    internal readonly struct SorollaAdsCapability
+    {
+        public readonly bool Required;
+        public readonly bool Included;
+
+        public SorollaAdsCapability(bool required, bool included)
+        {
+            Required = required;
+            Included = included;
+        }
+    }
+
+    internal static class SorollaRuntimeCapabilities
+    {
+        internal static SorollaAdsCapability Ads(bool fullMode) => Ads(fullMode, MaxCompiled);
+
+        internal static SorollaAdsCapability Ads(bool fullMode, bool maxCompiled) =>
+            new SorollaAdsCapability(fullMode, maxCompiled);
+
+        internal static bool MaxCompiled
+        {
+            get
+            {
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+                return true;
+#else
+                return false;
+#endif
+            }
+        }
+    }
+
     internal enum SorollaDiagnosticSeverity
     {
         Info,

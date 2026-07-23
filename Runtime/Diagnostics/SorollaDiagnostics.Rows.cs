@@ -15,7 +15,8 @@ namespace Sorolla.Palette
             SorollaConfig config = LoadConfig();
             Snapshot snapshot = CaptureSnapshot();
 
-            bool fullMode = config != null && !config.isPrototypeMode;
+            bool fullMode = IsFullMode(config, snapshot);
+            SorollaAdsCapability ads = SorollaRuntimeCapabilities.Ads(fullMode);
 
             Add(rows, "Boot", "Auto-init marker", snapshot.AutoInitSeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
                 snapshot.AutoInitSeen ? "Observed" : "Waiting for bootstrap");
@@ -58,10 +59,7 @@ namespace Sorolla.Palette
                     AdjustSandboxReleaseDiagnosis());
             else
                 Add(rows, "Config", "Adjust environment", environmentSeverity, environmentDetail);
-            AddConfigPresence(rows, "Rewarded ad unit", config?.rewardedAdUnit?.Current, fullMode,
-                MissingAdUnitDiagnosis("rewarded"));
-            AddConfigPresence(rows, "Interstitial ad unit", config?.interstitialAdUnit?.Current, fullMode,
-                MissingAdUnitDiagnosis("interstitial"));
+            AddMaxConfigRows(rows, config, ads);
             AddConfigPresence(rows, "Purchase event token", config?.adjustPurchaseEventToken, fullMode,
                 MissingPurchaseEventTokenDiagnosis());
 
@@ -111,19 +109,7 @@ namespace Sorolla.Palette
             Add(rows, "SDKs", "Facebook", SorollaDiagnosticSeverity.Info, "Package not installed");
 #endif
 
-#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-            Add(rows, "SDKs", "MAX implementation", snapshot.MaxRegistered ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
-                snapshot.MaxRegistered ? "Registered" : "Waiting for adapter registration");
-            Add(rows, "SDKs", "MAX initialized",
-                AdapterRowSeverity(snapshot.MaxOutcome, snapshot.MaxInitialized ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting),
-                AdapterRowDetail(snapshot.MaxOutcome, snapshot.MaxInitialized ? "Initialized" : "Waiting for MAX callback"));
-#else
-            if (fullMode)
-                AddDiagnosed(rows, "SDKs", "MAX", SorollaDiagnosticSeverity.Fail, "Package missing for Full mode",
-                    PackageMissingDiagnosis("AppLovin MAX", "com.applovin.mediation.ads"));
-            else
-                Add(rows, "SDKs", "MAX", SorollaDiagnosticSeverity.Info, "Not installed");
-#endif
+            AddMaxSdkRows(rows, snapshot, ads);
 
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
             Add(rows, "SDKs", "Adjust implementation", snapshot.AdjustRegistered ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
@@ -185,23 +171,7 @@ namespace Sorolla.Palette
                 Add(rows, "Firebase", "Remote Config", SorollaDiagnosticSeverity.Info, "Not installed");
 #endif
 
-            SorollaDiagnosticSeverity consentSeverity = ConsentSeverity(snapshot);
-            string consentDetail = snapshot.MaxConsentSeen ? snapshot.MaxConsentDetail : "Waiting for consent status";
-            if (consentSeverity == SorollaDiagnosticSeverity.Waiting)
-                AddDiagnosed(rows, "Consent", "MAX consent", consentSeverity, consentDetail,
-                    ConsentWaitingDiagnosis());
-            else
-                Add(rows, "Consent", "MAX consent", consentSeverity, consentDetail);
-            if (!Palette.CanRequestAds && fullMode)
-            {
-                AddDiagnosed(rows, "Consent", "Can request ads", SorollaDiagnosticSeverity.Info, "False",
-                    CannotRequestAdsDiagnosis(), SorollaDiagnosticKind.Observed);
-            }
-            else
-            {
-                Add(rows, "Consent", "Can request ads", Palette.CanRequestAds ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
-                    Palette.CanRequestAds ? "True" : "Not applicable");
-            }
+            AddMaxConsentRows(rows, snapshot, ads);
 
             // App Tracking Transparency exists only on iOS. Off-iOS the bridge answers a constant
             // "Authorized", so this row used to render on Android as a green fact about a prompt that can
@@ -236,19 +206,7 @@ namespace Sorolla.Palette
             AddPurchaseVerificationRow(rows, snapshot);
             AddPurchaseIssuesRow(rows, snapshot);
 
-            AddAdRow(rows, "Interstitial", snapshot.InterstitialReady, snapshot.InterstitialLoadStarted,
-                snapshot.InterstitialLoadFailed, snapshot.InterstitialLoaded, snapshot.InterstitialCompleted,
-                snapshot.InterstitialLoadIssue, snapshot.MaxInitialized);
-            AddAdRow(rows, "Rewarded", snapshot.RewardedReady, snapshot.RewardedLoadStarted,
-                snapshot.RewardedLoadFailed, snapshot.RewardedLoaded, snapshot.RewardedCompleted,
-                snapshot.RewardedLoadIssue, snapshot.MaxInitialized);
-            AddObserved(rows, "Ads", "Ad revenue", snapshot.AdRevenueSeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
-                snapshot.AdRevenueSeen ? "Observed" : "No revenue callback observed");
-            if (snapshot.LastAdIssue == "No issue observed")
-                Add(rows, "Ads", "Ad issues", SorollaDiagnosticSeverity.Pass, snapshot.LastAdIssue);
-            else
-                AddDiagnosed(rows, "Ads", "Ad issues", SorollaDiagnosticSeverity.Warning, snapshot.LastAdIssue,
-                    AdIssueDiagnosis(snapshot.LastAdIssue));
+            AddMaxAdRows(rows, snapshot, ads);
 
             AddSdkWarningsRow(rows, snapshot);
             Add(rows, "Red flags", "SDK errors", snapshot.PaletteErrorCount == 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Fail,
@@ -263,6 +221,78 @@ namespace Sorolla.Palette
 
         static void AddObserved(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity, string detail) =>
             Add(rows, group, name, severity, detail, SorollaDiagnosticKind.Observed);
+
+        static void AddMaxConfigRows(List<SorollaDiagnosticRow> rows, SorollaConfig config, SorollaAdsCapability ads)
+        {
+            if (!ads.Included) return;
+
+            AddConfigPresence(rows, "Rewarded ad unit", config?.rewardedAdUnit?.Current, true,
+                MissingAdUnitDiagnosis("rewarded"));
+            AddConfigPresence(rows, "Interstitial ad unit", config?.interstitialAdUnit?.Current, true,
+                MissingAdUnitDiagnosis("interstitial"));
+        }
+
+        static void AddMaxSdkRows(List<SorollaDiagnosticRow> rows, Snapshot snapshot, SorollaAdsCapability ads)
+        {
+            if (!ads.Included)
+            {
+                if (ads.Required)
+                    AddDiagnosed(rows, "SDKs", "MAX", SorollaDiagnosticSeverity.Fail, "Package missing for Full mode",
+                        PackageMissingDiagnosis("AppLovin MAX", "com.applovin.mediation.ads"));
+                return;
+            }
+
+            Add(rows, "SDKs", "MAX implementation",
+                snapshot.MaxRegistered ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
+                snapshot.MaxRegistered ? "Registered" : "Waiting for adapter registration");
+            Add(rows, "SDKs", "MAX initialized",
+                AdapterRowSeverity(snapshot.MaxOutcome,
+                    snapshot.MaxInitialized ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting),
+                AdapterRowDetail(snapshot.MaxOutcome,
+                    snapshot.MaxInitialized ? "Initialized" : "Waiting for MAX callback"));
+        }
+
+        static void AddMaxConsentRows(List<SorollaDiagnosticRow> rows, Snapshot snapshot, SorollaAdsCapability ads)
+        {
+            if (!ads.Included) return;
+
+            SorollaDiagnosticSeverity consentSeverity = ConsentSeverity(snapshot);
+            string consentDetail = snapshot.MaxConsentSeen ? snapshot.MaxConsentDetail : "Waiting for consent status";
+            if (consentSeverity == SorollaDiagnosticSeverity.Waiting)
+                AddDiagnosed(rows, "Consent", "MAX consent", consentSeverity, consentDetail,
+                    ConsentWaitingDiagnosis());
+            else
+                Add(rows, "Consent", "MAX consent", consentSeverity, consentDetail);
+
+            if (!Palette.CanRequestAds)
+            {
+                AddDiagnosed(rows, "Consent", "Can request ads", SorollaDiagnosticSeverity.Info, "False",
+                    CannotRequestAdsDiagnosis(), SorollaDiagnosticKind.Observed);
+                return;
+            }
+
+            Add(rows, "Consent", "Can request ads", SorollaDiagnosticSeverity.Pass, "True");
+        }
+
+        static void AddMaxAdRows(List<SorollaDiagnosticRow> rows, Snapshot snapshot, SorollaAdsCapability ads)
+        {
+            if (!ads.Included) return;
+
+            AddAdRow(rows, "Interstitial", snapshot.InterstitialReady, snapshot.InterstitialLoadStarted,
+                snapshot.InterstitialLoadFailed, snapshot.InterstitialLoaded, snapshot.InterstitialCompleted,
+                snapshot.InterstitialLoadIssue, snapshot.MaxInitialized);
+            AddAdRow(rows, "Rewarded", snapshot.RewardedReady, snapshot.RewardedLoadStarted,
+                snapshot.RewardedLoadFailed, snapshot.RewardedLoaded, snapshot.RewardedCompleted,
+                snapshot.RewardedLoadIssue, snapshot.MaxInitialized);
+            AddObserved(rows, "Ads", "Ad revenue",
+                snapshot.AdRevenueSeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
+                snapshot.AdRevenueSeen ? "Observed" : "No revenue callback observed");
+            if (snapshot.LastAdIssue == "No issue observed")
+                Add(rows, "Ads", "Ad issues", SorollaDiagnosticSeverity.Pass, snapshot.LastAdIssue);
+            else
+                AddDiagnosed(rows, "Ads", "Ad issues", SorollaDiagnosticSeverity.Warning, snapshot.LastAdIssue,
+                    AdIssueDiagnosis(snapshot.LastAdIssue));
+        }
 
         static void Add(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity, string detail,
             SorollaDiagnosticKind kind)

@@ -270,6 +270,21 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.That(args[2], Is.Null, "A dispatched action returns null detail.");
         }
 
+        [Test]
+        public void Registry_ExposesAdActionsOnlyWhenMaxIsCompiled()
+        {
+            Type registry = RequiredType("Sorolla.Palette.QaActionRegistry");
+            PropertyInfo actionNamesProperty = registry.GetProperty(
+                "ActionNames", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(actionNamesProperty);
+            var actionNames = (IEnumerable<string>)actionNamesProperty.GetValue(null);
+
+            Assert.AreEqual(SorollaRuntimeCapabilities.MaxCompiled,
+                actionNames.Contains("show_rewarded"));
+            Assert.AreEqual(SorollaRuntimeCapabilities.MaxCompiled,
+                actionNames.Contains("show_interstitial"));
+        }
+
         static bool TryInvoke(object[] args)
         {
             Type registry = RequiredType("Sorolla.Palette.QaActionRegistry");

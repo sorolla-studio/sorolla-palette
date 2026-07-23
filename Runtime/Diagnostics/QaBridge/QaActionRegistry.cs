@@ -37,19 +37,7 @@ namespace Sorolla.Palette
             }
         }
 
-        static readonly Registration[] s_actions =
-        {
-            new Registration(ShowRewarded, _ => DoShowRewarded()),
-            new Registration(ShowInterstitial, _ => DoShowInterstitial()),
-            new Registration(OpenPrivacyOptions, _ => DoOpenPrivacyOptions()),
-            new Registration(ResetConsent, _ => DoResetConsent()),
-            new Registration(RefreshConsent, _ => DoRefreshConsent()),
-            new Registration(TrackTestEvent, _ => DoTrackTestEvent()),
-            new Registration(LevelStart, _ => DoLevelStart()),
-            new Registration(LevelComplete, _ => DoLevelComplete()),
-            new Registration(EconomyEarn, _ => DoEconomyEarn()),
-            new Registration(EconomySpend, _ => DoEconomySpend()),
-        };
+        static readonly Registration[] s_actions = BuildRegistrations();
 
         static readonly string[] s_actionNames = BuildActionNames();
 
@@ -86,6 +74,26 @@ namespace Sorolla.Palette
             for (int i = 0; i < s_actions.Length; i++)
                 names[i] = s_actions[i].Name;
             return names;
+        }
+
+        static Registration[] BuildRegistrations()
+        {
+            var actions = new List<Registration>(10);
+            if (SorollaRuntimeCapabilities.MaxCompiled)
+            {
+                actions.Add(new Registration(ShowRewarded, _ => DoShowRewarded()));
+                actions.Add(new Registration(ShowInterstitial, _ => DoShowInterstitial()));
+            }
+
+            actions.Add(new Registration(OpenPrivacyOptions, _ => DoOpenPrivacyOptions()));
+            actions.Add(new Registration(ResetConsent, _ => DoResetConsent()));
+            actions.Add(new Registration(RefreshConsent, _ => DoRefreshConsent()));
+            actions.Add(new Registration(TrackTestEvent, _ => DoTrackTestEvent()));
+            actions.Add(new Registration(LevelStart, _ => DoLevelStart()));
+            actions.Add(new Registration(LevelComplete, _ => DoLevelComplete()));
+            actions.Add(new Registration(EconomyEarn, _ => DoEconomyEarn()));
+            actions.Add(new Registration(EconomySpend, _ => DoEconomySpend()));
+            return actions.ToArray();
         }
 
         // Generic SDK actions. Ad and consent actions drive SDK/MAX mechanics and are recorded via the

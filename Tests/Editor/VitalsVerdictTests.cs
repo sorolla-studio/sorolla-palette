@@ -96,6 +96,48 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(4, tokens.Count);
         }
 
+        [TestCase(false, false, false)]
+        [TestCase(false, true, false)]
+        [TestCase(true, false, true)]
+        [TestCase(true, true, true)]
+        public void AdsCapability_IsOwnedByModeAndCompiledPackage(
+            bool fullMode, bool maxCompiled, bool required)
+        {
+            SorollaAdsCapability ads = SorollaRuntimeCapabilities.Ads(fullMode, maxCompiled);
+
+            Assert.AreEqual(required, ads.Required);
+            Assert.AreEqual(maxCompiled, ads.Included);
+        }
+
+        [Test]
+        public void AdsExcluded_NeverCreatesThinCoverage_EvenWithStaleAdUnits()
+        {
+            SorollaAdsCapability ads = SorollaRuntimeCapabilities.Ads(fullMode: false, maxCompiled: false);
+
+            Assert.IsTrue(SorollaDiagnostics.AdCoverageSatisfied(
+                ads,
+                rewardedConfigured: true,
+                interstitialConfigured: true,
+                proved: SorollaCoverageFact.None));
+        }
+
+        [Test]
+        public void AdsIncluded_RequiresConfiguredAdCoverage()
+        {
+            SorollaAdsCapability ads = SorollaRuntimeCapabilities.Ads(fullMode: false, maxCompiled: true);
+
+            Assert.IsFalse(SorollaDiagnostics.AdCoverageSatisfied(
+                ads,
+                rewardedConfigured: true,
+                interstitialConfigured: false,
+                proved: SorollaCoverageFact.None));
+            Assert.IsTrue(SorollaDiagnostics.AdCoverageSatisfied(
+                ads,
+                rewardedConfigured: true,
+                interstitialConfigured: false,
+                proved: SorollaCoverageFact.Rewarded));
+        }
+
         [Test]
         public void StudioOwnedGroups_RouteToTheStudio()
         {

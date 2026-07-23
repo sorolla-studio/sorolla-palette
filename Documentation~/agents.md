@@ -59,7 +59,10 @@ A snapshot proves what happened in the current session on this device. It does n
 
 Body: `{"action": "<name>"}`. Fire-and-ack: the response only confirms dispatch (`{"ok":true}` / `HTTP 200`); read the outcome back from the next `/qa/snapshot` (e.g. `events` count incrementing, `ads.rewarded.completed` flipping). This is the same action set the on-device debug console exposes as buttons — one core, two frontends.
 
-Action names: `show_rewarded`, `show_interstitial`, `open_privacy_options`, `reset_consent`, `refresh_consent`, `track_test_event`, `level_start`, `level_complete`, `economy_earn`, `economy_spend`.
+Action names: `open_privacy_options`, `reset_consent`, `refresh_consent`, `track_test_event`,
+`level_start`, `level_complete`, `economy_earn`, `economy_spend`. Builds that include AppLovin MAX
+also expose `show_rewarded` and `show_interstitial`; builds without MAX do not advertise actions they
+cannot execute.
 
 Error responses: `400` + `{"detail":"unknown_action"}` (typo'd action name) or `{"detail":"bad_request"}` (malformed body), `404` + `{"detail":"unknown_endpoint"}` (wrong path), `411`/`413` (missing/oversized request body), or `503` when the bounded command queue is busy.
 

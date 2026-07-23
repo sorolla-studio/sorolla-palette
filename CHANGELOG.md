@@ -35,8 +35,7 @@ release verdict.
 - **Per-build coverage ledger**: verified facts (consent resolved, a level played to completion, an
   ad watched to the end) persist for the exact build across relaunches, keyed to app version, Unity
   build GUID and SDK version, so proving the integration is one pass through the game rather than a
-  per-launch chore. Any rebuild starts from an empty ledger. A game with no ad units configured owes
-  no ad evidence.
+  per-launch chore. Any rebuild starts from an empty ledger. A build without MAX owes no ad evidence.
 - **Firebase config active-app matching**: the config check parses `google-services.json` /
   `GoogleService-Info.plist` and confirms it carries the active application id (Android
   `package_name`, iOS `BUNDLE_ID`). A copied wrong-game config fails with both identifiers named
@@ -50,8 +49,8 @@ release verdict.
 - **Facebook platform and credential probe**: an async, non-blocking Graph API call verifies that the
   active platform is registered on the Facebook app and that the app id / client token pair is
   accepted. A missing platform and a rejected credential pair report distinctly.
-- **AppLovin MAX ad unit check**: in Full mode, the rewarded and interstitial ad unit ids for the
-  active build target must be set.
+- **AppLovin MAX ad unit check**: when MAX is included, the rewarded and interstitial ad unit ids for
+  the active build target must be set.
 - **Build Health checks**: verbose logging left on, Development Build left on, Adjust sandbox mode
   left on, missing Android release keystore, a machine-local `org.gradle.java.home` committed into
   `gradleTemplate.properties`, an empty GameAnalytics `ResourceCurrencies` whitelist, missing
@@ -63,6 +62,9 @@ release verdict.
 - **SDK-only Vitals verdict**: Unity, plugin, and studio-game exceptions never appear as Vitals rows,
   affect its verdict, or enter the QA snapshot. The hidden internal console can still retain them for
   investigation without presenting them as SDK health.
+- **Capability-owned MAX diagnostics**: Prototype builds without MAX omit MAX consent, ad health,
+  ad coverage, and ad test actions entirely. Prototype builds that include MAX validate it fully;
+  Full builds without MAX report the missing package without impossible dependent waits.
 - **QA data files ship with the SDK** (`QA~/red-flags.txt`, `QA~/signal-markers.txt`,
   `QA~/known-non-blockers.txt`): the QA-pass grep patterns are version-pinned with the SDK.
 

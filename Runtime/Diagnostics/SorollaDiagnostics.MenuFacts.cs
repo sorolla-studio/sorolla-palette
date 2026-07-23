@@ -29,6 +29,7 @@ namespace Sorolla.Palette
         internal static string BuildMenuCoverageLine(out bool thin)
         {
             SorollaQaState state = CaptureQaState();
+            SorollaAdsCapability ads = SorollaRuntimeCapabilities.Ads(state.Mode == "full");
 
             string consent = MenuConsentCell(state, out _);
             int events = 0;
@@ -44,7 +45,8 @@ namespace Sorolla.Palette
 
             thin = IsCoverageThin(state, proved);
 
-            return $"consent {consent} · session 1 · {events} events · ads {(adsShown ? "shown" : "not shown")}";
+            string line = $"consent {consent} · session 1 · {events} events";
+            return ads.Included ? $"{line} · ads {(adsShown ? "shown" : "not shown")}" : line;
         }
 
         /// <summary>Everything proved on THIS build: this launch's facts folded into the persisted ledger.</summary>
@@ -68,16 +70,24 @@ namespace Sorolla.Palette
             MenuConsentCell(state, out bool consentUnresolved);
             if (consentUnresolved) return true;
             if ((proved & SorollaCoverageFact.Progression) == 0) return true;
-            return !AdCoverageSatisfied(proved);
+            return !AdCoverageSatisfied(state, proved);
         }
 
         /// <summary>One completed ad on ANY configured format is enough; no configured format means
         /// nothing to prove (same shape as the build check that only warns when both units are empty).</summary>
-        static bool AdCoverageSatisfied(SorollaCoverageFact proved)
+        static bool AdCoverageSatisfied(SorollaQaState state, SorollaCoverageFact proved)
         {
+            SorollaAdsCapability ads = SorollaRuntimeCapabilities.Ads(state.Mode == "full");
             SorollaConfig config = LoadConfig();
             bool rewardedConfigured = !string.IsNullOrEmpty(config?.rewardedAdUnit?.Current);
             bool interstitialConfigured = !string.IsNullOrEmpty(config?.interstitialAdUnit?.Current);
+            return AdCoverageSatisfied(ads, rewardedConfigured, interstitialConfigured, proved);
+        }
+
+        internal static bool AdCoverageSatisfied(SorollaAdsCapability ads, bool rewardedConfigured,
+            bool interstitialConfigured, SorollaCoverageFact proved)
+        {
+            if (!ads.Included) return true;
             if (!rewardedConfigured && !interstitialConfigured) return true;
             if (rewardedConfigured && (proved & SorollaCoverageFact.Rewarded) != 0) return true;
             return interstitialConfigured && (proved & SorollaCoverageFact.Interstitial) != 0;
@@ -154,6 +164,7 @@ namespace Sorolla.Palette
         {
             Snapshot snap = CaptureSnapshot();
             SorollaQaState state = CaptureQaState();
+            SorollaAdsCapability ads = SorollaRuntimeCapabilities.Ads(state.Mode == "full");
             var rows = new List<SorollaMenuMatrixRow>(8);
 
             // Coverage is per BUILD, not per launch: a path proved earlier on this same build stays proved
@@ -164,7 +175,9 @@ namespace Sorolla.Palette
             bool consentResolved = (proved & SorollaCoverageFact.Consent) != 0;
             rows.Add(new SorollaMenuMatrixRow("Consent", consentResolved,
                 Cell(session, SorollaCoverageFact.Consent, MenuConsentCell(state, out _)),
-                "Open the app and resolve the CMP prompt"));
+                ads.Included
+                    ? "Open the app and resolve the CMP prompt"
+                    : "Open the app and complete the consent or ATT prompt if shown"));
 
             bool progressionSeen = (proved & SorollaCoverageFact.Progression) != 0;
             rows.Add(new SorollaMenuMatrixRow("Progression", progressionSeen,
@@ -190,22 +203,7 @@ namespace Sorolla.Palette
                 Cell(session, SorollaCoverageFact.CustomEvent, $"{snap.CustomEventCount} seen"),
                 "Trigger a real Palette.TrackEvent call from your game code"));
 
-            bool interExercised = (proved & SorollaCoverageFact.Interstitial) != 0;
-            rows.Add(new SorollaMenuMatrixRow("Ads · interstitial", interExercised,
-                Cell(session, SorollaCoverageFact.Interstitial,
-                    $"loaded {YesNo(state.InterstitialLoaded)} · shown-to-completion {YesNo(state.InterstitialCompleted)}"),
-                "Tap Show interstitial below, or reach one through your own game flow"));
-
-            bool rewardedExercised = (proved & SorollaCoverageFact.Rewarded) != 0;
-            rows.Add(new SorollaMenuMatrixRow("Ads · rewarded", rewardedExercised,
-                Cell(session, SorollaCoverageFact.Rewarded,
-                    $"loaded {YesNo(state.RewardedLoaded)} · shown-to-completion {YesNo(state.RewardedCompleted)}"),
-                "Tap Show rewarded below, or reach one through your own game flow"));
-
-            bool revenueSeen = (proved & SorollaCoverageFact.AdRevenue) != 0;
-            rows.Add(new SorollaMenuMatrixRow("Ads · revenue", revenueSeen,
-                Cell(session, SorollaCoverageFact.AdRevenue, "revenue callback seen"),
-                "Use the Show interstitial or Show rewarded button above and let the ad play through"));
+            AddMaxCoverageRows(rows, state, session, proved, ads);
 
             // IAP row only when the game has IAP wired at all (tracking attached or a purchase already
             // observed) - a game with no store integration would otherwise show a permanently
@@ -233,6 +231,29 @@ namespace Sorolla.Palette
                 "Close and reopen the app; consent/config should persist without re-prompting"));
 
             return rows;
+        }
+
+        static void AddMaxCoverageRows(List<SorollaMenuMatrixRow> rows, SorollaQaState state,
+            SorollaCoverageFact session, SorollaCoverageFact proved, SorollaAdsCapability ads)
+        {
+            if (!ads.Included) return;
+
+            bool interExercised = (proved & SorollaCoverageFact.Interstitial) != 0;
+            rows.Add(new SorollaMenuMatrixRow("Ads · interstitial", interExercised,
+                Cell(session, SorollaCoverageFact.Interstitial,
+                    $"loaded {YesNo(state.InterstitialLoaded)} · shown-to-completion {YesNo(state.InterstitialCompleted)}"),
+                "Tap Show interstitial below, or reach one through your own game flow"));
+
+            bool rewardedExercised = (proved & SorollaCoverageFact.Rewarded) != 0;
+            rows.Add(new SorollaMenuMatrixRow("Ads · rewarded", rewardedExercised,
+                Cell(session, SorollaCoverageFact.Rewarded,
+                    $"loaded {YesNo(state.RewardedLoaded)} · shown-to-completion {YesNo(state.RewardedCompleted)}"),
+                "Tap Show rewarded below, or reach one through your own game flow"));
+
+            bool revenueSeen = (proved & SorollaCoverageFact.AdRevenue) != 0;
+            rows.Add(new SorollaMenuMatrixRow("Ads · revenue", revenueSeen,
+                Cell(session, SorollaCoverageFact.AdRevenue, "revenue callback seen"),
+                "Use the Show interstitial or Show rewarded button above and let the ad play through"));
         }
 
         /// <summary>The cell text for a proved row: this launch's own numbers when it saw the fact, otherwise
