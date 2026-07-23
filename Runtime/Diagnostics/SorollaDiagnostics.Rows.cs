@@ -347,11 +347,12 @@ namespace Sorolla.Palette
         static void AddPurchaseVerificationRow(List<SorollaDiagnosticRow> rows, Snapshot snapshot)
         {
             SorollaDiagnosticSeverity severity = PurchaseVerificationSeverity(snapshot);
+            string detail = PurchaseVerificationDetail(snapshot);
             if (severity == SorollaDiagnosticSeverity.Warning)
-                AddDiagnosed(rows, "Activity", "Purchase verification", severity, snapshot.PurchaseVerification,
+                AddDiagnosed(rows, "Activity", "Purchase verification", severity, detail,
                     PurchaseVerificationFailureDiagnosis());
             else
-                AddObserved(rows, "Activity", "Purchase verification", severity, snapshot.PurchaseVerification);
+                AddObserved(rows, "Activity", "Purchase verification", severity, detail);
         }
 
         static void AddPurchaseIssuesRow(List<SorollaDiagnosticRow> rows, Snapshot snapshot)
@@ -610,13 +611,45 @@ namespace Sorolla.Palette
             return SorollaDiagnosticSeverity.Info;
         }
 
-        static SorollaDiagnosticSeverity PurchaseVerificationSeverity(Snapshot snapshot)
+        /// <summary>
+        ///     What Adjust actually answered for a tracked purchase. Four states, because "a callback arrived"
+        ///     and "verification succeeded" are different facts and only the first one is cheap to observe:
+        ///     treating any answer as proof let a genuine failure (missing purchase details, unknown status)
+        ///     complete the purchase-verification requirement.
+        ///     The environment mismatch is deliberately NOT a failure: a sandbox StoreKit purchase verified
+        ///     against Adjust's production environment returns it deterministically, and it proves the call
+        ///     round-tripped, which is exactly what the requirement asks. The row says so rather than
+        ///     claiming a verified purchase.
+        /// </summary>
+        internal static PurchaseVerificationState ClassifyPurchaseVerification(string detail)
         {
-            if (snapshot.PurchaseVerification == NotObserved) return SorollaDiagnosticSeverity.Info;
-            return snapshot.PurchaseVerification.Contains("success")
-                ? SorollaDiagnosticSeverity.Pass
-                : SorollaDiagnosticSeverity.Warning;
+            if (string.IsNullOrEmpty(detail) || detail == NotObserved)
+                return PurchaseVerificationState.NotObserved;
+            if (detail.Contains(EnvironmentMismatchCode))
+                return PurchaseVerificationState.EnvironmentMismatch;
+            if (detail.Contains("success") || (detail.Contains("verified") && !detail.Contains("not_verified")))
+                return PurchaseVerificationState.Verified;
+            return PurchaseVerificationState.Failed;
         }
+
+        /// <summary>Adjust's deterministic "this purchase belongs to the other environment" result.</summary>
+        const string EnvironmentMismatchCode = "20040";
+
+        static SorollaDiagnosticSeverity PurchaseVerificationSeverity(Snapshot snapshot) =>
+            ClassifyPurchaseVerification(snapshot.PurchaseVerification) switch
+            {
+                PurchaseVerificationState.NotObserved => SorollaDiagnosticSeverity.Info,
+                PurchaseVerificationState.Failed => SorollaDiagnosticSeverity.Warning,
+                _ => SorollaDiagnosticSeverity.Pass,
+            };
+
+        /// <summary>The row detail, with the environment mismatch spelled out - the raw vendor code alone
+        /// reads like a failure to anyone who has not memorised it.</summary>
+        static string PurchaseVerificationDetail(Snapshot snapshot) =>
+            ClassifyPurchaseVerification(snapshot.PurchaseVerification) == PurchaseVerificationState.EnvironmentMismatch
+                ? $"{snapshot.PurchaseVerification} - test purchase checked against the other Adjust environment; " +
+                  "the call round-tripped, the purchase itself is not verified"
+                : snapshot.PurchaseVerification;
 
         // Firebase's own "not available" message is the single most common Fail this menu ever
         // shows (every editor playmode session, no native lib) and is a completely different fact

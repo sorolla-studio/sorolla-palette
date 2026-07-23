@@ -227,7 +227,15 @@ namespace Sorolla.Palette.Health
     internal sealed class HealthReport
     {
         public IReadOnlyList<GateResult> Rows;
+        /// <summary>Everything this report saw, static and device evidence together.</summary>
         public GateOutcome Outcome;
+        /// <summary>
+        ///     The pre-build answer: is this project's SDK INTEGRATION ready? Aggregated over the gates that
+        ///     are decidable without running the game, so a device that was never connected cannot hold a
+        ///     clean integration below green. Device evidence is a separate question with its own rows and
+        ///     its own verdict, and it never votes here (2026-07-23).
+        /// </summary>
+        public GateOutcome IntegrationOutcome;
         public IReadOnlyList<string> ValidationErrors;
     }
 

@@ -106,9 +106,27 @@ namespace Sorolla.Palette.Editor
                 return results;
             }
 
+            // Item types are the OTHER half of the same lookup: Palette sends the source/sink category in
+            // that slot on every economy call, so an empty item-type list drops every resource event even
+            // with the currency list perfectly filled in.
+            SerializedProperty itemTypesProperty = serialized.FindProperty("ResourceItemTypes");
+            bool itemTypesEmpty = itemTypesProperty == null || !itemTypesProperty.isArray ||
+                                  itemTypesProperty.arraySize == 0;
+            if (itemTypesEmpty)
+            {
+                results.Add(Warning(
+                    category,
+                    "GameAnalytics ResourceItemTypes whitelist is empty while ResourceCurrencies is filled in.\n" +
+                    "  Palette sends the earn source / spend sink in that slot on every economy call, so every " +
+                    "resource event is still dropped.",
+                    $"Add the categories this game uses to Resource Item Types; Palette sends: {string.Join(", ", EconomyVocabulary.ItemTypes())}"));
+                return results;
+            }
+
+            // Whatever the auto-fix could not decide unambiguously. It rewrites exact-meaning mis-spellings
+            // itself, so anything reported here needs a human.
             List<string> mismatches = WhitelistMismatches(resourceCurrenciesProperty, EconomyVocabulary.Currencies());
-            mismatches.AddRange(WhitelistMismatches(
-                serialized.FindProperty("ResourceItemTypes"), EconomyVocabulary.ItemTypes()));
+            mismatches.AddRange(WhitelistMismatches(itemTypesProperty, EconomyVocabulary.ItemTypes()));
 
             if (mismatches.Count > 0)
                 results.Add(Warning(
@@ -118,7 +136,13 @@ namespace Sorolla.Palette.Editor
                     "  GameAnalytics silently drops every resource event whose currency or item type is not whitelisted EXACTLY.",
                     "Rewrite each listed entry in the form Palette sends (lower_snake_case)"));
             else
-                results.Add(Valid(category, $"ResourceCurrencies: {resourceCurrenciesProperty.arraySize} configured"));
+                // The honest scope of this check: the lists are readable and every entry that names something
+                // Palette sends is spelled the way Palette sends it. Whether the game's OWN currencies are all
+                // listed is not knowable from the editor - that needs the game's call sites.
+                results.Add(Valid(category,
+                    $"ResourceCurrencies: {resourceCurrenciesProperty.arraySize} configured, " +
+                    $"ResourceItemTypes: {itemTypesProperty.arraySize} configured; " +
+                    "every entry naming a Palette value is spelled as sent"));
 
             return results;
         }
@@ -137,17 +161,70 @@ namespace Sorolla.Palette.Editor
             for (int i = 0; i < list.arraySize; i++)
             {
                 string entry = list.GetArrayElementAtIndex(i).stringValue;
-                if (string.IsNullOrEmpty(entry)) continue;
-
-                string normalized = Normalize(entry);
-                foreach (string name in emitted)
-                {
-                    if (entry == name || Normalize(name) != normalized) continue;
-                    mismatches.Add($"'{entry}' -> Palette sends '{name}'");
-                    break;
-                }
+                if (TryMatchEmitted(entry, emitted, out string sent))
+                    mismatches.Add($"'{entry}' -> Palette sends '{sent}'");
             }
             return mismatches;
+        }
+
+        /// <summary>
+        ///     True when this entry clearly MEANS one of the values Palette sends but is not spelled that way.
+        ///     The match is case- and separator-insensitive only: an entry that resolves to nothing Palette
+        ///     sends is somebody else's and is never touched or reported.
+        /// </summary>
+        internal static bool TryMatchEmitted(string entry, string[] emitted, out string sent)
+        {
+            sent = null;
+            if (string.IsNullOrEmpty(entry)) return false;
+
+            string normalized = Normalize(entry);
+            foreach (string name in emitted)
+            {
+                if (entry == name) return false; // already exactly right
+                if (Normalize(name) != normalized) continue;
+                sent = name;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        ///     Rewrites whitelist entries that Palette can spell for the studio ("Coins" -> "coins"). Safe
+        ///     because the rewrite is exact-meaning and deterministic: only an entry that already resolves to
+        ///     one specific value Palette sends is touched, and it is rewritten to that value. Nothing is
+        ///     added and nothing is removed - the SDK cannot know which currencies a game actually uses, so
+        ///     it never invents entries.
+        /// </summary>
+        internal static List<string> FixGameAnalyticsWhitelistSpelling()
+        {
+            var fixes = new List<string>();
+            if (!SdkDetector.IsInstalled(SdkId.GameAnalytics)) return fixes;
+
+            Object settings = Resources.Load("GameAnalytics/Settings");
+            if (settings == null) return fixes;
+
+            var serialized = new SerializedObject(settings);
+            bool changed = NormalizeList(serialized.FindProperty("ResourceCurrencies"), EconomyVocabulary.Currencies(), fixes);
+            changed |= NormalizeList(serialized.FindProperty("ResourceItemTypes"), EconomyVocabulary.ItemTypes(), fixes);
+            if (changed)
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            return fixes;
+
+            static bool NormalizeList(SerializedProperty list, string[] emitted, List<string> log)
+            {
+                if (list == null || !list.isArray) return false;
+
+                bool touched = false;
+                for (int i = 0; i < list.arraySize; i++)
+                {
+                    SerializedProperty element = list.GetArrayElementAtIndex(i);
+                    if (!TryMatchEmitted(element.stringValue, emitted, out string sent)) continue;
+                    log.Add($"Rewrote GameAnalytics whitelist entry '{element.stringValue}' as '{sent}' (the value Palette sends)");
+                    element.stringValue = sent;
+                    touched = true;
+                }
+                return touched;
+            }
         }
 
         /// <summary>Case- and separator-insensitive form, so "Level Reward", "LevelReward" and "level-reward"

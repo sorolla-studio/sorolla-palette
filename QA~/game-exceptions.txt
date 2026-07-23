@@ -1,21 +1,23 @@
-# Game-owned failure substrings — INFORMATIONAL ONLY. A hit here is reported and never
-# fails a run. Same file shape as red-flags.txt (one substring per line, # comments
-# ignored), same provenance rule: this copy ships with the SDK and is canonical for this
-# SDK version; the sorolla-docs skill copy is the fallback for older pins.
+# Exception substrings whose OWNER decides the verdict. A name alone never does: the same
+# NullReferenceException is information when a game's code threw it and a failure when Palette
+# or a vendor threw it. qa-gate.sh reads each match's stack and fails the run only when the
+# frames under it are SDK- or vendor-owned; a game-owned stack is reported and does not fail.
+# Same file shape as red-flags.txt (one substring per line, # comments ignored). The canonical
+# copy ships in the SDK package QA~/ and is version-pinned with the SDK; the sorolla-docs skill
+# copy is the fallback for older pins.
 #
-# Why the split (2026-07-23): the SDK's verdict grades the SDK. These patterns say a
-# GAME threw, and a game that throws can still have a flawless SDK integration - scanning
-# them as binding produced a red verdict with nothing SDK-side wrong (junkyard-survival).
-# They stay listed because a reader of the capture should still see them.
+# Why the split (2026-07-23): the SDK's verdict grades the SDK. Failing a run on a game's own
+# crash produced a red verdict with nothing SDK-side wrong (junkyard-survival). Deleting these
+# patterns outright would have been the opposite mistake - an SDK-thrown null reference has to
+# fail - so ownership, not the name, is what decides.
 #
-# Nothing SDK- or vendor-scoped belongs here. If a pattern proves an SDK or vendor
-# init/delivery failure, it goes in red-flags.txt and it binds.
+# red-flags.txt is for patterns that are SDK/vendor failures on sight and need no stack to judge.
 
-# Android process crash (the game's process died; the stack says whose code)
+# Android process crash (the stack says whose code died)
 FATAL EXCEPTION
 
 # Common unhandled C# exceptions
 NullReferenceException
 
-# Addressables catalog out of date (game content, not SDK state)
+# Addressables catalog out of date (game content unless an SDK frame owns the stack)
 InvalidKeyException

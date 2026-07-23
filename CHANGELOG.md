@@ -20,6 +20,11 @@ release verdict.
   counts. It is fail-closed: a gate whose evidence is missing, pending, unverifiable, or supplied
   without the proof it requires reads `INCOMPLETE`, never green. A fresh project with nothing checked
   reads `INCOMPLETE`.
+- **The verdict answers the pre-build question.** It grades what is decidable without running the
+  game, so a project whose integration is clean reads ready before any device is connected. Evidence
+  that can only come from a running device keeps its own rows and its own status under Device & QA,
+  and never holds the readiness verdict down. The copied report states both: `integration:` and
+  `outcome:` (integration plus device evidence).
 - **The report evaluates the active build target.** Checks about the platform the project is not
   building do not appear in the verdict, the counts, or the rows, and apply again when the build
   target switches. A game shipping one platform can reach a green verdict.
@@ -72,11 +77,14 @@ release verdict.
 - **QA data files ship with the SDK** (`QA~/red-flags.txt`, `QA~/game-exceptions.txt`,
   `QA~/signal-markers.txt`, `QA~/known-non-blockers.txt`): the QA-pass grep patterns are
   version-pinned with the SDK. `red-flags.txt` holds SDK and vendor failures and binds a run;
-  game-owned exceptions live in `game-exceptions.txt` and are reported without failing it.
-- **GameAnalytics whitelist spelling check**: a `ResourceCurrencies` or `ResourceItemTypes` entry that
-  names what Palette sends but spells it differently (`Coins` for the `coins` actually sent) is
-  reported with the exact string to use. GameAnalytics matches these lists exactly and drops
-  non-matching resource events in silence.
+  `game-exceptions.txt` holds exception names that prove nothing on their own and are judged by which
+  code owns the failing stack - a game-owned stack is reported, a Palette or vendor stack fails.
+- **GameAnalytics whitelist repair and item-type check**: an entry that names what Palette sends but
+  spells it differently (`Coins` for the `coins` actually sent) is rewritten to the value actually
+  sent and logged as an auto-fix; nothing is ever added or removed, since which currencies a game
+  uses is not knowable from the editor. An empty `ResourceItemTypes` list is reported even when
+  `ResourceCurrencies` is full, because Palette puts the earn source / spend sink in that slot on
+  every economy call and GameAnalytics drops the event when it is not listed.
 
 ### Changed
 
@@ -89,9 +97,10 @@ release verdict.
   reads as its name and a short status word, with the message and fix wrapping underneath. Clicking
   anywhere on a group header folds it.
 - **Configuration edits re-run validation as you type**, with no Refresh press, and a check waiting on
-  a network answer updates itself when the probe returns. The report also re-evaluates on its own when
-  the active build target or the mode changes, and when a vendor configuration asset is written
-  (GameAnalytics settings, the MAX settings, Facebook settings, either Firebase config file).
+  a network answer updates itself when the probe returns. The report also re-evaluates on its own
+  within a second of ANY input a check reads changing: the build target, the mode, the package
+  manifest, player settings, the Android manifest and gradle templates, the vendor settings assets,
+  and both Firebase config files.
 - **TEST YOUR GAME asks only for what this game includes**: a Prototype game with no optional packages
   owes one item, playing a level. Consent appears with AppLovin MAX, an ad item per ad format that has
   a unit id for the active build target, purchase items with Unity IAP, and Adjust purchase
@@ -99,8 +108,10 @@ release verdict.
   untested item reads TO DO, never as an error.
 - **Each configured ad format is proved separately**: watching a rewarded ad no longer completes the
   interstitial requirement.
-- **Adjust purchase verification completes from the device**: the row turns DONE when Adjust answers
-  the verification call for a tracked purchase, including the sandbox environment-mismatch answer.
+- **Adjust purchase verification is graded by what Adjust answered**: a verified purchase completes
+  the row, and so does the environment mismatch a sandbox purchase gets back, which the row states
+  in words rather than a bare vendor code. A rejected or unknown verification does not complete it:
+  it stays owed and the purchase-verification row carries the failure and its fix.
 - **Vendor foldouts appear only for vendors the game includes or owes.**
 - **The window states which platform the report judged**, and the Adjust sandbox checkbox sits under
   the warning that explains it.

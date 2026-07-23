@@ -84,7 +84,10 @@ namespace Sorolla.Palette.Editor.Greenlight
         {
             var sb = new StringBuilder();
             sb.AppendLine($"Palette Greenlight Report ({Schema})");
-            sb.AppendLine($"outcome: {(health?.Outcome ?? GateOutcome.Incomplete)}");
+            // Two answers, never one: integration readiness is decidable before a build, device evidence is
+            // not. Collapsing them is what used to hold a clean project below green until a phone was wired.
+            sb.AppendLine($"integration: {(health?.IntegrationOutcome ?? GateOutcome.Incomplete)}");
+            sb.AppendLine($"outcome: {(health?.Outcome ?? GateOutcome.Incomplete)} (integration + device evidence)");
             sb.AppendLine($"sdk: {fingerprint.SdkVersion} (commit {fingerprint.SdkCommit}) | " +
                           $"app: {fingerprint.ApplicationId} {fingerprint.AppVersion} | " +
                           $"platform: {fingerprint.Platform} | mode: {fingerprint.Mode}");

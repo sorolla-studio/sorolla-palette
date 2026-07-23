@@ -177,5 +177,44 @@ plugins {
                 ["url"] = url,
                 ["scopes"] = scopes,
             };
+
+        // ── GameAnalytics whitelist: what the SDK may rewrite for a studio ──
+
+        [TestCase("Coins", "coins")]
+        [TestCase("COINS", "coins")]
+        [TestCase("Level Reward", "level_reward")]
+        [TestCase("LevelReward", "level_reward")]
+        [TestCase("level-reward", "level_reward")]
+        public void WhitelistEntry_ThatMeansAPaletteValue_IsRewrittenToWhatIsSent(string entry, string sent)
+        {
+            string[] emitted = { "coins", "gems", "level_reward", "booster" };
+
+            Assert.IsTrue(BuildValidator.TryMatchEmitted(entry, emitted, out string match));
+            Assert.AreEqual(sent, match);
+        }
+
+        [TestCase("coins")]         // already exactly what Palette sends
+        [TestCase("premium_gold")]  // some other integration's currency: not ours to touch
+        [TestCase("")]
+        [TestCase(null)]
+        public void WhitelistEntry_ThatIsCorrectOrForeign_IsLeftAlone(string entry)
+        {
+            string[] emitted = { "coins", "gems", "level_reward", "booster" };
+
+            Assert.IsFalse(BuildValidator.TryMatchEmitted(entry, emitted, out string match));
+            Assert.IsNull(match);
+        }
+
+        [Test]
+        public void PaletteEconomyVocabulary_IsTheLowerSnakeCaseFormGameAnalyticsMatchesOn()
+        {
+            // The whole check rests on knowing exactly what goes in GameAnalytics' currency and item-type
+            // slots. If the emitted form ever changes, this fails here rather than silently in a dashboard.
+            CollectionAssert.Contains(EconomyVocabulary.Currencies(), "coins");
+            CollectionAssert.Contains(EconomyVocabulary.ItemTypes(), "level_reward");
+            CollectionAssert.Contains(EconomyVocabulary.ItemTypes(), "shop_purchase");
+            foreach (string value in EconomyVocabulary.Currencies())
+                Assert.AreEqual(value.ToLowerInvariant(), value, value);
+        }
     }
 }

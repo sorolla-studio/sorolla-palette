@@ -627,5 +627,88 @@ namespace Sorolla.Palette.Editor.Tests
                 "with every required gate observed green, the report must be able to read HEALTHY");
             Assert.AreEqual("HEALTHY", GreenlightEvaluator.VerdictLabel(report.Outcome, 0, 0));
         }
+
+        // ── Integration readiness is decidable before a build (2026-07-23) ──
+
+        static EvaluationContext MobileContext() => new EvaluationContext
+        {
+            Mode = EvalMode.Full, Platform = EvalPlatform.Android,
+            InstalledModules = HealthEnums.AllModuleBits,
+            ModulesResolved = true,
+        };
+
+        static List<GateObservation> StaticObservationsAllGreen(EvaluationContext ctx) =>
+            GateCatalog.Canonical.All
+                .Where(d => d.Requirement(ctx).Value == Requirement.Required &&
+                            (d.RequiredProof & ProofScope.DeviceDispatch) == 0)
+                .Select(d => new GateObservation
+                {
+                    GateId = d.Id, Outcome = GateOutcome.Pass, ObservedProof = d.RequiredProof,
+                    Evidence = "observed",
+                })
+                .ToList();
+
+        [Test]
+        public void CleanStaticSetup_IsIntegrationReady_BeforeAnyDeviceIsConnected()
+        {
+            // The pre-build contract: everything decidable without running the game is green, so the
+            // integration verdict is green - while the device question stays honestly unanswered.
+            EvaluationContext ctx = MobileContext();
+            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, StaticObservationsAllGreen(ctx));
+
+            Assert.AreEqual(GateOutcome.Pass, report.IntegrationOutcome,
+                "a statically clean project must be able to read ready before a device exists");
+            Assert.AreEqual(GateOutcome.Incomplete, report.Outcome,
+                "the combined answer still has no device evidence");
+            GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceVitals);
+            Assert.AreEqual(GateOutcome.Incomplete, device.Outcome, "the device row keeps its own honest state");
+        }
+
+        [Test]
+        public void FailingDeviceEvidence_DoesNotDragDownIntegrationReadiness()
+        {
+            EvaluationContext ctx = MobileContext();
+            List<GateObservation> observations = StaticObservationsAllGreen(ctx);
+            observations.Add(new GateObservation
+            {
+                GateId = GateIds.DeviceVitals, Outcome = GateOutcome.Fail,
+                ObservedProof = ProofScope.DeviceDispatch, Evidence = "runtime vitals failing",
+            });
+
+            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, observations);
+
+            Assert.AreEqual(GateOutcome.Pass, report.IntegrationOutcome, "the integration itself is still ready");
+            Assert.AreEqual(GateOutcome.Fail, report.Outcome, "the combined answer reports the device failure");
+        }
+
+        [Test]
+        public void FailingStaticGate_StillFailsIntegrationReadiness()
+        {
+            EvaluationContext ctx = MobileContext();
+            List<GateObservation> observations = StaticObservationsAllGreen(ctx);
+            observations[0] = new GateObservation
+            {
+                GateId = observations[0].GateId, Outcome = GateOutcome.Fail,
+                ObservedProof = ProofScope.Static, Evidence = "broken",
+            };
+
+            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, observations);
+
+            Assert.AreEqual(GateOutcome.Fail, report.IntegrationOutcome);
+        }
+
+        [Test]
+        public void DeviceRows_DoNotEnterTheHeadlineCounts()
+        {
+            EvaluationContext ctx = MobileContext();
+            GreenlightEvaluator.Report report =
+                GreenlightEvaluator.ToReport(HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx,
+                    StaticObservationsAllGreen(ctx)));
+
+            Assert.AreEqual(0, report.WaitCount,
+                "a never-connected device must not read as a pending integration check");
+            Assert.IsTrue(report.Rows.Any(r => r.IsDeviceEvidence),
+                "the device row is still rendered, under its own group");
+        }
     }
 }

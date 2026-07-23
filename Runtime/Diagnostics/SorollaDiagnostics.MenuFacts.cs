@@ -198,14 +198,16 @@ namespace Sorolla.Palette
                     Cell(session, SorollaCoverageFact.IapPurchase, inputs.IapPurchaseCell),
                     "Complete one purchase (sandbox/test track)"));
 
-                // Adjust answering the verification call at all proves the purchase reached it. In sandbox
-                // the answer is a deterministic environment mismatch - that is still an answer, so it
-                // completes the row instead of asking a studio to read a dashboard.
+                // A verified purchase completes this, and so does the deterministic environment mismatch a
+                // sandbox purchase gets - that answer proves the call round-tripped. A REJECTED verification
+                // does not: the row stays owed and points at the issue row carrying the fix.
                 if (inputs.Adjust.Applicable)
                     rows.Add(new SorollaMenuMatrixRow("Adjust purchase verification",
                         (proved & SorollaCoverageFact.AdjustPurchaseVerification) != 0,
                         Cell(session, SorollaCoverageFact.AdjustPurchaseVerification, inputs.State.IapVerification),
-                        "Complete one purchase; Adjust answers the verification call for it"));
+                        ClassifyPurchaseVerification(inputs.State.IapVerification) == PurchaseVerificationState.Failed
+                            ? $"Adjust rejected the verification for this purchase ({inputs.State.IapVerification}); see Purchase verification under FIX THESE"
+                            : "Complete one purchase; Adjust answers the verification call for it"));
             }
 
             return rows;
@@ -248,6 +250,20 @@ namespace Sorolla.Palette
             };
         }
 
+        /// <summary>
+        ///     What Adjust's answer proves. A verified purchase does, and so does the deterministic
+        ///     environment mismatch a sandbox purchase gets back - that answer means the call round-tripped,
+        ///     which is the whole claim of the row. A rejection or an unknown status proves nothing and
+        ///     leaves the requirement owed; the Activity row carries the failure and its fix.
+        /// </summary>
+        internal static SorollaCoverageFact VerificationCoverage(string detail) =>
+            ClassifyPurchaseVerification(detail) switch
+            {
+                PurchaseVerificationState.Verified => SorollaCoverageFact.AdjustPurchaseVerification,
+                PurchaseVerificationState.EnvironmentMismatch => SorollaCoverageFact.AdjustPurchaseVerification,
+                _ => SorollaCoverageFact.None,
+            };
+
         /// <summary>The cell text for a proved row: this launch's own numbers when it saw the fact, otherwise
         /// a plain statement that an earlier launch on this same build proved it (the session counters would
         /// read zero and make a DONE row look wrong).</summary>
@@ -272,10 +288,7 @@ namespace Sorolla.Palette
             if (state.RewardedLoaded && state.RewardedCompleted) facts |= SorollaCoverageFact.Rewarded;
             if (state.AdRevenueSeen) facts |= SorollaCoverageFact.AdRevenue;
             if (state.IapPurchaseCount > 0) facts |= SorollaCoverageFact.IapPurchase;
-            // Any answer from Adjust proves the verification call round-tripped, including the sandbox
-            // environment mismatch; only "never called" leaves the row owing evidence.
-            if (!string.IsNullOrEmpty(state.IapVerification) && state.IapVerification != NotObserved)
-                facts |= SorollaCoverageFact.AdjustPurchaseVerification;
+            facts |= VerificationCoverage(state.IapVerification);
             return facts;
         }
 

@@ -37,8 +37,9 @@ namespace Sorolla.Palette.Editor
         ScrollView _scrollView;
         List<BuildValidator.ValidationResult> _validationResults = new List<BuildValidator.ValidationResult>();
         bool _revalidationQueued;
-        BuildTarget _watchedBuildTarget;
-        SorollaMode _watchedMode;
+        int _validatorInputFingerprint;
+        double _lastInputPoll;
+        const double InputPollSeconds = 1.0;
 
         /// <summary>Opens full-window with no tab strip (matching the AppLovin Integration Manager's
         /// presentation) - a utility window, not a dockable one. ShowUtility() is what drops the tab chrome;
@@ -81,14 +82,12 @@ namespace Sorolla.Palette.Editor
         void OnEnable()
         {
             LoadOrCreateConfig();
-            _watchedBuildTarget = EditorUserBuildSettings.activeBuildTarget;
-            _watchedMode = SorollaSettings.Mode;
+            _validatorInputFingerprint = ValidatorInputs.Fingerprint();
             RunBuildValidation();
             Events.registeringPackages += OnPackagesRegistering;
             Events.registeredPackages += OnPackagesRegistered;
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
-            EditorApplication.update += PollProjectState;
-            VendorConfigWatcher.Changed += ScheduleRevalidation;
+            EditorApplication.update += PollValidatorInputs;
             FacebookPlatformValidator.OnProbeSettled += RunBuildValidation;
             GameAnalyticsCredentialValidator.OnProbeSettled += RunBuildValidation;
         }
@@ -98,27 +97,28 @@ namespace Sorolla.Palette.Editor
             Events.registeringPackages -= OnPackagesRegistering;
             Events.registeredPackages -= OnPackagesRegistered;
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
-            EditorApplication.update -= PollProjectState;
-            VendorConfigWatcher.Changed -= ScheduleRevalidation;
+            EditorApplication.update -= PollValidatorInputs;
             FacebookPlatformValidator.OnProbeSettled -= RunBuildValidation;
             GameAnalyticsCredentialValidator.OnProbeSettled -= RunBuildValidation;
         }
 
         /// <summary>
-        ///     The report judges ONE platform and ONE mode, so a change to either invalidates every row in it.
-        ///     Polled rather than event-driven because Unity offers no reliable in-session notification for
-        ///     the active build target: switching platforms left the whole report showing the previous
-        ///     target's answers until someone pressed Refresh. Two enum comparisons per tick.
+        ///     Re-validates whenever ANY validator input changes - build target, mode, or any file a check
+        ///     reads. Polled rather than event-driven because Unity offers no reliable in-session
+        ///     notification for the active build target, and one fingerprint over the whole input set beats
+        ///     a hand-maintained watcher list that silently goes stale as checks are added. Throttled to
+        ///     once a second; the report can never be older than that.
         /// </summary>
-        void PollProjectState()
+        void PollValidatorInputs()
         {
-            if (EditorUserBuildSettings.activeBuildTarget == _watchedBuildTarget &&
-                SorollaSettings.Mode == _watchedMode)
-                return;
+            if (EditorApplication.timeSinceStartup - _lastInputPoll < InputPollSeconds) return;
+            _lastInputPoll = EditorApplication.timeSinceStartup;
 
-            _watchedBuildTarget = EditorUserBuildSettings.activeBuildTarget;
-            _watchedMode = SorollaSettings.Mode;
-            RefreshHeroHeaderUI();
+            int fingerprint = ValidatorInputs.Fingerprint();
+            if (fingerprint == _validatorInputFingerprint) return;
+
+            _validatorInputFingerprint = fingerprint;
+            RefreshHeroHeaderUI(); // the mode switch is one of the inputs
             ScheduleRevalidation();
         }
 

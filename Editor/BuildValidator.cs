@@ -210,6 +210,10 @@ namespace Sorolla.Palette.Editor
             if (MaxSettingsSanitizer.SyncConsentFlowSettings())
                 fixes.Add("Synced AppLovin consent flow settings");
 
+            // GameAnalytics whitelist spelling: only entries that already mean a value Palette sends, only
+            // rewritten to that exact value. Nothing added, nothing removed.
+            fixes.AddRange(FixGameAnalyticsWhitelistSpelling());
+
             // Gradle config auto-fixes (Android only)
             if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android)
             {

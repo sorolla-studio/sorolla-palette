@@ -28,12 +28,21 @@ namespace Sorolla.Palette.Editor.Greenlight
             public string Detail;
             /// <summary>Fix text shown for non-Pass rows.</summary>
             public string Fix;
+            /// <summary>This row's proof can only come from a running device, so it is graded apart from the
+            /// integration verdict.</summary>
+            public bool IsDeviceEvidence;
         }
 
         internal sealed class Report
         {
             public readonly List<Row> Rows = new List<Row>();
+            /// <summary>Static + device evidence together. The copied report states it; the window does not
+            /// lead with it, because a studio that has not connected a device yet still needs a straight
+            /// answer about its integration.</summary>
             public GateOutcome Outcome;
+            /// <summary>The window's headline: is the INTEGRATION ready to build? Device rows are excluded
+            /// here and graded on their own (2026-07-23). Counts below follow the same scope.</summary>
+            public GateOutcome IntegrationOutcome;
             public IReadOnlyList<string> ValidationErrors = Array.Empty<string>();
             public int FailCount;
             public int WarnCount;
@@ -72,6 +81,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             var report = new Report
             {
                 Outcome = health.Outcome,
+                IntegrationOutcome = health.IntegrationOutcome,
                 ValidationErrors = health.ValidationErrors ?? Array.Empty<string>(),
             };
 
@@ -96,7 +106,14 @@ namespace Sorolla.Palette.Editor.Greenlight
                     Status = status,
                     Detail = DetailFor(r),
                     Fix = r.FixHint,
+                    IsDeviceEvidence = (r.RequiredProof & ProofScope.DeviceDispatch) != 0,
                 });
+
+                // Counts describe the integration verdict, so they cannot say "1 pending" about a device
+                // nobody connected while the badge beside them reads green. Device rows still render, under
+                // their own group, with their own status.
+                if ((r.RequiredProof & ProofScope.DeviceDispatch) != 0)
+                    continue;
 
                 switch (status)
                 {

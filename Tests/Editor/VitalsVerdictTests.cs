@@ -291,6 +291,67 @@ namespace Sorolla.Palette.Editor.Tests
             }
         }
 
+        // ── Adjust verification: an answer is not a success ──────────────
+
+        // The expected state travels as a string: the enum is internal SDK vocabulary, and a public test
+        // signature cannot name it.
+        [TestCase(null, "NotObserved")]
+        [TestCase("Not observed", "NotObserved")]
+        [TestCase("iOS purchase verification: status=verified, code=20001", "Verified")]
+        [TestCase("Android purchase verification: success", "Verified")]
+        [TestCase("iOS purchase verification: status=not_verified, code=20040", "EnvironmentMismatch")]
+        [TestCase("iOS purchase verification: status=not_verified, code=20007", "Failed")]
+        [TestCase("iOS purchase verification: status=unknown, code=20002", "Failed")]
+        public void PurchaseVerification_IsClassifiedByWhatAdjustAnswered(string detail, string expected)
+        {
+            Assert.AreEqual(expected, SorollaDiagnostics.ClassifyPurchaseVerification(detail).ToString());
+        }
+
+        [Test]
+        public void RejectedVerification_DoesNotCompleteTheRequirement()
+        {
+            // The defect this pins: "a callback arrived" was treated as proof, so a rejected verification
+            // completed the row and the build could read fully proved with attribution revenue broken.
+            var inputs = new SorollaCoverageInputs
+            {
+                State = new SorollaQaState
+                {
+                    IapTrackingAttached = true,
+                    IapVerification = "iOS purchase verification: status=not_verified, code=20007",
+                },
+                Ads = Excluded, Adjust = Included, Iap = Included,
+                Proved = SorollaCoverageFact.Progression | SorollaCoverageFact.IapPurchase,
+            };
+
+            Assert.IsTrue(SorollaDiagnostics.IsCoverageThin(inputs), "a rejected verification proves nothing");
+
+            SorollaMenuMatrixRow row = SorollaDiagnostics.BuildCoverageRows(inputs)
+                .Find(r => r.Name == "Adjust purchase verification");
+            Assert.IsFalse(row.Exercised);
+            StringAssert.Contains("rejected", row.Hint);
+        }
+
+        [Test]
+        public void EnvironmentMismatch_CompletesTheRequirement_AndSaysWhy()
+        {
+            // The sandbox answer is deterministic and proves the call round-tripped, which is all this row
+            // claims. It must not be confused with a verified purchase, so the wording says so.
+            var state = new SorollaQaState
+            {
+                IapTrackingAttached = true,
+                IapVerification = "iOS purchase verification: status=not_verified, code=20040",
+            };
+
+            Assert.AreEqual(PurchaseVerificationState.EnvironmentMismatch,
+                SorollaDiagnostics.ClassifyPurchaseVerification(state.IapVerification));
+            Assert.AreEqual(SorollaCoverageFact.AdjustPurchaseVerification,
+                SorollaDiagnostics.VerificationCoverage(state.IapVerification));
+            Assert.AreEqual(SorollaCoverageFact.None,
+                SorollaDiagnostics.VerificationCoverage("iOS purchase verification: status=not_verified, code=20007"),
+                "a rejection proves nothing");
+            Assert.AreEqual(SorollaCoverageFact.None, SorollaDiagnostics.VerificationCoverage(null));
+        }
+
         [Test]
         public void EveryAttentionRow_CarriesASolution()
         {

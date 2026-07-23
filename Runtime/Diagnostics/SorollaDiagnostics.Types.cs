@@ -71,6 +71,20 @@ namespace Sorolla.Palette
         Observed,
     }
 
+    /// <summary>What Adjust answered when the SDK asked it to verify a tracked purchase.</summary>
+    internal enum PurchaseVerificationState
+    {
+        /// <summary>No answer yet: nothing was attempted, or nothing came back. Not tested, never an error.</summary>
+        NotObserved,
+        /// <summary>Adjust verified the purchase.</summary>
+        Verified,
+        /// <summary>The purchase belongs to the other Adjust environment (sandbox vs production). Proves the
+        /// call round-tripped; does not prove the purchase.</summary>
+        EnvironmentMismatch,
+        /// <summary>Adjust answered with a failure or an unknown status: an integration issue with a fix.</summary>
+        Failed,
+    }
+
     internal readonly struct SorollaDiagnosticRow
     {
         public readonly string Group;

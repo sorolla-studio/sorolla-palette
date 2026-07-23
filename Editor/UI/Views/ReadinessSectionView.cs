@@ -127,8 +127,8 @@ namespace Sorolla.Palette.Editor.UI
                 // The empty state must agree with the badge beside it (F1 ruling, 2026-07-21). Since the
                 // human-attested gates were deleted, a clean studio setup CAN reach HEALTHY, so the two cases
                 // are genuinely different: green, or still waiting on evidence the studio can produce.
-                var clear = new Label(report.Outcome == GateOutcome.Pass
-                    ? "Your setup is clean - everything the SDK can check is green."
+                var clear = new Label(report.IntegrationOutcome == GateOutcome.Pass
+                    ? "Your setup is clean - everything the SDK can check before a build is green."
                     : "Your setup is clean - the remaining evidence comes from a run on a connected device.");
                 clear.AddToClassList("sorolla-type-small");
                 _container.Add(clear);
@@ -155,9 +155,12 @@ namespace Sorolla.Palette.Editor.UI
             spacer.style.flexGrow = 1;
             titleRow.Add(spacer);
 
+            // The headline answers the pre-build question: is the INTEGRATION ready? Device evidence has its
+            // own group and its own badge below, and never holds this one down (2026-07-23) - a project whose
+            // static setup is clean must be able to read green before anyone connects a phone.
             titleRow.Add(StatusBadge.Create(
-                GreenlightEvaluator.VerdictLabel(report.Outcome, report.FailCount, report.WarnCount),
-                GreenlightEvaluator.BadgeSeverity(report.Outcome)));
+                GreenlightEvaluator.VerdictLabel(report.IntegrationOutcome, report.FailCount, report.WarnCount),
+                GreenlightEvaluator.BadgeSeverity(report.IntegrationOutcome)));
             header.Add(titleRow);
 
             // The report judges ONE platform - the build target Unity is set to (2026-07-23) - so it says
@@ -171,7 +174,8 @@ namespace Sorolla.Palette.Editor.UI
             // line, and they cover every evaluated gate - including the passing ones the row filter hides -
             // so the pass count is the visible proof that the list below is a filtered view, not everything.
             var counts = new Label($"{report.FailCount} fail · {report.WarnCount} warn · " +
-                                   $"{report.WaitCount} pending · {report.PassCount} pass");
+                                   $"{report.WaitCount} pending · {report.PassCount} pass" +
+                                   " · device evidence graded separately below");
             counts.AddToClassList("sorolla-type-small");
             counts.style.marginBottom = 8;
             header.Add(counts);

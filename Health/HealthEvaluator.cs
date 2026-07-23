@@ -167,6 +167,12 @@ namespace Sorolla.Palette.Health
                 Rows = rows,
                 ValidationErrors = validationErrors,
                 Outcome = Aggregate(rows, validationErrors.Count > 0),
+                // The pre-build question, answered by the gates that can answer it. A gate whose proof must
+                // come from a running device is a different question - it keeps its own row and its own
+                // verdict, and a never-connected device no longer holds a clean integration below green.
+                IntegrationOutcome = Aggregate(
+                    rows.Where(r => (r.RequiredProof & ProofScope.DeviceDispatch) == 0).ToList(),
+                    validationErrors.Count > 0),
             };
         }
 
