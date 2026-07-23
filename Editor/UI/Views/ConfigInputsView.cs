@@ -91,10 +91,11 @@ namespace Sorolla.Palette.Editor.UI
                     }
                     break;
 
-                // Verbose Logging is a QA/debug knob, so it lives here rather than under Build & Project.
-                // Toggle rather than PropertyField: a PropertyField would
-                // render verboseLogging's own [Header("Logging")] as a stray section line above the checkbox.
-                case GreenlightAdapter.VendorGroup.QaAndDiagnostics:
+                // Verbose Logging sits with the check row that reports it, so the warning and the switch
+                // that clears it are never in different groups. Toggle rather than PropertyField: a
+                // PropertyField would render verboseLogging's own [Header("Logging")] as a stray section
+                // line above the checkbox.
+                case GreenlightAdapter.VendorGroup.BuildAndProject:
                     inputs.Add(new Toggle("Verbose Logging")
                     {
                         bindingPath = "verboseLogging",

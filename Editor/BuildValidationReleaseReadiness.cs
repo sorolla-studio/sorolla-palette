@@ -33,14 +33,13 @@ namespace Sorolla.Palette.Editor
 
             if (config.verboseLogging)
             {
-                // Fix hint no longer tells you to open the window you're already reading this row inside
-                // (F6, 2026-07-21 audit) - the field is the "Verbose Logging" toggle in this same window's
-                // Device & QA group.
+                // The Verbose Logging toggle renders in this same group, so the fix names the control
+                // rather than directing the reader somewhere else in the window.
                 results.Add(Warning(
                     category,
-                    "SorollaConfig.verboseLogging is on.\n" +
+                    "Verbose Logging is on.\n" +
                     "  Runtime already forces this off in non-development builds, so this is drift hygiene, not a leak risk.",
-                    "Turn off Verbose Logging in the Device & QA group before committing, unless this is a dev/QA build on purpose"));
+                    "Untick Verbose Logging below, unless this is a dev/QA build on purpose"));
             }
             else
             {

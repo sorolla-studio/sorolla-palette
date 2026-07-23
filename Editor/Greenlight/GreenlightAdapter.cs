@@ -284,11 +284,8 @@ namespace Sorolla.Palette.Editor.Greenlight
             AppLovinMax,
             Adjust,
             /// <summary>Every Build Health category that isn't vendor-specific: gradle/manifest/registries/
-            /// config/mode/versions/logging/dev-build.</summary>
+            /// config/mode/versions/logging/dev-build, plus the synthetic report-integrity row.</summary>
             BuildAndProject,
-            /// <summary>Everything with no BuildValidator.CheckCategory at all: the synthetic Report
-            /// Integrity row and the QA/debug knobs.</summary>
-            QaAndDiagnostics,
         }
 
         static readonly Dictionary<BuildValidator.CheckCategory, VendorGroup> CategoryToGroup =
@@ -340,12 +337,12 @@ namespace Sorolla.Palette.Editor.Greenlight
         }
 
         /// <summary>Grouping key is the gate's existing category from the catalog/validators, never label
-        /// string-matching. The synthetic Report Integrity row's null id is QA process, not vendor build
-        /// state - QA &amp; Diagnostics.</summary>
+        /// string-matching. The synthetic report-integrity row has no id and is not vendor-specific, so it
+        /// lands in Build &amp; Project with the rest of the non-vendor state.</summary>
         internal static VendorGroup GroupFor(string gateId)
         {
             if (string.IsNullOrEmpty(gateId))
-                return VendorGroup.QaAndDiagnostics;
+                return VendorGroup.BuildAndProject;
 
             foreach (KeyValuePair<BuildValidator.CheckCategory, string> pair in CategoryToGateId)
             {

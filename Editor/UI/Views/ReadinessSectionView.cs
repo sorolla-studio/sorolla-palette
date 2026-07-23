@@ -33,7 +33,6 @@ namespace Sorolla.Palette.Editor.UI
             GreenlightAdapter.VendorGroup.AppLovinMax,
             GreenlightAdapter.VendorGroup.Adjust,
             GreenlightAdapter.VendorGroup.BuildAndProject,
-            GreenlightAdapter.VendorGroup.QaAndDiagnostics,
         };
 
         /// <summary>Checks a studio should see even when green - the facts a studio acts on or asks
@@ -474,7 +473,6 @@ namespace Sorolla.Palette.Editor.UI
             GreenlightAdapter.VendorGroup.AppLovinMax => "AppLovin MAX",
             GreenlightAdapter.VendorGroup.Adjust => "Adjust",
             GreenlightAdapter.VendorGroup.BuildAndProject => "Build & Project",
-            GreenlightAdapter.VendorGroup.QaAndDiagnostics => "QA & Diagnostics",
             _ => group.ToString(),
         };
 
