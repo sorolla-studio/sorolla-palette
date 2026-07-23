@@ -13,9 +13,13 @@ namespace Sorolla.Palette.Editor
     ///     <see cref="BuildValidator.RunAllChecks"/> only reads the cached <see cref="Current"/> result and
     ///     kicks off a fresh probe if needed.
     ///
-    ///     The one response describes BOTH platforms, so both are judged from it (2026-07-22). Judging only
-    ///     the active target was how an Android-only Facebook app shipped undetected on boulder-evolution:
-    ///     iOS attribution silently stopped, and the probe - run from an Android target - reported Verified.
+    ///     The one response describes BOTH platforms, but only the ACTIVE build target is GRADED
+    ///     (2026-07-23, superseding the 2026-07-22 both-platforms ruling): a report judges the platform in
+    ///     front of it, so an unregistered other platform can no longer hold a one-platform game below green.
+    ///     The other platform is not hidden - the verified result states both platforms' registration - and it
+    ///     becomes the graded one as soon as the build target switches, which is what catches the
+    ///     boulder-evolution failure (an Android-only FB app whose iOS attribution silently stopped) at the
+    ///     point where it matters: building for iOS.
     /// </summary>
     static class FacebookPlatformValidator
     {
@@ -26,9 +30,6 @@ namespace Sorolla.Palette.Editor
             Verified,
             /// <summary>The platform this build targets is not registered on the FB app.</summary>
             PlatformMissing,
-            /// <summary>The active platform is registered but the OTHER one is not: this build is fine, the
-            /// other platform's traffic will be rejected the moment the game ships there.</summary>
-            SiblingPlatformMissing,
             CredentialInvalid,
             Unreachable,
         }
@@ -75,7 +76,7 @@ namespace Sorolla.Palette.Editor
         internal static string ActivePlatformName() =>
             EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS ? "iOS" : "Android";
 
-        static string SiblingPlatformName() => ActivePlatformName() == "iOS" ? "Android" : "iOS";
+        static string OtherPlatformName() => ActivePlatformName() == "iOS" ? "Android" : "iOS";
 
         static bool IsRegistered(List<string> supportedPlatforms, string platformName) =>
             platformName == "iOS"
@@ -85,9 +86,9 @@ namespace Sorolla.Palette.Editor
         /// <summary>
         ///     Kicks off a Graph API probe for this app id/client token/active-platform combination if
         ///     one has not already run or is not already in flight. No-ops otherwise; read
-        ///     <see cref="Current"/> for the (possibly still pending) result. The active platform stays in the
-        ///     cache key even though one response covers both platforms: switching build target swaps which
-        ///     platform is "active" and which is the sibling, and those grade differently.
+        ///     <see cref="Current"/> for the (possibly still pending) result. The active platform is part of
+        ///     the cache key even though one response covers both platforms: switching build target changes
+        ///     which platform is graded, so the cached verdict no longer applies.
         /// </summary>
         internal static void EnsureChecked(string appId, string clientToken)
         {
@@ -150,29 +151,23 @@ namespace Sorolla.Palette.Editor
                     "Facebook Graph API response could not be parsed. Re-run the check (Refresh) when online.", now);
             }
 
-            string siblingName = SiblingPlatformName();
-            bool siblingRegistered = IsRegistered(supportedPlatforms, siblingName);
+            string otherName = OtherPlatformName();
+            bool otherRegistered = IsRegistered(supportedPlatforms, otherName);
 
             if (!IsRegistered(supportedPlatforms, platformName))
             {
-                string alsoSibling = siblingRegistered
-                    ? ""
-                    : $"\n  {siblingName} is not registered either - no platform of this app can reach Facebook.";
                 return new ProbeResult(ProbeState.PlatformMissing, appId, platformName,
                     $"FB app {appId} has no {platformName} platform registered in the FB console.\n" +
-                    $"  Every native Graph/Login/attribution call from {platformName} will be rejected." + alsoSibling, now);
+                    $"  Every native Graph/Login/attribution call from {platformName} will be rejected.", now);
             }
 
-            if (!siblingRegistered)
-            {
-                return new ProbeResult(ProbeState.SiblingPlatformMissing, appId, siblingName,
-                    $"FB app {appId} has {platformName} registered but not {siblingName}.\n" +
-                    $"  This build is fine; every Graph/Login/attribution call from {siblingName} will be " +
-                    "rejected as soon as the game ships there.", now);
-            }
-
-            return new ProbeResult(ProbeState.Verified, appId, platformName,
-                $"Facebook app {appId} has Android + iOS platforms registered.", now);
+            // The verified detail names both platforms - the same zero-cost awareness the GameAnalytics group
+            // caption carries. It states the other platform's registration without grading it: this build is
+            // for one platform, and that is what the row judges.
+            string detail = otherRegistered
+                ? $"Facebook app {appId} has Android + iOS platforms registered."
+                : $"Facebook app {appId}: {platformName} registered · {otherName} not registered.";
+            return new ProbeResult(ProbeState.Verified, appId, platformName, detail, now);
         }
 
         static bool LooksLikeCredentialError(string body)

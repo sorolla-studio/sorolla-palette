@@ -21,6 +21,24 @@ Awareness-first, not a gate: a studio may intentionally ship one platform at a t
 check below warns rather than blocks the build. Each warning states the root cause, the on-device
 signal it produces, and the fix.
 
+### Changed (platform scoping)
+
+- The health report evaluates the active build target only. GameAnalytics platform keys, the Firebase
+  config file, Facebook platform registration, and AppLovin MAX ad unit ids no longer raise findings
+  for the platform the project is not building; those checks apply again when the build target
+  switches. A game shipping one platform can now reach a green verdict.
+- The Launch Readiness header states which platform the report judged.
+- The copied report lists the other platform's gates as `NotApplicable` with the reason, and labels
+  such rows `[NotApplicable]` instead of `[Pass]`.
+- The GameAnalytics group caption names the active platform first and reads "not set up" for the
+  other one; the Facebook row states both platforms' registration without grading either.
+- Vitals no longer renders the ATT row off iOS, and the QA snapshot reports `att: null` there instead
+  of a constant "authorized".
+- The Firebase device diagnosis names only the config file the running platform loads.
+- Gate ids and the 25-gate catalog are unchanged. Definition versions bumped:
+  `build.gameanalytics_keys` v3; `build.facebook_platform`, `build.max_settings`,
+  `build.firebase_config_android`, `build.firebase_config_ios` v2.
+
 ### Removed (2026-07-22 QA simplification)
 
 The health report now judges only what the SDK can observe for itself. Everything below was

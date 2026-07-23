@@ -36,11 +36,12 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Human-readable detail for the GameAnalytics group header, covering BOTH platforms - e.g.
-        ///     "Android ✓ · iOS missing". Both are named with their own state so the text always agrees
-        ///     with the header glyph (Arthur ruling 2026-07-21 ~17:40, superseding the active-target-only
-        ///     scoping): games ship both platforms, so a missing sibling-platform key is information the
-        ///     studio needs, surfaced as a Warn - not silence.
+        ///     Human-readable detail for the GameAnalytics group header, naming both platforms - e.g.
+        ///     "iOS ✓ · Android not set up". The ACTIVE build target is named first, and the other platform is
+        ///     described as "not set up" rather than "missing": since 2026-07-23 only the active platform is
+        ///     graded, so this caption sits beside a green header whenever the active platform is configured,
+        ///     and failure vocabulary next to a green glyph reads as a contradiction. It stays the channel that
+        ///     tells a studio what the other platform would still need before shipping there.
         /// </summary>
         public static string GetGameAnalyticsPlatformDetail()
         {
@@ -53,17 +54,13 @@ namespace Sorolla.Palette.Editor
             bool android = HasGameAnalyticsKeys(RuntimePlatform.Android);
             bool ios = HasGameAnalyticsKeys(RuntimePlatform.IPhonePlayer);
             if (android && ios) return "Android + iOS configured";
-            return $"Android {(android ? "✓" : "missing")} · iOS {(ios ? "✓" : "missing")}";
-        }
 
-        /// <summary>Key-pair status for the platform the active build target does NOT map to - lets the
-        /// window warn (not fail) when only the sibling platform is unconfigured.</summary>
-        public static bool HasGameAnalyticsKeysForOtherPlatform()
-        {
-            RuntimePlatform other = ActiveGameAnalyticsPlatform() == RuntimePlatform.IPhonePlayer
-                ? RuntimePlatform.Android
-                : RuntimePlatform.IPhonePlayer;
-            return HasGameAnalyticsKeys(other);
+            bool activeIsIos = ActiveGameAnalyticsPlatform() == RuntimePlatform.IPhonePlayer;
+            return activeIsIos
+                ? $"iOS {Caption(ios)} · Android {Caption(android)}"
+                : $"Android {Caption(android)} · iOS {Caption(ios)}";
+
+            string Caption(bool configured) => configured ? "✓" : "not set up";
         }
 
         /// <summary>

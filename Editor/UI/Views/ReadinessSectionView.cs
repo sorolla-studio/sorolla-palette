@@ -159,6 +159,13 @@ namespace Sorolla.Palette.Editor.UI
                 GreenlightEvaluator.BadgeSeverity(report.Outcome)));
             header.Add(titleRow);
 
+            // The report judges ONE platform - the build target Unity is set to (2026-07-23) - so it says
+            // which, and where the other platform's checks went. Without this line a studio that switched
+            // target would see rows appear and disappear with no stated cause.
+            var scope = new Label(ScopeLine(report.Context));
+            scope.AddToClassList("sorolla-type-small");
+            header.Add(scope);
+
             // The verdict pill alone says "not green" without saying how far off. The counts say it in one
             // line, and they cover every evaluated gate - including the passing ones the row filter hides -
             // so the pass count is the visible proof that the list below is a filtered view, not everything.
@@ -169,6 +176,23 @@ namespace Sorolla.Palette.Editor.UI
             header.Add(counts);
 
             return header;
+        }
+
+        /// <summary>Names the platform this report judged, and says where the other platform's checks are.
+        /// Off-mobile there is no mobile build to judge, so it points at the two targets that are checkable
+        /// rather than naming one of them as missing.</summary>
+        static string ScopeLine(EvaluationContext context)
+        {
+            switch (context?.Platform)
+            {
+                case EvalPlatform.Android:
+                    return "Judging the Android build target. Switch platform in Build Settings to check iOS.";
+                case EvalPlatform.iOS:
+                    return "Judging the iOS build target. Switch platform in Build Settings to check Android.";
+                default:
+                    return $"Judging the {EditorUserBuildSettings.activeBuildTarget} build target. " +
+                           "Switch platform in Build Settings to Android or iOS for the mobile checks.";
+            }
         }
 
         /// <summary>The window-wide actions (Refresh / Connect Device / Copy Report), fixed in the header

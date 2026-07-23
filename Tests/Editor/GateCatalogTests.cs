@@ -104,15 +104,51 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void FirebaseConfig_RequiredInFull_OptionalInPrototype()
         {
-            // C4-05: the Firebase config-file gates follow Firebase's own requirement, not the advisory list.
-            // Both platforms carry the same requirement on either target: the file for the platform you are
-            // not building is still required to exist, it just cannot BLOCK this build (the producer demotes
-            // its severity), so the asymmetry lives in the observation and never in the requirement.
-            foreach (string id in new[] { GateIds.BuildFirebaseConfigAndroid, GateIds.BuildFirebaseConfigIos })
+            // C4-05: on its OWN platform, a Firebase config-file gate follows Firebase's own requirement,
+            // not the advisory list - a missing config file blocks in Full mode and advises in Prototype.
+            Assert.AreEqual(Requirement.Required,
+                ReqOf(GateIds.BuildFirebaseConfigAndroid, Ctx(EvalMode.Full, EvalPlatform.Android)));
+            Assert.AreEqual(Requirement.Optional,
+                ReqOf(GateIds.BuildFirebaseConfigAndroid, Ctx(EvalMode.Prototype, EvalPlatform.Android)));
+            Assert.AreEqual(Requirement.Required,
+                ReqOf(GateIds.BuildFirebaseConfigIos, Ctx(EvalMode.Full, EvalPlatform.iOS)));
+            Assert.AreEqual(Requirement.Optional,
+                ReqOf(GateIds.BuildFirebaseConfigIos, Ctx(EvalMode.Prototype, EvalPlatform.iOS)));
+        }
+
+        /// <summary>Platform scoping (2026-07-23): a report judges ONE platform, the active build target, so
+        /// the config gate for the other platform is NotApplicable - out of the verdict and the counts - in
+        /// BOTH modes. This is what lets a game shipping one platform read green; before it, the other
+        /// platform's missing file was a warning that could never be cleared. Off-mobile neither applies.</summary>
+        [Test]
+        public void FirebaseConfig_AppliesOnlyToTheActiveBuildTarget()
+        {
+            foreach (EvalMode mode in new[] { EvalMode.Full, EvalMode.Prototype })
             {
-                Assert.AreEqual(Requirement.Required, ReqOf(id, Ctx(EvalMode.Full, EvalPlatform.Android)), id);
-                Assert.AreEqual(Requirement.Required, ReqOf(id, Ctx(EvalMode.Full, EvalPlatform.iOS)), id);
-                Assert.AreEqual(Requirement.Optional, ReqOf(id, Ctx(EvalMode.Prototype, EvalPlatform.Android)), id);
+                Assert.AreEqual(Requirement.NotApplicable,
+                    ReqOf(GateIds.BuildFirebaseConfigIos, Ctx(mode, EvalPlatform.Android)), mode.ToString());
+                Assert.AreEqual(Requirement.NotApplicable,
+                    ReqOf(GateIds.BuildFirebaseConfigAndroid, Ctx(mode, EvalPlatform.iOS)), mode.ToString());
+                Assert.AreEqual(Requirement.NotApplicable,
+                    ReqOf(GateIds.BuildFirebaseConfigAndroid, Ctx(mode, EvalPlatform.Unknown)), mode.ToString());
+                Assert.AreEqual(Requirement.NotApplicable,
+                    ReqOf(GateIds.BuildFirebaseConfigIos, Ctx(mode, EvalPlatform.Unknown)), mode.ToString());
+            }
+        }
+
+        /// <summary>A NotApplicable decision must say WHY: it is the row a reader of the copied report sees
+        /// instead of a verdict, and the catalog's own validator rejects a reasonless decision. This pins the
+        /// reason for the platform-scoped gates specifically, since theirs is the one a studio asks about
+        /// ("where did my Android checks go?").</summary>
+        [Test]
+        public void PlatformScopedGates_ExplainWhyTheyDoNotApply()
+        {
+            foreach (string id in new[] { GateIds.BuildFirebaseConfigAndroid, GateIds.BuildFirebaseConfigIos })
+            foreach (EvalPlatform platform in new[] { EvalPlatform.Android, EvalPlatform.iOS, EvalPlatform.Unknown })
+            {
+                RequirementDecision decision =
+                    GateCatalog.Canonical.ById(id).Requirement(Ctx(EvalMode.Full, platform));
+                Assert.IsFalse(string.IsNullOrWhiteSpace(decision.Reason), $"{id} on {platform}");
             }
         }
 
@@ -225,9 +261,14 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void PlatformCoverageChanges_CarryTheRightRestartSignal()
         {
-            Assert.AreEqual("2", GateCatalog.Canonical.ById(GateIds.BuildGameAnalyticsKeys).Version);
-            Assert.AreEqual("1", GateCatalog.Canonical.ById(GateIds.BuildFirebaseConfigAndroid).Version);
-            Assert.AreEqual("1", GateCatalog.Canonical.ById(GateIds.BuildFirebaseConfigIos).Version);
+            // Platform scoping (2026-07-23) changed what a green row MEANS on all five: each judges the
+            // active build target only, so each restarts its own agreement count. Adjust is deliberately
+            // absent - its token was never per-platform, so its meaning did not change.
+            Assert.AreEqual("3", GateCatalog.Canonical.ById(GateIds.BuildGameAnalyticsKeys).Version);
+            Assert.AreEqual("2", GateCatalog.Canonical.ById(GateIds.BuildFacebookPlatform).Version);
+            Assert.AreEqual("2", GateCatalog.Canonical.ById(GateIds.BuildMaxSettings).Version);
+            Assert.AreEqual("2", GateCatalog.Canonical.ById(GateIds.BuildFirebaseConfigAndroid).Version);
+            Assert.AreEqual("2", GateCatalog.Canonical.ById(GateIds.BuildFirebaseConfigIos).Version);
         }
 
         // ── Every gate is machine-checkable (2026-07-22 deletion) ──────────
@@ -303,7 +344,9 @@ namespace Sorolla.Palette.Editor.Tests
         public void Canonical_Has25Gates()
         {
             // 30 before the 2026-07-22 deletion of the six human-attested gates; 24 after, then 25 once the
-            // Firebase config gate split into one per platform so both files get their own row.
+            // Firebase config gate split into one per platform so both files get their own row. Platform
+            // scoping (2026-07-23) added none: a gate that only ever resolves NotApplicable off its own
+            // platform earns its id from being judged somewhere, not from appearing in the audit trail.
             Assert.AreEqual(25, GateCatalog.Canonical.All.Count);
         }
     }

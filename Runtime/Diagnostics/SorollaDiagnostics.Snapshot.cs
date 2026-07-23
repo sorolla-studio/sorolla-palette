@@ -106,6 +106,21 @@ namespace Sorolla.Palette
 
         // Builds the QA bridge snapshot model. MUST run on the Unity main thread: it reads Palette
         // surfaces (consent, ATT), PlayerPrefs/SharedPreferences (IABTCF), and the bridge arm state.
+        /// <summary>
+        ///     App Tracking Transparency status, or null off iOS (2026-07-23 platform-scoping pass). The ATT
+        ///     bridge answers a constant "authorized" on every other platform, so reporting it there stated an
+        ///     iOS-only fact about a build that can never prompt for it. Null rather than an omitted member:
+        ///     the JSON keeps its shape, and a reader sees an explicit "no value" instead of a plausible one.
+        ///     Moves in lockstep with the ATT row in the Vitals overlay - the two frontends must show the same
+        ///     state.
+        /// </summary>
+        static string AttForSnapshot() =>
+#if UNITY_IOS
+            Palette.AttString(Palette.AttStatus);
+#else
+            null;
+#endif
+
         internal static SorollaQaState CaptureQaState()
         {
             SorollaConfig config = LoadConfig();
@@ -141,7 +156,7 @@ namespace Sorolla.Palette
 
                 ConsentStatus = Palette.ConsentStatus.ToString(),
                 ConsentGeography = ConsentGeography(Palette.ConsentStatus),
-                Att = Palette.AttString(Palette.AttStatus),
+                Att = AttForSnapshot(),
                 CanRequestAds = Palette.CanRequestAds,
                 ConsentFormShownThisSession = snap.ConsentFormShownThisSession,
                 ConsentSignalsKnown = snap.ConsentSignalsKnown,

@@ -185,11 +185,16 @@ namespace Sorolla.Palette
                     Palette.CanRequestAds ? "True" : "Not applicable");
             }
 
+            // App Tracking Transparency exists only on iOS. Off-iOS the bridge answers a constant
+            // "Authorized", so this row used to render on Android as a green fact about a prompt that can
+            // never appear there (2026-07-23 platform-scoping pass). Vitals reports the platform it runs on.
+#if UNITY_IOS
             (SorollaDiagnosticSeverity severity, bool denied) att = AttState();
             if (att.denied)
                 AddDiagnosed(rows, "Consent", "ATT", att.severity, Palette.AttStatus.ToString(), AttDeniedDiagnosis());
             else
                 Add(rows, "Consent", "ATT", att.severity, Palette.AttStatus.ToString());
+#endif
             AddObserved(rows, "Identity", AdvertisingIdLabel(), AdvertisingIdSeverity(snapshot), AdvertisingIdDetail(snapshot));
             AddObserved(rows, "Identity", "Adjust ADID", AdjustIdSeverity(snapshot, fullMode), AdjustIdDetail(snapshot, fullMode));
             AddObserved(rows, "Identity", "Attribution", AttributionSeverity(snapshot, fullMode), AttributionDetail(snapshot));
@@ -390,15 +395,15 @@ namespace Sorolla.Palette
             return SorollaDiagnosticSeverity.Waiting;
         }
 
+#if UNITY_IOS
         /// <summary>
         ///     The ATT row's severity, plus whether the status is a tracking DENIAL (denied or restricted).
         ///     A user's privacy choice is never a studio issue, so a denial is Info, not a warning - but it is
         ///     the one status a tester needs explained, so it still carries the WHY/SIGNAL/FIX depth.
+        ///     iOS-only, like the row it feeds and the prompt it describes.
         /// </summary>
-        static (SorollaDiagnosticSeverity severity, bool denied) AttState()
-        {
-#if UNITY_IOS
-            return Palette.AttStatus switch
+        static (SorollaDiagnosticSeverity severity, bool denied) AttState() =>
+            Palette.AttStatus switch
             {
                 ATT.ATTBridge.AuthorizationStatus.Authorized => (SorollaDiagnosticSeverity.Pass, false),
                 ATT.ATTBridge.AuthorizationStatus.NotDetermined => (SorollaDiagnosticSeverity.Waiting, false),
@@ -406,10 +411,7 @@ namespace Sorolla.Palette
                 ATT.ATTBridge.AuthorizationStatus.Restricted => (SorollaDiagnosticSeverity.Info, true),
                 _ => (SorollaDiagnosticSeverity.Info, false),
             };
-#else
-            return (SorollaDiagnosticSeverity.Info, false);
 #endif
-        }
 
         static string AdvertisingIdLabel()
         {

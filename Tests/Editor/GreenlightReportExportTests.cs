@@ -25,8 +25,8 @@ namespace Sorolla.Palette.Editor.Tests
             Profile = ReportProfile.SorollaFull,
         };
 
-        // Off a mobile build target the device gate is NotApplicable - the remaining source of that
-        // disposition now that the vendor/human-attested gates are gone.
+        // Off a mobile build target the device gate and both platform-scoped Firebase config gates are
+        // NotApplicable - the sources of that disposition now that the human-attested gates are gone.
         static EvaluationContext OffMobileContext() => new EvaluationContext
         {
             Mode = EvalMode.Full, Platform = EvalPlatform.Unknown,
@@ -55,6 +55,23 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.IsTrue(health.Rows.Any(r => r.Disposition == GateDisposition.OptionalSkipped), "context should yield an OptionalSkipped row");
             StringAssert.Contains("disp=NotApplicable", text);
             StringAssert.Contains("disp=OptionalSkipped", text);
+        }
+
+        /// <summary>A gate that did not apply to the platform this report judged carries the default Pass
+        /// outcome precisely because it never voted. Printing it as [Pass] would turn the audit trail into a
+        /// claim the SDK checked something it deliberately skipped, so the line is labelled by its
+        /// disposition instead (2026-07-23 platform-scoping pass).</summary>
+        [Test]
+        public void Text_LabelsNotApplicableRows_NeverAsPass()
+        {
+            EvaluationContext ctx = OffMobileContext();
+            HealthReport health = Report(ctx);
+            string text = GreenlightReportExport.ToText(health, GreenlightReportExport.Fingerprint.Capture(null), ctx);
+
+            StringAssert.Contains("[NotApplicable]", text);
+            foreach (string line in text.Split('\n'))
+                if (line.StartsWith("[Pass]"))
+                    StringAssert.DoesNotContain("disp=NotApplicable", line);
         }
 
         [Test]

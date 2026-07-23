@@ -114,10 +114,21 @@ namespace Sorolla.Palette
             $"{vendorLabel} calls no-op silently for the rest of this editor session; the row stays Fail the whole time you play in-editor.",
             "Nothing to fix for editor testing. This must be re-checked on an actual Android/iOS device build - if it still fails there, it's a real config gap (see the device-build diagnosis for the same row).");
 
+        // Names only the config file for the platform this build IS (2026-07-23 platform-scoping pass):
+        // pointing an iOS tester at google-services.json sends them to check a file their build never reads.
+        const string FirebaseConfigPath =
+#if UNITY_ANDROID
+            "Assets/google-services.json";
+#elif UNITY_IOS
+            "Assets/GoogleService-Info.plist";
+#else
+            "Assets/google-services.json (Android) / Assets/GoogleService-Info.plist (iOS)";
+#endif
+
         internal static (string why, string signal, string fix) FirebaseUnavailableOnDeviceDiagnosis(string vendorLabel) => (
-            $"{vendorLabel} could not reach the native Firebase library on a real device build - most commonly a missing or misplaced config file (Assets/google-services.json for Android, Assets/GoogleService-Info.plist for iOS).",
+            $"{vendorLabel} could not reach the native Firebase library on a real device build - most commonly a missing or misplaced config file ({FirebaseConfigPath}).",
             $"All {vendorLabel} calls are dropped; Firebase's own console shows no data from this build.",
-            "Confirm the REAL config file is at Assets/google-services.json / Assets/GoogleService-Info.plist (Firebase console -> the app -> download it), then rebuild.");
+            $"Confirm the REAL config file is at {FirebaseConfigPath} (Firebase console -> the app -> download it), then rebuild.");
 
         internal static (string why, string signal, string fix) AdLoadFailedDiagnosis(string format, string loadIssue) => (
             $"MAX's {format} load request finished with a failure ({(string.IsNullOrEmpty(loadIssue) ? "no fill or network error" : loadIssue)}).",

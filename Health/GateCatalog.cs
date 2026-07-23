@@ -110,6 +110,14 @@ namespace Sorolla.Palette.Health
         // Gates whose MEANING changed carry a bumped version so the comparison instrument restarts exactly
         // their agreement counts (F1 device applicability now targets-based; F5 store/tracking split).
         const string V2 = "2";
+        // V3 (2026-07-23, platform scoping): a report judges ONE platform, the active build target. Every gate
+        // that used to say something about the platform NOT being built now says nothing about it - either by
+        // resolving NotApplicable (the two Firebase config gates, via Requirements.OnPlatform) or by the
+        // producer no longer looking at the other platform (GameAnalytics keys, Facebook platform, MAX ad
+        // units). All five change what a green row MEANS, so all five restart their agreement counts. No gate
+        // ids were added or removed: a per-platform id whose only remaining job is an audit row would be
+        // catalog churn, and the copied report already states which platform it judged.
+        const string V3 = "3";
 
         static IReadOnlyList<GateDefinition> BuildCanonical()
         {
@@ -125,13 +133,18 @@ namespace Sorolla.Palette.Health
             // Build Health - core SDKs, required in BOTH modes (GameAnalytics + Facebook are SdkRequirement.Core).
             // required_sdks is a repo-shape rule (Structural); the credential/key rows are per-game inputs (Variant).
             AddBuild(defs, GateIds.BuildRequiredSdks, GateClassification.Structural, Requirements.AlwaysRequired);
-            // V2 (2026-07-22): the keys check now covers BOTH platforms and FAILS when the ACTIVE platform's
-            // key pair is missing (was: active platform only, always a warning) - a stricter meaning, so its
-            // comparison-agreement count restarts.
-            defs.Add(new GateDefinition(GateIds.BuildGameAnalyticsKeys, V2, GateClassification.Variant,
+            // V3 (2026-07-23): the keys check judges the ACTIVE build target only, and FAILS when that
+            // platform's key pair is missing. V2 had also warned about the other platform's keys; that warning
+            // blocked a green verdict for a game deliberately shipping one platform, and the other platform's
+            // state is now carried by the vendor group caption instead of by this gate.
+            defs.Add(new GateDefinition(GateIds.BuildGameAnalyticsKeys, V3, GateClassification.Variant,
                 ProofScope.Static, Requirements.AlwaysRequired));
             AddBuild(defs, GateIds.BuildGameAnalyticsCredentials, GateClassification.Variant, Requirements.AlwaysRequired);
-            AddBuild(defs, GateIds.BuildFacebookPlatform, GateClassification.Variant, Requirements.AlwaysRequired);
+            // V2 (2026-07-23): the Facebook app's platform registration is judged for the active build target
+            // only. The Graph response still describes both platforms - the row just stops grading the one
+            // this build is not for.
+            defs.Add(new GateDefinition(GateIds.BuildFacebookPlatform, V2, GateClassification.Variant,
+                ProofScope.Static, Requirements.AlwaysRequired));
 
             // Firebase coherence - THE decided contradiction, expressed in the 4-state model. SdkRegistry
             // marks every Firebase module FullRequired ("optional in Prototype, never uninstalled"), so it is
@@ -142,20 +155,25 @@ namespace Sorolla.Palette.Health
 
             // Full-mode vendors (AppLovin MAX FullRequired, Adjust FullOnly): Required in Full, Optional in
             // Prototype (evaluated only if the vendor is present). Both carry per-game credentials/ad-unit ids.
-            AddBuild(defs, GateIds.BuildMaxSettings, GateClassification.Variant, Requirements.FullRequiredElseOptional);
+            // MAX V2 (2026-07-23): only the active build target's ad unit ids are graded (it used to demand
+            // every format on BOTH platforms). Adjust needs no version bump - its token was never per-platform.
+            defs.Add(new GateDefinition(GateIds.BuildMaxSettings, V2, GateClassification.Variant,
+                ProofScope.Static, Requirements.FullRequiredElseOptional));
             AddBuild(defs, GateIds.BuildAdjustSettings, GateClassification.Variant, Requirements.FullRequiredElseOptional);
 
             // Firebase config files follow the SAME requirement as Firebase itself (review C4-05): when
             // Firebase is required (Full), a missing google-services.json / plist must block release
             // confidence, not sit as a non-blocking advisory warning. Optional in Prototype. One gate per
-            // platform, so both files get their own row and neither can hide the other; the active/sibling
-            // asymmetry is severity, and lives in the observation (the producer demotes a non-active
-            // platform's Error to a Warning), never in the requirement. Fresh ids, so the version restarts
-            // at 1 - the comparison instrument has no agreement history for either.
-            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfigAndroid, Version, GateClassification.Variant,
-                ProofScope.Static, Requirements.FullRequiredElseOptional));
-            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfigIos, Version, GateClassification.Variant,
-                ProofScope.Static, Requirements.FullRequiredElseOptional));
+            // platform, so each file gets its own row and neither can hide the other.
+            // V2 (2026-07-23): each gate now applies ONLY on its own platform. The old shape judged both files
+            // on every build and demoted the non-active platform's Error to a Warning in the observation; that
+            // warning is what kept an iOS-only game from ever reading green. The asymmetry now lives in
+            // applicability instead of severity, so the row for the platform this build is not for leaves the
+            // verdict and the counts entirely (it still prints in the copied report as NotApplicable).
+            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfigAndroid, V2, GateClassification.Variant,
+                ProofScope.Static, Requirements.OnPlatform(EvalPlatform.Android, Requirements.FullRequiredElseOptional)));
+            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfigIos, V2, GateClassification.Variant,
+                ProofScope.Static, Requirements.OnPlatform(EvalPlatform.iOS, Requirements.FullRequiredElseOptional)));
 
             // Keystore is Required on Android at release. ReleaseOnly: a release keystore is normally absent
             // mid-development, so the build preprocessor stays quiet about it on development builds - the ROW
@@ -336,5 +354,26 @@ namespace Sorolla.Palette.Health
             ctx.Platform == EvalPlatform.Android || ctx.Platform == EvalPlatform.iOS
                 ? Req("device evidence required on the active mobile build target")
                 : Na("active build target is not a mobile platform");
+
+        /// <summary>
+        ///     Scopes a gate about ONE platform's artifact to the platform it describes (2026-07-23). A report
+        ///     judges exactly one platform - the active build target - so a check about the platform NOT being
+        ///     built resolves NotApplicable: out of the verdict, out of the counts, out of the rendered rows,
+        ///     still printed in the copied report as an audit row. This is the same "the active build target IS
+        ///     the intent" rule the device gate above already follows, and it is what makes an iOS-only game
+        ///     able to read green without any studio-declared platform list (that mechanism was deleted
+        ///     2026-07-20 - do not reintroduce it). Severity for the ACTIVE platform is delegated untouched to
+        ///     <paramref name="whenActive"/>, so mode rules (Full blocks, Prototype advises) still apply there.
+        ///     Off-mobile targets resolve NotApplicable for the same reason the device gate does: there is no
+        ///     mobile build to judge, and Required-but-never-observed would pin such a report at INCOMPLETE.
+        /// </summary>
+        internal static Func<EvaluationContext, RequirementDecision> OnPlatform(
+            EvalPlatform platform, Func<EvaluationContext, RequirementDecision> whenActive) => ctx =>
+            ctx.Platform == platform ? whenActive(ctx)
+            : ctx.Platform == EvalPlatform.Unknown ? Na("active build target is not a mobile platform")
+            : Na($"judged only on the {PlatformName(platform)} build target, which is not the active target");
+
+        static string PlatformName(EvalPlatform platform) =>
+            platform == EvalPlatform.iOS ? "iOS" : platform == EvalPlatform.Android ? "Android" : "unknown";
     }
 }

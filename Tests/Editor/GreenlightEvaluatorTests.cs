@@ -128,6 +128,56 @@ namespace Sorolla.Palette.Editor.Tests
             }
         }
 
+        /// <summary>Platform scoping's lockstep rule, end to end on the CANONICAL catalog: the gate for the
+        /// platform this report does not judge must resolve NotApplicable AND receive no observation. Getting
+        /// only half of it right is a fail-loud contract error ("Context mismatch") that pins the whole report
+        /// at INCOMPLETE - which is the designed alarm, and exactly what a future producer change could
+        /// trip. The synthetic version of the mismatch lives in HealthEvaluatorTests; this is the guard that
+        /// the SHIPPED validators and the SHIPPED catalog still agree.</summary>
+        [Test]
+        public void PlatformScopedGate_ForTheOtherPlatform_IsInertAndUnobserved()
+        {
+            var androidOnlyObservation = new List<GateObservation>
+            {
+                new GateObservation
+                {
+                    GateId = GateIds.BuildFirebaseConfigAndroid,
+                    Outcome = GateOutcome.Pass,
+                    ObservedProof = ProofScope.Static,
+                    Evidence = "google-services.json matches the Android application id.",
+                },
+            };
+
+            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, Ctx(), androidOnlyObservation);
+
+            CollectionAssert.IsEmpty(
+                report.ValidationErrors.Where(e => e.Contains("Context mismatch")).ToList(),
+                "an Android build supplying only the Android config observation must not trip the mismatch guard");
+            GateResult iosRow = report.Rows.Single(r => r.GateId == GateIds.BuildFirebaseConfigIos);
+            Assert.AreEqual(GateDisposition.NotApplicable, iosRow.Disposition);
+        }
+
+        /// <summary>The other half of the same contract: observing the gate that does NOT apply is the error
+        /// the evaluator must shout about, rather than quietly grading a platform this build is not for.</summary>
+        [Test]
+        public void PlatformScopedGate_ObservedForTheWrongPlatform_IsAContractError()
+        {
+            var wrongPlatformObservation = new List<GateObservation>
+            {
+                new GateObservation
+                {
+                    GateId = GateIds.BuildFirebaseConfigIos,
+                    Outcome = GateOutcome.Pass,
+                    ObservedProof = ProofScope.Static,
+                },
+            };
+
+            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, Ctx(), wrongPlatformObservation);
+
+            Assert.IsTrue(report.ValidationErrors.Any(e => e.Contains("Context mismatch")));
+            Assert.AreEqual(GateOutcome.Incomplete, report.Outcome);
+        }
+
         [Test]
         public void ToOutcome_UndefinedStatus_ThrowsInsteadOfPass()
         {

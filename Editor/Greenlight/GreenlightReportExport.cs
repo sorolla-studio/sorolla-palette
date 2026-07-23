@@ -86,9 +86,14 @@ namespace Sorolla.Palette.Editor.Greenlight
 
             foreach (GateResult r in health?.Rows ?? Array.Empty<GateResult>())
             {
-                // Never print an affirmative [Pass] for a deliberate skip/absence result (F5 residual,
-                // 2026-07-21 audit review): it aggregates as Pass, but it is not evaluated evidence.
-                string outcomeLabel = r.Informational ? "Skipped" : r.Outcome.ToString();
+                // Never print an affirmative [Pass] for a result that was not evaluated evidence. Two cases:
+                // a deliberate skip/absence (F5 residual, 2026-07-21 audit review), and a gate that does not
+                // apply to the platform this report judged (2026-07-23) - the latter carries the default Pass
+                // outcome because it never voted, which is exactly why it must not read as one.
+                string outcomeLabel =
+                    r.Disposition == GateDisposition.NotApplicable ? "NotApplicable"
+                    : r.Informational ? "Skipped"
+                    : r.Outcome.ToString();
                 sb.AppendLine($"[{outcomeLabel}] {r.GateId} (v{r.DefinitionVersion}, {r.Classification}) " +
                               $"req={r.Requirement} disp={r.Disposition} " +
                               $"proof req={ProofString(r.RequiredProof)} obs={ProofString(r.ObservedProof)}");

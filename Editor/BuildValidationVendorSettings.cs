@@ -47,10 +47,14 @@ namespace Sorolla.Palette.Editor
             {
                 var config = Resources.Load<SorollaConfig>("SorollaConfig");
 
-                // Every format x platform, not "both formats empty on the active platform" (2026-07-22). The
-                // old condition passed a game with a rewarded unit and no interstitial - every interstitial
-                // call then failed to load with the row green - and it never looked at the platform it was
-                // not building, so an iOS ship could carry no ad units at all.
+                // EVERY format, not "both formats empty" (2026-07-22): the old condition passed a game with a
+                // rewarded unit and no interstitial, and every interstitial call then failed to load with the
+                // row green. Formats are graded for the ACTIVE build target only (2026-07-23): the ad units
+                // for a platform this build does not target cannot break this build, and demanding them kept a
+                // one-platform game permanently below green. Both platforms' fields stay editable in the MAX
+                // group, and the other platform's units are graded when it becomes the build target.
+                bool activeIsIos = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS;
+                string platformName = activeIsIos ? "iOS" : "Android";
                 var missing = new List<string>();
                 foreach ((string format, PlatformAdUnitId unit) in new[]
                          {
@@ -58,8 +62,7 @@ namespace Sorolla.Palette.Editor
                              ("Interstitial", config?.interstitialAdUnit),
                          })
                 {
-                    if (string.IsNullOrEmpty(unit?.android)) missing.Add($"{format} (Android)");
-                    if (string.IsNullOrEmpty(unit?.ios)) missing.Add($"{format} (iOS)");
+                    if (string.IsNullOrEmpty(activeIsIos ? unit?.ios : unit?.android)) missing.Add(format);
                 }
 
                 if (missing.Count > 0)
@@ -69,9 +72,9 @@ namespace Sorolla.Palette.Editor
                     // below this row (vendor-consolidation cycle, 2026-07-21 15:35: SDK Keys is gone).
                     results.Add(Warning(
                         CheckCategory.MaxSettings,
-                        $"MAX ad unit IDs missing in SorollaConfig: {string.Join(", ", missing)}.\n" +
-                        "  Every ad call for a missing format/platform pair fails to load; banner units are not checked (optional format).",
-                        "Enter the AppLovin MAX ad unit IDs for both platforms below"));
+                        $"MAX ad unit IDs missing for {platformName} in SorollaConfig: {string.Join(", ", missing)}.\n" +
+                        "  Every ad call for a missing format fails to load; banner units are not checked (optional format).",
+                        $"Enter the AppLovin MAX ad unit IDs for {platformName} below"));
                     return results;
                 }
             }

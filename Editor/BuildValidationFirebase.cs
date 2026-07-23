@@ -61,71 +61,46 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Check the Firebase config files for BOTH platforms: not just present, but carrying the matching
+        ///     Check the active platform's Firebase config file: not just present, but carrying the matching
         ///     application id (a copied wrong-game google-services.json / GoogleService-Info.plist is a
         ///     silent-data-corruption source Firebase cannot report at runtime). Honest limit: the bundle-id
         ///     match cannot prove Firebase PROJECT identity (see <see cref="FirebaseConfigMatch"/>).
         ///
-        ///     Both platforms are checked regardless of the active target (2026-07-22): checking only the
-        ///     active one meant a missing GoogleService-Info.plist was invisible for as long as anyone built
-        ///     Android, and the gap surfaced at the iOS store build instead. Each platform owns a separate
-        ///     check category (and gate), so both always get their own row - sharing one category meant the
-        ///     worst-result collapse let a missing plist hide a healthy google-services.json, and vice versa.
-        ///     The ACTIVE platform keeps its severity (Full blocks, Prototype warns, mismatch always fails);
-        ///     the SIBLING platform is always a Warning - it must be seen, but a file for the platform you are
-        ///     not building must never block the build you are making.
+        ///     Only the ACTIVE build target is judged (2026-07-23). Each platform keeps its own check category
+        ///     and gate - that split (2026-07-22) is what lets one platform's file be judged without the other
+        ///     hiding it - but the gate for the platform this build is not for resolves NotApplicable in the
+        ///     catalog, so no observation may be produced for it: a report judges the platform in front of it.
+        ///     The previous shape graded the other platform too, demoted to a Warning; that warning could never
+        ///     be cleared by a game deliberately shipping one platform, so it permanently blocked a green
+        ///     verdict. The other platform's row still prints in the copied report as NotApplicable, and its
+        ///     checks return in full the moment the build target switches.
         /// </summary>
         static List<ValidationResult> CheckFirebaseConfigFiles(Dictionary<string, object> dependencies)
         {
-            bool hasFirebase = dependencies.ContainsKey(SdkRegistry.All[SdkId.FirebaseAnalytics].PackageId);
-            if (!hasFirebase)
-                return BothSkipped("Firebase not installed, config check skipped");
-
-            // In Full mode Firebase is required, so a missing active-platform config file that makes Firebase
-            // initialization fail must BLOCK, not merely warn (review F4-05) - otherwise the "Required" label
-            // on the config gate is decoration. In Prototype Firebase is optional, so a MISSING file stays a
-            // warning (awareness-first: a studio may intentionally ship one platform at a time).
+            // In Full mode Firebase is required, so a missing config file that makes Firebase initialization
+            // fail must BLOCK, not merely warn (review F4-05) - otherwise the "Required" label on the config
+            // gate is decoration. In Prototype Firebase is optional, so a MISSING file stays a warning.
             bool required = !SorollaSettings.IsPrototype;
+            bool hasFirebase = dependencies.ContainsKey(SdkRegistry.All[SdkId.FirebaseAnalytics].PackageId);
 
             switch (EditorUserBuildSettings.activeBuildTarget)
             {
                 case BuildTarget.Android:
-                    return new List<ValidationResult>
-                    {
-                        CheckAndroidConfig(required),
-                        AsSibling(CheckIosConfig(required: false)),
-                    };
+                    return One(hasFirebase
+                        ? CheckAndroidConfig(required)
+                        : Skipped(CheckCategory.FirebaseConfigAndroid, "Firebase not installed, config check skipped"));
                 case BuildTarget.iOS:
-                    return new List<ValidationResult>
-                    {
-                        AsSibling(CheckAndroidConfig(required: false)),
-                        CheckIosConfig(required),
-                    };
+                    return One(hasFirebase
+                        ? CheckIosConfig(required)
+                        : Skipped(CheckCategory.FirebaseConfigIos, "Firebase not installed, config check skipped"));
                 default:
-                    return BothSkipped("Firebase config match applies to Android/iOS builds only");
+                    // Neither gate applies off-mobile, and an observation against a NotApplicable gate is a
+                    // context mismatch - so say nothing rather than report a skip.
+                    return new List<ValidationResult>();
             }
         }
 
-        static List<ValidationResult> BothSkipped(string message) => new List<ValidationResult>
-        {
-            Skipped(CheckCategory.FirebaseConfigAndroid, message),
-            Skipped(CheckCategory.FirebaseConfigIos, message),
-        };
-
-        /// <summary>Re-frames a result produced for the platform NOT being built: says so up front, and
-        /// demotes an Error - reachable only from an app-id mismatch, since a sibling is never required - to
-        /// a Warning, so the row is impossible to miss but cannot fail the build being made. A passing
-        /// sibling is returned untouched: its row is simply a pass for the platform you are not building.</summary>
-        static ValidationResult AsSibling(ValidationResult result)
-        {
-            if (result.Status == ValidationStatus.Valid)
-                return result;
-
-            string message = $"Not the active build target: {result.Message}";
-            return result.Status == ValidationStatus.Error
-                ? Warning(result.Category, message, result.Fix)
-                : new ValidationResult(result.Status, message, result.Fix, result.Category);
-        }
+        static List<ValidationResult> One(ValidationResult result) => new List<ValidationResult> { result };
 
         static ValidationResult CheckAndroidConfig(bool required)
         {
