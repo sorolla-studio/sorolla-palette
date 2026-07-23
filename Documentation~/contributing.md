@@ -42,11 +42,15 @@ Runtime/
 └── Adapters/                  ← Third-party SDK wrappers
 
 Editor/
-├── SorollaWindow.cs           ← Configuration UI
+├── SorollaWindow.cs           ← Window shell
+├── UI/Views/                  ← Configuration + Launch Readiness UI
+├── Greenlight/                ← Report adapter, evaluator, text export
 ├── SorollaSettings.cs         ← Mode management
 └── Sdk/                       ← SDK detection/installation
 
-Runtime/Diagnostics/           ← Code-only Sorolla Vitals console
+Health/                        ← Engine-free gate catalog + evaluator
+
+Runtime/Diagnostics/           ← Sorolla Vitals console (UI Toolkit, under UITK/)
 ```
 
 ---
@@ -66,7 +70,7 @@ Runtime/Diagnostics/           ← Code-only Sorolla Vitals console
 2. Create adapter in `Runtime/Adapters/NewSdkAdapter.cs`
 3. Add scripting define in `Editor/Sdk/DefineSymbols.cs`
 4. Initialize in `Palette.Initialize()`
-5. Add UI section in `Editor/SorollaWindow.cs` if needed
+5. Add the UI in `Editor/UI/Views/` if needed
 
 ### Testing
 

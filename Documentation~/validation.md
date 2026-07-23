@@ -11,7 +11,9 @@ Use this page for Full-mode soft-launch validation.
 
 For Prototype mode, use the embedded checklist at the end of [Prototype Mode Quick Start](quick-start.md#prototype-checklist). Keeping Prototype setup and Prototype validation on one page avoids a second path for studios.
 
-Run Full-mode validation on real Android and iOS devices. Simulators are not enough for ads, consent, ATT, attribution, or store purchase behavior.
+Run Full-mode validation on a real device for every platform you ship. Simulators are not enough for ads, consent, ATT, attribution, or store purchase behavior.
+
+> **Shipping one platform?** That is a first-class path. The Palette window judges the platform your build target is set to and says which one at the top of Launch Readiness; checks for the platform you are not building are excluded from the verdict. Run each row below once per platform you actually ship, and ignore the ones for a platform you don't.
 
 ---
 
@@ -39,7 +41,7 @@ If any identifier points to a different app, stop and fix the dashboard before t
 ### Unity
 
 - [ ] **Tools > Sorolla Palette SDK** is set to **Full** mode.
-- [ ] **Build Health** is green for Android and iOS.
+- [ ] **Launch Readiness** reads HEALTHY with your build target set to the platform you ship. If you ship both, check it once per target (switch in File > Build Settings).
 - [ ] Firebase config files match the app identifiers.
 - [ ] AppLovin MAX SDK Key and ad unit IDs are configured.
 - [ ] Adjust App Token and Purchase Event Token are configured.
@@ -100,4 +102,5 @@ Before uploading a soft-launch build:
 - [ ] `adjustSandboxMode` is **false**.
 - [ ] `verboseLogging` is **false** (auto-forced off in release builds regardless).
 - [ ] Mediation network test modes are off for production ad units.
-- [ ] Sorolla Vitals is green on real Android and iOS devices.
+- [ ] The three checks that BLOCK a Full-mode build are satisfied: the Adjust app token, your build target's Firebase config file, and your build target's GameAnalytics game key + secret key pair. Every other check warns rather than blocking.
+- [ ] Sorolla Vitals is green on a real device for every platform you ship.

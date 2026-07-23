@@ -88,10 +88,18 @@ Runtime/
 └── ATT/
     └── ATTBridge.cs           ← Native iOS ATT status and authorization
 
+Health/                        ← Engine-free gate model (own assembly)
+├── GateCatalog.cs             ← The 25 canonical gates + requirement predicates
+├── HealthEvaluator.cs         ← The single aggregation producing one verdict
+└── SorollaHealthModel.cs      ← Gate/observation/result vocabulary
+
 Editor/
-├── SorollaWindow.cs           ← Main configuration window
-├── SorollaSettings.cs         ← Mode persistence (EditorPrefs)
-├── SorollaMode.cs             ← Enum: None, Prototype, Full
+├── SorollaWindow.cs           ← Window shell (lifecycle, layout, validation run)
+├── UI/Views/                  ← What the window renders (ReadinessSectionView, ConfigInputsView,
+│                                VendorStatus, QuickStartSection)
+├── Greenlight/                ← GreenlightAdapter (results → observations),
+│                                GreenlightEvaluator (report), GreenlightReportExport (Copy Report)
+├── SorollaSettings.cs         ← Mode persistence (EditorPrefs) + the SorollaMode enum
 ├── SorollaIOSPostProcessor.cs ← Xcode post-processing
 ├── ManifestManager.cs         ← manifest.json manipulation
 └── Sdk/
@@ -420,7 +428,7 @@ production revenue still needs server-side / Adjust receipt verification rather 
 2. Create adapter in `Runtime/Adapters/`
 3. Add initialization call in `Palette.Initialize()`
 4. Add detection define in `DefineSymbols.cs`
-5. Add UI section in `SorollaWindow.cs`
+5. Add the vendor group in `Editor/UI/Views/ReadinessSectionView.cs` (and its config fields in `ConfigInputsView.cs`)
 
 ### Updating SDK Versions
 

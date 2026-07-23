@@ -14,24 +14,41 @@ Common issues and solutions for Sorolla SDK integration.
 | Adjust not connecting | Disable VPN/ad blockers/private DNS and retry | [→](#android-vpn--dns-blocking) |
 | Remote config returns defaults | Ensure values are **published** in console | [→](#remote-config) |
 | Firebase errors | Verify config files match bundle ID | [→](#firebase-issues) |
-| Build failing | Check the **Greenlight** verdict in `Tools > Sorolla Palette SDK` | [→](#build-health) |
-| Runtime crash on Android | Open `Tools > Sorolla Palette SDK`, check the Greenlight verdict | [→](#android-specific-issues) |
+| Build failing | Check the **Launch Readiness** verdict in `Tools > Sorolla Palette SDK` | [→](#launch-readiness) |
+| Runtime crash on Android | Open `Tools > Sorolla Palette SDK`, check the Launch Readiness verdict | [→](#android-specific-issues) |
 | iOS provisioning errors | Open Xcode, enable "Automatically manage signing" | [→](#ios-specific-issues) |
 | TestFlight rejects `libFirebaseCpp*.a` (ITMS-90171) | Set the `.a` libs to "Do Not Embed" in Xcode | [→](known-issues.md) |
 
 ---
 
-## Build Health
+## Launch Readiness
 
-Build Health validates your SDK setup before building - 6 technical checks (SDK versions, mode
-consistency, scoped registries, Firebase coherence, config sync, Android manifest) - and always
-runs and auto-fixes on every refresh and before every build. A failing or warning check surfaces as
-an actionable row (with its fix) under the **Greenlight** section of `Tools > Sorolla Palette SDK`;
-a passing check is not shown, since there is nothing for you to act on.
+Launch Readiness validates your SDK setup before building, from one catalog of 25 checks covering
+vendor configuration, credentials, project settings and device evidence. It runs and auto-fixes on
+every refresh and before every build. A failing or warning check surfaces as an actionable row, with
+its fix, inside the group of the vendor it belongs to (or **Build & Project** for project-level
+ones); a passing check is not shown, since there is nothing for you to act on.
+
+**It judges one platform: the build target you have selected.** The header says which
+("Judging the iOS build target."). Checks for the other platform are excluded from the verdict and
+come back when you switch target in File > Build Settings, so a game shipping a single platform can
+read HEALTHY. **Copy Report** exports every row including the excluded ones, each with the reason.
 
 **Auto-fix**: The validator automatically fixes AndroidManifest issues when the window opens or before builds.
 
-**Pre-build validation**: Errors block builds automatically via `IPreprocessBuildWithReport`.
+**Pre-build validation**: Errors block builds automatically via `IPreprocessBuildWithReport`. In Full
+mode three checks produce errors and therefore stop a build: the Adjust app token, your build
+target's Firebase config file, and your build target's GameAnalytics game key + secret key pair.
+
+### Rows disappeared after I switched build target
+
+Expected. The report judges one platform, and the checks that vanished belong to the platform you are
+no longer building. Switch back and they return, at full severity. The line under the Launch
+Readiness title always names the platform being judged, and **Copy Report** lists the excluded rows
+with the reason if you want to see them anyway.
+
+This is also why a game shipping only one platform can read HEALTHY without configuring the other:
+that is intended, not a gap.
 
 ---
 
@@ -194,7 +211,7 @@ pod --version
 
 ## Android-Specific Issues
 
-### Build Health - AndroidManifest Errors
+### AndroidManifest Errors
 
 **Error**: `ClassNotFoundException` at runtime (e.g., `com.facebook.FacebookContentProvider`)
 
@@ -204,11 +221,11 @@ pod --version
 
 **Fix**:
 1. Open `Tools > Sorolla Palette SDK` window
-2. Check the **Build Health** section
+2. Check the **Build & Project** group
 3. If "Android Manifest" shows an error, it will be auto-fixed on next validation
-4. Or open `Tools > Sorolla Palette SDK` and click Refresh in Build Health
+4. Or open `Tools > Sorolla Palette SDK` and click **Refresh** in the window header
 
-The Build Health validator automatically detects and removes orphaned manifest entries before builds.
+The validator automatically detects and removes orphaned manifest entries before builds.
 
 ### Wrong Main Activity Class
 
@@ -233,7 +250,7 @@ Unity only compiles the selected entry point class into the APK. If the manifest
    - Activity: `com.unity3d.player.UnityPlayerActivity`
    - GameActivity: `com.unity3d.player.UnityPlayerGameActivity`
 3. If using `useCustomLauncherManifest`, check `LauncherManifest.xml` matches too
-4. Run `Tools > Sorolla Palette SDK` - Build Health will detect and fix mismatches
+4. Run `Tools > Sorolla Palette SDK` - the validator will detect and fix mismatches
 
 ### LauncherManifest.xml Missing Activity (Unity 6)
 

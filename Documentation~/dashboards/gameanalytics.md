@@ -12,7 +12,7 @@ Full setup procedure: [gameanalytics.com docs](https://gameanalytics.com/docs/).
 
 ## What the SDK can and cannot verify
 
-The **GameAnalytics Credentials probe** (Build Health / Greenlight) HMAC-signs a real `init` call against the GA Collection API using the configured game key + secret key. This proves the key pair is **live and matched** — a `401` means the keys are wrong or mismatched, and events will silently fail to submit.
+The **GameAnalytics Credentials probe** in Launch Readiness HMAC-signs a real `init` call against the GA Collection API using the configured game key + secret key. This proves the key pair is **live and matched** — a `401` means the keys are wrong or mismatched, and events will silently fail to submit.
 
 **It cannot prove the active platform is registered in the GA dashboard.** The GA collector's `init` and `events` endpoints accept any syntactically valid platform string as long as the credentials are valid — a schema-valid event for a platform that was never added to the dashboard still returns `200`. This was confirmed live against the collector (2026-07), not inferred: a complete, correctly-signed request for a never-registered platform succeeds at the HTTP layer and is silently dropped dashboard-side. There is no credential the SDK holds that exposes platform-level dashboard state (that lives behind GA's Organization API, which needs a separate org-admin key the SDK does not carry).
 

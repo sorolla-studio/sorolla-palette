@@ -10,7 +10,7 @@ This isn't a preference — the SDK's config schema holds exactly one Adjust App
 
 ## What to configure
 
-- One Adjust app (multi-platform), App Token copied into `Tools > Sorolla Palette SDK` → **SDK Keys** → **Adjust**.
+- One Adjust app (multi-platform), App Token copied into `Tools > Sorolla Palette SDK` → the **Adjust** group.
 - A **Purchase** event created in the dashboard, with its Event Token — needed if this game sells IAP.
 - Environment set to **Sandbox** while testing, **Production** before release.
 - Server-side **purchase verification** enabled under the app's Event settings, if selling IAP (this is the one dashboard toggle the SDK cannot read back — see below).

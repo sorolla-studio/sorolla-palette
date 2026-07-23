@@ -116,11 +116,11 @@ When touching any method under `Runtime/Adapters/*/`*AdapterImpl.cs* (Firebase, 
 
 ## Diagnostics Console Iteration Loop
 
-- The runtime diagnostics console in `Runtime/Diagnostics/` is code-only OnGUI. Keep it lightweight; do not add assets, prefabs, UI Toolkit, or Canvas UI.
+- The runtime diagnostics console in `Runtime/Diagnostics/` is UI Toolkit: `UITK/SorollaDebugMenuOverlay*.cs` with USS/UXML under `UITK/Resources/` and a `PanelSettings` created at runtime. Keep it lightweight; do not add prefabs or Canvas UI, and do not reintroduce OnGUI.
 - For small console UI/layout changes, use a lean loop: edit, search for dead references with `rg`, run `git diff --check`, then stop. Do not run Unity MCP compile checks or editor log searches by default.
 - For C# API/signature changes that could break compilation, run at most one focused local compile check such as `dotnet build Sorolla.Runtime.csproj --no-restore`. Do not retry flaky Unity MCP checks unless the user explicitly asks or the local compile check reports a real current failure.
 - Treat Unity Editor logs as noisy and potentially stale. Do not inspect them unless investigating a concrete current editor failure.
-- When deleting console files or tabs, trust source-level references plus `rg`; do not chase generated project artifacts unless they are the deliverable.
+- When deleting console files or panes, trust source-level references plus `rg`; do not chase generated project artifacts unless they are the deliverable. The studio surface is one report pane with no tab bar; tabs exist only behind the internal 5-tap unlock.
 
 ## Git And Commits
 

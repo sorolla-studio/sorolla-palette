@@ -49,10 +49,16 @@ If any package name, bundle ID, app token, or ad unit belongs to a different app
 1. Open **Tools > Sorolla Palette SDK**.
 2. Click **Switch to Full**.
 3. Let Unity install and resolve the Full-mode packages.
-4. Reopen **Tools > Sorolla Palette SDK** and check the **Greenlight** verdict.
+4. Reopen **Tools > Sorolla Palette SDK** and check the **Launch Readiness** verdict.
 
-Greenlight should show no outstanding rows for SDK versions, mode consistency, scoped registries,
-Firebase coherence, config sync, or Android manifest.
+Three checks must be satisfied before a Full-mode build will run at all: the Adjust app token, the
+Firebase config file for your build target, and the GameAnalytics game key + secret key pair for your
+build target. Everything else, including SDK versions, mode consistency, scoped registries, Firebase
+coherence, config sync and the Android manifest, warns rather than blocking.
+
+Launch Readiness judges the platform your build target is set to. Rows for the other platform are
+excluded from the verdict and return when you switch target, so a game shipping one platform can
+read HEALTHY without configuring the other.
 
 Do not hand-edit `Packages/manifest.json` unless Sorolla support asks you to. The mode switch owns required package changes.
 

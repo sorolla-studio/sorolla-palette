@@ -12,7 +12,7 @@ Do not create a second Meta app if the studio already has one for this package n
 
 ## What the SDK can and cannot verify
 
-The **Facebook Platform probe** (Build Health / Greenlight) makes a real Graph API call — `GET /{app-id}?fields=supported_platforms` — using the configured app ID and client token. Unlike the GameAnalytics collector, this call is genuinely platform-scoped: the Graph API's `supported_platforms` field reflects what is actually registered against the app object in the dashboard, so this probe **does verify platform registration**, not just credential validity.
+The **Facebook Platform probe** in Launch Readiness makes a real Graph API call — `GET /{app-id}?fields=supported_platforms` — using the configured app ID and client token. Unlike the GameAnalytics collector, this call is genuinely platform-scoped: the Graph API's `supported_platforms` field reflects what is actually registered against the app object in the dashboard, so this probe **does verify platform registration**, not just credential validity.
 
 Because of that, this page's focus is app creation and client-token correctness rather than "how do I check platform registration" (the probe already does).
 

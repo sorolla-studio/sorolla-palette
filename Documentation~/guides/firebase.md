@@ -34,7 +34,7 @@ Assets/
 └── GoogleService-Info.plist    ← iOS
 ```
 
-The Configuration window shows status under **Build Health** → **Firebase Coherence**.
+The Palette window shows status under the **Firebase** group.
 
 ---
 

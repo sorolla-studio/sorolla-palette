@@ -98,7 +98,7 @@ Assets/google-services.json
 Assets/GoogleService-Info.plist
 ```
 
-In **Tools > Sorolla Palette SDK**, install Firebase from the Firebase row if it is not already installed. Then refresh **Build Health** and confirm Firebase config files are found.
+In **Tools > Sorolla Palette SDK**, install Firebase from the Firebase row if it is not already installed. Then press **Refresh** in the window header and confirm the Firebase group reports the config file for your build target. The config gate for the platform you are not building reads as not applicable, which is expected.
 
 Full details: [Firebase Setup](guides/firebase.md).
 
@@ -114,7 +114,7 @@ Confirm:
 - GameAnalytics is configured.
 - Facebook SDK is configured.
 - Firebase is installed and config files are present.
-- The **Greenlight** verdict has no outstanding rows.
+- The **Launch Readiness** verdict reads **HEALTHY**.
 
 Keep Prototype mode lean. Do not configure MAX, Adjust, IAP, consent, or store privacy yet. TikTok is a parked vendor: new integrations should not configure it, though an existing compatibility config may remain (see the [TikTok guide](guides/tiktok.md)).
 
@@ -166,7 +166,7 @@ Rules:
 - [ ] Facebook App ID and Client Token are configured.
 - [ ] Firebase `google-services.json` and `GoogleService-Info.plist` are in `Assets/`.
 - [ ] **Tools > Sorolla Palette SDK** shows Prototype mode.
-- [ ] **Build Health** has no blocking issues.
+- [ ] **Launch Readiness** has no blocking issues for your build target.
 - [ ] `Palette.Level.Start`, `Palette.Level.Complete`, and `Palette.Level.Fail` are wired in game code.
 - [ ] A real-device build launches and one complete level can be played.
 - [ ] Sorolla has the build and dashboard access needed for review.

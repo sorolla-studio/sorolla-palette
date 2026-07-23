@@ -21,7 +21,7 @@ Firebase either initializes or throws at startup — a missing/mismatched config
 | Row | State | Meaning |
 |---|---|---|
 | Device Snapshot: (adapters.firebase, via bridge) | not `initialized` | Config file missing, wrong package name/bundle ID match, or malformed `google-services.json`/`GoogleService-Info.plist`. Re-download from the Firebase console and confirm the exact filename. |
-| Build Health (config-file presence checks) | **Fail/Warn** | Static check that the config file exists and is well-formed before ever reaching a device. |
+| Launch Readiness (config-file presence checks) | **Fail/Warn** | Static check that the config file exists and is well-formed before ever reaching a device. |
 
 Remote Config value staleness (`newValuesActivated:False` alongside `Success`) is expected, benign behavior on a cold fetch — do not read it as a failure by itself; check `remote_config.fetch_success` in the snapshot instead.
 
