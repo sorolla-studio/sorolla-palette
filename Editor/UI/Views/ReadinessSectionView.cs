@@ -463,7 +463,7 @@ namespace Sorolla.Palette.Editor.UI
             var groups = new List<GroupModel>();
             foreach (GreenlightAdapter.VendorGroup id in GroupOrder)
             {
-                if (!GroupApplies(id, report.Context))
+                if (!GreenlightAdapter.GroupApplies(id, report.Context))
                     continue;
 
                 grouped.TryGetValue(id, out List<GreenlightEvaluator.Row> rows);
@@ -479,21 +479,6 @@ namespace Sorolla.Palette.Editor.UI
                 });
             }
             return groups;
-        }
-
-        static bool GroupApplies(
-            GreenlightAdapter.VendorGroup group,
-            EvaluationContext context)
-        {
-            if (group != GreenlightAdapter.VendorGroup.Adjust || context == null)
-                return true;
-
-            CapabilityState adjust = CapabilityPolicy.Resolve(
-                context.Mode,
-                context.InstalledModules,
-                SdkModule.Adjust,
-                CapabilityRule.FullOnly);
-            return adjust.Required || adjust.Applicable;
         }
 
         /// <summary>Child rows inside a vendor group drop the redundant vendor name from their own label -

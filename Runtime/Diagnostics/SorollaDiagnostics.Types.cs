@@ -5,44 +5,34 @@ namespace Sorolla.Palette
 {
     internal static class SorollaRuntimeCapabilities
     {
-        internal static CapabilityState Max(bool fullMode) =>
-            Resolve(fullMode, SdkModule.AppLovinMax, CapabilityRule.FullRequired);
+        internal static CapabilityState Max(bool fullMode) => Resolve(fullMode, SdkModule.AppLovinMax);
 
-        internal static CapabilityState Adjust(bool fullMode) =>
-            Resolve(fullMode, SdkModule.Adjust, CapabilityRule.FullOnly);
+        internal static CapabilityState Adjust(bool fullMode) => Resolve(fullMode, SdkModule.Adjust);
 
         internal static CapabilityState FirebaseAnalytics(bool fullMode) =>
-            Resolve(fullMode, SdkModule.FirebaseAnalytics, CapabilityRule.FullRequired);
+            Resolve(fullMode, SdkModule.FirebaseAnalytics);
 
         internal static CapabilityState FirebaseCrashlytics(bool fullMode) =>
-            Resolve(fullMode, SdkModule.FirebaseCrashlytics, CapabilityRule.FullRequired);
+            Resolve(fullMode, SdkModule.FirebaseCrashlytics);
 
         internal static CapabilityState FirebaseRemoteConfig(bool fullMode) =>
-            Resolve(fullMode, SdkModule.FirebaseRemoteConfig, CapabilityRule.FullRequired);
+            Resolve(fullMode, SdkModule.FirebaseRemoteConfig);
 
-        internal static CapabilityState UnityIap(bool fullMode) =>
-            Resolve(fullMode, SdkModule.UnityIap, CapabilityRule.Optional);
+        internal static CapabilityState UnityIap(bool fullMode) => Resolve(fullMode, SdkModule.UnityIap);
 
         internal static bool MaxCompiled => (CompiledModules & SdkModule.AppLovinMax) != 0;
-        internal static bool UnityIapCompiled => (CompiledModules & SdkModule.UnityIap) != 0;
 
-        internal static CapabilityState ResolveForTests(
-            bool fullMode, SdkModule installedModules, SdkModule module, CapabilityRule rule) =>
-            Resolve(fullMode, module, rule, installedModules);
-
-        static CapabilityState Resolve(
-            bool fullMode, SdkModule module, CapabilityRule rule, SdkModule? installedModules = null) =>
+        static CapabilityState Resolve(bool fullMode, SdkModule module) =>
             CapabilityPolicy.Resolve(
                 fullMode ? EvalMode.Full : EvalMode.Prototype,
-                installedModules ?? CompiledModules,
-                module,
-                rule);
+                CompiledModules,
+                module);
 
         static SdkModule CompiledModules
         {
             get
             {
-                SdkModule modules = SdkModule.GameAnalytics | SdkModule.Facebook;
+                SdkModule modules = SdkModule.None;
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
                 modules |= SdkModule.AppLovinMax;
 #endif

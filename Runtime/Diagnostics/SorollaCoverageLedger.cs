@@ -18,6 +18,9 @@ namespace Sorolla.Palette
         Rewarded = 1 << 5,
         AdRevenue = 1 << 6,
         IapPurchase = 1 << 7,
+        /// <summary>Adjust answered the purchase-verification call for a tracked purchase. ANY answer proves
+        /// the wiring, including the deterministic sandbox environment mismatch.</summary>
+        AdjustPurchaseVerification = 1 << 8,
     }
 
     /// <summary>

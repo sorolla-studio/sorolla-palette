@@ -234,11 +234,11 @@ namespace Sorolla.Palette
             var line = new VisualElement();
             line.AddToClassList("sorolla-debugmenu-matrix-row");
 
-            bool neutral = row.IsManualReminder || !row.Exercised;
-
-            var badge = new Label(row.IsManualReminder ? "CHECK" : row.Exercised ? "DONE" : "TO DO");
+            var badge = new Label(row.Exercised ? "DONE" : "TO DO");
             badge.AddToClassList("sorolla-debugmenu-severity-badge");
-            badge.AddToClassList(neutral ? "sorolla-debugmenu-badge-wait" : "sorolla-debugmenu-badge-pass");
+            badge.AddToClassList(row.Exercised
+                ? "sorolla-debugmenu-badge-pass"
+                : "sorolla-debugmenu-badge-wait");
             line.Add(badge);
 
             var textColumn = new VisualElement();
@@ -248,15 +248,14 @@ namespace Sorolla.Palette
             name.AddToClassList("sorolla-debugmenu-matrix-row-name");
             textColumn.Add(name);
 
-            // Exercised: show the cell fact. Not exercised / manual: show the how-to-trigger hint, so a
-            // to-do row states the tester's next action instead of a bare status word.
-            var detail = new Label(row.Exercised && !row.IsManualReminder ? row.Cell : row.Hint);
+            // Exercised: show the cell fact. Not exercised: show the how-to-trigger hint, so a to-do row
+            // states the tester's next action instead of a bare status word.
+            var detail = new Label(row.Exercised ? row.Cell : row.Hint);
             detail.AddToClassList("sorolla-debugmenu-matrix-row-detail");
             textColumn.Add(detail);
 
             // The diagnostics model owns action applicability. This UI only renders the supplied action.
-            if ((!row.Exercised || row.Action == QaActionRegistry.ResetConsent) &&
-                !row.IsManualReminder && row.Action != null)
+            if ((!row.Exercised || row.Action == QaActionRegistry.ResetConsent) && row.Action != null)
             {
                 var button = new Button(() => RunActionAndRefreshReport(row.Action)) { text = row.ActionLabel };
                 button.AddToClassList("sorolla-debugmenu-action-button");

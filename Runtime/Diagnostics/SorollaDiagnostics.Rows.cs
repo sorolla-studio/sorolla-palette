@@ -612,7 +612,7 @@ namespace Sorolla.Palette
 
         static SorollaDiagnosticSeverity PurchaseVerificationSeverity(Snapshot snapshot)
         {
-            if (snapshot.PurchaseVerification == "Not observed") return SorollaDiagnosticSeverity.Info;
+            if (snapshot.PurchaseVerification == NotObserved) return SorollaDiagnosticSeverity.Info;
             return snapshot.PurchaseVerification.Contains("success")
                 ? SorollaDiagnosticSeverity.Pass
                 : SorollaDiagnosticSeverity.Warning;

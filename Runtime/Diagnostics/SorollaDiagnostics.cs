@@ -97,7 +97,10 @@ namespace Sorolla.Palette
         static int s_purchaseAcceptedCount;
         static int s_purchaseDuplicateCount;
         static string s_purchaseIssue = "No issue observed";
-        static string s_purchaseVerification = "Not observed";
+        /// <summary>The one "nothing came back yet" value for purchase verification: the coverage row and the
+        /// Activity row both key on it, so it is a constant rather than a literal in three places.</summary>
+        internal const string NotObserved = "Not observed";
+        static string s_purchaseVerification = NotObserved;
 
         static int s_progressionStartCount;
         static int s_progressionEndCount;

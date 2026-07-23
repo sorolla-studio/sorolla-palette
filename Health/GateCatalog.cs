@@ -142,14 +142,14 @@ namespace Sorolla.Palette.Health
             // blocked a green verdict for a game deliberately shipping one platform, and the other platform's
             // state is now carried by the vendor group caption instead of by this gate.
             defs.Add(new GateDefinition(GateIds.BuildGameAnalyticsKeys, V4, GateClassification.Variant,
-                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.GameAnalytics, CapabilityRule.Core)));
+                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.GameAnalytics)));
             defs.Add(new GateDefinition(GateIds.BuildGameAnalyticsCredentials, V4, GateClassification.Variant,
-                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.GameAnalytics, CapabilityRule.Core)));
+                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.GameAnalytics)));
             // V2 (2026-07-23): the Facebook app's platform registration is judged for the active build target
             // only. The Graph response still describes both platforms - the row just stops grading the one
             // this build is not for.
             defs.Add(new GateDefinition(GateIds.BuildFacebookPlatform, V4, GateClassification.Variant,
-                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.Facebook, CapabilityRule.Core)));
+                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.Facebook)));
 
             // Firebase is required in Full and validated in Prototype only when at least one Firebase module
             // is actually included. Package availability is owned by BuildRequiredSdks; dependent checks do
@@ -162,9 +162,9 @@ namespace Sorolla.Palette.Health
             // Only the active build target's ad unit ids are graded. V4 also scopes both settings gates to
             // the package-backed capability, so missing packages are owned by the root package gate.
             defs.Add(new GateDefinition(GateIds.BuildMaxSettings, V4, GateClassification.Variant,
-                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.AppLovinMax, CapabilityRule.FullRequired)));
+                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.AppLovinMax)));
             defs.Add(new GateDefinition(GateIds.BuildAdjustSettings, V4, GateClassification.Variant,
-                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.Adjust, CapabilityRule.FullOnly)));
+                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.Adjust)));
 
             // Firebase config files follow the SAME requirement as Firebase itself (review C4-05): when
             // Firebase is required (Full), a missing google-services.json / plist must block release
@@ -190,7 +190,7 @@ namespace Sorolla.Palette.Health
             defs.Add(new GateDefinition(GateIds.BuildAndroidKeystore, Version, GateClassification.Variant,
                 ProofScope.Static, Requirements.AndroidRequiredElseOptional, releaseOnly: true));
             defs.Add(new GateDefinition(GateIds.BuildAdjustSandboxMode, V4, GateClassification.Structural,
-                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.Adjust, CapabilityRule.FullOnly)));
+                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.Adjust)));
 
             // Advisory Build Health rows - Optional in both modes. Their OBSERVED outcome still drives
             // precedence (an error -> FAIL, a warning -> caveats); an unobserved conditional check is a real

@@ -5,7 +5,11 @@
 # package copy is reachable. Keep both copies' patterns byte-identical; edit here
 # first, then mirror to the skill copy.
 
-# Red-flag substrings — these MUST NOT appear in a greenlight run.
+# SDK/vendor red-flag substrings — these MUST NOT appear in a greenlight run, and any
+# hit is BINDING (it halts the run). Scope: SDK and vendor init/delivery failures only.
+# A game's own exceptions and content errors are NOT here: they are informational, they
+# live in game-exceptions.txt, and they never fail an SDK-scoped run (a game with its own
+# NullReferenceExceptions can still have a completely healthy SDK integration).
 # One substring per line. Lines starting with # are ignored.
 # Grep list the agent applies to a RAW capture (iOS devicectl /tmp/unity_ios_rolling.log
 # or Android logcat). No capture script auto-loads it (pymobiledevice3/ios_logs.py retired
@@ -49,17 +53,11 @@ Firebase init failed — dropping analytics events
 # CMP misconfiguration — no TCF string emitted
 IABTCF_TCString=EMPTY
 
-# Stale Unity masks real messages
-<private>
-
-# Android process crash
-FATAL EXCEPTION
-
-# Common unhandled C# exceptions
-NullReferenceException
-
-# Addressables catalog out of date
-InvalidKeyException
+# Game-owned patterns (FATAL EXCEPTION, NullReferenceException, InvalidKeyException) moved to
+# game-exceptions.txt 2026-07-23: they were binding here, and a game whose own code throws
+# produced a red SDK verdict with nothing SDK-side wrong (junkyard-survival false red).
+# The bare `<private>` pattern was deleted in the same pass: on a device-wide iOS capture it is
+# ordinary OS redaction, hundreds of thousands of hits, and it never described SDK state.
 
 # TLS failures (context: iOS 15.x on old QA device is known-acceptable,
 # see incidents.md 2026-04-23 TLS -9816)

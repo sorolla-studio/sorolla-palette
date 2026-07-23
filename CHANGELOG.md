@@ -69,8 +69,14 @@ release verdict.
   states, actions, or coverage debt. Required-but-missing vendors report one package problem and
   suppress dependent checks. Unity IAP adds purchase coverage and Adjust purchase requirements only
   when the package is included.
-- **QA data files ship with the SDK** (`QA~/red-flags.txt`, `QA~/signal-markers.txt`,
-  `QA~/known-non-blockers.txt`): the QA-pass grep patterns are version-pinned with the SDK.
+- **QA data files ship with the SDK** (`QA~/red-flags.txt`, `QA~/game-exceptions.txt`,
+  `QA~/signal-markers.txt`, `QA~/known-non-blockers.txt`): the QA-pass grep patterns are
+  version-pinned with the SDK. `red-flags.txt` holds SDK and vendor failures and binds a run;
+  game-owned exceptions live in `game-exceptions.txt` and are reported without failing it.
+- **GameAnalytics whitelist spelling check**: a `ResourceCurrencies` or `ResourceItemTypes` entry that
+  names what Palette sends but spells it differently (`Coins` for the `coins` actually sent) is
+  reported with the exact string to use. GameAnalytics matches these lists exactly and drops
+  non-matching resource events in silence.
 
 ### Changed
 
@@ -83,7 +89,19 @@ release verdict.
   reads as its name and a short status word, with the message and fix wrapping underneath. Clicking
   anywhere on a group header folds it.
 - **Configuration edits re-run validation as you type**, with no Refresh press, and a check waiting on
-  a network answer updates itself when the probe returns.
+  a network answer updates itself when the probe returns. The report also re-evaluates on its own when
+  the active build target or the mode changes, and when a vendor configuration asset is written
+  (GameAnalytics settings, the MAX settings, Facebook settings, either Firebase config file).
+- **TEST YOUR GAME asks only for what this game includes**: a Prototype game with no optional packages
+  owes one item, playing a level. Consent appears with AppLovin MAX, an ad item per ad format that has
+  a unit id for the active build target, purchase items with Unity IAP, and Adjust purchase
+  verification with Adjust and Unity IAP together. Every listed item counts toward the verdict, and an
+  untested item reads TO DO, never as an error.
+- **Each configured ad format is proved separately**: watching a rewarded ad no longer completes the
+  interstitial requirement.
+- **Adjust purchase verification completes from the device**: the row turns DONE when Adjust answers
+  the verification call for a tracked purchase, including the sandbox environment-mismatch answer.
+- **Vendor foldouts appear only for vendors the game includes or owes.**
 - **The window states which platform the report judged**, and the Adjust sandbox checkbox sits under
   the warning that explains it.
 - **A user's privacy choice is no longer reported as a problem**: ATT denied or restricted and a
@@ -117,6 +135,11 @@ release verdict.
 
 ### Removed
 
+- **Permanent manual reminders in TEST YOUR GAME**: the GameAnalytics platform-registration, AppLovin
+  and Adjust app-identity, and relaunch-persistence rows. Nothing in that list now is a row a studio
+  cannot complete on the device.
+- **Economy, Custom events and ad-revenue rows in TEST YOUR GAME**: those facts keep recording and
+  still show in the on-device console; they no longer ask a studio for evidence.
 - **QA bridge password gate** (breaking): the `/qa/*` bridge no longer requires a password. The
   password was a constant compiled into every build, so it protected nothing; the real boundary is
   that the bridge binds loopback only and is reachable only by someone who can already USB-forward

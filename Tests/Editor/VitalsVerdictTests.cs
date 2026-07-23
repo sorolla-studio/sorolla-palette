@@ -104,91 +104,206 @@ namespace Sorolla.Palette.Editor.Tests
         public void AdsCapability_IsOwnedByModeAndCompiledPackage(
             bool fullMode, bool maxCompiled, bool required)
         {
-            CapabilityState ads = SorollaRuntimeCapabilities.ResolveForTests(
-                fullMode,
+            CapabilityState ads = CapabilityPolicy.Resolve(
+                fullMode ? EvalMode.Full : EvalMode.Prototype,
                 maxCompiled ? SdkModule.AppLovinMax : SdkModule.None,
-                SdkModule.AppLovinMax,
-                CapabilityRule.FullRequired);
+                SdkModule.AppLovinMax);
 
             Assert.AreEqual(required, ads.Required);
             Assert.AreEqual(maxCompiled, ads.Included);
         }
 
         [Test]
-        public void AdsExcluded_NeverCreatesThinCoverage_EvenWithStaleAdUnits()
+        public void FullOnlyCapability_IsExcludedFromPrototypeEvenWhenCompiled()
         {
-            CapabilityState ads = SorollaRuntimeCapabilities.ResolveForTests(
-                false, SdkModule.None, SdkModule.AppLovinMax, CapabilityRule.FullRequired);
+            CapabilityState adjust = CapabilityPolicy.Resolve(
+                EvalMode.Prototype, SdkModule.Adjust, SdkModule.Adjust);
 
-            Assert.IsTrue(SorollaDiagnostics.AdCoverageSatisfied(
-                ads,
-                rewardedConfigured: true,
-                interstitialConfigured: true,
-                proved: SorollaCoverageFact.None));
+            Assert.IsTrue(adjust.Included);
+            Assert.IsFalse(adjust.Required);
+            Assert.IsFalse(adjust.Applicable);
+        }
+
+        // ── TEST YOUR GAME rows: the one list behind both the matrix and NOT PROVEN ──
+
+        static readonly CapabilityState Excluded = new CapabilityState(false, false, false);
+        static readonly CapabilityState Included = new CapabilityState(false, true, true);
+
+        static List<string> RowNames(in SorollaCoverageInputs inputs)
+        {
+            var names = new List<string>();
+            foreach (SorollaMenuMatrixRow row in SorollaDiagnostics.BuildCoverageRows(inputs))
+                names.Add(row.Name);
+            return names;
         }
 
         [Test]
-        public void AdsIncluded_RequiresConfiguredAdCoverage()
+        public void PrototypeWithNoOptionals_OwesProgressionAndNothingElse()
         {
-            CapabilityState ads = SorollaRuntimeCapabilities.ResolveForTests(
-                false, SdkModule.AppLovinMax, SdkModule.AppLovinMax, CapabilityRule.FullRequired);
+            var inputs = new SorollaCoverageInputs
+            {
+                Ads = Excluded, Adjust = Excluded, Iap = Excluded,
+                // Stale ad unit ids in a config the game no longer ships MAX for prove nothing.
+                InterstitialConfigured = true, RewardedConfigured = true,
+            };
 
-            Assert.IsFalse(SorollaDiagnostics.AdCoverageSatisfied(
-                ads,
-                rewardedConfigured: true,
-                interstitialConfigured: false,
-                proved: SorollaCoverageFact.None));
-            Assert.IsTrue(SorollaDiagnostics.AdCoverageSatisfied(
-                ads,
-                rewardedConfigured: true,
-                interstitialConfigured: false,
-                proved: SorollaCoverageFact.Rewarded));
+            Assert.AreEqual(new[] { "Progression" }, RowNames(inputs).ToArray());
+            Assert.IsTrue(SorollaDiagnostics.IsCoverageThin(inputs), "progression is not proved yet");
+
+            inputs.Proved = SorollaCoverageFact.Progression;
+            Assert.IsFalse(SorollaDiagnostics.IsCoverageThin(inputs));
+        }
+
+        [Test]
+        public void EveryVisibleToDoRow_MakesCoverageThin()
+        {
+            // The row list IS the verdict input: no row may be visible-but-not-voting, and none may vote
+            // while invisible. Proving them one at a time must walk coverage to satisfied exactly when the
+            // last visible row flips.
+            var inputs = new SorollaCoverageInputs
+            {
+                Ads = Included, Adjust = Included, Iap = Included,
+                InterstitialConfigured = true, RewardedConfigured = true,
+                State = new SorollaQaState { IapTrackingAttached = true },
+                Proved = SorollaCoverageFact.None,
+            };
+
+            List<string> visible = RowNames(inputs);
+            CollectionAssert.AreEqual(new[]
+            {
+                "Progression", "Consent", "Ads · interstitial", "Ads · rewarded",
+                "IAP wiring", "IAP purchase", "Adjust purchase verification",
+            }, visible);
+
+            foreach (SorollaCoverageFact fact in new[]
+            {
+                SorollaCoverageFact.Progression, SorollaCoverageFact.Consent,
+                SorollaCoverageFact.Interstitial, SorollaCoverageFact.Rewarded,
+                SorollaCoverageFact.IapPurchase,
+            })
+            {
+                Assert.IsTrue(SorollaDiagnostics.IsCoverageThin(inputs), $"still owes {fact}");
+                inputs.Proved |= fact;
+            }
+
+            Assert.IsTrue(SorollaDiagnostics.IsCoverageThin(inputs), "still owes the Adjust verification row");
+            inputs.Proved |= SorollaCoverageFact.AdjustPurchaseVerification;
+            Assert.IsFalse(SorollaDiagnostics.IsCoverageThin(inputs), "every visible row is proved");
+        }
+
+        [Test]
+        public void AdRows_AppearPerConfiguredFormat_AndEachMustBeProved()
+        {
+            var inputs = new SorollaCoverageInputs
+            {
+                Ads = Included, Adjust = Excluded, Iap = Excluded,
+                InterstitialConfigured = false, RewardedConfigured = true,
+                Proved = SorollaCoverageFact.Progression | SorollaCoverageFact.Consent,
+            };
+
+            CollectionAssert.DoesNotContain(RowNames(inputs), "Ads · interstitial");
+            CollectionAssert.Contains(RowNames(inputs), "Ads · rewarded");
+            Assert.IsTrue(SorollaDiagnostics.IsCoverageThin(inputs));
+
+            inputs.Proved |= SorollaCoverageFact.Rewarded;
+            Assert.IsFalse(SorollaDiagnostics.IsCoverageThin(inputs));
+
+            // Both formats configured: one proved format never stands in for the other.
+            inputs.InterstitialConfigured = true;
+            Assert.IsTrue(SorollaDiagnostics.IsCoverageThin(inputs));
+            inputs.Proved |= SorollaCoverageFact.Interstitial;
+            Assert.IsFalse(SorollaDiagnostics.IsCoverageThin(inputs));
+        }
+
+        [Test]
+        public void AdjustVerificationRow_NeedsBothAdjustAndIap_AndCompletesOnTheCallback()
+        {
+            var inputs = new SorollaCoverageInputs
+            {
+                Ads = Excluded, Adjust = Included, Iap = Excluded,
+                Proved = SorollaCoverageFact.Progression,
+            };
+            CollectionAssert.DoesNotContain(RowNames(inputs), "Adjust purchase verification");
+
+            inputs.Adjust = Excluded;
+            inputs.Iap = Included;
+            inputs.State = new SorollaQaState { IapTrackingAttached = true };
+            CollectionAssert.DoesNotContain(RowNames(inputs), "Adjust purchase verification");
+
+            inputs.Adjust = Included;
+            CollectionAssert.Contains(RowNames(inputs), "Adjust purchase verification");
+
+            inputs.Proved |= SorollaCoverageFact.IapPurchase;
+            Assert.IsTrue(SorollaDiagnostics.IsCoverageThin(inputs), "no verification answer observed yet");
+            inputs.Proved |= SorollaCoverageFact.AdjustPurchaseVerification;
+            Assert.IsFalse(SorollaDiagnostics.IsCoverageThin(inputs));
         }
 
         [Test]
         public void ExcludedCapabilities_DoNotCreateCoverageDebt()
         {
-            var state = new SorollaQaState
+            var inputs = new SorollaCoverageInputs
             {
-                ConsentStatus = "Unknown",
-                IapTrackingAttached = false,
+                State = new SorollaQaState { ConsentStatus = "Unknown", IapTrackingAttached = false },
+                Ads = Excluded, Adjust = Excluded, Iap = Excluded,
+                Proved = SorollaCoverageFact.Progression,
             };
-            var excluded = new CapabilityState(required: false, included: false, applicable: false);
 
-            Assert.IsFalse(SorollaDiagnostics.IsCoverageThin(
-                state,
-                SorollaCoverageFact.Progression,
-                excluded,
-                excluded));
+            Assert.IsFalse(SorollaDiagnostics.IsCoverageThin(inputs));
         }
 
         [Test]
         public void IncludedIap_RequiresWiringAndPurchase()
         {
-            var state = new SorollaQaState { IapTrackingAttached = false };
-            var excludedAds = new CapabilityState(false, false, false);
-            var includedIap = new CapabilityState(false, true, true);
+            var inputs = new SorollaCoverageInputs
+            {
+                State = new SorollaQaState { IapTrackingAttached = false },
+                Ads = Excluded, Adjust = Excluded, Iap = Included,
+                Proved = SorollaCoverageFact.Progression,
+            };
 
-            Assert.IsTrue(SorollaDiagnostics.IsCoverageThin(
-                state, SorollaCoverageFact.Progression, excludedAds, includedIap));
+            Assert.IsTrue(SorollaDiagnostics.IsCoverageThin(inputs), "wiring not attached, no purchase");
 
-            state.IapTrackingAttached = true;
-            Assert.IsFalse(SorollaDiagnostics.IsCoverageThin(
-                state,
-                SorollaCoverageFact.Progression | SorollaCoverageFact.IapPurchase,
-                excludedAds,
-                includedIap));
+            inputs.State.IapTrackingAttached = true;
+            Assert.IsTrue(SorollaDiagnostics.IsCoverageThin(inputs), "wired but no purchase");
+
+            inputs.Proved |= SorollaCoverageFact.IapPurchase;
+            Assert.IsFalse(SorollaDiagnostics.IsCoverageThin(inputs));
         }
 
         [Test]
-        public void FullOnlyCapability_IsExcludedFromPrototypeEvenWhenCompiled()
+        public void NotTestedRows_AreToDo_NeverErrors()
         {
-            CapabilityState adjust = SorollaRuntimeCapabilities.ResolveForTests(
-                false, SdkModule.Adjust, SdkModule.Adjust, CapabilityRule.FullOnly);
+            // A capability nobody exercised is a TO DO row, never a red row: nothing about the row list
+            // reaches the issue sections, which key on diagnostic-row severity.
+            var inputs = new SorollaCoverageInputs
+            {
+                Ads = Included, Adjust = Included, Iap = Included,
+                InterstitialConfigured = true, RewardedConfigured = true,
+                State = new SorollaQaState(),
+                Proved = SorollaCoverageFact.None,
+            };
 
-            Assert.IsTrue(adjust.Included);
-            Assert.IsFalse(adjust.Required);
-            Assert.IsFalse(adjust.Applicable);
+            foreach (SorollaMenuMatrixRow row in SorollaDiagnostics.BuildCoverageRows(inputs))
+            {
+                Assert.IsFalse(row.Exercised, row.Name);
+                Assert.IsNotEmpty(row.Hint, $"{row.Name} must say how to complete it");
+            }
+        }
+
+        [Test]
+        public void EveryAttentionRow_CarriesASolution()
+        {
+            // The other half of the four-state rule: a Palette mechanism that was attempted and failed
+            // surfaces as an issue row WITH a fix, never as a bare red word.
+            var rows = new List<SorollaDiagnosticRow>();
+            SorollaDiagnostics.BuildRows(rows);
+
+            foreach (SorollaDiagnosticRow row in rows)
+            {
+                if (!SorollaDiagnostics.NeedsAttention(row.Severity) || row.Group == "Red flags") continue;
+                Assert.IsTrue(row.HasStructuredDiagnosis, $"{row.Group}/{row.Name} has no why/signal/fix");
+            }
         }
 
         [Test]

@@ -336,6 +336,34 @@ namespace Sorolla.Palette.Editor.Greenlight
                 // an explicit enumeration, so a newly added non-vendor category lands here automatically.
             };
 
+        /// <summary>The vendor package behind each vendor group. Groups absent from this map are not
+        /// vendor-scoped (build/project, device, the parked TikTok toggle) and always apply.</summary>
+        static readonly Dictionary<VendorGroup, SdkModule> GroupModule =
+            new Dictionary<VendorGroup, SdkModule>
+            {
+                [VendorGroup.GameAnalytics] = SdkModule.GameAnalytics,
+                [VendorGroup.Facebook] = SdkModule.Facebook,
+                [VendorGroup.Firebase] = SdkModule.Firebase,
+                [VendorGroup.AppLovinMax] = SdkModule.AppLovinMax,
+                [VendorGroup.Adjust] = SdkModule.Adjust,
+            };
+
+        /// <summary>
+        ///     Does this group describe a capability THIS game has? A vendor the game neither includes nor
+        ///     owes (Adjust in Prototype, MAX in a Prototype game without the package) is omitted rather than
+        ///     rendered as empty-but-unconfigured clutter. Lives here, in the model, so every frontend stays
+        ///     blind to capability policy - the window used to carry an Adjust-only special case.
+        /// </summary>
+        internal static bool GroupApplies(VendorGroup group, EvaluationContext context)
+        {
+            if (context == null || !GroupModule.TryGetValue(group, out SdkModule module))
+                return true;
+
+            CapabilityState state = CapabilityPolicy.Resolve(context.Mode, context.InstalledModules, module);
+            // Required-but-absent still applies: the studio must see the vendor it owes.
+            return state.Required || state.Applicable;
+        }
+
         /// <summary>Grouping key is the gate's existing category from the catalog/validators, never label
         /// string-matching. A gate id with no BuildValidator category at all (device.*, or the synthetic
         /// Report Integrity row's null id) is QA/device process, not vendor build state - Device &amp; QA.</summary>

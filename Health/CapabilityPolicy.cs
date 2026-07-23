@@ -36,6 +36,38 @@ namespace Sorolla.Palette.Health
     /// </summary>
     internal static class CapabilityPolicy
     {
+        /// <summary>
+        ///     The ONE module → rule table. The editor gate catalog and the runtime capability accessors both
+        ///     read it, so a vendor cannot be "required in Full" on one surface and optional on the other.
+        ///     Unknown modules throw rather than defaulting: a new module must declare its rule here once.
+        /// </summary>
+        internal static CapabilityRule RuleFor(SdkModule module)
+        {
+            switch (module)
+            {
+                case SdkModule.GameAnalytics:
+                case SdkModule.Facebook:
+                    return CapabilityRule.Core;
+                case SdkModule.FirebaseApp:
+                case SdkModule.FirebaseAnalytics:
+                case SdkModule.FirebaseCrashlytics:
+                case SdkModule.FirebaseRemoteConfig:
+                case SdkModule.Firebase:
+                case SdkModule.AppLovinMax:
+                    return CapabilityRule.FullRequired;
+                case SdkModule.Adjust:
+                    return CapabilityRule.FullOnly;
+                case SdkModule.UnityIap:
+                    return CapabilityRule.Optional;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(module), module,
+                        "No capability rule declared for this module.");
+            }
+        }
+
+        internal static CapabilityState Resolve(EvalMode mode, SdkModule installedModules, SdkModule module) =>
+            Resolve(mode, installedModules, module, RuleFor(module));
+
         internal static CapabilityState Resolve(
             EvalMode mode, SdkModule installedModules, SdkModule module, CapabilityRule rule)
         {
@@ -51,15 +83,14 @@ namespace Sorolla.Palette.Health
         ///     Requirement for a check below the package-availability root. Missing required packages are
         ///     reported by the root gate, so their dependent checks are NotApplicable rather than duplicates.
         /// </summary>
-        internal static Func<EvaluationContext, RequirementDecision> Dependent(
-            SdkModule module, CapabilityRule rule) => context =>
+        internal static Func<EvaluationContext, RequirementDecision> Dependent(SdkModule module) => context =>
         {
             if (context.Mode == EvalMode.Unknown)
                 return new RequirementDecision(Requirement.Unknown, "SDK mode is unknown (no config)");
             if (!context.ModulesResolved)
                 return new RequirementDecision(Requirement.Unknown, "package manifest could not be resolved");
 
-            CapabilityState state = Resolve(context.Mode, context.InstalledModules, module, rule);
+            CapabilityState state = Resolve(context.Mode, context.InstalledModules, module);
             if (!state.Applicable)
                 return new RequirementDecision(Requirement.NotApplicable,
                     state.Required

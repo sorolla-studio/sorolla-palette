@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using UnityEditor;
 using UnityEngine;
 
@@ -89,7 +90,7 @@ namespace Sorolla.Palette.Editor
             }
 
             var serialized = new SerializedObject(settings);
-            var resourceCurrenciesProperty = serialized.FindProperty("ResourceCurrencies");
+            SerializedProperty resourceCurrenciesProperty = serialized.FindProperty("ResourceCurrencies");
             bool isEmpty = resourceCurrenciesProperty == null || !resourceCurrenciesProperty.isArray ||
                            resourceCurrenciesProperty.arraySize == 0;
 
@@ -101,14 +102,63 @@ namespace Sorolla.Palette.Editor
                     category,
                     "GameAnalytics ResourceCurrencies whitelist is empty.\n" +
                     "  Only matters if this game tracks economy via Palette.Economy - GameAnalytics silently drops every resource event when the whitelist is empty.",
-                    "If the game tracks economy: add each currency name (e.g. Coins) to Resource Currencies"));
-            }
-            else
-            {
-                results.Add(Valid(category, $"ResourceCurrencies: {resourceCurrenciesProperty.arraySize} configured"));
+                    "If the game tracks economy: add each currency name (e.g. coins) to Resource Currencies"));
+                return results;
             }
 
+            List<string> mismatches = WhitelistMismatches(resourceCurrenciesProperty, EconomyVocabulary.Currencies());
+            mismatches.AddRange(WhitelistMismatches(
+                serialized.FindProperty("ResourceItemTypes"), EconomyVocabulary.ItemTypes()));
+
+            if (mismatches.Count > 0)
+                results.Add(Warning(
+                    category,
+                    "GameAnalytics whitelist entries do not match what Palette sends:\n  " +
+                    string.Join("\n  ", mismatches) + "\n" +
+                    "  GameAnalytics silently drops every resource event whose currency or item type is not whitelisted EXACTLY.",
+                    "Rewrite each listed entry in the form Palette sends (lower_snake_case)"));
+            else
+                results.Add(Valid(category, $"ResourceCurrencies: {resourceCurrenciesProperty.arraySize} configured"));
+
             return results;
+        }
+
+        /// <summary>
+        ///     Whitelist entries that name something Palette emits but spell it differently - "Coins" for the
+        ///     "coins" the SDK actually sends. GameAnalytics matches these strings exactly, so the event is
+        ///     dropped in silence and only surfaces days later as missing dashboard data. Entries matching
+        ///     nothing Palette emits are left alone: they cost nothing and may be another integration's.
+        /// </summary>
+        static List<string> WhitelistMismatches(SerializedProperty list, string[] emitted)
+        {
+            var mismatches = new List<string>();
+            if (list == null || !list.isArray) return mismatches;
+
+            for (int i = 0; i < list.arraySize; i++)
+            {
+                string entry = list.GetArrayElementAtIndex(i).stringValue;
+                if (string.IsNullOrEmpty(entry)) continue;
+
+                string normalized = Normalize(entry);
+                foreach (string name in emitted)
+                {
+                    if (entry == name || Normalize(name) != normalized) continue;
+                    mismatches.Add($"'{entry}' -> Palette sends '{name}'");
+                    break;
+                }
+            }
+            return mismatches;
+        }
+
+        /// <summary>Case- and separator-insensitive form, so "Level Reward", "LevelReward" and "level-reward"
+        /// all collapse onto the emitted "level_reward".</summary>
+        static string Normalize(string value)
+        {
+            var sb = new StringBuilder(value.Length);
+            foreach (char c in value)
+                if (char.IsLetterOrDigit(c))
+                    sb.Append(char.ToLowerInvariant(c));
+            return sb.ToString();
         }
     }
 }

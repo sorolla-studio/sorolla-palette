@@ -1,0 +1,21 @@
+# Game-owned failure substrings — INFORMATIONAL ONLY. A hit here is reported and never
+# fails a run. Same file shape as red-flags.txt (one substring per line, # comments
+# ignored), same provenance rule: this copy ships with the SDK and is canonical for this
+# SDK version; the sorolla-docs skill copy is the fallback for older pins.
+#
+# Why the split (2026-07-23): the SDK's verdict grades the SDK. These patterns say a
+# GAME threw, and a game that throws can still have a flawless SDK integration - scanning
+# them as binding produced a red verdict with nothing SDK-side wrong (junkyard-survival).
+# They stay listed because a reader of the capture should still see them.
+#
+# Nothing SDK- or vendor-scoped belongs here. If a pattern proves an SDK or vendor
+# init/delivery failure, it goes in red-flags.txt and it binds.
+
+# Android process crash (the game's process died; the stack says whose code)
+FATAL EXCEPTION
+
+# Common unhandled C# exceptions
+NullReferenceException
+
+# Addressables catalog out of date (game content, not SDK state)
+InvalidKeyException

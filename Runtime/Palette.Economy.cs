@@ -57,6 +57,50 @@ namespace Sorolla.Palette
         Other,
     }
 
+    /// <summary>
+    ///     The exact strings Palette emits to GameAnalytics for economy events: the currency slot and the
+    ///     item-type slot. GameAnalytics silently drops any resource event whose currency or item type is
+    ///     absent from its own whitelists, so the editor check that compares a project's whitelists against
+    ///     what will actually be sent reads this list rather than re-deriving the naming convention.
+    /// </summary>
+    internal static class EconomyVocabulary
+    {
+        internal static string[] Currencies() => Names(typeof(CurrencyId));
+
+        internal static string[] ItemTypes()
+        {
+            string[] sources = Names(typeof(EconomySource));
+            string[] sinks = Names(typeof(EconomySink));
+            var all = new List<string>(sources.Length + sinks.Length);
+            all.AddRange(sources);
+            foreach (string sink in sinks)
+                if (!all.Contains(sink))
+                    all.Add(sink);
+            return all.ToArray();
+        }
+
+        internal static string ToSnake(Enum value)
+        {
+            string s = value.ToString();
+            var sb = new StringBuilder(s.Length + 4);
+            for (int i = 0; i < s.Length; i++)
+            {
+                if (i > 0 && char.IsUpper(s[i])) sb.Append('_');
+                sb.Append(char.ToLowerInvariant(s[i]));
+            }
+            return sb.ToString();
+        }
+
+        static string[] Names(Type enumType)
+        {
+            Array values = Enum.GetValues(enumType);
+            var names = new string[values.Length];
+            for (int i = 0; i < values.Length; i++)
+                names[i] = ToSnake((Enum)values.GetValue(i));
+            return names;
+        }
+    }
+
     public static partial class Palette
     {
         /// <summary>
@@ -175,17 +219,7 @@ namespace Sorolla.Palette
                 return allowed;
             }
 
-            static string EnumToSnake(Enum e)
-            {
-                string s = e.ToString();
-                var sb = new StringBuilder(s.Length + 4);
-                for (int i = 0; i < s.Length; i++)
-                {
-                    if (i > 0 && char.IsUpper(s[i])) sb.Append('_');
-                    sb.Append(char.ToLowerInvariant(s[i]));
-                }
-                return sb.ToString();
-            }
+            static string EnumToSnake(Enum e) => EconomyVocabulary.ToSnake(e);
 
             static string Sanitize(string s)
             {
