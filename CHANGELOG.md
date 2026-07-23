@@ -79,6 +79,9 @@ release verdict.
 
 ### Changed
 
+- **One support copy on the Vitals report screen**: `Copy report` now carries the verdict, the
+  attention list, and the full SDK state. The separate `Copy SDK state` button beside the SDK-side
+  issues is removed.
 - **Vitals overlay gesture**: the five corner taps are now timed against each other - up to 2 seconds
   between consecutive taps instead of 2 seconds for the whole sequence - and the final tap is held
   for half a second instead of 0.8.

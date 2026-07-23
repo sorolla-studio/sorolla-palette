@@ -5,7 +5,7 @@ Codex guidance for working in the Sorolla SDK package.
 ## Purpose
 
 This directory is the `com.sorolla.sdk` Unity package: a plug-and-play mobile publisher SDK for Unity.
-It wraps GameAnalytics, Facebook, AppLovin MAX, Adjust, Firebase, TikTok, Unity IAP, ATT, and GDPR/CMP flows behind the `Sorolla.Palette` API.
+It wraps GameAnalytics, Facebook, AppLovin MAX, Adjust, Firebase, Unity IAP, ATT, and GDPR/CMP flows behind the `Sorolla.Palette` API.
 
 The parent Unity project is only a local testbed shell. SDK source changes belong in this package repo.
 
@@ -113,7 +113,7 @@ Known current DX-API queue:
 
 ## Adapter Endpoint Review (mandatory)
 
-When touching any method under `Runtime/Adapters/*/`*AdapterImpl.cs* (Firebase, MAX, Adjust, TikTok, Facebook, GameAnalytics), apply this checklist **before staging the diff**. It exists because **v3.6.0** silently shipped a payload regression in `FirebaseAdapterImpl.TrackResourceEvent`: the prior implementation emitted both `itemType` (as `placement`) and `itemId` (as `item_id`) on **both** earn and spend; the "use GA4 canonical constants" rewrite (commit `4ad6891`) collapsed three populated slots to two on spend and one on earn — `placement` was deleted, `item_id` was deleted, and the remaining `item_name` slot was gated to spend only. The commit was framed as constants-conversion, so review optimized for "are the canonical names correct" and never noticed the silent payload reduction. Six weeks of `earn_virtual_currency` rows in BigQuery carried only `virtual_currency_name` + `value`; placement-attribution queries on earn were impossible until a downstream game integration caught it in 2026-05.
+When touching any method under `Runtime/Adapters/*/`*AdapterImpl.cs* (Firebase, MAX, Adjust, Facebook, GameAnalytics), apply this checklist **before staging the diff**. It exists because **v3.6.0** silently shipped a payload regression in `FirebaseAdapterImpl.TrackResourceEvent`: the prior implementation emitted both `itemType` (as `placement`) and `itemId` (as `item_id`) on **both** earn and spend; the "use GA4 canonical constants" rewrite (commit `4ad6891`) collapsed three populated slots to two on spend and one on earn — `placement` was deleted, `item_id` was deleted, and the remaining `item_name` slot was gated to spend only. The commit was framed as constants-conversion, so review optimized for "are the canonical names correct" and never noticed the silent payload reduction. Six weeks of `earn_virtual_currency` rows in BigQuery carried only `virtual_currency_name` + `value`; placement-attribution queries on earn were impossible until a downstream game integration caught it in 2026-05.
 
 1. **Every input parameter must be referenced in the body, or there must be a one-line comment explaining why it's intentionally ignored.** Unused params on a public adapter surface are bugs.
 2. **Symmetric event pairs (earn/spend, level_start/level_end, ad_loaded/ad_shown) must emit the same parameter keys** unless the GA4 spec explicitly differs. If a param is added on one half, audit the other half in the same commit.
