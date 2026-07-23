@@ -88,13 +88,6 @@ namespace Sorolla.Palette
             });
             controls.Add(newest);
 
-            var copy = new Button(() => GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildConsoleSummary())
-            {
-                text = "Copy",
-            };
-            copy.AddToClassList("sorolla-debugmenu-console-toolbar-button");
-            controls.Add(copy);
-
             var clear = new Button(ClearConsole) { text = "Clear" };
             clear.AddToClassList("sorolla-debugmenu-console-toolbar-button");
             controls.Add(clear);

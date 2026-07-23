@@ -4,7 +4,7 @@ using UnityEngine.Scripting;
 namespace Sorolla.Palette.Adapters
 {
     /// <summary>
-    ///     Fans MAX ad-revenue impressions out to Adjust/TikTok/Firebase. Kept separate from
+    ///     Fans MAX ad-revenue impressions out to Adjust/Firebase. Kept separate from
     ///     MaxAdapterImpl so the MAX bridge only ever talks to the MAX SDK; this is the one place
     ///     that decides which other vendors receive ad-revenue telemetry and in what shape.
     /// </summary>
@@ -34,10 +34,6 @@ namespace Sorolla.Palette.Adapters
                 Placement = info.Placement,
             });
 #endif
-
-            // TikTok ad revenue (always call - stub no-ops if not initialized)
-            TikTokAdapter.TrackAdRevenue(info.Revenue, info.Currency, info.Network,
-                info.AdFormat, info.AdUnitIdentifier, info.Placement);
 
             FirebaseAdapter.TrackAdImpression(
                 adPlatform: "applovin_max",

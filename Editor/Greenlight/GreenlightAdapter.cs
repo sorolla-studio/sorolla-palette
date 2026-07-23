@@ -9,11 +9,11 @@ using UnityEngine;
 namespace Sorolla.Palette.Editor.Greenlight
 {
     /// <summary>
-    ///     Maps the Editor greenlight's evidence classes (Build Health results and the device snapshot) onto
-    ///     the neutral <see cref="Sorolla.Palette.Health"/> model, and builds the trusted
+    ///     Maps Editor Build Health results onto the neutral <see cref="Sorolla.Palette.Health"/> model and
+    ///     builds the trusted
     ///     <see cref="EvaluationContext"/>, so the single <see cref="HealthEvaluator.Evaluate"/> owns the
     ///     verdict. The adapter is the trusted context evaluator for the Editor path: it never decides a
-    ///     gate's applicability or required proof (those live on the catalog) - it only reports what it
+    ///     gate's applicability (that lives on the catalog) - it only reports what it
     ///     observed, and every observation it can produce is machine-derived. Display metadata (human labels)
     ///     is a side channel here; the observation carries only evidence + fix.
     /// </summary>
@@ -117,21 +117,8 @@ namespace Sorolla.Palette.Editor.Greenlight
         /// </summary>
         internal static List<GateObservation> BuildObservations(
             EvaluationContext context,
-            List<BuildValidator.ValidationResult> buildHealthResults,
-            GreenlightDeviceSnapshot.State snapshotState)
-        {
-            var observations = new List<GateObservation>();
-            observations.AddRange(BuildHealthObservations(buildHealthResults, context));
-
-            // Emit device evidence on any platform that has a shipping snapshot collector. Both mobile
-            // transports ship now: Android over `adb forward`, iOS over `iproxy` (libimobiledevice USB). Off
-            // mobile the device gates are NotApplicable, so emitting there would be a C3-05 mismatch; a mobile
-            // target that is never connected still emits a not-connected observation → INCOMPLETE.
-            if (context.Platform == EvalPlatform.Android || context.Platform == EvalPlatform.iOS)
-                observations.AddRange(GreenlightDeviceSnapshot.ToObservations(snapshotState));
-
-            return observations;
-        }
+            List<BuildValidator.ValidationResult> buildHealthResults) =>
+            BuildHealthObservations(buildHealthResults, context).ToList();
 
         /// <summary>Vendor-coherence categories whose "not installed" result is vendor ABSENCE, not evidence
         /// of health. When the manifest says the module is absent, the review requires that absence to be an
@@ -195,7 +182,6 @@ namespace Sorolla.Palette.Editor.Greenlight
                 {
                     GateId = gateId,
                     Outcome = ToOutcome(worst.Status),
-                    ObservedProof = ProofScope.Static,
                     Evidence = FirstLine(worst.Message),
                     FixHint = worst.Fix,
                     // A deliberate skip (F5 residual, 2026-07-21 audit review) must render/export as
@@ -240,14 +226,8 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         internal static string LabelFor(string gateId)
         {
-            if (BuildGateLabels.TryGetValue(gateId, out string buildLabel)) return buildLabel;
-            return DeviceLabels.TryGetValue(gateId, out string deviceLabel) ? deviceLabel : gateId;
+            return BuildGateLabels.TryGetValue(gateId, out string buildLabel) ? buildLabel : gateId;
         }
-
-        static readonly Dictionary<string, string> DeviceLabels = new Dictionary<string, string>
-        {
-            [GateIds.DeviceVitals] = "Device Vitals",
-        };
 
         static readonly Dictionary<BuildValidator.CheckCategory, string> CategoryToGateId =
             new Dictionary<BuildValidator.CheckCategory, string>
@@ -306,14 +286,9 @@ namespace Sorolla.Palette.Editor.Greenlight
             /// <summary>Every Build Health category that isn't vendor-specific: gradle/manifest/registries/
             /// config/mode/versions/logging/dev-build.</summary>
             BuildAndProject,
-            /// <summary>Everything with no BuildValidator.CheckCategory at all: the device snapshot and the
-            /// synthetic Report Integrity row.</summary>
-            DeviceAndQa,
-            /// <summary>Parked vendor (roadmap "Parking decisions" - no QA/diagnostics investment): no
-            /// BuildValidator category, no gate ever routes here via GroupFor - it exists purely so the
-            /// window's one Group list can carry TikTok's toggle+fields uniformly (rewrite cycle, Arthur
-            /// ruling 2026-07-21 ~16:45), instead of a bespoke non-Group code path.</summary>
-            TikTok,
+            /// <summary>Everything with no BuildValidator.CheckCategory at all: the synthetic Report
+            /// Integrity row and the QA/debug knobs.</summary>
+            QaAndDiagnostics,
         }
 
         static readonly Dictionary<BuildValidator.CheckCategory, VendorGroup> CategoryToGroup =
@@ -337,7 +312,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             };
 
         /// <summary>The vendor package behind each vendor group. Groups absent from this map are not
-        /// vendor-scoped (build/project, device, the parked TikTok toggle) and always apply.</summary>
+        /// vendor-scoped and always apply.</summary>
         static readonly Dictionary<VendorGroup, SdkModule> GroupModule =
             new Dictionary<VendorGroup, SdkModule>
             {
@@ -365,12 +340,12 @@ namespace Sorolla.Palette.Editor.Greenlight
         }
 
         /// <summary>Grouping key is the gate's existing category from the catalog/validators, never label
-        /// string-matching. A gate id with no BuildValidator category at all (device.*, or the synthetic
-        /// Report Integrity row's null id) is QA/device process, not vendor build state - Device &amp; QA.</summary>
+        /// string-matching. The synthetic Report Integrity row's null id is QA process, not vendor build
+        /// state - QA &amp; Diagnostics.</summary>
         internal static VendorGroup GroupFor(string gateId)
         {
-            if (string.IsNullOrEmpty(gateId) || gateId.StartsWith("device."))
-                return VendorGroup.DeviceAndQa;
+            if (string.IsNullOrEmpty(gateId))
+                return VendorGroup.QaAndDiagnostics;
 
             foreach (KeyValuePair<BuildValidator.CheckCategory, string> pair in CategoryToGateId)
             {

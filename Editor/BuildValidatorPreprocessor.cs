@@ -9,7 +9,7 @@ namespace Sorolla.Palette.Editor
     /// <summary>
     ///     Auto-run validation before builds.
     /// </summary>
-    public class BuildValidatorPreprocessor : IPreprocessBuildWithReport, IPostprocessBuildWithReport
+    public class BuildValidatorPreprocessor : IPreprocessBuildWithReport
     {
         public int callbackOrder => -100;
 
@@ -54,11 +54,6 @@ namespace Sorolla.Palette.Editor
                 Debug.Log($"[Palette BuildValidator] Pre-build validation passed with {warnings.Count} warning(s)");
             else
                 Debug.Log("[Palette BuildValidator] Pre-build validation passed");
-        }
-
-        public void OnPostprocessBuild(BuildReport report)
-        {
-            Greenlight.BuildReceipt.Save(report);
         }
     }
 }

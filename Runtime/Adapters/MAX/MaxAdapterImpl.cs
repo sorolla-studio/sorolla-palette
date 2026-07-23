@@ -736,7 +736,7 @@ namespace Sorolla.Palette.Adapters
 
             // MAX returns Revenue = -1 when the impression has no valid revenue (error or test mode,
             // per AppLovin docs). Forwarding it would push negative revenue into Adjust/Firebase/
-            // TikTok and corrupt ROAS, so drop the fan-out and warn with the raw value (DR-06).
+            // downstream analytics and corrupt ROAS, so drop the fan-out and warn with the raw value.
             if (revenue < 0)
             {
                 AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
@@ -747,7 +747,7 @@ namespace Sorolla.Palette.Adapters
 
             // Record the dispatch so the Sorolla Vitals "Ad revenue" row reflects a real forwarded
             // impression, independent of log verbosity / installed vendors (DR-09). This also fans
-            // the event out to Adjust/TikTok/Firebase via MaxAdRevenueRelay, which subscribes to
+            // the event out to Adjust/Firebase via MaxAdRevenueRelay, which subscribes to
             // MaxAdapter.OnAdRevenueTracked - the MAX bridge itself stays MAX-only.
             MaxAdapter.RecordAdRevenue(new MaxAdRevenueInfo(adInfo.NetworkName, revenue, "USD", adFormat,
                 adInfo.RevenuePrecision, adInfo.AdUnitIdentifier, adInfo.Placement));

@@ -73,8 +73,11 @@ namespace Sorolla.Palette
         sealed class TapUnlockGesture
         {
             const int RequiredTapCount = 5;
-            const float TapWindowSeconds = 2f;
-            const float FinalTapHoldSeconds = 0.8f;
+            /// <summary>Allowed gap between two consecutive taps. Measured tap-to-tap rather than from the
+            /// first tap, so five taps at a relaxed pace always count - the whole-sequence window used to
+            /// expire mid-gesture on anyone not tapping fast.</summary>
+            const float MaxSecondsBetweenTaps = 2f;
+            const float FinalTapHoldSeconds = 0.5f;
             const float TapAreaSize = 128f;
 
             enum HoldResult
@@ -85,7 +88,7 @@ namespace Sorolla.Palette
             }
 
             int _tapCount;
-            float _firstTapTime;
+            float _lastTapTime;
             bool _holdingPointer;
             int _holdTouchId = -1;
             float _holdStartTime;
@@ -120,7 +123,7 @@ namespace Sorolla.Palette
             public void Reset()
             {
                 _tapCount = 0;
-                _firstTapTime = 0f;
+                _lastTapTime = 0f;
                 _holdingPointer = false;
                 _holdTouchId = -1;
                 _holdStartTime = 0f;
@@ -131,11 +134,9 @@ namespace Sorolla.Palette
                 if (!IsUnlockArea(screenPosition, uiScale)) return;
 
                 float now = Time.unscaledTime;
-                if (now - _firstTapTime > TapWindowSeconds)
-                {
-                    _firstTapTime = now;
+                if (now - _lastTapTime > MaxSecondsBetweenTaps)
                     _tapCount = 0;
-                }
+                _lastTapTime = now;
 
                 _tapCount++;
                 if (_tapCount < RequiredTapCount) return;

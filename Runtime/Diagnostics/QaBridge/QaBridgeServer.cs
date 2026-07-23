@@ -230,7 +230,7 @@ namespace Sorolla.Palette
                     return;
                 }
 
-                // No auth gate by design (KISS posture, 2026-07-13): reads are reachable from another
+                // No auth gate by design: reads are reachable from another
                 // app/process on the device, or from a host after USB forwarding. Do not re-add a per-request
                 // password here.
                 if (path == "/qa/snapshot" && method == "GET")
@@ -394,7 +394,7 @@ namespace Sorolla.Palette
             catch { /* connection already gone */ }
         }
 
-        // POST /qa/exec body shape. args (Phase 3) is intentionally not deserialized yet: the v1 generic
+        // POST /qa/exec body shape. args is intentionally not deserialized: the generic
         // actions are parameterless, and JsonUtility ignores the unparsed "args" object.
         [Serializable]
         sealed class ExecRequest

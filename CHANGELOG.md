@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 Self-serve integration health. The Palette window now produces one Launch Readiness verdict for the
 game in front of it, backed by a canonical gate catalog and a single evaluator, and a copyable
-report that carries every row plus the SDK commit recorded when the connected binary was built.
+report that carries every row plus the SDK commit of the checkout it was generated from.
 
 This line is unreleased until the `v4.0.0` tag. The version string stays `4.0.0` across the whole
 development line, so it cannot identify a development commit: use the SDK commit printed in the
@@ -15,28 +15,19 @@ release verdict.
 
 ### Added
 
-- **Launch Readiness report** (Palette window): one verdict - `HEALTHY`, `N ISSUES`, `INCOMPLETE`,
-  `FAILING` - aggregated by a single evaluator over a 25-gate catalog, with fail/warn/pending/pass
-  counts. It is fail-closed: a gate whose evidence is missing, pending, unverifiable, or supplied
-  without the proof it requires reads `INCOMPLETE`, never green. A fresh project with nothing checked
-  reads `INCOMPLETE`.
+- **Launch Readiness report** (Palette window): one pre-build integration verdict - `HEALTHY`,
+  `N ISSUES`, `INCOMPLETE`, `FAILING` - aggregated by a single evaluator over a 24-gate catalog,
+  with fail/warn/pending/pass counts. A required check with no observation reads `INCOMPLETE`.
 - **The verdict answers the pre-build question.** It grades what is decidable without running the
   game, so a project whose integration is clean reads ready before any device is connected. Evidence
-  that can only come from a running device keeps its own rows and its own status under Device & QA,
-  and never holds the readiness verdict down. The copied report states both: `integration:` and
-  `outcome:` (integration plus device evidence).
+  that can only come from a running device lives on the on-device Vitals overlay and never holds the
+  readiness verdict down.
 - **The report evaluates the active build target.** Checks about the platform the project is not
   building do not appear in the verdict, the counts, or the rows, and apply again when the build
   target switches. A game shipping one platform can reach a green verdict.
-- **Copy Report**: the full report as text - every gate with its stable id, definition version,
-  requirement and reason, disposition, outcome, required and observed proof, evidence, and fix -
-  including the inert rows the window filters out of view. It carries a fingerprint: application id,
-  app version, Unity build GUID, mode, platform, and the SDK commit from the matching post-build receipt.
-- **Device snapshot from the editor**: Connect Device pulls the live `/qa/snapshot` from a
-  USB-connected device, Android over `adb forward` and iOS over `iproxy` (libimobiledevice). The
-  snapshot is bound to the editor's post-build receipt, so a wrong-game, wrong-build-GUID, or
-  unsupported-schema snapshot is rejected instead of trusted. The editor consumes the authoritative
-  runtime Vitals verdict from that snapshot.
+- **Copy Report**: the full report as text - every gate with its stable id, requirement and reason,
+  disposition, outcome, evidence, and fix - including the inert rows the window filters out of view.
+  It carries a fingerprint: application id, app version, mode, platform, and the SDK commit.
 - **Per-build coverage ledger**: verified facts (consent resolved, a level played to completion, an
   ad watched to the end) persist for the exact build across relaunches, keyed to app version, Unity
   build GUID and SDK version, so proving the integration is one pass through the game rather than a
@@ -88,6 +79,9 @@ release verdict.
 
 ### Changed
 
+- **Vitals overlay gesture**: the five corner taps are now timed against each other - up to 2 seconds
+  between consecutive taps instead of 2 seconds for the whole sequence - and the final tap is held
+  for half a second instead of 0.8.
 - **Definite active-platform data loss blocks the build**: missing/rejected GameAnalytics or Facebook
   credentials/platform registration, missing AppLovin MAX ad units whenever MAX is included, the Adjust app
   token, and the active platform's Firebase config. Unreachable network probes remain incomplete
@@ -97,10 +91,8 @@ release verdict.
   reads as its name and a short status word, with the message and fix wrapping underneath. Clicking
   anywhere on a group header folds it.
 - **Configuration edits re-run validation as you type**, with no Refresh press, and a check waiting on
-  a network answer updates itself when the probe returns. The report also re-evaluates on its own
-  within a second of ANY input a check reads changing: the build target, the mode, the package
-  manifest, player settings, the Android manifest and gradle templates, the vendor settings assets,
-  and both Firebase config files.
+  a network answer updates itself when the probe returns. Package changes and mode switches also
+  re-run validation; other external edits use the explicit Refresh action.
 - **TEST YOUR GAME asks only for what this game includes**: a Prototype game with no optional packages
   owes one item, playing a level. Consent appears with AppLovin MAX, an ad item per ad format that has
   a unit id for the active build target, purchase items with Unity IAP, and Adjust purchase
@@ -141,9 +133,6 @@ release verdict.
 - **Detail and fix text wraps** instead of truncating off the right edge.
 - **The duplicate-purchase counter fires.** It watched for wording the drop site never logged, so a
   replayed purchase was never counted.
-- **`/qa/exec` actions are attributable as they happen**: every accepted or refused call logs a
-  receipt to the console stream rather than surfacing only in the next snapshot's counters.
-
 ### Removed
 
 - **Permanent manual reminders in TEST YOUR GAME**: the GameAnalytics platform-registration, AppLovin
@@ -156,12 +145,27 @@ release verdict.
   that the bridge binds loopback only and is reachable only by someone who can already USB-forward
   the port. Migration: remove the `X-Sorolla-QA-Password` header or `qa_password` parameter from your
   scripts (a stale one is ignored). Treat snapshot output as potentially readable.
+- **QA bridge mutation endpoint** (breaking): `POST /qa/exec` and its request parsing, body limits,
+  and remote action dispatch are removed. The bridge is read-only and exposes only
+  `GET /qa/snapshot`; test actions remain available on device.
+- **TikTok compatibility integration** (breaking): removed its `SorollaConfig` fields, Editor UI,
+  Android/iOS dependencies and native bridge, purchase/ad-revenue fan-out, and public setup guide.
+  TikTok was parked and unsupported; v4 no longer ships an unowned vendor subsystem. Existing
+  serialized TikTok fields are ignored. After upgrading an Android game, run External Dependency
+  Manager's Force Resolve once so generated Gradle templates and
+  `ProjectSettings/AndroidResolverDependencies.xml` drop the old TikTok Maven dependency; remove any
+  project-owned TikTok ProGuard rule if the game has no separate TikTok integration.
+- **Static proof-scope model**: removed proof flags and propagation from the Editor catalog and
+  report. Every remaining catalog observation is produced by Build Health, so the extra type system
+  encoded no distinction.
+- **Automatic one-second Editor input polling**: removed the hand-maintained validator-input
+  fingerprint. Configuration bindings, package callbacks, probe callbacks, mode switches, and the
+  explicit Refresh action remain.
+- **Duplicate runtime copy formats**: removed the separate diagnostics-summary and console-summary
+  clipboard formats. `Copy SDK state` is the single runtime support report.
 
 ### Documentation
 
-- **TikTok is marked parked** across the public docs and in the `SorollaConfig` field comments and
-  inspector headers. The adapter still ships and existing integrations keep working; parked is
-  neither deprecated nor removed.
 - **`api-reference.md` is regenerated and its freshness is enforced in CI.** The DocFX shadow project
   had failed to compile since the UI Toolkit overlay landed, extracting zero public API; CI now fails
   on a zero or partial extraction and on a stale committed file.

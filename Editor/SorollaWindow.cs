@@ -28,7 +28,6 @@ namespace Sorolla.Palette.Editor
 
         readonly List<string> _autoFixLog = new List<string>();
         readonly HashSet<string> _installingPackages = new HashSet<string>();
-        readonly GreenlightDeviceSnapshot.State _snapshotState = new GreenlightDeviceSnapshot.State();
         SorollaConfig _config;
         SerializedObject _serializedConfig;
         ConfigInputsView _configInputs;
@@ -103,11 +102,9 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Re-validates whenever ANY validator input changes - build target, mode, or any file a check
-        ///     reads. Polled rather than event-driven because Unity offers no reliable in-session
-        ///     notification for the active build target, and one fingerprint over the whole input set beats
-        ///     a hand-maintained watcher list that silently goes stale as checks are added. Throttled to
-        ///     once a second; the report can never be older than that.
+        ///     Re-validates when a validator input changes - build target, mode, or a file in the tracked
+        ///     list. Polled rather than event-driven because Unity offers no reliable in-session
+        ///     notification for the active build target. Throttled to once a second.
         /// </summary>
         void PollValidatorInputs()
         {
@@ -134,7 +131,7 @@ namespace Sorolla.Palette.Editor
             rootVisualElement.Add(_heroContainer);
             RefreshHeroHeaderUI();
 
-            // Global actions (Refresh / Connect Device / Copy Report) live here, fixed below the hero and
+            // Global actions (Refresh / Copy Report) live here, fixed below the hero and
             // above the scrolled content - one home for window-wide actions, no in-content duplicates.
             VisualElement headerActionsHost = Padded(new VisualElement(), ContentPadding);
             rootVisualElement.Add(headerActionsHost);
@@ -156,8 +153,8 @@ namespace Sorolla.Palette.Editor
             var vendorStatus = new VendorStatusProbe(_config, _installingPackages, _configInputs,
                 FocusConfigField, RunBuildValidation);
             _readinessSection = new ReadinessSectionView(readinessContainer, headerActionsHost,
-                _configInputs, vendorStatus, _snapshotState,
-                onRefresh: RunBuildValidation, onConnectDevice: ConnectDevice, onModeSwitch: RequestModeSwitch);
+                _configInputs, vendorStatus,
+                onRefresh: RunBuildValidation, onModeSwitch: RequestModeSwitch);
             RefreshReadinessUI();
 
             VisualElement quickstartContainer = SorollaTheme.CreateSectionContainer();
@@ -207,7 +204,7 @@ namespace Sorolla.Palette.Editor
         }
 
         void RefreshReadinessUI() =>
-            _readinessSection?.Refresh(GreenlightEvaluator.Evaluate(_validationResults, _snapshotState), _autoFixLog);
+            _readinessSection?.Refresh(GreenlightEvaluator.Evaluate(_validationResults), _autoFixLog);
 
         /// <summary>Confirmation dialog + SorollaSettings.SetMode + re-validate, unchanged from the original
         /// IMGUI Mode box - only its presentation moved into the hero header's segmented switch.</summary>
@@ -225,15 +222,9 @@ namespace Sorolla.Palette.Editor
             }
         }
 
-        void ConnectDevice() => GreenlightDeviceSnapshot.Run(_snapshotState, () =>
-        {
-            RefreshReadinessUI();
-            Repaint();
-        });
-
         /// <summary>Scrolls a config field into view and focuses it - the remedy for rows that say "enter it
         /// below" about a field further down this same window. No-op if the field is not currently rendered
-        /// (TikTok disabled, or the Adjust fields hidden in Prototype mode).</summary>
+        /// (for example, Adjust fields hidden in Prototype mode).</summary>
         void FocusConfigField(VisualElement field)
         {
             if (field == null || _scrollView == null) return;

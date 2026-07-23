@@ -356,7 +356,7 @@
 /* Explicit group header for a ValidatedField group (e.g. "Adjust (Full Mode Only)") - needed once
    ValidatedField.CreateBound stopped using PropertyField, since the property's own [Header]
    attribute no longer auto-renders for it. Matches the look of Unity's own header decorator
-   (still used above by the plain PropertyField rows for MAX Ad Units/TikTok) closely enough that
+   (still used above by the plain PropertyField rows for MAX Ad Units) closely enough that
    the two don't visually clash within the same section. */
 .sorolla-config-group-header {
     font-size: 12px;

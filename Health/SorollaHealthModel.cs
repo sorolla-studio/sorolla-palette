@@ -19,17 +19,6 @@ namespace Sorolla.Palette.Health
         Pass,
     }
 
-    /// <summary>How a gate's evidence was (or must be) obtained. A SET, not a hierarchy: a gate may
-    /// require several proof classes at once, and an observation carries the ones actually obtained.</summary>
-    [Flags]
-    internal enum ProofScope
-    {
-        None = 0,
-        Static = 1 << 0,
-        DeviceDispatch = 1 << 1,
-        VendorAccepted = 1 << 2,
-    }
-
     /// <summary>
     ///     The context-derived requirement decision for a gate (review C3-02). ONE four-state decision
     ///     replaces the old fixed <c>bool Required</c> + separate applicability predicate, so a gate can be
@@ -148,36 +137,31 @@ namespace Sorolla.Palette.Health
         /// NOT hide a row - it only keeps the build preprocessor from logging the warning on development
         /// builds, where the unsatisfied state is expected rather than informative.</summary>
         public bool ReleaseOnly { get; }
-        public ProofScope RequiredProof { get; }
         public Func<EvaluationContext, RequirementDecision> Requirement { get; }
 
         public GateDefinition(
             string id,
             string version,
             GateClassification classification,
-            ProofScope requiredProof,
             Func<EvaluationContext, RequirementDecision> requirement,
             bool releaseOnly = false)
         {
             Id = id;
             Version = version;
             Classification = classification;
-            RequiredProof = requiredProof;
             Requirement = requirement;
             ReleaseOnly = releaseOnly;
         }
     }
 
     /// <summary>
-    ///     A producer's report of what it observed for one gate. Deliberately carries NO requirement and NO
-    ///     required-proof: those are the definition's, not the producer's. The evaluator, not the producer,
-    ///     decides whether the observed proof satisfies what the definition requires.
+    ///     A producer's report of what it observed for one gate. Deliberately carries no requirement:
+    ///     that belongs to the definition, not the producer.
     /// </summary>
     internal sealed class GateObservation
     {
         public string GateId;
         public GateOutcome Outcome;
-        public ProofScope ObservedProof;
         public string Evidence;
         public string FixHint;
         /// <summary>The producer observed a deliberate skip (vendor absent, wrong platform/profile) rather
@@ -216,8 +200,6 @@ namespace Sorolla.Palette.Health
         public string RequirementReason;
         public GateDisposition Disposition;
         public GateOutcome Outcome;
-        public ProofScope RequiredProof;
-        public ProofScope ObservedProof;
         public string Evidence;
         public string FixHint;
         /// <summary>Carried through from the matched observation - see <see cref="GateObservation.Informational"/>.</summary>
@@ -227,15 +209,8 @@ namespace Sorolla.Palette.Health
     internal sealed class HealthReport
     {
         public IReadOnlyList<GateResult> Rows;
-        /// <summary>Everything this report saw, static and device evidence together.</summary>
+        /// <summary>The Editor's pre-build integration answer. Runtime Vitals is a separate authority.</summary>
         public GateOutcome Outcome;
-        /// <summary>
-        ///     The pre-build answer: is this project's SDK INTEGRATION ready? Aggregated over the gates that
-        ///     are decidable without running the game, so a device that was never connected cannot hold a
-        ///     clean integration below green. Device evidence is a separate question with its own rows and
-        ///     its own verdict, and it never votes here (2026-07-23).
-        /// </summary>
-        public GateOutcome IntegrationOutcome;
         public IReadOnlyList<string> ValidationErrors;
     }
 
@@ -243,7 +218,6 @@ namespace Sorolla.Palette.Health
     /// corrupted values, so every value crossing into the evaluator is checked for definedness.</summary>
     internal static class HealthEnums
     {
-        internal const ProofScope AllProofBits = ProofScope.Static | ProofScope.DeviceDispatch | ProofScope.VendorAccepted;
         internal const SdkModule AllModuleBits = SdkModule.GameAnalytics | SdkModule.Facebook |
                                                  SdkModule.Firebase | SdkModule.AppLovinMax | SdkModule.Adjust |
                                                  SdkModule.UnityIap;
@@ -266,7 +240,6 @@ namespace Sorolla.Palette.Health
         internal static bool IsDefinedPlatform(EvalPlatform v) =>
             v == EvalPlatform.Unknown || v == EvalPlatform.Android || v == EvalPlatform.iOS;
 
-        internal static bool HasOnlyDefinedBits(ProofScope v) => (v & ~AllProofBits) == 0;
         internal static bool HasOnlyDefinedBits(SdkModule v) => (v & ~AllModuleBits) == 0;
     }
 }

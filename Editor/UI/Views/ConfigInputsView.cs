@@ -29,11 +29,9 @@ namespace Sorolla.Palette.Editor.UI
 
         internal SerializedObject SerializedConfig { get; }
 
-        /// <summary>The Adjust app-token and TikTok app-id controls, so a check row telling the studio to
-        /// "enter it below" can scroll to and focus the actual field. Null while that vendor's inputs are
-        /// not rendered (Adjust in Prototype mode, TikTok switched off).</summary>
+        /// <summary>The Adjust app-token control, so a check row telling the studio to "enter it below"
+        /// can scroll to and focus the actual field. Null while Adjust inputs are not rendered.</summary>
         internal VisualElement AdjustAppTokenField { get; private set; }
-        internal VisualElement TikTokAppIdField { get; private set; }
 
         /// <summary>Inputs for one group, or an empty list for the groups with nothing to configure
         /// (GameAnalytics / Facebook / Firebase keep their settings in their own vendor assets, and
@@ -94,33 +92,15 @@ namespace Sorolla.Palette.Editor.UI
                     }
                     break;
 
-                // Verbose Logging is a QA/debug knob, so it lives under Device & QA, not Build & Project
-                // (Arthur ruling 2026-07-21 ~17:40). Toggle rather than PropertyField: a PropertyField would
+                // Verbose Logging is a QA/debug knob, so it lives here rather than under Build & Project.
+                // Toggle rather than PropertyField: a PropertyField would
                 // render verboseLogging's own [Header("Logging")] as a stray section line above the checkbox.
-                case GreenlightAdapter.VendorGroup.DeviceAndQa:
+                case GreenlightAdapter.VendorGroup.QaAndDiagnostics:
                     inputs.Add(new Toggle("Verbose Logging")
                     {
                         bindingPath = "verboseLogging",
-                        tooltip = "Enable verbose debug output for all vendor SDKs (MAX, Adjust, TikTok). Forced OFF in release builds.",
+                        tooltip = "Enable verbose debug output for all vendor SDKs. Forced OFF in release builds.",
                     });
-                    break;
-
-                // TikTok is a parked vendor (roadmap "Parking decisions" - no QA/diagnostics investment), so
-                // it has no check rows or BuildValidator category: its group carries only these inputs.
-                case GreenlightAdapter.VendorGroup.TikTok:
-                    inputs.Add(new Toggle("Enabled") { bindingPath = "enableTikTok" });
-
-                    if (_config.enableTikTok)
-                    {
-                        TikTokAppIdField = new PropertyField(SerializedConfig.FindProperty("tiktokAppId"), "TikTok App ID");
-                        inputs.Add(TikTokAppIdField);
-                        inputs.Add(new PropertyField(SerializedConfig.FindProperty("tiktokEmAppId"), "App ID (EM)"));
-                        inputs.Add(new PropertyField(SerializedConfig.FindProperty("tiktokAccessToken"), "Access Token"));
-                    }
-                    else
-                    {
-                        TikTokAppIdField = null;
-                    }
                     break;
             }
 

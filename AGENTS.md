@@ -43,6 +43,21 @@ Read these before substantial changes:
 
 This repo is **public**. Never commit internal working docs here: audits, remediation plans, QA checklists/prep notes, devlogs, refactor backlogs, risk analyses. They live in a separate private internal-docs repo. Public-facing docs for SDK consumers go in `Documentation~/` and `CHANGELOG.md` only. `.gitignore` blocks the known internal-doc patterns as a backstop, but the rule is by intent, not pattern: if a doc is not for SDK consumers, it does not get committed here.
 
+## QA Product Boundary
+
+Before changing Editor validation, Vitals, coverage, verdicts, or QA transport, read the product
+north star in the private internal SDK docs. This section is the loaded guardrail, not a second
+specification:
+
+- Palette QA establishes SDK integration health, not general game ship state.
+- The Editor owns everything knowable before a build and safely auto-fixes deterministic issues.
+- Vitals owns only runtime evidence for included capabilities.
+- Absent capabilities are omitted. Untested gameplay is coverage, never an SDK error.
+- Game exceptions, performance, save behavior, and unrelated Unity failures never affect the
+  Palette verdict, though the console may expose them.
+- Shared SDK invariants are proven once for the Palette release, not re-proved in every game.
+- Do not duplicate Editor checks in Vitals, scripts, agents, or CI.
+
 ## Architecture Rules
 
 - Optional SDKs use the stub plus implementation assembly pattern.

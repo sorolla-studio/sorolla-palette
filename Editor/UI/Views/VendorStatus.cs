@@ -10,7 +10,7 @@ namespace Sorolla.Palette.Editor.UI
     /// <summary>
     ///     A vendor's own validity signal - is it installed, and is it configured - separate from its check
     ///     rows. <see cref="Phase"/> spells out the whole lifecycle: the two install phases plus the
-    ///     Fail/Warn/Pass config scale. Build &amp; Project, Device &amp; QA and TikTok have no such signal;
+    ///     Fail/Warn/Pass config scale. Build &amp; Project and Device &amp; QA have no such signal;
     ///     their group header is derived purely from the rows rendered under it.
     /// </summary>
     sealed class VendorStatus
@@ -71,7 +71,6 @@ namespace Sorolla.Palette.Editor.UI
             GreenlightAdapter.VendorGroup.Adjust => Generic(
                 SdkRegistry.All[SdkId.Adjust], SdkConfigDetector.GetAdjustStatus(_config), "Enter app token below",
                 () => _focusField(_inputs.AdjustAppTokenField), isRequired: !SorollaSettings.IsPrototype),
-            GreenlightAdapter.VendorGroup.TikTok => TikTok(),
             _ => null,
         };
 
@@ -190,27 +189,6 @@ namespace Sorolla.Palette.Editor.UI
                 State = VendorStatus.Phase.Pass, Optional = !isRequired,
                 ActionLabel = "Console", Action = () => Application.OpenURL("https://console.firebase.google.com/"),
             };
-        }
-
-        /// <summary>TikTok is a parked, opt-in vendor with no check rows, so its header would otherwise fall
-        /// through to "no rows = nothing wrong = GREEN" - a green pill for a vendor that is switched off and
-        /// verified by nothing. Off is neutral grey; on with no App ID is a warning, because the runtime
-        /// silently skips TikTok init when the id is empty, so it would look enabled and do nothing.</summary>
-        VendorStatus TikTok()
-        {
-            if (_config == null)
-                return null;
-            if (!_config.enableTikTok)
-                return new VendorStatus { State = VendorStatus.Phase.Disabled, Text = "Not in use" };
-
-            if (string.IsNullOrEmpty(_config.tiktokAppId?.Current))
-                return new VendorStatus
-                {
-                    State = VendorStatus.Phase.Warn, Text = "Enabled with no App ID - TikTok will not initialize",
-                    ActionLabel = "Set App ID", Action = () => _focusField(_inputs.TikTokAppIdField),
-                };
-
-            return new VendorStatus { State = VendorStatus.Phase.Pass, Text = "Configured" };
         }
 
         static VendorStatus Installing() =>

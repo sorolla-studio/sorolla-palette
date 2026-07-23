@@ -191,26 +191,6 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(Requirement.Unknown, ReqOf(GateIds.BuildAndroidKeystore, Ctx(EvalMode.Full, EvalPlatform.Unknown)));
         }
 
-        [Test]
-        public void DeviceGates_ApplicabilityFollowsActiveBuildTarget()
-        {
-            // The active build target IS the studio's declared intent (platform declarations deleted
-            // 2026-07-20): device evidence is Required on either mobile target, NotApplicable off mobile.
-            Assert.AreEqual(Requirement.Required,
-                ReqOf(GateIds.DeviceVitals, Ctx(EvalMode.Full, EvalPlatform.Android)));
-            Assert.AreEqual(Requirement.Required,
-                ReqOf(GateIds.DeviceVitals, Ctx(EvalMode.Full, EvalPlatform.iOS)));
-            Assert.AreEqual(Requirement.NotApplicable,
-                ReqOf(GateIds.DeviceVitals, Ctx(EvalMode.Full, EvalPlatform.Unknown)));
-        }
-
-        [Test]
-        public void DeviceGates_RequireDeviceDispatchProof()
-        {
-            Assert.AreEqual(ProofScope.DeviceDispatch,
-                GateCatalog.Canonical.ById(GateIds.DeviceVitals).RequiredProof);
-        }
-
         /// <summary>ReleaseOnly means ONE thing: the build preprocessor stays quiet about this check on a
         /// development build, because the check asks a question only a store submission answers. It must never
         /// come to mean "hidden from studios" again - that is what the deleted phase axis did, and it is why a
@@ -270,7 +250,7 @@ namespace Sorolla.Palette.Editor.Tests
                     new GateObservation
                     {
                         GateId = GateIds.BuildSdkPin, Outcome = GateOutcome.PassWithCaveats,
-                        ObservedProof = ProofScope.Static, Evidence = "pinned to master",
+                        Evidence = "pinned to master",
                         FixHint = "Pin com.sorolla.sdk to a published tag",
                     },
                 });
@@ -295,27 +275,6 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual("4", GateCatalog.Canonical.ById(GateIds.BuildMaxSettings).Version);
             Assert.AreEqual("4", GateCatalog.Canonical.ById(GateIds.BuildFirebaseConfigAndroid).Version);
             Assert.AreEqual("4", GateCatalog.Canonical.ById(GateIds.BuildFirebaseConfigIos).Version);
-        }
-
-        // ── Every gate is machine-checkable (2026-07-22 deletion) ──────────
-
-        /// <summary>The catalog may only contain gates the SDK can OBSERVE for itself: a static repo/config
-        /// fact, or a live device snapshot. A gate whose only possible evidence is a human ticking a box was
-        /// ceremony, not proof - the six such gates were deleted 2026-07-22, and this pins that none returns.
-        /// A vendor-dashboard fact can come back only with a real probe behind it (the GameAnalytics and
-        /// Facebook credential probes are the shape to copy).</summary>
-        [Test]
-        public void EveryGate_IsObservableByTheSdk_NoHumanAttestationOnly()
-        {
-            foreach (GateDefinition def in GateCatalog.Canonical.All)
-            {
-                Assert.AreNotEqual(ProofScope.None, def.RequiredProof, def.Id);
-                // HasFlag, not equality: RequiredProof is [Flags] and the evaluator demands EVERY required
-                // bit, so `VendorAccepted | Static` would still be unsatisfiable without a human claim.
-                Assert.IsFalse(def.RequiredProof.HasFlag(ProofScope.VendorAccepted),
-                    $"Gate '{def.Id}' requires vendor-accepted proof, which only an out-of-band human claim " +
-                    "can supply. Either give it a probe the SDK can run, or it does not belong in the catalog.");
-            }
         }
 
         [Test]
@@ -343,13 +302,10 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
-        public void Canonical_Has25Gates()
+        public void Canonical_Has24Gates()
         {
-            // 30 before the 2026-07-22 deletion of the six human-attested gates; 24 after, then 25 once the
-            // Firebase config gate split into one per platform so both files get their own row. Platform
-            // scoping (2026-07-23) added none: a gate that only ever resolves NotApplicable off its own
-            // platform earns its id from being judged somewhere, not from appearing in the audit trail.
-            Assert.AreEqual(25, GateCatalog.Canonical.All.Count);
+            // Guards against a gate being added or removed without the catalog's consumers being reviewed.
+            Assert.AreEqual(24, GateCatalog.Canonical.All.Count);
         }
     }
 }

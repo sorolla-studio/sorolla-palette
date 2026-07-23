@@ -99,7 +99,7 @@ namespace Sorolla.Palette
         // Generic SDK actions. Ad and consent actions drive SDK/MAX mechanics and are recorded via the
         // ads/vitals diagnostics paths (they do not touch the game-integration health counters). The
         // event-generating actions run inside a test-action scope and carry the QA tag, so they are
-        // excluded from health counters and filterable for Firebase (DR-33/DR-60).
+        // excluded from health counters and filterable for Firebase.
 
         static void DoShowRewarded()
         {

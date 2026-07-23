@@ -6,7 +6,7 @@ namespace Sorolla.Palette.Editor.Tests
 {
     /// <summary>
     ///     Truth table for the ONE shared aggregation (<see cref="HealthEvaluator.Evaluate"/>) on the repaired
-    ///     model (review C3-01..C3-07): FAIL survives missing proof; the context-derived 4-state requirement;
+    ///     model: the context-derived 4-state requirement;
     ///     every definition evaluated (no phase selection); OptionalSkipped ≠ NotApplicable; contradictory NotApplicable
     ///     observations are validation errors; boundary validation of corrupted enum/flag values; the
     ///     FAIL &gt; INCOMPLETE &gt; CAVEATS &gt; PASS precedence and the no-affirmative floor; plus the strict
@@ -25,20 +25,18 @@ namespace Sorolla.Palette.Editor.Tests
         static GateDefinition Def(
             string id,
             Requirement requirement = Requirement.Required,
-            ProofScope proof = ProofScope.None,
             GateClassification classification = GateClassification.Structural)
         {
-            return new GateDefinition(id, "1.0.0", classification, proof,
+            return new GateDefinition(id, "1.0.0", classification,
                 _ => new RequirementDecision(requirement, "test reason"));
         }
 
         static GateDefinition DefReq(string id, System.Func<EvaluationContext, RequirementDecision> req,
-            ProofScope proof = ProofScope.None,
             GateClassification classification = GateClassification.Structural) =>
-            new GateDefinition(id, "1.0.0", classification, proof, req);
+            new GateDefinition(id, "1.0.0", classification, req);
 
-        static GateObservation Obs(string id, GateOutcome outcome, ProofScope proof = ProofScope.Static) =>
-            new GateObservation { GateId = id, Outcome = outcome, ObservedProof = proof };
+        static GateObservation Obs(string id, GateOutcome outcome) =>
+            new GateObservation { GateId = id, Outcome = outcome };
 
         static GateCatalog Catalog(params GateDefinition[] defs) => new GateCatalog(defs);
 
@@ -157,44 +155,6 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(GateOutcome.Incomplete, r.Outcome, "stale/wrong-context evidence must not be silently dropped");
         }
 
-        // ── C3-01: missing proof must not suppress a known FAIL ────────────
-
-        [Test]
-        public void FailWithMissingRequiredProof_StaysFail()
-        {
-            HealthReport r = HealthEvaluator.Evaluate(
-                Catalog(Def("a", Requirement.Required, ProofScope.VendorAccepted)), Ctx(),
-                new List<GateObservation> { Obs("a", GateOutcome.Fail, ProofScope.Static) });
-            Assert.AreEqual(GateOutcome.Fail, r.Outcome, "a known FAIL cannot be hidden behind missing extra proof");
-        }
-
-        [Test]
-        public void AffirmativeWithMissingRequiredProof_DowngradesToIncomplete()
-        {
-            HealthReport r = HealthEvaluator.Evaluate(
-                Catalog(Def("a", Requirement.Required, ProofScope.DeviceDispatch)), Ctx(),
-                new List<GateObservation> { Obs("a", GateOutcome.Pass, ProofScope.Static) });
-            Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
-        }
-
-        [Test]
-        public void ObservedIncompleteWithMissingProof_StaysIncomplete()
-        {
-            HealthReport r = HealthEvaluator.Evaluate(
-                Catalog(Def("a", Requirement.Required, ProofScope.DeviceDispatch)), Ctx(),
-                new List<GateObservation> { Obs("a", GateOutcome.Incomplete, ProofScope.None) });
-            Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
-        }
-
-        [Test]
-        public void SatisfiedRequiredProof_KeepsObservedOutcome()
-        {
-            HealthReport r = HealthEvaluator.Evaluate(
-                Catalog(Def("a", Requirement.Required, ProofScope.DeviceDispatch)), Ctx(),
-                new List<GateObservation> { Obs("a", GateOutcome.Pass, ProofScope.Static | ProofScope.DeviceDispatch) });
-            Assert.AreEqual(GateOutcome.Pass, r.Outcome);
-        }
-
         // ── Precedence + floor ────────────────────────────────────────────
 
         [Test]
@@ -263,19 +223,10 @@ namespace Sorolla.Palette.Editor.Tests
                 new List<GateObservation>
                 {
                     Obs("a", GateOutcome.Pass),
-                    new GateObservation { GateId = "b", Outcome = (GateOutcome)999, ObservedProof = ProofScope.Static },
+                    new GateObservation { GateId = "b", Outcome = (GateOutcome)999 },
                 });
             Assert.IsNotEmpty(r.ValidationErrors);
             Assert.AreEqual(GateOutcome.Incomplete, r.Outcome, "an invalid outcome must not fail open to PASS");
-        }
-
-        [Test]
-        public void InvalidObservationProofBits_IsValidationError()
-        {
-            HealthReport r = HealthEvaluator.Evaluate(Catalog(Def("a")), Ctx(),
-                new List<GateObservation> { new GateObservation { GateId = "a", Outcome = GateOutcome.Pass, ObservedProof = (ProofScope)0x40 } });
-            Assert.IsNotEmpty(r.ValidationErrors);
-            Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
         }
 
         [Test]
@@ -350,7 +301,7 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void Validate_EmptyVersion_IsProblem()
         {
-            var def = new GateDefinition("a", "", GateClassification.Structural, ProofScope.None,
+            var def = new GateDefinition("a", "", GateClassification.Structural,
                 _ => new RequirementDecision(Requirement.Required));
             Assert.IsNotEmpty(GateCatalog.Validate(new[] { def }, Grid));
         }
@@ -358,7 +309,7 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void Validate_MissingRequirementPredicate_IsProblem()
         {
-            var def = new GateDefinition("a", "1", GateClassification.Structural, ProofScope.None, null);
+            var def = new GateDefinition("a", "1", GateClassification.Structural, null);
             Assert.IsNotEmpty(GateCatalog.Validate(new[] { def }, Grid));
         }
 
@@ -403,7 +354,7 @@ namespace Sorolla.Palette.Editor.Tests
         {
             var obs = new GateObservation
             {
-                GateId = "a", Outcome = GateOutcome.Fail, ObservedProof = ProofScope.Static,
+                GateId = "a", Outcome = GateOutcome.Fail,
                 Evidence = "boom", FixHint = "fix",
             };
             HealthReport r = HealthEvaluator.Evaluate(
@@ -436,18 +387,18 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void NullGateIdObservation_IsValidationError_NotThrow()
         {
-            var obs = new GateObservation { GateId = null, Outcome = GateOutcome.Pass, ObservedProof = ProofScope.Static };
+            var obs = new GateObservation { GateId = null, Outcome = GateOutcome.Pass };
             HealthReport r = HealthEvaluator.Evaluate(Catalog(Def("a")), Ctx(), new List<GateObservation> { obs });
             Assert.IsNotEmpty(r.ValidationErrors);
             Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
         }
 
         [Test]
-        public void InvalidOutcomeWithValidProof_RowIsIncomplete_NotInvalid()
+        public void InvalidOutcome_RowIsIncomplete_NotInvalid()
         {
-            var obs = new GateObservation { GateId = "a", Outcome = (GateOutcome)999, ObservedProof = ProofScope.Static };
+            var obs = new GateObservation { GateId = "a", Outcome = (GateOutcome)999 };
             HealthReport r = HealthEvaluator.Evaluate(
-                Catalog(Def("a", Requirement.Required, ProofScope.Static)), Ctx(), new List<GateObservation> { obs });
+                Catalog(Def("a", Requirement.Required)), Ctx(), new List<GateObservation> { obs });
             Assert.AreEqual(GateOutcome.Incomplete, Row(r, "a").Outcome, "an invalid outcome must be coerced, not passed to the UI mapper");
         }
 
@@ -466,7 +417,7 @@ namespace Sorolla.Palette.Editor.Tests
             }
         }
 
-        // ── Module-keyed gate: installed + no proof → INCOMPLETE by evaluator policy ─
+        // ── Module-keyed gate: installed + no observation → INCOMPLETE ────
 
         [Test]
         public void ModuleKeyedRequirement_InstalledButUnobserved_IsOmittedIncomplete()

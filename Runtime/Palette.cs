@@ -430,13 +430,6 @@ namespace Sorolla.Palette
             SafeInit("Firebase Remote Config", () => FirebaseRemoteConfigAdapter.Initialize(autoFetch: true));
 #endif
 
-            // TikTok (optional - requires enableTikTok + both App IDs)
-            if (Config != null && Config.enableTikTok && !string.IsNullOrEmpty(Config.tiktokAppId?.Current) && !string.IsNullOrEmpty(Config.tiktokEmAppId?.Current))
-            {
-                PaletteLog.Vital($"{Tag} Initializing TikTok...");
-                SafeInit("TikTok", () => TikTokAdapter.Initialize(Config.tiktokEmAppId.Current, Config.tiktokAppId.Current, Config.tiktokAccessToken?.Current ?? "", VerboseLogging));
-            }
-
             // When MAX is installed, defer IsInitialized until MAX consent resolves
             // (set in OnMaxSdkInitialized). Without MAX, we're ready now.
 #if !(SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED)

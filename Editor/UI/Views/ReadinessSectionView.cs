@@ -33,8 +33,7 @@ namespace Sorolla.Palette.Editor.UI
             GreenlightAdapter.VendorGroup.AppLovinMax,
             GreenlightAdapter.VendorGroup.Adjust,
             GreenlightAdapter.VendorGroup.BuildAndProject,
-            GreenlightAdapter.VendorGroup.DeviceAndQa,
-            GreenlightAdapter.VendorGroup.TikTok,
+            GreenlightAdapter.VendorGroup.QaAndDiagnostics,
         };
 
         /// <summary>Checks a studio should see even when green (Arthur ruling 2026-07-21 ~17:55: "keep the
@@ -69,23 +68,18 @@ namespace Sorolla.Palette.Editor.UI
         readonly VisualElement _headerActionsHost;
         readonly ConfigInputsView _configInputs;
         readonly VendorStatusProbe _vendorStatus;
-        readonly GreenlightDeviceSnapshot.State _snapshotState;
         readonly Action _onRefresh;
-        readonly Action _onConnectDevice;
         readonly Action _onModeSwitch;
 
         internal ReadinessSectionView(VisualElement container, VisualElement headerActionsHost,
             ConfigInputsView configInputs, VendorStatusProbe vendorStatus,
-            GreenlightDeviceSnapshot.State snapshotState,
-            Action onRefresh, Action onConnectDevice, Action onModeSwitch)
+            Action onRefresh, Action onModeSwitch)
         {
             _container = container;
             _headerActionsHost = headerActionsHost;
             _configInputs = configInputs;
             _vendorStatus = vendorStatus;
-            _snapshotState = snapshotState;
             _onRefresh = onRefresh;
-            _onConnectDevice = onConnectDevice;
             _onModeSwitch = onModeSwitch;
         }
 
@@ -124,12 +118,11 @@ namespace Sorolla.Palette.Editor.UI
 
             if (!anyOpen)
             {
-                // The empty state must agree with the badge beside it (F1 ruling, 2026-07-21). Since the
-                // human-attested gates were deleted, a clean studio setup CAN reach HEALTHY, so the two cases
-                // are genuinely different: green, or still waiting on evidence the studio can produce.
-                var clear = new Label(report.IntegrationOutcome == GateOutcome.Pass
+                // The empty state must agree with the badge beside it: green, or still waiting on evidence
+                // the studio can produce.
+                var clear = new Label(report.Outcome == GateOutcome.Pass
                     ? "Your setup is clean - everything the SDK can check before a build is green."
-                    : "Your setup is clean - the remaining evidence comes from a run on a connected device.");
+                    : "Your setup is clean - the remaining evidence comes from running the game.");
                 clear.AddToClassList("sorolla-type-small");
                 _container.Add(clear);
             }
@@ -159,8 +152,8 @@ namespace Sorolla.Palette.Editor.UI
             // own group and its own badge below, and never holds this one down (2026-07-23) - a project whose
             // static setup is clean must be able to read green before anyone connects a phone.
             titleRow.Add(StatusBadge.Create(
-                GreenlightEvaluator.VerdictLabel(report.IntegrationOutcome, report.FailCount, report.WarnCount),
-                GreenlightEvaluator.BadgeSeverity(report.IntegrationOutcome)));
+                GreenlightEvaluator.VerdictLabel(report.Outcome, report.FailCount, report.WarnCount),
+                GreenlightEvaluator.BadgeSeverity(report.Outcome)));
             header.Add(titleRow);
 
             // The report judges ONE platform - the build target Unity is set to (2026-07-23) - so it says
@@ -174,8 +167,7 @@ namespace Sorolla.Palette.Editor.UI
             // line, and they cover every evaluated gate - including the passing ones the row filter hides -
             // so the pass count is the visible proof that the list below is a filtered view, not everything.
             var counts = new Label($"{report.FailCount} fail · {report.WarnCount} warn · " +
-                                   $"{report.WaitCount} pending · {report.PassCount} pass" +
-                                   " · device evidence graded separately below");
+                                   $"{report.WaitCount} pending · {report.PassCount} pass");
             counts.AddToClassList("sorolla-type-small");
             counts.style.marginBottom = 8;
             header.Add(counts);
@@ -218,28 +210,10 @@ namespace Sorolla.Palette.Editor.UI
             refreshButton.AddToClassList("sorolla-button-small");
             actionsRow.Add(refreshButton);
 
-            bool connecting = _snapshotState.Phase == GreenlightDeviceSnapshot.Phase.Running;
-            bool mobileTarget = report.Context?.Platform == EvalPlatform.Android ||
-                                report.Context?.Platform == EvalPlatform.iOS;
-            var connectButton = new Button(_onConnectDevice)
-            {
-                text = connecting ? "Connecting..." : mobileTarget
-                    ? "Connect Device (Android/iOS USB)"
-                    : "Select Android or iOS to connect",
-                tooltip = mobileTarget
-                    ? "Pulls the live QA snapshot from the connected device over USB. "
-                    + "Android uses adb (USB debugging on); iOS uses iproxy from libimobiledevice (device unlocked + trusted). "
-                    + "Keep the game foregrounded on the device while connecting."
-                    : "The device bridge is available only for Android and iOS build targets.",
-            };
-            connectButton.AddToClassList("sorolla-button-small");
-            connectButton.SetEnabled(mobileTarget && !connecting);
-            actionsRow.Add(connectButton);
-
             // Copy the AUDITABLE canonical report: the readable rendering carries every row's
-            // disposition/requirement/proof plus a build fingerprint (including the receipt-bound SDK commit), so a
-            // pasted result is unambiguous - and it includes the rows this view filters out, which is what
-            // makes a single studio-curated window safe to ship.
+            // disposition/requirement plus a build fingerprint, so a pasted result is unambiguous - and it
+            // includes the rows this view filters out, which is what makes a single studio-curated window
+            // safe to ship.
             var copyButton = new Button(() =>
                     EditorGUIUtility.systemCopyBuffer =
                         GreenlightReportExport.ToText(report.Health, report.Fingerprint, report.Context))
@@ -379,17 +353,6 @@ namespace Sorolla.Palette.Editor.UI
             // No per-row "Open GA/FB Settings" buttons: every row that had one sits under a group header
             // whose Edit button performs the identical action (the duplicate affordance was noise).
 
-            // The device snapshot row's remedy is the Connect Device button in the window header - one home,
-            // no per-row duplicate. The row still surfaces the failure REASON: Connect attempts used to fail
-            // completely silently (F3), every failure path writing DetailMessage with nothing rendering it.
-            if (row.GateId == GateIds.DeviceVitals && !isPass)
-            {
-                bool settledWithoutSnapshot = _snapshotState.Phase == GreenlightDeviceSnapshot.Phase.Done &&
-                                              _snapshotState.Outcome != GreenlightDeviceSnapshot.Outcome.Parsed;
-                if (settledWithoutSnapshot && !string.IsNullOrEmpty(_snapshotState.DetailMessage))
-                    container.Add(CheckRow.SubLine(_snapshotState.DetailMessage));
-            }
-
             // Sandbox mode is the one check whose remedy is a single boolean, so the control belongs ON the
             // row rather than in the vendor's field list further down. Rendered on a passing row too, so
             // turning sandbox ON for a verification run is possible from here as well.
@@ -476,7 +439,7 @@ namespace Sorolla.Palette.Editor.UI
                     Id = id,
                     Title = GroupTitle(id),
                     Rows = rows ?? new List<GreenlightEvaluator.Row>(),
-                    // Inputs are built BEFORE the status: the Adjust/TikTok statuses offer a "focus that
+                    // Inputs are built BEFORE the status: the Adjust status offers a "focus that
                     // field" action, and the fields have to exist for it to point at anything.
                     Inputs = _configInputs.BuildFor(id),
                     Status = _vendorStatus.For(id),
@@ -512,8 +475,7 @@ namespace Sorolla.Palette.Editor.UI
             GreenlightAdapter.VendorGroup.AppLovinMax => "AppLovin MAX",
             GreenlightAdapter.VendorGroup.Adjust => "Adjust",
             GreenlightAdapter.VendorGroup.BuildAndProject => "Build & Project",
-            GreenlightAdapter.VendorGroup.DeviceAndQa => "Device & QA",
-            GreenlightAdapter.VendorGroup.TikTok => "TikTok (optional)",
+            GreenlightAdapter.VendorGroup.QaAndDiagnostics => "QA & Diagnostics",
             _ => group.ToString(),
         };
 

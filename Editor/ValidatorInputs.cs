@@ -6,11 +6,10 @@ using UnityEngine;
 namespace Sorolla.Palette.Editor
 {
     /// <summary>
-    ///     One cheap fingerprint of everything the validators read. The window compares it on a timer and
-    ///     re-validates when it moves, so a report can never describe project state that has since changed.
-    ///     A fingerprint rather than a watcher per input: watchers are a list that silently goes out of date
-    ///     as checks are added, and the two the window started with (the config asset and a hand-picked set of
-    ///     vendor files) already missed player settings and the Android build files.
+    ///     A best-effort fingerprint of the inputs the validators read. The window compares it on a timer
+    ///     and re-validates when it moves, so an edit to a listed input refreshes the report without the
+    ///     studio pressing anything. It is not a staleness guarantee: an input not in the list below moves
+    ///     nothing, so a report can still describe state that changed somewhere unlisted.
     ///     Cost is a build-target read, a mode read, and a stat per path - polled at most once a second.
     /// </summary>
     static class ValidatorInputs
@@ -42,6 +41,7 @@ namespace Sorolla.Palette.Editor
             "Assets/Plugins/Android/proguard-user.txt",
             "Assets/AddressableAssetsData",
             "Assets/Sorolla.link.xml",
+            "Library/BuildProfiles",
         };
 
         /// <summary>
@@ -56,25 +56,32 @@ namespace Sorolla.Palette.Editor
                 hash = hash * 397 + (int)SorollaSettings.Mode;
 
                 string projectRoot = Path.GetDirectoryName(Application.dataPath);
+
+                // The keystore is configured rather than fixed, so its path is resolved instead of listed.
+                string keystore = PlayerSettings.Android.keystoreName;
+                hash = hash * 397 + (keystore ?? string.Empty).GetHashCode();
+                if (!string.IsNullOrEmpty(keystore))
+                    hash = hash * 397 + Stamp(Path.Combine(projectRoot ?? "", keystore)).GetHashCode();
+
                 foreach (string relative in Inputs)
-                {
-                    string path = Path.Combine(projectRoot ?? "", relative);
-                    long stamp = 0;
-                    try
-                    {
-                        if (File.Exists(path))
-                            stamp = File.GetLastWriteTimeUtc(path).Ticks;
-                        else if (Directory.Exists(path))
-                            stamp = Directory.GetLastWriteTimeUtc(path).Ticks;
-                    }
-                    catch (IOException)
-                    {
-                        // A file being written right now is a change in itself; the next poll reads it.
-                        stamp = -1;
-                    }
-                    hash = hash * 397 + stamp.GetHashCode();
-                }
+                    hash = hash * 397 + Stamp(Path.Combine(projectRoot ?? "", relative)).GetHashCode();
+
                 return hash;
+            }
+        }
+
+        static long Stamp(string path)
+        {
+            try
+            {
+                if (File.Exists(path)) return File.GetLastWriteTimeUtc(path).Ticks;
+                if (Directory.Exists(path)) return Directory.GetLastWriteTimeUtc(path).Ticks;
+                return 0;
+            }
+            catch (IOException)
+            {
+                // A file being written right now is a change in itself; the next poll reads it.
+                return -1;
             }
         }
     }

@@ -19,7 +19,7 @@ Full mode adds:
 | Attribution | Adjust install, session, ad revenue, and purchase attribution | Use sandbox during QA, production before launch |
 | Consent | GDPR CMP and iOS ATT flow | Publish consent message, add privacy settings access |
 | Firebase | Analytics, Crashlytics, Remote Config become required | Add platform config files |
-| Revenue | Purchases can fan out to Adjust, Firebase, and GameAnalytics (and TikTok only if a parked TikTok config is already present) | Wire Unity IAP once if the game sells IAP |
+| Revenue | Purchases can fan out to Adjust, Firebase, and GameAnalytics | Wire Unity IAP once if the game sells IAP |
 
 Start from [Prototype Mode](quick-start.md). Do not migrate a build that has not already passed Prototype validation.
 
@@ -38,7 +38,6 @@ Before switching modes, confirm every dashboard points at the same app identifie
 | Firebase | `google-services.json` package: _______ | `GoogleService-Info.plist` bundle: _______ |
 | AppLovin MAX | Rewarded: _______ / Interstitial: _______ | Rewarded: _______ / Interstitial: _______ |
 | Adjust | App Token: _______ | App Token: _______ |
-| TikTok (parked, only if already configured) | App ID: _______ / EM App ID: _______ | App ID: _______ / EM App ID: _______ |
 
 If any package name, bundle ID, app token, or ad unit belongs to a different app, stop and fix the dashboard before continuing. Identifier mismatches cause missing attribution, missing events, wrong revenue routing, and wasted paid UA.
 
@@ -75,14 +74,12 @@ The Prototype keys stay in place. Full mode needs these additional values:
 | Firebase | Yes | `google-services.json` and `GoogleService-Info.plist` in `Assets/` |
 | AppLovin MAX | Yes | SDK Key plus Rewarded, Interstitial, and optional Banner ad unit IDs |
 | Adjust | Yes | App Token and Purchase Event Token. Use sandbox only in a Development Build for QA; turn it off and rebuild for release |
-| TikTok (parked) | Optional | `tiktokAppId`, `tiktokEmAppId`, `tiktokAccessToken` per platform. Parked vendor; configure only for an existing TikTok setup (see [TikTok Setup](guides/tiktok.md)) |
 
 Use the setup guides only when you need dashboard-level detail:
 
 - [Ads Setup](guides/ads.md)
 - [Adjust Setup](guides/adjust.md)
 - [Firebase Setup](guides/firebase.md)
-- [TikTok Setup](guides/tiktok.md) (parked)
 
 ---
 

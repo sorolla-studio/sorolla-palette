@@ -11,8 +11,8 @@ namespace Sorolla.Palette.Editor.Greenlight
     ///     The AUDITABLE canonical report export (review F4). The Editor greenlight's flattened display rows
     ///     drop almost everything a reviewer needs and hide inert rows; this exporter renders the FULL shared
     ///     <see cref="HealthReport"/> instead - every row (including NotApplicable and OptionalSkipped) with
-    ///     its stable id, definition version, requirement + reason, disposition, outcome, required/observed
-    ///     proof, evidence, and fix - plus a build/context fingerprint so a pasted result can be tied to the
+    ///     its stable id, definition version, requirement + reason, disposition, outcome, evidence, and fix -
+    ///     plus a build/context fingerprint so a pasted result can be tied to the
     ///     exact game, build, mode, platform, phase, and SDK COMMIT that produced it. One readable text
     ///     rendering, clipboard as the transport (the parallel JSON export was deleted 2026-07-22: nothing
     ///     consumed it, and one report beats two that can disagree).
@@ -31,37 +31,25 @@ namespace Sorolla.Palette.Editor.Greenlight
             public readonly string Platform;
             public readonly string Mode;
             public readonly string AppVersion;
-            public readonly string DeviceBuildGuid;
             public readonly string GeneratedAtUtc;
 
             Fingerprint(string sdk, string sdkCommit, string appId, string platform, string mode, string appVersion,
-                string deviceBuildGuid, string generatedAtUtc)
+                string generatedAtUtc)
             {
                 SdkVersion = sdk; SdkCommit = sdkCommit; ApplicationId = appId; Platform = platform; Mode = mode;
-                AppVersion = appVersion; DeviceBuildGuid = deviceBuildGuid;
+                AppVersion = appVersion;
                 GeneratedAtUtc = generatedAtUtc;
             }
 
-            internal static Fingerprint Capture(string deviceBuildGuid)
-            {
-                bool hasDevice = !string.IsNullOrEmpty(deviceBuildGuid);
-                BuildReceipt.Data receipt = null;
-                bool receiptMatches = hasDevice &&
-                    BuildReceipt.TryLoad(EditorUserBuildSettings.activeBuildTarget, out receipt) &&
-                    receipt.BuildGuid == deviceBuildGuid;
-
-                return new Fingerprint(
+            internal static Fingerprint Capture() =>
+                new Fingerprint(
                     Palette.SdkVersion,
-                    hasDevice
-                        ? receiptMatches ? receipt.SdkCommit : "unknown (device source not proven)"
-                        : SdkProvenance.ResolveSdkCommit(),
-                    receiptMatches ? receipt.ApplicationId : Application.identifier,
-                    receiptMatches ? receipt.Platform : PlatformName(EditorUserBuildSettings.activeBuildTarget),
-                    receiptMatches ? receipt.Mode : ModeName(SorollaSettings.Mode),
-                    receiptMatches ? receipt.AppVersion : Application.version,
-                    hasDevice ? deviceBuildGuid : "(no device connected)",
+                    SdkProvenance.ResolveSdkCommit(),
+                    Application.identifier,
+                    PlatformName(EditorUserBuildSettings.activeBuildTarget),
+                    ModeName(SorollaSettings.Mode),
+                    Application.version,
                     DateTime.UtcNow.ToString("o"));
-            }
 
             static string PlatformName(BuildTarget target) => target switch
             {
@@ -80,18 +68,17 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         /// <summary>Human-readable rendering of the same canonical report - includes disposition + requirement
         /// so an inert row is not mistaken for an evaluated PASS.</summary>
-        internal static string ToText(HealthReport health, Fingerprint fingerprint, EvaluationContext context = null)
+        internal static string ToText(
+            HealthReport health,
+            Fingerprint fingerprint,
+            EvaluationContext context = null)
         {
             var sb = new StringBuilder();
             sb.AppendLine($"Palette Greenlight Report ({Schema})");
-            // Two answers, never one: integration readiness is decidable before a build, device evidence is
-            // not. Collapsing them is what used to hold a clean project below green until a phone was wired.
-            sb.AppendLine($"integration: {(health?.IntegrationOutcome ?? GateOutcome.Incomplete)}");
-            sb.AppendLine($"outcome: {(health?.Outcome ?? GateOutcome.Incomplete)} (integration + device evidence)");
+            sb.AppendLine($"integration: {(health?.Outcome ?? GateOutcome.Incomplete)}");
             sb.AppendLine($"sdk: {fingerprint.SdkVersion} (commit {fingerprint.SdkCommit}) | " +
                           $"app: {fingerprint.ApplicationId} {fingerprint.AppVersion} | " +
                           $"platform: {fingerprint.Platform} | mode: {fingerprint.Mode}");
-            sb.AppendLine($"device build: {fingerprint.DeviceBuildGuid}");
             sb.AppendLine($"generated: {fingerprint.GeneratedAtUtc}");
             sb.AppendLine();
 
@@ -106,8 +93,7 @@ namespace Sorolla.Palette.Editor.Greenlight
                     : r.Informational ? "Skipped"
                     : r.Outcome.ToString();
                 sb.AppendLine($"[{outcomeLabel}] {r.GateId} (v{r.DefinitionVersion}, {r.Classification}) " +
-                              $"req={r.Requirement} disp={r.Disposition} " +
-                              $"proof req={ProofString(r.RequiredProof)} obs={ProofString(r.ObservedProof)}");
+                              $"req={r.Requirement} disp={r.Disposition}");
                 if (!string.IsNullOrEmpty(r.RequirementReason))
                     sb.AppendLine($"    reason: {r.RequirementReason}");
                 if (!string.IsNullOrEmpty(r.Evidence))
@@ -122,14 +108,5 @@ namespace Sorolla.Palette.Editor.Greenlight
             return sb.ToString();
         }
 
-        static string ProofString(ProofScope proof)
-        {
-            if (proof == ProofScope.None) return "None";
-            var names = new List<string>();
-            if ((proof & ProofScope.Static) != 0) names.Add("Static");
-            if ((proof & ProofScope.DeviceDispatch) != 0) names.Add("DeviceDispatch");
-            if ((proof & ProofScope.VendorAccepted) != 0) names.Add("VendorAccepted");
-            return string.Join("+", names);
-        }
     }
 }

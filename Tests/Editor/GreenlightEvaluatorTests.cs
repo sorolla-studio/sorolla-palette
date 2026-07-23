@@ -10,11 +10,8 @@ using UnityEditor;
 namespace Sorolla.Palette.Editor.Tests
 {
     /// <summary>
-    ///     Covers the Cycle-4 cutover: the Editor greenlight now routes through the ONE shared
-    ///     <see cref="HealthEvaluator.Evaluate"/> via <see cref="GreenlightAdapter"/>. Tests the adapter's
-    ///     row-class → observation mapping, the B-10 rule that a ticked legacy checkmark cannot produce an
-    ///     affirmative outcome, the display-only mapping of the aggregate outcome (no recomputed precedence),
-    ///     and the end-to-end no-evidence → INCOMPLETE non-green invariant carried over from Cycle 2.
+    ///     Covers Editor integration evaluation, Build Health observation mapping, display-only outcome
+    ///     mapping, and the separate connected-device Vitals evidence.
     /// </summary>
     [TestFixture]
     public class GreenlightEvaluatorTests
@@ -77,11 +74,10 @@ namespace Sorolla.Palette.Editor.Tests
             };
 
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                Ctx(), results, new GreenlightDeviceSnapshot.State());
+                Ctx(), results);
 
             GateObservation fb = obs.Single(o => o.GateId == GateIds.BuildFacebookPlatform);
             Assert.AreEqual(GateOutcome.Fail, fb.Outcome);
-            Assert.AreEqual(ProofScope.Static, fb.ObservedProof);
             Assert.AreEqual("fix it", fb.FixHint);
         }
 
@@ -95,7 +91,7 @@ namespace Sorolla.Palette.Editor.Tests
             };
 
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                Ctx(), results, new GreenlightDeviceSnapshot.State());
+                Ctx(), results);
 
             GateObservation manifest = obs.Single(o => o.GateId == GateIds.BuildAndroidManifest);
             Assert.AreEqual(GateOutcome.Fail, manifest.Outcome);
@@ -105,7 +101,7 @@ namespace Sorolla.Palette.Editor.Tests
         public void BuildHealth_NullResults_EmitNoBuildObservations()
         {
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                Ctx(), null, new GreenlightDeviceSnapshot.State());
+                Ctx(), null);
 
             Assert.IsFalse(obs.Any(o => o.GateId.StartsWith("build.")),
                 "No Build Health results means the required core build gates omit -> INCOMPLETE, not silent pass.");
@@ -123,7 +119,7 @@ namespace Sorolla.Palette.Editor.Tests
                     new BuildValidator.ValidationResult(BuildValidator.ValidationStatus.Valid, "x", null, cat),
                 };
                 List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                    Ctx(), results, new GreenlightDeviceSnapshot.State());
+                    Ctx(), results);
                 Assert.IsFalse(obs.Any(o => o.GateId.StartsWith("unmapped:")), $"CheckCategory {cat} is unmapped.");
             }
         }
@@ -143,7 +139,6 @@ namespace Sorolla.Palette.Editor.Tests
                 {
                     GateId = GateIds.BuildFirebaseConfigAndroid,
                     Outcome = GateOutcome.Pass,
-                    ObservedProof = ProofScope.Static,
                     Evidence = "google-services.json matches the Android application id.",
                 },
             };
@@ -168,7 +163,6 @@ namespace Sorolla.Palette.Editor.Tests
                 {
                     GateId = GateIds.BuildFirebaseConfigIos,
                     Outcome = GateOutcome.Pass,
-                    ObservedProof = ProofScope.Static,
                 },
             };
 
@@ -202,243 +196,6 @@ namespace Sorolla.Palette.Editor.Tests
                 "The validation error must be a visible Wait row.");
         }
 
-        // ── Adapter: device row-class → observation ───────────────────────
-
-        [Test]
-        public void Device_NotConnected_EmitsNoObservations_SoRequiredDeviceGatesOmit()
-        {
-            // With device.ready deleted, a never-connected device produces NO evidence at all: the required
-            // device gates omit → INCOMPLETE. Silence is the fail-closed answer; a fabricated row is not.
-            Assert.IsEmpty(GreenlightDeviceSnapshot.ToObservations(new GreenlightDeviceSnapshot.State()));
-        }
-
-        [TestCase("failing", "Fail")]
-        [TestCase("action_needed", "PassWithCaveats")]
-        [TestCase("not_proven", "Incomplete")]
-        [TestCase("pass", "Pass")]
-        public void RuntimeVitalsVerdict_IsTheEditorDeviceObservation(string verdict, string expected)
-        {
-            var snapshot = new Dictionary<string, object> { ["verdict"] = verdict };
-            GateObservation observation = GreenlightDeviceSnapshot.VitalsObservation(snapshot);
-
-            Assert.AreEqual(GateIds.DeviceVitals, observation.GateId);
-            Assert.AreEqual(expected, observation.Outcome.ToString());
-            Assert.AreEqual(ProofScope.DeviceDispatch, observation.ObservedProof);
-        }
-
-        [Test]
-        public void UnknownRuntimeVitalsVerdict_FailsClosed()
-        {
-            GateObservation observation = GreenlightDeviceSnapshot.VitalsObservation(
-                new Dictionary<string, object> { ["verdict"] = "future_value" });
-
-            Assert.AreEqual(GateOutcome.Incomplete, observation.Outcome);
-            Assert.AreEqual(ProofScope.None, observation.ObservedProof);
-        }
-
-        // ── F1: applicability vs collector availability ───────────────────
-
-        [Test]
-        public void IosPlatform_NoDeviceEvidence_DeviceGatesAreIncomplete_NotNotApplicable()
-        {
-            // On an iOS build with NO device evidence supplied, the required device gates omit → INCOMPLETE,
-            // they do NOT drop out as NotApplicable (which would let an iOS build read HEALTHY without ever
-            // running on its shipping platform). This is the catalog-level requiredness; the adapter supplies
-            // real iOS evidence over iproxy (see the F10 tests below), but "never connected" must still land
-            // INCOMPLETE, exactly like Android.
-            var ctx = new EvaluationContext
-            {
-                Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
-                InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
-                ModulesResolved = true,
-            };
-            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, new List<GateObservation>());
-            GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceVitals);
-            Assert.AreEqual(Requirement.Required, device.Requirement);
-            Assert.AreEqual(GateDisposition.Omitted, device.Disposition);
-            Assert.AreEqual(GateOutcome.Incomplete, device.Outcome);
-            Assert.AreEqual(GateOutcome.Incomplete, report.Outcome, "an iOS-only build with no device evidence must not be HEALTHY");
-        }
-
-        [Test]
-        public void NonMobilePlatform_DeviceGate_IsNotApplicableWithReason()
-        {
-            // Off a mobile build target there is no device to observe: the device gate is NotApplicable WITH a
-            // recorded reason, never silently Required.
-            var ctx = new EvaluationContext
-            {
-                Mode = EvalMode.Full, Platform = EvalPlatform.Unknown,
-                InstalledModules = SdkModule.UnityIap,
-                ModulesResolved = true,
-            };
-            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, new List<GateObservation>());
-            GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceVitals);
-            Assert.AreEqual(GateDisposition.NotApplicable, device.Disposition);
-            Assert.IsFalse(string.IsNullOrEmpty(device.RequirementReason), "a NotApplicable gate must record why");
-        }
-
-        // ── C4-03: build/game identity binding ────────────────────────────
-
-        static Dictionary<string, object> SnapshotWithIdentity(string appId, string platform, string appVersion, string mode) =>
-            new Dictionary<string, object>
-            {
-                ["mode"] = mode,
-                ["build"] = new Dictionary<string, object>
-                {
-                    ["application_id"] = appId, ["platform"] = platform, ["app_version"] = appVersion,
-                    ["build_guid"] = "test-guid", // required identity field (C45-05)
-                },
-            };
-
-        [Test]
-        public void CompareIdentity_MatchingBuild_IsMatch()
-        {
-            Dictionary<string, object> snap = SnapshotWithIdentity("com.sorolla.game", "Android", "1.0", "full");
-            Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Match,
-                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", "test-guid", out _));
-        }
-
-        [Test]
-        public void CompareIdentity_WrongGame_IsMismatch()
-        {
-            Dictionary<string, object> snap = SnapshotWithIdentity("com.other.game", "Android", "1.0", "full");
-            Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Mismatch,
-                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", "test-guid", out string detail));
-            StringAssert.Contains("Wrong game", detail);
-        }
-
-        [Test]
-        public void CompareIdentity_WrongBuildVersion_IsMismatch()
-        {
-            Dictionary<string, object> snap = SnapshotWithIdentity("com.sorolla.game", "Android", "0.9", "full");
-            Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Mismatch,
-                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", "test-guid", out _));
-        }
-
-        [Test]
-        public void CompareIdentity_DifferentNonemptyBuildGuid_IsMismatch()
-        {
-            Dictionary<string, object> snap = SnapshotWithIdentity("com.sorolla.game", "Android", "1.0", "full");
-            Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Mismatch,
-                GreenlightDeviceSnapshot.CompareIdentity(
-                    snap, "com.sorolla.game", "full", "1.0", "Android", "different-guid", out string detail));
-            StringAssert.Contains("Wrong build", detail);
-        }
-
-        [Test]
-        public void CompareIdentity_NoBuildBlock_IsMissing()
-        {
-            var snap = new Dictionary<string, object> { ["mode"] = "full" };
-            Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Missing,
-                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", "test-guid", out _));
-        }
-
-        [Test]
-        public void DeviceSnapshot_UnknownSchema_IsIncomplete()
-        {
-            // C4-08: an unknown snapshot schema is not parsed permissively.
-            var state = new GreenlightDeviceSnapshot.State
-            {
-                Phase = GreenlightDeviceSnapshot.Phase.Done,
-                Outcome = GreenlightDeviceSnapshot.Outcome.Parsed,
-                Snapshot = new Dictionary<string, object> { ["snapshot_schema"] = "999" },
-            };
-            List<GateObservation> obs = GreenlightDeviceSnapshot.ToObservations(state);
-            GateObservation untrusted = obs.Single(o => o.GateId == GateIds.DeviceVitals);
-            Assert.AreEqual(GateOutcome.Incomplete, untrusted.Outcome);
-            Assert.AreEqual(ProofScope.None, untrusted.ObservedProof,
-                "an untrusted snapshot must never carry device-dispatch proof");
-        }
-
-        [Test]
-        public void CompareIdentity_WrongPlatform_IsMismatch()
-        {
-            // C45-05: an iOS snapshot pulled while the project targets Android (or vice-versa) has not proven
-            // which build it came from - the platform is part of the required identity.
-            Dictionary<string, object> snap = SnapshotWithIdentity("com.sorolla.game", "IPhonePlayer", "1.0", "full");
-            Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Mismatch,
-                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", "test-guid", out string detail));
-            StringAssert.Contains("Wrong platform", detail);
-        }
-
-        // ── F10: iOS device transport (iproxy) - un-gated collector + GUID binding ───
-
-        [Test]
-        public void BuildObservations_Ios_NeverConnected_LeavesDeviceGatesUnobserved()
-        {
-            // F10: iOS has a shipping collector (iproxy), so the device path is un-gated for iOS. A
-            // never-connected iOS build supplies no device evidence, so its required device gates omit →
-            // INCOMPLETE through the real evaluator.
-            var ctx = new EvaluationContext
-            {
-                Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
-                InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
-                ModulesResolved = true,
-            };
-            List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                ctx, null, new GreenlightDeviceSnapshot.State());
-            Assert.IsFalse(obs.Any(o => o.GateId == GateIds.DeviceVitals));
-
-            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, obs);
-            GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceVitals);
-            Assert.AreEqual(GateDisposition.Omitted, device.Disposition);
-            Assert.AreEqual(GateOutcome.Incomplete, report.Outcome);
-        }
-
-        [Test]
-        public void BuildObservations_NonMobilePlatform_EmitsNoDeviceObservation()
-        {
-            // Off a mobile build target the device gates are NotApplicable, so the adapter must emit NO device
-            // observation (emitting would be a C3-05 context mismatch).
-            var ctx = new EvaluationContext
-            {
-                Mode = EvalMode.Full, Platform = EvalPlatform.Unknown,
-                InstalledModules = SdkModule.GameAnalytics,
-                ModulesResolved = true,
-            };
-            List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                ctx, null, new GreenlightDeviceSnapshot.State());
-            Assert.IsFalse(obs.Any(o => o.GateId.StartsWith("device.")),
-                "a non-mobile build target must not emit a device observation.");
-        }
-
-        // Parsed iOS snapshot carrying an explicit build GUID, for the report-identity test below.
-        static GreenlightDeviceSnapshot.State ParsedIosSnapshot(string buildGuid) => new GreenlightDeviceSnapshot.State
-        {
-            Phase = GreenlightDeviceSnapshot.Phase.Done,
-            Outcome = GreenlightDeviceSnapshot.Outcome.Parsed,
-            Snapshot = new Dictionary<string, object>
-            {
-                ["snapshot_schema"] = "1",
-                ["mode"] = "full",
-                ["build"] = new Dictionary<string, object>
-                {
-                    ["application_id"] = "com.sorolla.hungrysnake3d", ["platform"] = "IPhonePlayer",
-                    ["app_version"] = "2.8.2", ["build_guid"] = buildGuid,
-                },
-            },
-        };
-
-        [Test]
-        public void IosSnapshotBuildGuid_IdentifiesTheBuildAReportDescribes()
-        {
-            // F10/blocker 3: iOS has the same transport parity as Android, and the connected build's GUID is
-            // what ties a copied report to the exact binary it was taken from - so it must be read out of the
-            // iOS snapshot, not just the Android one.
-            string guid = GreenlightDeviceSnapshot.BuildGuidOf(ParsedIosSnapshot("6f5d5572536a40db9136bbf61a3bcd89"));
-            Assert.AreEqual("6f5d5572536a40db9136bbf61a3bcd89", guid, "BuildGuidOf must read the iOS snapshot's build GUID.");
-
-            var fingerprint = GreenlightReportExport.Fingerprint.Capture(guid);
-            Assert.AreEqual(guid, fingerprint.DeviceBuildGuid);
-        }
-
-        [Test]
-        public void NoConnectedDevice_ReportSaysSo_RatherThanImplyingOne()
-        {
-            var fingerprint = GreenlightReportExport.Fingerprint.Capture(GreenlightDeviceSnapshot.BuildGuidOf(new GreenlightDeviceSnapshot.State()));
-            Assert.AreEqual("(no device connected)", fingerprint.DeviceBuildGuid);
-        }
-
         // ── F4-02: bare-vendor absence is not an affirmative observation ───
 
         [Test]
@@ -456,7 +213,7 @@ namespace Sorolla.Palette.Editor.Tests
 
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                protoCtx, results, new GreenlightDeviceSnapshot.State());
+                protoCtx, results);
             Assert.IsFalse(obs.Any(o => o.GateId == GateIds.BuildFirebaseCoherence),
                 "vendor absence must not become an affirmative PASS observation.");
         }
@@ -476,7 +233,7 @@ namespace Sorolla.Palette.Editor.Tests
 
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
-                ctx, results, new GreenlightDeviceSnapshot.State());
+                ctx, results);
             Assert.IsTrue(obs.Any(o => o.GateId == GateIds.BuildFirebaseCoherence),
                 "a present vendor's coherence result must be evaluated.");
         }
@@ -500,42 +257,9 @@ namespace Sorolla.Palette.Editor.Tests
             };
 
             List<GateObservation> observations = GreenlightAdapter.BuildObservations(
-                context, results, new GreenlightDeviceSnapshot.State());
+                context, results);
 
             Assert.IsFalse(observations.Any(o => o.GateId == GateIds.BuildAdjustSettings));
-        }
-
-        // ── B-10: a claim without the required proof is NOT a pass ─────────
-
-        [Test]
-        public void UnscopedEvidence_CannotProduceAffirmativeOutcome()
-        {
-            // The B-10 invariant through the real evaluator: a PASS claim carrying no proof of the class the
-            // gate requires (here: device dispatch) is forced to INCOMPLETE - asserting health never
-            // substitutes for observing it.
-            var ctx = new EvaluationContext
-            {
-                Mode = EvalMode.Full,
-                Platform = EvalPlatform.Android,
-                InstalledModules = HealthEnums.AllModuleBits,
-
-            };
-            var observations = new List<GateObservation>
-            {
-                new GateObservation
-                {
-                    GateId = GateIds.DeviceVitals,
-                    Outcome = GateOutcome.Pass,
-                    ObservedProof = ProofScope.None,
-                },
-            };
-
-            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, observations);
-            GateResult row = report.Rows.Single(r => r.GateId == GateIds.DeviceVitals);
-
-            Assert.AreEqual(GateOutcome.Incomplete, row.Outcome, "Claimed-but-unproven must resolve to INCOMPLETE.");
-            Assert.AreNotEqual(GateOutcome.Pass, report.Outcome);
-            Assert.AreNotEqual(GateOutcome.PassWithCaveats, report.Outcome);
         }
 
         // ── Display mapping (maps the aggregate outcome, never recomputes) ─
@@ -577,12 +301,8 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void Evaluate_RealPathWithNoEvidence_IsIncompleteAndNonGreen()
         {
-            // The whole reason the plan exists: no Build Health results and a never-connected device must
-            // land INCOMPLETE and a non-green badge - never HEALTHY - through the real shared evaluator,
-            // whatever the ambient editor mode/platform.
-            GreenlightEvaluator.Report report = GreenlightEvaluator.Evaluate(
-                buildHealthResults: null,
-                snapshotState: new GreenlightDeviceSnapshot.State());
+            // No Build Health results must land INCOMPLETE and a non-green badge.
+            GreenlightEvaluator.Report report = GreenlightEvaluator.Evaluate(buildHealthResults: null);
 
             Assert.AreEqual(GateOutcome.Incomplete, report.Outcome,
                 "A report with no run evidence must be INCOMPLETE, not HEALTHY.");
@@ -591,16 +311,7 @@ namespace Sorolla.Palette.Editor.Tests
                 "The badge for a no-evidence report must not be the green Pass pill.");
         }
 
-        // ── HEALTHY is reachable, and only from machine-observed evidence ──
-
-        /// <summary>The counterpart to the test above, and the point of the 2026-07-22 deletion: when every
-        /// required gate HAS been observed green, the report reads HEALTHY. Before, six gates could only be
-        /// satisfied by a human ticking a box, so a report that had genuinely proven everything the SDK can
-        /// check still rendered INCOMPLETE - a permanently non-green verdict teaches people to ignore it.
-        /// Scope limit, stated so it is not over-read: this synthesizes each gate's required proof, so it
-        /// proves the EVALUATOR can reach HEALTHY over the real catalog, not that a producer can actually
-        /// supply every proof. "No gate needs proof only a human can give" is pinned separately, by
-        /// GateCatalogTests.EveryGate_IsObservableByTheSdk_NoHumanAttestationOnly.</summary>
+        // ── HEALTHY is reachable from complete integration evidence ───────
         [Test]
         public void EveryRequiredGateObservedGreen_ReadsHealthy()
         {
@@ -616,7 +327,7 @@ namespace Sorolla.Palette.Editor.Tests
                 .Where(d => d.Requirement(ctx).Value == Requirement.Required)
                 .Select(d => new GateObservation
                 {
-                    GateId = d.Id, Outcome = GateOutcome.Pass, ObservedProof = d.RequiredProof,
+                    GateId = d.Id, Outcome = GateOutcome.Pass,
                     Evidence = "observed",
                 })
                 .ToList();
@@ -628,7 +339,7 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual("HEALTHY", GreenlightEvaluator.VerdictLabel(report.Outcome, 0, 0));
         }
 
-        // ── Integration readiness is decidable before a build (2026-07-23) ──
+        // ── Integration readiness is decidable before a build ─────────────
 
         static EvaluationContext MobileContext() => new EvaluationContext
         {
@@ -639,46 +350,24 @@ namespace Sorolla.Palette.Editor.Tests
 
         static List<GateObservation> StaticObservationsAllGreen(EvaluationContext ctx) =>
             GateCatalog.Canonical.All
-                .Where(d => d.Requirement(ctx).Value == Requirement.Required &&
-                            (d.RequiredProof & ProofScope.DeviceDispatch) == 0)
+                .Where(d => d.Requirement(ctx).Value == Requirement.Required)
                 .Select(d => new GateObservation
                 {
-                    GateId = d.Id, Outcome = GateOutcome.Pass, ObservedProof = d.RequiredProof,
+                    GateId = d.Id, Outcome = GateOutcome.Pass,
                     Evidence = "observed",
                 })
                 .ToList();
 
         [Test]
-        public void CleanStaticSetup_IsIntegrationReady_BeforeAnyDeviceIsConnected()
+        public void CleanStaticSetup_IsReadyBeforeAnyDeviceIsConnected()
         {
             // The pre-build contract: everything decidable without running the game is green, so the
             // integration verdict is green - while the device question stays honestly unanswered.
             EvaluationContext ctx = MobileContext();
             HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, StaticObservationsAllGreen(ctx));
 
-            Assert.AreEqual(GateOutcome.Pass, report.IntegrationOutcome,
-                "a statically clean project must be able to read ready before a device exists");
-            Assert.AreEqual(GateOutcome.Incomplete, report.Outcome,
-                "the combined answer still has no device evidence");
-            GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceVitals);
-            Assert.AreEqual(GateOutcome.Incomplete, device.Outcome, "the device row keeps its own honest state");
-        }
-
-        [Test]
-        public void FailingDeviceEvidence_DoesNotDragDownIntegrationReadiness()
-        {
-            EvaluationContext ctx = MobileContext();
-            List<GateObservation> observations = StaticObservationsAllGreen(ctx);
-            observations.Add(new GateObservation
-            {
-                GateId = GateIds.DeviceVitals, Outcome = GateOutcome.Fail,
-                ObservedProof = ProofScope.DeviceDispatch, Evidence = "runtime vitals failing",
-            });
-
-            HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, observations);
-
-            Assert.AreEqual(GateOutcome.Pass, report.IntegrationOutcome, "the integration itself is still ready");
-            Assert.AreEqual(GateOutcome.Fail, report.Outcome, "the combined answer reports the device failure");
+            Assert.AreEqual(GateOutcome.Pass, report.Outcome,
+                "a statically clean project must be ready before a device exists");
         }
 
         [Test]
@@ -689,12 +378,12 @@ namespace Sorolla.Palette.Editor.Tests
             observations[0] = new GateObservation
             {
                 GateId = observations[0].GateId, Outcome = GateOutcome.Fail,
-                ObservedProof = ProofScope.Static, Evidence = "broken",
+                Evidence = "broken",
             };
 
             HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, observations);
 
-            Assert.AreEqual(GateOutcome.Fail, report.IntegrationOutcome);
+            Assert.AreEqual(GateOutcome.Fail, report.Outcome);
         }
 
         [Test]
@@ -707,8 +396,7 @@ namespace Sorolla.Palette.Editor.Tests
 
             Assert.AreEqual(0, report.WaitCount,
                 "a never-connected device must not read as a pending integration check");
-            Assert.IsTrue(report.Rows.Any(r => r.IsDeviceEvidence),
-                "the device row is still rendered, under its own group");
+            Assert.IsFalse(report.Rows.Any(r => r.GateId != null && r.GateId.StartsWith("device.")));
         }
     }
 }

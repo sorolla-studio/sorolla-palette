@@ -79,30 +79,6 @@ namespace Sorolla.Palette
         public string adjustPurchaseEventToken;
 
         /// <summary>
-        ///     Master switch for TikTok Business SDK integration.
-        ///     Parked vendor: TikTok is not part of the active supported vendor set. The adapter still
-        ///     ships and these fields remain so existing integrations keep working; new integrations
-        ///     should not configure TikTok. See the TikTok guide.
-        ///     TikTok is also disabled if <see cref="tiktokAppId"/> is empty for the current platform.
-        /// </summary>
-        [Header("TikTok (Parked)")]
-        [Tooltip("Parked vendor. Enable TikTok Business SDK integration (not part of the active supported vendor set).")]
-        public bool enableTikTok;
-
-
-        /// <summary>Parked vendor field. TikTok App ID from Events Manager (long numeric ID). Empty = disabled for that platform.</summary>
-        [Tooltip("Parked vendor. TikTok App ID from Events Manager (long numeric ID). Leave empty to disable.")]
-        public PlatformAdUnitId tiktokAppId;
-
-        /// <summary>Parked vendor field. TikTok Events Manager App ID (maps to the SDK's <c>appId</c> parameter).</summary>
-        [Tooltip("Parked vendor. App ID from TikTok Events Manager (maps to SDK appId parameter).")]
-        public PlatformAdUnitId tiktokEmAppId;
-
-        /// <summary>Parked vendor field. TikTok Events Manager Access Token used by the server-side event API.</summary>
-        [Tooltip("Parked vendor. App Secret (Access Token) from Events Manager.")]
-        public PlatformAdUnitId tiktokAccessToken;
-
-        /// <summary>
         ///     Enables detailed SDK diagnostics and vendor debug logging for QA investigation.
         ///     Automatically forced OFF in non-development builds as a safety net.
         ///     Production-safe SDK health markers, warnings, and errors are always logged even when this is OFF.

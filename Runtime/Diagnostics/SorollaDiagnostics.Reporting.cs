@@ -8,33 +8,6 @@ namespace Sorolla.Palette
 {
     internal static partial class SorollaDiagnostics
     {
-        internal static string BuildSummary()
-        {
-            var rows = new List<SorollaDiagnosticRow>(64);
-            BuildRows(rows);
-
-            var sb = new StringBuilder(4096);
-            AppendReportHeader(sb, "Sorolla Palette Vitals", BuildReportDetail());
-
-            string currentGroup = null;
-            foreach (SorollaDiagnosticRow row in rows)
-            {
-                if (row.Group != currentGroup)
-                {
-                    currentGroup = row.Group;
-                    sb.AppendLine($"[{currentGroup}]");
-                }
-
-                sb.AppendLine($"{SeverityLabel(row.Severity),-7} {row.Name}: {row.Detail}");
-            }
-
-            sb.AppendLine();
-            sb.AppendLine("[Recent Events]");
-            AppendEventLog(sb);
-
-            return sb.ToString();
-        }
-
         internal static string BuildProblemsSummary()
         {
             var rows = new List<SorollaDiagnosticRow>(64);
@@ -55,21 +28,6 @@ namespace Sorolla.Palette
             if (!any)
                 sb.AppendLine("No FAIL/WARN/WAIT diagnostics observed.");
 
-            return sb.ToString();
-        }
-
-        internal static string BuildConsoleSummary()
-        {
-            var rows = new List<SorollaDiagnosticRow>(64);
-            BuildRows(rows);
-
-            var sb = new StringBuilder(2048);
-            AppendReportHeader(sb, "Sorolla Vitals Console", BuildReportDetail(rows));
-            sb.AppendLine("[Runtime Problems]");
-            AppendRuntimeProblems(sb);
-            sb.AppendLine();
-            sb.AppendLine("[Events]");
-            AppendEventLog(sb);
             return sb.ToString();
         }
 

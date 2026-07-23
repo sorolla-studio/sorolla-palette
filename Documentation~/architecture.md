@@ -6,7 +6,7 @@ Technical reference for contributors working on the Sorolla SDK.
 
 ## Overview
 
-**Sorolla SDK** is a plug-and-play mobile publisher SDK for Unity. It wraps GameAnalytics, Facebook, AppLovin MAX, Adjust, Firebase, and TikTok (parked compatibility adapter) behind a unified `Palette` API.
+**Sorolla SDK** is a plug-and-play mobile publisher SDK for Unity. It wraps GameAnalytics, Facebook, AppLovin MAX, Adjust, and Firebase behind a unified `Palette` API.
 
 ### Design Principles
 
@@ -71,8 +71,6 @@ Runtime/
 │   ├── FirebaseCrashlyticsAdapter.cs  ← Stub
 │   ├── FirebaseRemoteConfigAdapter.cs ← Stub
 │   ├── FirebaseCoreManager.cs      ← Stub
-│   ├── TikTokAdapter.cs           ← Stub (native bridge pattern)
-│   ├── TikTokAdapterImpl.cs       ← Impl (JNI/DllImport, always compiled)
 │   ├── Firebase/                   ← Separate assembly (defineConstraints)
 │   │   ├── Sorolla.Adapters.Firebase.asmdef
 │   │   ├── FirebaseAdapterImpl.cs
@@ -405,7 +403,6 @@ Palette.AttachPurchaseTracking(store)                    ← ONLY studio-facing 
                     │                                      before fan-out. Fails open on
                     │                                      empty TxID.
                     ├── AdjustAdapter.TrackPurchase()     ← Platform-routed verification
-                    ├── TikTokAdapter.TrackPurchase()     ← If enabled
                     └── FirebaseAdapter.TrackPurchase()   ← If enabled (analytics only, no verification;
                                                            emits store_environment for filtering)
 ```
@@ -470,7 +467,7 @@ Init:      Bootstrapper → ATT → Palette.Initialize()
 Events:    Palette → Adapters → Third-party SDKs
 Ads:       ShowRewardedAd → MaxAdapter → AdjustAdapter.TrackAdRevenue
 Config:    GetRemoteConfig → Firebase → GA → default
-Purchase:  TrackPurchase → Adjust (verify) + TikTok + Firebase
+Purchase:  TrackPurchase → Adjust (verify) + Firebase
 ```
 
 ## Build System

@@ -59,11 +59,6 @@ namespace Sorolla.Palette
                 ActionButtonStyle.Normal,
                 RefreshDiagnostics).Root);
             host.Add(BuildActionButton(
-                "Copy diagnostics summary",
-                "Complete SDK diagnostic rows and recent SDK events",
-                ActionButtonStyle.Normal,
-                () => GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildSummary()).Root);
-            host.Add(BuildActionButton(
                 "Copy SDK state",
                 "Full report: context, consent, adapters, config, events, problems",
                 ActionButtonStyle.Primary,

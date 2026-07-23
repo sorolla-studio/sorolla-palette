@@ -774,39 +774,6 @@ Create in Adjust Dashboard -&gt; Events.
 [Tooltip("Adjust event token for purchase/revenue tracking (from Adjust Dashboard)")]
 public string adjustPurchaseEventToken
 ```
-#### enableTikTok
-Master switch for TikTok Business SDK integration.
-Parked vendor: TikTok is not part of the active supported vendor set. The adapter still
-ships and these fields remain so existing integrations keep working; new integrations
-should not configure TikTok. See the TikTok guide.
-TikTok is also disabled if `tiktokAppId` is empty for the current platform.
-
-```csharp title="Declaration"
-[Header("TikTok (Parked)")]
-[Tooltip("Parked vendor. Enable TikTok Business SDK integration (not part of the active supported vendor set).")]
-public bool enableTikTok
-```
-#### tiktokAppId
-Parked vendor field. TikTok App ID from Events Manager (long numeric ID). Empty = disabled for that platform.
-
-```csharp title="Declaration"
-[Tooltip("Parked vendor. TikTok App ID from Events Manager (long numeric ID). Leave empty to disable.")]
-public PlatformAdUnitId tiktokAppId
-```
-#### tiktokEmAppId
-Parked vendor field. TikTok Events Manager App ID (maps to the SDK's `appId` parameter).
-
-```csharp title="Declaration"
-[Tooltip("Parked vendor. App ID from TikTok Events Manager (maps to SDK appId parameter).")]
-public PlatformAdUnitId tiktokEmAppId
-```
-#### tiktokAccessToken
-Parked vendor field. TikTok Events Manager Access Token used by the server-side event API.
-
-```csharp title="Declaration"
-[Tooltip("Parked vendor. App Secret (Access Token) from Events Manager.")]
-public PlatformAdUnitId tiktokAccessToken
-```
 #### verboseLogging
 Enables detailed SDK diagnostics and vendor debug logging for QA investigation.
 Automatically forced OFF in non-development builds as a safety net.

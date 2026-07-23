@@ -43,9 +43,6 @@ namespace Sorolla.Palette.Health
                 if (obs.GateId == null) { validationErrors.Add("Observation with a null gate id."); continue; }
                 if (!HealthEnums.IsDefinedOutcome(obs.Outcome))
                     validationErrors.Add($"Observation for '{obs.GateId}' has an undefined outcome value.");
-                if (!HealthEnums.HasOnlyDefinedBits(obs.ObservedProof))
-                    validationErrors.Add($"Observation for '{obs.GateId}' has undefined proof-scope bits.");
-
                 if (!byId.TryGetValue(obs.GateId, out List<GateObservation> list))
                 {
                     list = new List<GateObservation>();
@@ -89,7 +86,6 @@ namespace Sorolla.Palette.Health
                     Classification = def.Classification,
                     Requirement = rd.Value,
                     RequirementReason = rd.Reason,
-                    RequiredProof = def.RequiredProof,
                 };
 
                 byId.TryGetValue(def.Id, out List<GateObservation> matches);
@@ -104,7 +100,6 @@ namespace Sorolla.Palette.Health
                         row.Disposition = GateDisposition.Evaluated;
                         if (count == 1)
                         {
-                            row.ObservedProof = matches[0].ObservedProof;
                             row.Evidence = matches[0].Evidence;
                             row.FixHint = matches[0].FixHint;
                             row.Informational = matches[0].Informational;
@@ -138,7 +133,7 @@ namespace Sorolla.Palette.Health
                         else
                         {
                             row.Disposition = GateDisposition.Evaluated;
-                            row.Outcome = ResolveObserved(def, matches, row);
+                            row.Outcome = ResolveObserved(matches, row);
                         }
                         break;
 
@@ -154,7 +149,7 @@ namespace Sorolla.Palette.Health
                         else
                         {
                             row.Disposition = GateDisposition.Evaluated;
-                            row.Outcome = ResolveObserved(def, matches, row);
+                            row.Outcome = ResolveObserved(matches, row);
                         }
                         break;
                 }
@@ -167,12 +162,6 @@ namespace Sorolla.Palette.Health
                 Rows = rows,
                 ValidationErrors = validationErrors,
                 Outcome = Aggregate(rows, validationErrors.Count > 0),
-                // The pre-build question, answered by the gates that can answer it. A gate whose proof must
-                // come from a running device is a different question - it keeps its own row and its own
-                // verdict, and a never-connected device no longer holds a clean integration below green.
-                IntegrationOutcome = Aggregate(
-                    rows.Where(r => (r.RequiredProof & ProofScope.DeviceDispatch) == 0).ToList(),
-                    validationErrors.Count > 0),
             };
         }
 
@@ -189,20 +178,12 @@ namespace Sorolla.Palette.Health
                 errors.Add("Installed-module state could not be resolved from the manifest (unknown ≠ absent).");
         }
 
-        /// <summary>
-        ///     Resolve a single observation against the definition's required proof (review C3-01). An
-        ///     observed FAIL stays FAIL and an observed INCOMPLETE stays INCOMPLETE regardless of missing
-        ///     proof - a known-broken requirement is not hidden behind missing extra proof. Missing required
-        ///     proof downgrades ONLY affirmative claims (Pass / PassWithCaveats) to INCOMPLETE. A duplicate is
-        ///     already a validation error and cannot resolve to a pass.
-        /// </summary>
-        static GateOutcome ResolveObserved(GateDefinition def, List<GateObservation> matches, GateResult row)
+        static GateOutcome ResolveObserved(List<GateObservation> matches, GateResult row)
         {
             if (matches.Count > 1)
                 return GateOutcome.Incomplete;
 
             GateObservation only = matches[0];
-            row.ObservedProof = only.ObservedProof;
             row.Evidence = only.Evidence;
             row.FixHint = only.FixHint;
             row.Informational = only.Informational;
@@ -215,9 +196,7 @@ namespace Sorolla.Palette.Health
                     return GateOutcome.Incomplete;
                 case GateOutcome.Pass:
                 case GateOutcome.PassWithCaveats:
-                    // Affirmative claims need their proof; missing required proof downgrades to INCOMPLETE.
-                    ProofScope missing = def.RequiredProof & ~only.ObservedProof;
-                    return missing != ProofScope.None ? GateOutcome.Incomplete : only.Outcome;
+                    return only.Outcome;
                 default:
                     // An undefined/corrupted outcome (already recorded as a validation error) must never reach
                     // the Editor row mapper as an invalid value (review F4-03) - coerce it to INCOMPLETE.

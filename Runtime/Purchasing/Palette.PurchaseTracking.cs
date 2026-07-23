@@ -86,7 +86,7 @@ namespace Sorolla.Palette
         ///     Low-level purchase fan-out. Internal since 3.14.1 - no supported studio-facing entry point.
         ///     Reached only via the SDK-owned subscription installed by <see cref="AttachPurchaseTracking"/>.
         ///     Enforces ISO-4217 / positive-price validation and TxID dedup
-        ///     before fanning out to Adjust / TikTok / Firebase / GameAnalytics.
+        ///     before fanning out to Adjust / Firebase / GameAnalytics.
         /// </summary>
         /// <param name="amount">Purchase amount in local currency (must be &gt; 0).</param>
         /// <param name="currency">ISO 4217 currency code.</param>
@@ -166,9 +166,6 @@ namespace Sorolla.Palette
                 else
                     PaletteLog.WarningOnce("purchase.adjust.token_missing", $"{Tag} TrackPurchase: Adjust purchase event token not configured; Adjust purchase revenue skipped.");
 #endif
-
-                if (Config != null && Config.enableTikTok && !string.IsNullOrEmpty(Config.tiktokAppId?.Current))
-                    TikTokAdapter.TrackPurchase(amount, currency);
 
 #if FIREBASE_ANALYTICS_INSTALLED
                 FirebaseAdapter.TrackPurchase(productId, amount, currency, transactionId, storeEnvironment);

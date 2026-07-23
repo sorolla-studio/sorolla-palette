@@ -17,7 +17,6 @@ Before touching any dashboard, get these from the studio:
 | Test APK/AAB (Android) | - | Signed with debug or release key |
 | Test IPA / TestFlight build (iOS) | - | For on-device QA |
 | Android debug key hash | SHA-1 from `keytool` | Needed for Facebook Android |
-| TikTok credentials (parked, optional) | App ID + EM App ID + Access Token, per platform | TikTok is a parked vendor; skip unless the studio already runs a TikTok setup |
 | Studio contact for dashboard invites | email | They'll receive admin invites |
 
 **Lock the package name and bundle ID before proceeding.** Firebase, Facebook, AppLovin ad units, and Play-linked Crashlytics all depend on exact identifier matches. Changing it later means recreating every vendor app.
@@ -117,24 +116,6 @@ Purchase dashboard note:
 
 ---
 
-### 6. TikTok (parked)
-
-> **Parked vendor.** TikTok is not part of the active vendor set (see [TikTok Setup](guides/tiktok.md)).
-> Skip this section unless the game already has a TikTok configuration to preserve.
-
-**Dashboard:** TikTok Events Manager ([ads.tiktok.com](https://ads.tiktok.com))
-
-1. Create App in Events Manager (or attach to existing MMP-connected app)
-2. Collect three values per platform:
-
-| TikTok Dashboard field | SorollaConfig field | Maps to SDK call |
-|------------------------|---------------------|------------------|
-| App ID (Events Manager) | `tiktokEmAppId` | `TTConfig` constructor `setAppId` |
-| TikTok App ID (long numeric) | `tiktokAppId` | `setTTAppId` |
-| Access Token (App Secret) | `tiktokAccessToken` | `TTConfig` constructor |
-
----
-
 ## Consent Setup Order
 
 This order matters. Reversing it causes silent failure (app works, GDPR dialog never shows):
@@ -154,10 +135,9 @@ How Palette.cs initializes in Full mode:
 2. On MAX initialized callback:
    - Adjust initializes (reads consent state set by MAX)
    - MAX ad loading begins (rewarded, interstitial, banner)
-   - ILRD callback registered (ad revenue -> Adjust, and TikTok only if a parked TikTok config is present)
+   - ILRD callback registered (ad revenue -> Adjust and Firebase)
 3. Firebase initializes (Analytics, Crashlytics, Remote Config)
-4. TikTok initializes (parked vendor; only if an existing TikTok config is populated)
-5. GameAnalytics initializes
-6. Facebook initializes (if `SOROLLA_FACEBOOK_ENABLED`)
+4. GameAnalytics initializes
+5. Facebook initializes (if `SOROLLA_FACEBOOK_ENABLED`)
 
 Consent is resolved before attribution starts. Do not reorder.
