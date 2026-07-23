@@ -126,5 +126,16 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(SorollaRowOwner.Sorolla,
                 SorollaDiagnostics.OwnerOf(Row("Red flags", "SDK errors", SorollaDiagnosticSeverity.Fail)));
         }
+
+        [Test]
+        public void StudioRuntimeProblems_AreNotVitalsRows()
+        {
+            var rows = new List<SorollaDiagnosticRow>();
+
+            SorollaDiagnostics.BuildRows(rows);
+
+            Assert.IsFalse(rows.Exists(row => row.Name == "Runtime problems"),
+                "Vitals grades SDK state only; arbitrary Unity and studio-game exceptions belong in the hidden console.");
+        }
     }
 }

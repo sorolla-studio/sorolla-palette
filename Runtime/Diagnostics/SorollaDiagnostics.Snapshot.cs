@@ -197,9 +197,6 @@ namespace Sorolla.Palette
                 SdkWarningCount = snap.PaletteWarningCount,
                 SdkErrorCount = snap.PaletteErrorCount,
                 LastSdkError = snap.LastPaletteError,
-                RuntimeProblemUniqueCount = snap.RuntimeProblemUniqueCount,
-                RuntimeProblemTotalCount = snap.RuntimeProblemTotalCount,
-                RuntimeProblemSummary = snap.RuntimeProblemSummary,
             };
         }
 

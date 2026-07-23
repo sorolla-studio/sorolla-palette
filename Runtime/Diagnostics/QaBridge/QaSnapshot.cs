@@ -294,9 +294,6 @@ namespace Sorolla.Palette
             QaJson.IntMember(sb, ref first, "sdk_warnings", state.SdkWarningCount);
             QaJson.IntMember(sb, ref first, "sdk_errors", state.SdkErrorCount);
             QaJson.StringMember(sb, ref first, "last_sdk_error", state.LastSdkError);
-            QaJson.IntMember(sb, ref first, "runtime_unique", state.RuntimeProblemUniqueCount);
-            QaJson.IntMember(sb, ref first, "runtime_total", state.RuntimeProblemTotalCount);
-            QaJson.StringMember(sb, ref first, "runtime_top", state.RuntimeProblemSummary);
             sb.Append('}');
         }
     }

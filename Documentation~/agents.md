@@ -51,7 +51,7 @@ Returns the full runtime state as one JSON object:
 | `events` | Array of `{name, count, last_params}` for every event type seen this session |
 | `ads` | `interstitial`/`rewarded` (`loaded`, `completed` each), `revenue_seen` |
 | `iap` | `tracking_attached`, `purchase_count`, `duplicate_count`, `verification`, `last_issue` |
-| `problems` | `sdk_warnings`, `sdk_errors`, `last_sdk_error`, `runtime_unique`, `runtime_total`, `runtime_top` |
+| `problems` | SDK-owned diagnostics only: `sdk_warnings`, `sdk_errors`, `last_sdk_error` |
 
 A snapshot proves what happened in the current session on this device. It does not prove vendor-side delivery (an event can be `count: 1` locally and never arrive server-side if credentials are wrong — cross-check against the relevant [vendor dashboard page](dashboards/)).
 

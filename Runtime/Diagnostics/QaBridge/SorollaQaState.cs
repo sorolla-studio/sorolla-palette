@@ -95,9 +95,6 @@ namespace Sorolla.Palette
         public int SdkWarningCount;
         public int SdkErrorCount;
         public string LastSdkError;
-        public int RuntimeProblemUniqueCount;
-        public int RuntimeProblemTotalCount;
-        public string RuntimeProblemSummary;
     }
 
     /// <summary>

@@ -29,10 +29,6 @@ namespace Sorolla.Palette
             }
 
             sb.AppendLine();
-            sb.AppendLine("[Runtime Problems]");
-            AppendRuntimeProblems(sb);
-
-            sb.AppendLine();
             sb.AppendLine("[Recent Events]");
             AppendEventLog(sb);
 
@@ -155,7 +151,6 @@ namespace Sorolla.Palette
 
             sb.AppendLine("[Problems]");
             sb.AppendLine($"sdk_warnings: {state.SdkWarningCount} | sdk_errors: {state.SdkErrorCount} | last_sdk_error: {state.LastSdkError}");
-            sb.AppendLine($"runtime_unique: {state.RuntimeProblemUniqueCount} | runtime_total: {state.RuntimeProblemTotalCount} | runtime_top: {state.RuntimeProblemSummary}");
 
             return sb.ToString();
         }

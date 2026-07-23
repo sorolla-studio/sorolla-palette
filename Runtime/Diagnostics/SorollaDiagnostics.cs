@@ -13,7 +13,6 @@ namespace Sorolla.Palette
         const int MaxEventLogEntries = 40;
         const int MaxRuntimeProblemEntries = 20;
         const int MaxEventAggregates = 64;
-        const string RuntimeProblemsRowName = "Runtime problems";
         static readonly object s_lock = new object();
         static readonly Queue<SorollaDiagnosticEventLogEntry> s_eventLog = new Queue<SorollaDiagnosticEventLogEntry>(MaxEventLogEntries);
         static readonly List<SorollaRuntimeProblem> s_runtimeProblems = new List<SorollaRuntimeProblem>(MaxRuntimeProblemEntries);

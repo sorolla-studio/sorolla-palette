@@ -253,7 +253,6 @@ namespace Sorolla.Palette
             AddSdkWarningsRow(rows, snapshot);
             Add(rows, "Red flags", "SDK errors", snapshot.PaletteErrorCount == 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Fail,
                 snapshot.PaletteErrorCount == 0 ? "None" : $"{snapshot.PaletteErrorCount}, last={snapshot.LastPaletteError}");
-            Add(rows, "Red flags", RuntimeProblemsRowName, RuntimeProblemSeverity(snapshot), RuntimeProblemDetail(snapshot));
         }
 
         static void Add(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity, string detail) =>
@@ -766,17 +765,6 @@ namespace Sorolla.Palette
             if (loaded) return "Loaded once, but current readiness check is false";
             if (completed) return "Completed once; current readiness unknown";
             return "No load requested";
-        }
-
-        static SorollaDiagnosticSeverity RuntimeProblemSeverity(Snapshot snapshot)
-        {
-            return snapshot.RuntimeProblemUniqueCount == 0 ? SorollaDiagnosticSeverity.Pass : snapshot.RuntimeProblemSeverity;
-        }
-
-        static string RuntimeProblemDetail(Snapshot snapshot)
-        {
-            if (snapshot.RuntimeProblemUniqueCount == 0) return "None observed";
-            return $"{snapshot.RuntimeProblemUniqueCount} unique / {snapshot.RuntimeProblemTotalCount} total; top={snapshot.RuntimeProblemSummary}";
         }
 
         static bool IsZeroAdvertisingId(string id)

@@ -60,7 +60,7 @@ namespace Sorolla.Palette
                 RefreshDiagnostics).Root);
             host.Add(BuildActionButton(
                 "Copy diagnostics summary",
-                "Complete diagnostic rows, runtime problems, and recent events",
+                "Complete SDK diagnostic rows and recent SDK events",
                 ActionButtonStyle.Normal,
                 () => GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildSummary()).Root);
             host.Add(BuildActionButton(

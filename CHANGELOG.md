@@ -60,6 +60,9 @@ release verdict.
   It never blocks a build and never renders as a pass.
 - **Copy SDK state** (on-device debug console): copies the same data `/qa/snapshot` serves as plain
   text, so a studio can paste device state to Sorolla when an on-device problem cannot be self-fixed.
+- **SDK-only Vitals verdict**: Unity, plugin, and studio-game exceptions never appear as Vitals rows,
+  affect its verdict, or enter the QA snapshot. The hidden internal console can still retain them for
+  investigation without presenting them as SDK health.
 - **QA data files ship with the SDK** (`QA~/red-flags.txt`, `QA~/signal-markers.txt`,
   `QA~/known-non-blockers.txt`): the QA-pass grep patterns are version-pinned with the SDK.
 
