@@ -42,7 +42,7 @@ namespace Sorolla.Palette.Health
         public const string BuildGameAnalyticsCredentials = "build.gameanalytics_credentials";
 
         // Device snapshot facts (require a live on-device dispatch).
-        public const string DeviceNoSdkErrors = "device.no_sdk_errors";
+        public const string DeviceVitals = "device.vitals";
 
         // Every gate here is machine-checkable: the SDK observes it from the repo or from a live device
         // snapshot. Human/dashboard confirmations (store catalog, vendor registration, relaunch and
@@ -206,11 +206,10 @@ namespace Sorolla.Palette.Health
             })
                 AddBuild(defs, id, GateClassification.Structural, Requirements.AlwaysOptional);
 
-            // Device snapshot: applicability follows the ACTIVE build platform - the target the studio is
-            // building for IS its intent, so there is nothing extra to declare. Whether SDK errors appear
-            // depends on how the game uses the SDK, so a reference-game zero certifies nothing for the next
-            // game → Variant (2026-07-20 scope-lens ruling).
-            defs.Add(new GateDefinition(GateIds.DeviceNoSdkErrors, V2, GateClassification.Variant,
+            // Device snapshot: the runtime Vitals verdict is the single authority for all device evidence.
+            // It depends on this game's exercised paths, so reference-game health certifies nothing for the
+            // next game and remains a Variant.
+            defs.Add(new GateDefinition(GateIds.DeviceVitals, V2, GateClassification.Variant,
                 ProofScope.DeviceDispatch, Requirements.MobilePlatformRequiredElseNotApplicable));
 
             return defs;
@@ -230,10 +229,6 @@ namespace Sorolla.Palette.Health
                     Mode = mode,
                     Platform = platform,
                     InstalledModules = HealthEnums.AllModuleBits,
-                    // Reachability is checked at FULL depth against an UNCERTIFIED source: the strictest
-                    // context, where no gate can be excused by the release certificate.
-                    Profile = ReportProfile.SorollaFull,
-                    Certification = SdkCertification.Uncertified,
                 });
             return contexts;
         }
@@ -284,13 +279,6 @@ namespace Sorolla.Palette.Health
                 if (!HealthEnums.IsDefinedClassification(def.Classification) ||
                     def.Classification == GateClassification.Unknown)
                     problems.Add($"Gate '{def.Id}' is unclassified (GateClassification.Unknown).");
-                // An Invariant gate is certified once per release on the reference GAME - it must therefore
-                // rest on evidence a studio's repo cannot produce. A Static-proof-only invariant would be a
-                // repo-shape rule mislabelled, i.e. the invariant/structural conflation this split removed.
-                if (def.Classification == GateClassification.Invariant &&
-                    (def.RequiredProof & ~ProofScope.Static) == ProofScope.None)
-                    problems.Add($"Invariant gate '{def.Id}' requires only Static proof - it is Structural, not Invariant.");
-
                 if (def.Requirement == null || supportedContexts == null || supportedContexts.Count == 0)
                     continue;
 

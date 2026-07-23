@@ -17,7 +17,7 @@ namespace Sorolla.Palette.Editor.Tests
             new EvaluationContext
             {
                 Mode = mode, Platform = platform, InstalledModules = modules,
-                Profile = ReportProfile.SorollaFull,
+
             };
 
         static Requirement ReqOf(string gateId, EvaluationContext ctx) =>
@@ -170,18 +170,18 @@ namespace Sorolla.Palette.Editor.Tests
             // The active build target IS the studio's declared intent (platform declarations deleted
             // 2026-07-20): device evidence is Required on either mobile target, NotApplicable off mobile.
             Assert.AreEqual(Requirement.Required,
-                ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.Android)));
+                ReqOf(GateIds.DeviceVitals, Ctx(EvalMode.Full, EvalPlatform.Android)));
             Assert.AreEqual(Requirement.Required,
-                ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.iOS)));
+                ReqOf(GateIds.DeviceVitals, Ctx(EvalMode.Full, EvalPlatform.iOS)));
             Assert.AreEqual(Requirement.NotApplicable,
-                ReqOf(GateIds.DeviceNoSdkErrors, Ctx(EvalMode.Full, EvalPlatform.Unknown)));
+                ReqOf(GateIds.DeviceVitals, Ctx(EvalMode.Full, EvalPlatform.Unknown)));
         }
 
         [Test]
         public void DeviceGates_RequireDeviceDispatchProof()
         {
             Assert.AreEqual(ProofScope.DeviceDispatch,
-                GateCatalog.Canonical.ById(GateIds.DeviceNoSdkErrors).RequiredProof);
+                GateCatalog.Canonical.ById(GateIds.DeviceVitals).RequiredProof);
         }
 
         /// <summary>ReleaseOnly means ONE thing: the build preprocessor stays quiet about this check on a
@@ -210,7 +210,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = HealthEnums.AllModuleBits,
-                Profile = ReportProfile.Studio, Certification = SdkCertification.Uncertified,
+
             };
             HealthReport studioReport = HealthEvaluator.Evaluate(
                 GateCatalog.Canonical, studioCtx, new System.Collections.Generic.List<GateObservation>());
@@ -234,7 +234,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = HealthEnums.AllModuleBits,
-                Profile = ReportProfile.Studio, Certification = SdkCertification.Uncertified,
+
             };
             HealthReport report = HealthEvaluator.Evaluate(
                 GateCatalog.Canonical, studioCtx,
@@ -292,35 +292,11 @@ namespace Sorolla.Palette.Editor.Tests
             }
         }
 
-        /// <summary>Counterpart to the deleted `InvariantGates_AreExactlyTheCertifiedSet`: the Invariant set
-        /// is currently EMPTY, and that is load-bearing rather than incidental. An Invariant gate is excused
-        /// by the release certificate under the Studio profile, so adding one silently would hand studios a
-        /// row that passes on a tag instead of on evidence. Adding one must be deliberate: update this test,
-        /// and re-read `certification-run.md`, which is the pass that would have to certify it.</summary>
-        [Test]
-        public void InvariantGates_AreCurrentlyEmpty_AddingOneIsADeliberateChange()
-        {
-            CollectionAssert.IsEmpty(
-                GateCatalog.Canonical.All
-                    .Where(d => d.Classification == GateClassification.Invariant)
-                    .Select(d => d.Id).ToList());
-        }
-
         [Test]
         public void EveryGate_IsClassified()
         {
             foreach (GateDefinition def in GateCatalog.Canonical.All)
                 Assert.AreNotEqual(GateClassification.Unknown, def.Classification, $"Gate '{def.Id}' is unclassified.");
-        }
-
-        [Test]
-        public void InvariantGates_AreNeverStaticProofOnly()
-        {
-            // A Static-only invariant would be a repo-shape rule mislabelled - the conflation this split removed.
-            foreach (GateDefinition def in GateCatalog.Canonical.All
-                         .Where(d => d.Classification == GateClassification.Invariant))
-                Assert.AreNotEqual(ProofScope.None, def.RequiredProof & ~ProofScope.Static,
-                    $"Invariant gate '{def.Id}' requires only Static proof.");
         }
 
         [Test]

@@ -720,7 +720,7 @@ public class SorollaConfig : ScriptableObject
 
 ### Fields
 #### isPrototypeMode
-Prototype = Core SDKs only (GameAnalytics + Facebook + Firebase).
+Prototype = GameAnalytics + Facebook, with Firebase and AppLovin MAX optional.
 Full = Core + MAX + Adjust + Firebase. Set via the Configuration window.
 
 ```csharp title="Declaration"
@@ -1026,4 +1026,3 @@ Other = 6
 ```
 
 ---
-

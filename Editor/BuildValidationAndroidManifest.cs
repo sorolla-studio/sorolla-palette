@@ -6,7 +6,7 @@ namespace Sorolla.Palette.Editor
     {
         /// <summary>
         ///     Check Android manifest health. Uses pre-computed diagnostics from Sanitize
-        ///     when available (after RunAutoFixes), falls back to fresh detection.
+        ///     when available (after RunSafeAutoFixes), falls back to fresh detection.
         /// </summary>
         static List<ValidationResult> CheckAndroidManifest(
             AndroidManifestSanitizer.ManifestDiagnostics diagnostics = null)

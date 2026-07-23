@@ -51,6 +51,10 @@ namespace Sorolla.Palette.Editor
             if (Resources.Load("GameAnalytics/Settings") == null)
                 return "Settings.asset not found";
 
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android &&
+                EditorUserBuildSettings.activeBuildTarget != BuildTarget.iOS)
+                return "Select Android or iOS to check platform keys";
+
             bool android = HasGameAnalyticsKeys(RuntimePlatform.Android);
             bool ios = HasGameAnalyticsKeys(RuntimePlatform.IPhonePlayer);
             if (android && ios) return "Android + iOS configured";
@@ -67,10 +71,12 @@ namespace Sorolla.Palette.Editor
         ///     Maps the active build target to the GameAnalytics <c>RuntimePlatform</c> entry it stores
         ///     keys under.
         /// </summary>
-        public static RuntimePlatform ActiveGameAnalyticsPlatform() =>
-            EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS
-                ? RuntimePlatform.IPhonePlayer
-                : RuntimePlatform.Android;
+        public static RuntimePlatform ActiveGameAnalyticsPlatform() => EditorUserBuildSettings.activeBuildTarget switch
+        {
+            BuildTarget.iOS => RuntimePlatform.IPhonePlayer,
+            BuildTarget.Android => RuntimePlatform.Android,
+            _ => Application.platform,
+        };
 
         /// <summary>
         ///     Checks whether GameAnalytics Settings.asset has a non-empty game key + secret key pair

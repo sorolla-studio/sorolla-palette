@@ -18,6 +18,14 @@ namespace Sorolla.Palette.Editor
             var results = new List<ValidationResult>();
 
 #if SOROLLA_MAX_INSTALLED
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android &&
+                EditorUserBuildSettings.activeBuildTarget != BuildTarget.iOS)
+            {
+                results.Add(Skipped(CheckCategory.MaxSettings,
+                    "Select Android or iOS to check AppLovin MAX settings"));
+                return results;
+            }
+
             MaxSettingsSanitizer.SyncEmbeddedSdkKey();
             MaxSettingsSanitizer.SyncConsentFlowSettings();
 
@@ -70,7 +78,7 @@ namespace Sorolla.Palette.Editor
                     // Fix hint doesn't tell you to open the window you're already inside (F6, 2026-07-21
                     // audit) - the MAX Ad Units fields are in this same window's AppLovin MAX group,
                     // below this row (vendor-consolidation cycle, 2026-07-21 15:35: SDK Keys is gone).
-                    results.Add(Warning(
+                    results.Add(Error(
                         CheckCategory.MaxSettings,
                         $"MAX ad unit IDs missing for {platformName} in SorollaConfig: {string.Join(", ", missing)}.\n" +
                         "  Every ad call for a missing format fails to load; banner units are not checked (optional format).",

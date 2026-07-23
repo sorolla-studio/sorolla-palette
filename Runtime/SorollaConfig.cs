@@ -39,11 +39,11 @@ namespace Sorolla.Palette
     public class SorollaConfig : ScriptableObject
     {
         /// <summary>
-        ///     Prototype = Core SDKs only (GameAnalytics + Facebook + Firebase).
+        ///     Prototype = GameAnalytics + Facebook, with Firebase and AppLovin MAX optional.
         ///     Full = Core + MAX + Adjust + Firebase. Set via the Configuration window.
         /// </summary>
         [Header("Mode")]
-        [Tooltip("Prototype = Core SDKs only | Full = Core SDKs + MAX + Adjust")]
+        [Tooltip("Prototype = GameAnalytics + Facebook | Full = Prototype + Firebase + MAX + Adjust")]
         public bool isPrototypeMode = true;
 
         /// <summary>Rewarded ad unit IDs from AppLovin MAX (one per platform).</summary>

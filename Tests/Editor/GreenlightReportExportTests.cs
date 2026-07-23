@@ -22,7 +22,7 @@ namespace Sorolla.Palette.Editor.Tests
             Mode = EvalMode.Full, Platform = EvalPlatform.Android,
             InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
             ModulesResolved = true,
-            Profile = ReportProfile.SorollaFull,
+
         };
 
         // Off a mobile build target the device gate and both platform-scoped Firebase config gates are
@@ -32,7 +32,7 @@ namespace Sorolla.Palette.Editor.Tests
             Mode = EvalMode.Full, Platform = EvalPlatform.Unknown,
             InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
             ModulesResolved = true,
-            Profile = ReportProfile.SorollaFull,
+
         };
 
         static HealthReport Report(EvaluationContext ctx) =>

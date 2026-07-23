@@ -258,7 +258,8 @@ namespace Sorolla.Palette
             // Progression / economy / custom-event cells stay button-less BY DESIGN: only real game code
             // can honestly satisfy them, and a QA button firing them would inflate the studio's coverage.
             string action = InlineActionFor(row);
-            if (!row.Exercised && !row.IsManualReminder && action != null)
+            bool retestableConsent = row.Name == "Consent";
+            if ((!row.Exercised || retestableConsent) && !row.IsManualReminder && action != null)
             {
                 var button = new Button(() => RunActionAndRefreshReport(action)) { text = InlineActionLabel(action) };
                 button.AddToClassList("sorolla-debugmenu-action-button");

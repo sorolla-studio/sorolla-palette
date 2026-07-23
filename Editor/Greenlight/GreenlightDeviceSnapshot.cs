@@ -67,10 +67,19 @@ namespace Sorolla.Palette.Editor.Greenlight
             onSettled?.Invoke();
 
             // The bridge is passwordless (loopback-only is the boundary), so the editor sends no auth header.
-            if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS)
-                await RunIosFlow(state);
-            else
-                await RunAndroidFlow(state);
+            switch (EditorUserBuildSettings.activeBuildTarget)
+            {
+                case BuildTarget.iOS:
+                    await RunIosFlow(state);
+                    break;
+                case BuildTarget.Android:
+                    await RunAndroidFlow(state);
+                    break;
+                default:
+                    Settle(state, Outcome.TransportNotFound,
+                        "Select Android or iOS in Build Settings before connecting a device.");
+                    break;
+            }
 
             onSettled?.Invoke();
         }
@@ -398,50 +407,75 @@ namespace Sorolla.Palette.Editor.Greenlight
                 return;
             }
 
-            // C4-03: a snapshot from the wrong game or wrong build must NOT satisfy any device gate. It is
-            // still reported - as a reason the evidence is MISSING, never as evidence itself.
+            if (!BuildReceipt.TryLoad(EditorUserBuildSettings.activeBuildTarget, out BuildReceipt.Data receipt))
+            {
+                observations.Add(Untrusted(
+                    "No build receipt exists for the active target, so this device binary cannot be matched to current source.",
+                    "Build the game from this project, install that build, then connect the device again."));
+                return;
+            }
+
+            // A snapshot from the wrong game or wrong build must NOT satisfy any device gate. It is still
+            // reported as a reason the evidence is missing, never as evidence itself.
             if (CompareIdentity(snapshot, Application.identifier, ExpectedMode(), Application.version,
-                    ExpectedPlatform(), out string identityDetail) != IdentityResult.Match)
+                    ExpectedPlatform(), receipt.BuildGuid, out string identityDetail) != IdentityResult.Match)
             {
                 observations.Add(Untrusted(identityDetail,
                     "Connect the device running THIS game/build, or rebuild and reinstall from the current source."));
                 return;
             }
 
-            // C4-08: device-error evidence must be present for the supported schema. A reduced snapshot with
-            // no "problems" section, or a malformed sdk_errors value, has not demonstrated that SDK errors
-            // were checked → INCOMPLETE, not a permissive false/zero pass.
-            if (!TryGetObject(snapshot, "problems", out var problems))
+            observations.Add(VitalsObservation(snapshot));
+        }
+
+        internal static GateObservation VitalsObservation(Dictionary<string, object> snapshot)
+        {
+            string verdict = GetString(snapshot, "verdict");
+            GateOutcome outcome;
+            switch (verdict)
             {
-                observations.Add(new GateObservation
-                {
-                    GateId = GateIds.DeviceNoSdkErrors,
-                    Outcome = GateOutcome.Incomplete,
-                    ObservedProof = ProofScope.None,
-                    Evidence = "Snapshot has no 'problems' section - SDK-error evidence was not demonstrated.",
-                });
+                case "failing":
+                    outcome = GateOutcome.Fail;
+                    break;
+                case "action_needed":
+                    outcome = GateOutcome.PassWithCaveats;
+                    break;
+                case "not_proven":
+                    outcome = GateOutcome.Incomplete;
+                    break;
+                case "pass":
+                    outcome = GateOutcome.Pass;
+                    break;
+                default:
+                    return Untrusted(
+                        $"Snapshot Vitals verdict '{verdict ?? "(absent)"}' is unsupported.",
+                        "Open Vitals on the device. Rebuild with the current SDK if it cannot produce a verdict.");
             }
-            else if (!TryGetLong(problems, "sdk_errors", out long errorCount))
+
+            string evidence = $"Runtime Vitals: {verdict}";
+            if (TryGetObject(snapshot, "problems", out var problems))
             {
-                observations.Add(new GateObservation
-                {
-                    GateId = GateIds.DeviceNoSdkErrors,
-                    Outcome = GateOutcome.Incomplete,
-                    ObservedProof = ProofScope.None,
-                    Evidence = "Snapshot 'sdk_errors' is missing or malformed - SDK-error evidence could not be read.",
-                });
+                var counts = new List<string>();
+                if (TryGetLong(problems, "sdk_errors", out long sdkErrors) && sdkErrors > 0)
+                    counts.Add($"{sdkErrors} SDK error(s)");
+                if (TryGetLong(problems, "failures", out long failures) && failures > 0)
+                    counts.Add($"{failures} failure(s)");
+                if (TryGetLong(problems, "warnings", out long warnings) && warnings > 0)
+                    counts.Add($"{warnings} warning(s)");
+                if (counts.Count > 0)
+                    evidence += $" ({string.Join(", ", counts)})";
             }
-            else
+
+            return new GateObservation
             {
-                observations.Add(new GateObservation
-                {
-                    GateId = GateIds.DeviceNoSdkErrors,
-                    Outcome = errorCount > 0 ? GateOutcome.Fail : GateOutcome.Pass,
-                    ObservedProof = ProofScope.DeviceDispatch,
-                    Evidence = errorCount > 0 ? $"{errorCount} error(s) - last: {GetString(problems, "last_sdk_error")}" : "None observed this session",
-                    FixHint = errorCount > 0 ? "Open Vitals on the device and expand the failing rows under FIX THESE for WHY/SIGNAL/FIX." : null,
-                });
-            }
+                GateId = GateIds.DeviceVitals,
+                Outcome = outcome,
+                ObservedProof = ProofScope.DeviceDispatch,
+                Evidence = evidence,
+                FixHint = outcome == GateOutcome.Pass
+                    ? null
+                    : "Open Vitals on the device and follow the WHY/SIGNAL/FIX instructions under FIX THESE.",
+            };
         }
 
         /// <summary>An untrusted snapshot (wrong schema, wrong game/build) reported against the required device
@@ -449,7 +483,7 @@ namespace Sorolla.Palette.Editor.Greenlight
         /// and an unusable device can never answer a gate.</summary>
         static GateObservation Untrusted(string evidence, string fix) => new GateObservation
         {
-            GateId = GateIds.DeviceNoSdkErrors,
+            GateId = GateIds.DeviceVitals,
             Outcome = GateOutcome.Incomplete,
             ObservedProof = ProofScope.None,
             Evidence = evidence,
@@ -464,6 +498,7 @@ namespace Sorolla.Palette.Editor.Greenlight
         internal static IdentityResult CompareIdentity(
             Dictionary<string, object> snapshot,
             string expectedAppId, string expectedMode, string expectedAppVersion, string expectedPlatform,
+            string expectedBuildGuid,
             out string detail)
         {
             detail = null;
@@ -506,6 +541,16 @@ namespace Sorolla.Palette.Editor.Greenlight
             if (!string.IsNullOrEmpty(expectedPlatform) && platform != expectedPlatform)
             {
                 detail = $"Wrong platform: snapshot platform '{platform}' != expected '{expectedPlatform}'.";
+                return IdentityResult.Mismatch;
+            }
+            if (string.IsNullOrEmpty(expectedBuildGuid))
+            {
+                detail = "No expected build GUID is available from an editor build receipt.";
+                return IdentityResult.Missing;
+            }
+            if (buildGuid != expectedBuildGuid)
+            {
+                detail = $"Wrong build: snapshot GUID '{buildGuid}' != last built GUID '{expectedBuildGuid}'.";
                 return IdentityResult.Mismatch;
             }
 
@@ -567,5 +612,81 @@ namespace Sorolla.Palette.Editor.Greenlight
             }
             return false;
         }
+    }
+
+    static class BuildReceipt
+    {
+        [Serializable]
+        internal sealed class Data
+        {
+            public string BuildGuid;
+            public string ApplicationId;
+            public string AppVersion;
+            public string Platform;
+            public string Mode;
+            public string SdkCommit;
+        }
+
+        internal static void Save(UnityEditor.Build.Reporting.BuildReport report)
+        {
+            try
+            {
+                Data receipt = new Data
+                {
+                    BuildGuid = report.summary.guid.ToString(),
+                    ApplicationId = Application.identifier,
+                    AppVersion = Application.version,
+                    Platform = PlatformName(report.summary.platform),
+                    Mode = ExpectedMode(),
+                    SdkCommit = SdkProvenance.ResolveSdkCommit(),
+                };
+                string path = PathFor(report.summary.platform);
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(path, JsonUtility.ToJson(receipt, true));
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"[Palette] Could not save build receipt: {e.Message}. Device evidence will remain incomplete.");
+            }
+        }
+
+        internal static bool TryLoad(BuildTarget target, out Data receipt)
+        {
+            receipt = null;
+            try
+            {
+                string path = PathFor(target);
+                if (!File.Exists(path))
+                    return false;
+                receipt = JsonUtility.FromJson<Data>(File.ReadAllText(path));
+                return receipt != null && !string.IsNullOrEmpty(receipt.BuildGuid);
+            }
+            catch
+            {
+                receipt = null;
+                return false;
+            }
+        }
+
+        static string PathFor(BuildTarget target)
+        {
+            string projectRoot = Directory.GetParent(Application.dataPath).FullName;
+            return Path.Combine(projectRoot, "Library", "SorollaPalette", $"build-receipt-{target}.json");
+        }
+
+        static string PlatformName(BuildTarget target) => target switch
+        {
+            BuildTarget.Android => "Android",
+            BuildTarget.iOS => "IPhonePlayer",
+            _ => target.ToString(),
+        };
+
+        static string ExpectedMode() => SorollaSettings.Mode switch
+        {
+            SorollaMode.Full => "full",
+            SorollaMode.Prototype => "prototype",
+            _ => "unknown",
+        };
     }
 }

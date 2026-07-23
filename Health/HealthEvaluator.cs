@@ -95,20 +95,6 @@ namespace Sorolla.Palette.Health
                 byId.TryGetValue(def.Id, out List<GateObservation> matches);
                 int count = matches?.Count ?? 0;
 
-                // Certified-invariant branch (2026-07-20 split). An Invariant gate is SDK behavior identical
-                // for every game, proven once per tagged release on the reference game, so a STUDIO report does
-                // not re-prove it. It still appears as a row (full depth is never lost) - it just stops voting.
-                // NotApplicable / Unknown requirement decisions fall through to the normal handling below: a
-                // gate the context excludes, or cannot decide, is not something a certificate can speak for.
-                if (def.Classification == GateClassification.Invariant &&
-                    context.Profile == ReportProfile.Studio &&
-                    (rd.Value == Requirement.Required || rd.Value == Requirement.Optional))
-                {
-                    ResolveCertifiedInvariant(context, rd.Value, matches, row);
-                    rows.Add(row);
-                    continue;
-                }
-
                 switch (rd.Value)
                 {
                     case Requirement.Unknown:
@@ -184,61 +170,6 @@ namespace Sorolla.Palette.Health
             };
         }
 
-        /// <summary>
-        ///     Resolves one Invariant gate under the Studio profile. Order matters and is the fail-closed part:
-        ///     a locally OBSERVED FAIL always survives (a certificate proves the SDK behaved on the reference
-        ///     game, it can never overrule this build misbehaving here); only then may the release certificate
-        ///     resolve the row. An uncertified/unknown source gets NO excuse - a required invariant omits →
-        ///     INCOMPLETE.
-        ///     <para>
-        ///     Currently DORMANT, not dead (2026-07-22): the catalog has no Invariant gates since the
-        ///     human-attested ones were deleted, so nothing reaches here in production. The path stays
-        ///     implemented and unit-tested so adding a real invariant (SDK behavior identical for every game,
-        ///     proven by device evidence) needs a catalog entry and nothing else.
-        ///     </para>
-        /// </summary>
-        static void ResolveCertifiedInvariant(
-            EvaluationContext context, Requirement requirement, List<GateObservation> matches, GateResult row)
-        {
-            GateObservation observedFail = matches?.FirstOrDefault(m => m != null && m.Outcome == GateOutcome.Fail);
-            if (observedFail != null)
-            {
-                row.Disposition = GateDisposition.Evaluated;
-                row.Outcome = GateOutcome.Fail;
-                row.ObservedProof = observedFail.ObservedProof;
-                row.Evidence = observedFail.Evidence;
-                row.FixHint = observedFail.FixHint;
-                return;
-            }
-
-            if (context.Certification == SdkCertification.CertifiedRelease)
-            {
-                // Local affirmative observations are deliberately ignored: the tag IS the proof, and mixing a
-                // half-observed local session into a certified row would make the certificate look conditional.
-                row.Disposition = GateDisposition.CertifiedBySdk;
-                row.Outcome = GateOutcome.Pass; // inert; excluded from aggregation
-                row.Evidence = "Certified by Sorolla release process — " +
-                               (string.IsNullOrWhiteSpace(context.CertificationEvidence)
-                                   ? "tagged release"
-                                   : context.CertificationEvidence);
-                return;
-            }
-
-            if (requirement == Requirement.Required)
-            {
-                row.Disposition = GateDisposition.Omitted;
-                row.Outcome = GateOutcome.Incomplete;
-                row.Evidence = context.Certification == SdkCertification.Unknown
-                    ? "SDK provenance could not be resolved, so no release certificate applies to this build."
-                    : "This build does not use a tagged Palette release, so the SDK invariant certificate does not apply.";
-                row.FixHint = "Pin a tagged Palette release in Packages/manifest.json";
-                return;
-            }
-
-            row.Disposition = GateDisposition.OptionalSkipped;
-            row.Outcome = GateOutcome.Pass; // inert; excluded
-        }
-
         static void ValidateContext(EvaluationContext context, List<string> errors)
         {
             if (context == null) { errors.Add("Null evaluation context."); return; }
@@ -248,13 +179,6 @@ namespace Sorolla.Palette.Health
                 errors.Add("Evaluation context has an undefined platform value.");
             if (!HealthEnums.HasOnlyDefinedBits(context.InstalledModules))
                 errors.Add("Evaluation context has undefined installed-module bits.");
-            // An undeclared audience is a boundary error: the evaluator must not guess whether certified
-            // invariants may be collapsed. Unknown CERTIFICATION, by contrast, is legal - it behaves as
-            // uncertified and only changes the evidence wording.
-            if (!HealthEnums.IsDeclaredProfile(context.Profile))
-                errors.Add("Evaluation context does not declare a report profile (SorollaFull or Studio).");
-            if (!HealthEnums.IsDefinedCertification(context.Certification))
-                errors.Add("Evaluation context has an undefined SDK certification value.");
             if (!context.ModulesResolved)
                 errors.Add("Installed-module state could not be resolved from the manifest (unknown ≠ absent).");
         }
@@ -298,8 +222,8 @@ namespace Sorolla.Palette.Health
         /// <summary>
         ///     Precedence FAIL &gt; INCOMPLETE &gt; PASS_WITH_CAVEATS &gt; PASS, plus the no-affirmative-
         ///     evidence floor (no Pass/PassWithCaveats among considered rows → INCOMPLETE) that stops the
-        ///     false-green. Only <see cref="GateDisposition.Evaluated"/> rows are considered; NotApplicable
-        ///     OptionalSkipped and CertifiedBySdk rows are excluded. Any validation error forces at least INCOMPLETE.
+        ///     false-green. OptionalSkipped and NotApplicable rows are excluded. Any validation error forces
+        ///     at least INCOMPLETE.
         /// </summary>
         static GateOutcome Aggregate(IReadOnlyList<GateResult> rows, bool anyValidationError)
         {
@@ -308,8 +232,7 @@ namespace Sorolla.Palette.Health
             // than silently dropped into an excluded default branch (review challenge, point 3).
             List<GateResult> considered = rows.Where(r =>
                 r.Disposition != GateDisposition.OptionalSkipped &&
-                r.Disposition != GateDisposition.NotApplicable &&
-                r.Disposition != GateDisposition.CertifiedBySdk).ToList();
+                r.Disposition != GateDisposition.NotApplicable).ToList();
 
             if (considered.Any(r => r.Outcome == GateOutcome.Fail))
                 return GateOutcome.Fail;

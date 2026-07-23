@@ -24,8 +24,8 @@ namespace Sorolla.Palette.Editor
 
             try
             {
-                // Auto-fix manifest, Gradle, and MAX issues on domain reload
-                var fixes = BuildValidator.RunAutoFixes();
+                BuildValidator.SyncConfigState();
+                var fixes = BuildValidator.RunSafeAutoFixes();
                 foreach (string fix in fixes)
                     Debug.Log($"[Palette] Auto-fixed: {fix}");
 

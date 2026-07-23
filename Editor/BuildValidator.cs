@@ -107,7 +107,7 @@ namespace Sorolla.Palette.Editor
         static ValidationResult Skipped(CheckCategory category, string message, string fix = null) =>
             new ValidationResult(ValidationStatus.Skipped, message, fix, category);
 
-        // Stashed by RunAutoFixes(), consumed once by RunAllChecks() to avoid double detection.
+        // Stashed by RunSafeAutoFixes(), consumed once by RunAllChecks() to avoid double detection.
         static AndroidManifestSanitizer.ManifestDiagnostics _lastManifestDiagnostics;
         static readonly string MainTemplatePath =
             Path.Combine(Application.dataPath, "Plugins", "Android", "mainTemplate.gradle");
@@ -132,7 +132,8 @@ namespace Sorolla.Palette.Editor
                 var manifest = ReadManifest();
                 if (manifest == null)
                 {
-                    results.Add(Error(CheckCategory.VersionMismatches, "Failed to read manifest.json"));
+                    results.Add(Error(CheckCategory.VersionMismatches, "Failed to read Packages/manifest.json",
+                        "Restore valid JSON in Packages/manifest.json, then click Refresh"));
                     return results;
                 }
 
@@ -177,7 +178,8 @@ namespace Sorolla.Palette.Editor
             }
             catch (Exception e)
             {
-                results.Add(Error(CheckCategory.VersionMismatches, $"Validation failed: {e.Message}"));
+                results.Add(Error(CheckCategory.VersionMismatches, $"Validation failed: {e.Message}",
+                    "Copy Report and send this SDK validation error to Sorolla"));
             }
 
             return results;
@@ -187,7 +189,7 @@ namespace Sorolla.Palette.Editor
         ///     Run all auto-fixes before validation. Returns list of fixes applied.
         ///     This is the single source of truth for all sanitizers.
         /// </summary>
-        public static List<string> RunAutoFixes()
+        public static List<string> RunSafeAutoFixes()
         {
             var fixes = new List<string>();
 

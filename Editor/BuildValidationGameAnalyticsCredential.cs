@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using UnityEditor;
+using UnityEngine;
 
 namespace Sorolla.Palette.Editor
 {
@@ -19,6 +21,13 @@ namespace Sorolla.Palette.Editor
         {
             var results = new List<ValidationResult>();
             const CheckCategory category = CheckCategory.GameAnalyticsCredentialProbe;
+
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android &&
+                EditorUserBuildSettings.activeBuildTarget != BuildTarget.iOS)
+            {
+                results.Add(Skipped(category, "Select Android or iOS to check GameAnalytics credentials"));
+                return results;
+            }
 
             if (!SdkDetector.IsInstalled(SdkId.GameAnalytics))
             {
@@ -47,7 +56,7 @@ namespace Sorolla.Palette.Editor
                     break;
 
                 case GameAnalyticsCredentialValidator.ProbeState.CredentialInvalid:
-                    results.Add(Warning(
+                    results.Add(Error(
                         category,
                         probe.Detail,
                         "Verify GameAnalytics Settings.asset game key + secret key against the GameAnalytics dashboard"));

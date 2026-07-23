@@ -240,7 +240,7 @@ namespace Sorolla.Palette.Editor
                     hasIssues = true;
                     // Fix hint repointed at reality (F6, 2026-07-21 audit): there is no registry UI in this
                     // window at all (scopedRegistries lives only in Packages/manifest.json). For a REQUIRED
-                    // SDK, FixConfigSync's EnsureRequiredRegistries already re-adds it on every Refresh - so
+                    // SDK, ResolveRequiredPackages already re-adds it on every Refresh - so
                     // the actual fix is the Refresh button already in this window. For an optional SDK
                     // outside that auto-repair path, removing and reinstalling it restores the registry
                     // (SdkInstaller.Install writes it).

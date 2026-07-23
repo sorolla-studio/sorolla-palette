@@ -216,7 +216,16 @@ namespace Sorolla.Palette
                 rows.Add(new SorollaMenuMatrixRow("IAP", purchaseSeen,
                     Cell(session, SorollaCoverageFact.IapPurchase, $"{state.IapPurchaseCount} purchase(s) tracked"),
                     "Complete one purchase (sandbox/test track)"));
+                rows.Add(SorollaMenuMatrixRow.ManualReminder("Adjust purchase verification",
+                    "Check the Adjust dashboard purchase-verification setting; see Documentation~/dashboards/adjust.md"));
             }
+
+            rows.Add(SorollaMenuMatrixRow.ManualReminder("GameAnalytics platform registration",
+                "Confirm this build platform exists in the GameAnalytics dashboard; see Documentation~/dashboards/gameanalytics.md"));
+
+            if (state.Mode == "full")
+                rows.Add(SorollaMenuMatrixRow.ManualReminder("AppLovin / Adjust app identity",
+                    "Confirm both dashboards describe this same game and platform; see Documentation~/dashboards/"));
 
             // Relaunch persistence is NOT machine-detectable in a single session - always render as a
             // manual reminder, never as exercised/not-exercised (spec section 11 item 3).

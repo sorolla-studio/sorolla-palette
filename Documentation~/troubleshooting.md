@@ -36,9 +36,10 @@ read HEALTHY. **Copy Report** exports every row including the excluded ones, eac
 
 **Auto-fix**: The validator automatically fixes AndroidManifest issues when the window opens or before builds.
 
-**Pre-build validation**: Errors block builds automatically via `IPreprocessBuildWithReport`. In Full
-mode three checks produce errors and therefore stop a build: the Adjust app token, your build
-target's Firebase config file, and your build target's GameAnalytics game key + secret key pair.
+**Pre-build validation**: Errors block builds automatically via `IPreprocessBuildWithReport`.
+Definite active-platform data loss is an error: missing/rejected GameAnalytics or Facebook
+credentials/platform registration, missing Full-mode AppLovin MAX ad units, the Adjust app token,
+and the active platform's Firebase config. An unreachable network probe remains incomplete.
 
 ### Rows disappeared after I switched build target
 

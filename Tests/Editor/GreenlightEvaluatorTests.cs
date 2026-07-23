@@ -24,7 +24,7 @@ namespace Sorolla.Palette.Editor.Tests
             Mode = EvalMode.Full,
             Platform = EvalPlatform.Android,
             InstalledModules = HealthEnums.AllModuleBits,
-            Profile = ReportProfile.SorollaFull,
+
         };
 
         // ── Adapter: context mapping ──────────────────────────────────────
@@ -212,6 +212,30 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.IsEmpty(GreenlightDeviceSnapshot.ToObservations(new GreenlightDeviceSnapshot.State()));
         }
 
+        [TestCase("failing", "Fail")]
+        [TestCase("action_needed", "PassWithCaveats")]
+        [TestCase("not_proven", "Incomplete")]
+        [TestCase("pass", "Pass")]
+        public void RuntimeVitalsVerdict_IsTheEditorDeviceObservation(string verdict, string expected)
+        {
+            var snapshot = new Dictionary<string, object> { ["verdict"] = verdict };
+            GateObservation observation = GreenlightDeviceSnapshot.VitalsObservation(snapshot);
+
+            Assert.AreEqual(GateIds.DeviceVitals, observation.GateId);
+            Assert.AreEqual(expected, observation.Outcome.ToString());
+            Assert.AreEqual(ProofScope.DeviceDispatch, observation.ObservedProof);
+        }
+
+        [Test]
+        public void UnknownRuntimeVitalsVerdict_FailsClosed()
+        {
+            GateObservation observation = GreenlightDeviceSnapshot.VitalsObservation(
+                new Dictionary<string, object> { ["verdict"] = "future_value" });
+
+            Assert.AreEqual(GateOutcome.Incomplete, observation.Outcome);
+            Assert.AreEqual(ProofScope.None, observation.ObservedProof);
+        }
+
         // ── F1: applicability vs collector availability ───────────────────
 
         [Test]
@@ -226,10 +250,10 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
                 InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
-                ModulesResolved = true, Profile = ReportProfile.SorollaFull,
+                ModulesResolved = true,
             };
             HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, new List<GateObservation>());
-            GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceNoSdkErrors);
+            GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceVitals);
             Assert.AreEqual(Requirement.Required, device.Requirement);
             Assert.AreEqual(GateDisposition.Omitted, device.Disposition);
             Assert.AreEqual(GateOutcome.Incomplete, device.Outcome);
@@ -245,10 +269,10 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Unknown,
                 InstalledModules = SdkModule.UnityIap,
-                ModulesResolved = true, Profile = ReportProfile.SorollaFull,
+                ModulesResolved = true,
             };
             HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, new List<GateObservation>());
-            GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceNoSdkErrors);
+            GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceVitals);
             Assert.AreEqual(GateDisposition.NotApplicable, device.Disposition);
             Assert.IsFalse(string.IsNullOrEmpty(device.RequirementReason), "a NotApplicable gate must record why");
         }
@@ -271,7 +295,7 @@ namespace Sorolla.Palette.Editor.Tests
         {
             Dictionary<string, object> snap = SnapshotWithIdentity("com.sorolla.game", "Android", "1.0", "full");
             Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Match,
-                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", out _));
+                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", "test-guid", out _));
         }
 
         [Test]
@@ -279,7 +303,7 @@ namespace Sorolla.Palette.Editor.Tests
         {
             Dictionary<string, object> snap = SnapshotWithIdentity("com.other.game", "Android", "1.0", "full");
             Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Mismatch,
-                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", out string detail));
+                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", "test-guid", out string detail));
             StringAssert.Contains("Wrong game", detail);
         }
 
@@ -288,7 +312,17 @@ namespace Sorolla.Palette.Editor.Tests
         {
             Dictionary<string, object> snap = SnapshotWithIdentity("com.sorolla.game", "Android", "0.9", "full");
             Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Mismatch,
-                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", out _));
+                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", "test-guid", out _));
+        }
+
+        [Test]
+        public void CompareIdentity_DifferentNonemptyBuildGuid_IsMismatch()
+        {
+            Dictionary<string, object> snap = SnapshotWithIdentity("com.sorolla.game", "Android", "1.0", "full");
+            Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Mismatch,
+                GreenlightDeviceSnapshot.CompareIdentity(
+                    snap, "com.sorolla.game", "full", "1.0", "Android", "different-guid", out string detail));
+            StringAssert.Contains("Wrong build", detail);
         }
 
         [Test]
@@ -296,7 +330,7 @@ namespace Sorolla.Palette.Editor.Tests
         {
             var snap = new Dictionary<string, object> { ["mode"] = "full" };
             Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Missing,
-                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", out _));
+                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", "test-guid", out _));
         }
 
         [Test]
@@ -310,7 +344,7 @@ namespace Sorolla.Palette.Editor.Tests
                 Snapshot = new Dictionary<string, object> { ["snapshot_schema"] = "999" },
             };
             List<GateObservation> obs = GreenlightDeviceSnapshot.ToObservations(state);
-            GateObservation untrusted = obs.Single(o => o.GateId == GateIds.DeviceNoSdkErrors);
+            GateObservation untrusted = obs.Single(o => o.GateId == GateIds.DeviceVitals);
             Assert.AreEqual(GateOutcome.Incomplete, untrusted.Outcome);
             Assert.AreEqual(ProofScope.None, untrusted.ObservedProof,
                 "an untrusted snapshot must never carry device-dispatch proof");
@@ -323,7 +357,7 @@ namespace Sorolla.Palette.Editor.Tests
             // which build it came from - the platform is part of the required identity.
             Dictionary<string, object> snap = SnapshotWithIdentity("com.sorolla.game", "IPhonePlayer", "1.0", "full");
             Assert.AreEqual(GreenlightDeviceSnapshot.IdentityResult.Mismatch,
-                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", out string detail));
+                GreenlightDeviceSnapshot.CompareIdentity(snap, "com.sorolla.game", "full", "1.0", "Android", "test-guid", out string detail));
             StringAssert.Contains("Wrong platform", detail);
         }
 
@@ -339,14 +373,14 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.iOS,
                 InstalledModules = SdkModule.GameAnalytics | SdkModule.Facebook,
-                ModulesResolved = true, Profile = ReportProfile.SorollaFull,
+                ModulesResolved = true,
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
                 ctx, null, new GreenlightDeviceSnapshot.State());
-            Assert.IsFalse(obs.Any(o => o.GateId == GateIds.DeviceNoSdkErrors));
+            Assert.IsFalse(obs.Any(o => o.GateId == GateIds.DeviceVitals));
 
             HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, obs);
-            GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceNoSdkErrors);
+            GateResult device = report.Rows.Single(r => r.GateId == GateIds.DeviceVitals);
             Assert.AreEqual(GateDisposition.Omitted, device.Disposition);
             Assert.AreEqual(GateOutcome.Incomplete, report.Outcome);
         }
@@ -360,7 +394,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Unknown,
                 InstalledModules = SdkModule.GameAnalytics,
-                ModulesResolved = true, Profile = ReportProfile.SorollaFull,
+                ModulesResolved = true,
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
                 ctx, null, new GreenlightDeviceSnapshot.State());
@@ -419,7 +453,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Prototype, Platform = EvalPlatform.Android,
                 InstalledModules = SdkModule.None,
-                Profile = ReportProfile.SorollaFull,
+
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
                 protoCtx, results, new GreenlightDeviceSnapshot.State());
@@ -439,7 +473,7 @@ namespace Sorolla.Palette.Editor.Tests
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = SdkModule.Firebase,
-                Profile = ReportProfile.SorollaFull,
+
             };
             List<GateObservation> obs = GreenlightAdapter.BuildObservations(
                 ctx, results, new GreenlightDeviceSnapshot.State());
@@ -460,20 +494,20 @@ namespace Sorolla.Palette.Editor.Tests
                 Mode = EvalMode.Full,
                 Platform = EvalPlatform.Android,
                 InstalledModules = HealthEnums.AllModuleBits,
-                Profile = ReportProfile.SorollaFull,
+
             };
             var observations = new List<GateObservation>
             {
                 new GateObservation
                 {
-                    GateId = GateIds.DeviceNoSdkErrors,
+                    GateId = GateIds.DeviceVitals,
                     Outcome = GateOutcome.Pass,
                     ObservedProof = ProofScope.None,
                 },
             };
 
             HealthReport report = HealthEvaluator.Evaluate(GateCatalog.Canonical, ctx, observations);
-            GateResult row = report.Rows.Single(r => r.GateId == GateIds.DeviceNoSdkErrors);
+            GateResult row = report.Rows.Single(r => r.GateId == GateIds.DeviceVitals);
 
             Assert.AreEqual(GateOutcome.Incomplete, row.Outcome, "Claimed-but-unproven must resolve to INCOMPLETE.");
             Assert.AreNotEqual(GateOutcome.Pass, report.Outcome);
@@ -551,7 +585,7 @@ namespace Sorolla.Palette.Editor.Tests
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android,
                 InstalledModules = HealthEnums.AllModuleBits,
                 ModulesResolved = true,
-                Profile = ReportProfile.SorollaFull,
+
             };
 
             var observations = GateCatalog.Canonical.All

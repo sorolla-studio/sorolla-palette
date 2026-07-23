@@ -25,7 +25,12 @@ namespace Sorolla.Palette
                 Add(rows, "Boot", "Palette mode", ModeSeverity(config, snapshot), ModeDetail(config, snapshot));
             Add(rows, "Boot", "Palette ready", Palette.IsInitialized || snapshot.ReadySeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
                 Palette.IsInitialized || snapshot.ReadySeen ? "Ready" : snapshot.InitDetail);
-            Add(rows, "Boot", "Network reachability", ReachabilitySeverity(), Application.internetReachability.ToString());
+            SorollaDiagnosticSeverity networkSeverity = ReachabilitySeverity();
+            if (networkSeverity == SorollaDiagnosticSeverity.Fail)
+                AddDiagnosed(rows, "Boot", "Network reachability", networkSeverity,
+                    Application.internetReachability.ToString(), NetworkUnavailableDiagnosis());
+            else
+                Add(rows, "Boot", "Network reachability", networkSeverity, Application.internetReachability.ToString());
 
             if (config != null)
             {
@@ -46,11 +51,19 @@ namespace Sorolla.Palette
             {
                 Add(rows, "Config", "Adjust token", ConfigPresence(config?.adjustAppToken, fullMode, snapshot.AdjustMissingToken));
             }
-            Add(rows, "Config", "Adjust environment", AdjustEnvironmentSeverity(config, fullMode),
-                AdjustEnvironmentDetail(config, fullMode));
-            Add(rows, "Config", "Rewarded ad unit", ConfigPresence(config?.rewardedAdUnit?.Current, fullMode, false));
-            Add(rows, "Config", "Interstitial ad unit", ConfigPresence(config?.interstitialAdUnit?.Current, fullMode, false));
-            Add(rows, "Config", "Purchase event token", ConfigPresence(config?.adjustPurchaseEventToken, fullMode, false));
+            SorollaDiagnosticSeverity environmentSeverity = AdjustEnvironmentSeverity(config, fullMode);
+            string environmentDetail = AdjustEnvironmentDetail(config, fullMode);
+            if (environmentSeverity == SorollaDiagnosticSeverity.Fail)
+                AddDiagnosed(rows, "Config", "Adjust environment", environmentSeverity, environmentDetail,
+                    AdjustSandboxReleaseDiagnosis());
+            else
+                Add(rows, "Config", "Adjust environment", environmentSeverity, environmentDetail);
+            AddConfigPresence(rows, "Rewarded ad unit", config?.rewardedAdUnit?.Current, fullMode,
+                MissingAdUnitDiagnosis("rewarded"));
+            AddConfigPresence(rows, "Interstitial ad unit", config?.interstitialAdUnit?.Current, fullMode,
+                MissingAdUnitDiagnosis("interstitial"));
+            AddConfigPresence(rows, "Purchase event token", config?.adjustPurchaseEventToken, fullMode,
+                MissingPurchaseEventTokenDiagnosis());
 
 #if GAMEANALYTICS_INSTALLED
             bool gameAnalyticsReady = GameAnalyticsAdapter.IsInitialized || snapshot.GaInitialized;
@@ -172,12 +185,17 @@ namespace Sorolla.Palette
                 Add(rows, "Firebase", "Remote Config", SorollaDiagnosticSeverity.Info, "Not installed");
 #endif
 
-            Add(rows, "Consent", "MAX consent", ConsentSeverity(snapshot),
-                snapshot.MaxConsentSeen ? snapshot.MaxConsentDetail : "Waiting for consent status");
+            SorollaDiagnosticSeverity consentSeverity = ConsentSeverity(snapshot);
+            string consentDetail = snapshot.MaxConsentSeen ? snapshot.MaxConsentDetail : "Waiting for consent status";
+            if (consentSeverity == SorollaDiagnosticSeverity.Waiting)
+                AddDiagnosed(rows, "Consent", "MAX consent", consentSeverity, consentDetail,
+                    ConsentWaitingDiagnosis());
+            else
+                Add(rows, "Consent", "MAX consent", consentSeverity, consentDetail);
             if (!Palette.CanRequestAds && fullMode)
             {
-                AddDiagnosed(rows, "Consent", "Can request ads", SorollaDiagnosticSeverity.Warning, "False",
-                    CannotRequestAdsDiagnosis());
+                AddDiagnosed(rows, "Consent", "Can request ads", SorollaDiagnosticSeverity.Info, "False",
+                    CannotRequestAdsDiagnosis(), SorollaDiagnosticKind.Observed);
             }
             else
             {
@@ -215,9 +233,8 @@ namespace Sorolla.Palette
                 snapshot.PurchaseTrackingAttached ? "AttachPurchaseTracking wired" : "Waiting for store controller wiring");
             AddObserved(rows, "Activity", "Purchase accepted", snapshot.PurchaseAcceptedCount > 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
                 snapshot.PurchaseAcceptedCount > 0 ? $"{snapshot.PurchaseAcceptedCount} purchase event(s)" : "No purchase observed");
-            AddObserved(rows, "Activity", "Purchase verification", PurchaseVerificationSeverity(snapshot), snapshot.PurchaseVerification);
-            AddObserved(rows, "Activity", "Purchase issues", snapshot.PurchaseIssue == "No issue observed" ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
-                snapshot.PurchaseDuplicateCount > 0 ? $"{snapshot.PurchaseIssue}; duplicates={snapshot.PurchaseDuplicateCount}" : snapshot.PurchaseIssue);
+            AddPurchaseVerificationRow(rows, snapshot);
+            AddPurchaseIssuesRow(rows, snapshot);
 
             AddAdRow(rows, "Interstitial", snapshot.InterstitialReady, snapshot.InterstitialLoadStarted,
                 snapshot.InterstitialLoadFailed, snapshot.InterstitialLoaded, snapshot.InterstitialCompleted,
@@ -227,8 +244,11 @@ namespace Sorolla.Palette
                 snapshot.RewardedLoadIssue, snapshot.MaxInitialized);
             AddObserved(rows, "Ads", "Ad revenue", snapshot.AdRevenueSeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
                 snapshot.AdRevenueSeen ? "Observed" : "No revenue callback observed");
-            Add(rows, "Ads", "Ad issues", snapshot.LastAdIssue == "No issue observed" ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Warning,
-                snapshot.LastAdIssue);
+            if (snapshot.LastAdIssue == "No issue observed")
+                Add(rows, "Ads", "Ad issues", SorollaDiagnosticSeverity.Pass, snapshot.LastAdIssue);
+            else
+                AddDiagnosed(rows, "Ads", "Ad issues", SorollaDiagnosticSeverity.Warning, snapshot.LastAdIssue,
+                    AdIssueDiagnosis(snapshot.LastAdIssue));
 
             AddSdkWarningsRow(rows, snapshot);
             Add(rows, "Red flags", "SDK errors", snapshot.PaletteErrorCount == 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Fail,
@@ -246,8 +266,49 @@ namespace Sorolla.Palette
             Add(rows, group, name, severity, detail, SorollaDiagnosticKind.Observed);
 
         static void Add(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity, string detail,
-            SorollaDiagnosticKind kind) =>
+            SorollaDiagnosticKind kind)
+        {
+            if (NeedsAttention(severity) && group != "Red flags")
+            {
+                (string why, string signal, string fix) diagnosis = DefaultDiagnosis(group, name, detail);
+                rows.Add(new SorollaDiagnosticRow(group, name, severity, detail, kind,
+                    diagnosis.why, diagnosis.signal, diagnosis.fix));
+                return;
+            }
             rows.Add(new SorollaDiagnosticRow(group, name, severity, detail, kind));
+        }
+
+        static void AddConfigPresence(List<SorollaDiagnosticRow> rows, string name, string value, bool required,
+            (string why, string signal, string fix) diagnosis)
+        {
+            (SorollaDiagnosticSeverity severity, string detail) state = ConfigPresence(value, required, false);
+            if (state.severity == SorollaDiagnosticSeverity.Fail)
+                AddDiagnosed(rows, "Config", name, state.severity, state.detail, diagnosis);
+            else
+                Add(rows, "Config", name, state);
+        }
+
+        static void AddPurchaseVerificationRow(List<SorollaDiagnosticRow> rows, Snapshot snapshot)
+        {
+            SorollaDiagnosticSeverity severity = PurchaseVerificationSeverity(snapshot);
+            if (severity == SorollaDiagnosticSeverity.Warning)
+                AddDiagnosed(rows, "Activity", "Purchase verification", severity, snapshot.PurchaseVerification,
+                    PurchaseVerificationFailureDiagnosis());
+            else
+                AddObserved(rows, "Activity", "Purchase verification", severity, snapshot.PurchaseVerification);
+        }
+
+        static void AddPurchaseIssuesRow(List<SorollaDiagnosticRow> rows, Snapshot snapshot)
+        {
+            string detail = snapshot.PurchaseDuplicateCount > 0
+                ? $"{snapshot.PurchaseIssue}; duplicates={snapshot.PurchaseDuplicateCount}"
+                : snapshot.PurchaseIssue;
+            if (snapshot.PurchaseIssue == "No issue observed")
+                AddObserved(rows, "Activity", "Purchase issues", SorollaDiagnosticSeverity.Pass, detail);
+            else
+                AddDiagnosed(rows, "Activity", "Purchase issues", SorollaDiagnosticSeverity.Warning, detail,
+                    PurchaseIssueDiagnosis(snapshot.PurchaseDuplicateCount));
+        }
 
         // Phase 5: structured WHY/SIGNAL/FIX variant. Only called at row-producing sites where the
         // diagnosis text in SorollaDiagnostics.Diagnoses.cs applies - see that file for the strings.
@@ -391,7 +452,7 @@ namespace Sorolla.Palette
             if (!snapshot.MaxConsentSeen) return SorollaDiagnosticSeverity.Waiting;
             if (detail.Contains("Obtained") || detail.Contains("NotApplicable") || detail.Contains("canRequestAds=True"))
                 return SorollaDiagnosticSeverity.Pass;
-            if (detail.Contains("Denied")) return SorollaDiagnosticSeverity.Warning;
+            if (detail.Contains("Denied")) return SorollaDiagnosticSeverity.Info;
             return SorollaDiagnosticSeverity.Waiting;
         }
 

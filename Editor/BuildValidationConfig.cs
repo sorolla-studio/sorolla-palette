@@ -15,7 +15,7 @@ namespace Sorolla.Palette.Editor
         ///     the Create-button availability disagreed as a result). Escalates to Error in Full mode
         ///     (F14 ruling, 2026-07-21 ~12:30, DR-133 alignment: a missing/misplaced config wedges a Full
         ///     build's init forever, so this is a real build blocker there, not just a warning) - stays a
-        ///     Warning in Prototype/unconfigured, where it's disruptive but not silently fatal.
+        ///     Warning in Prototype/unconfigured, where runtime continues in degraded mode.
         /// </summary>
         const string ExpectedConfigPath = "Assets/Resources/SorollaConfig.asset";
 
@@ -70,21 +70,32 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Auto-fix config sync issues and install missing required SDKs.
-        ///     Always installs missing SDKs - the user should never be in a state
-        ///     where required SDKs are missing for the configured mode.
+        ///     Synchronously aligns editor mode state with the runtime config. Safe before validation and
+        ///     builds: it does not start Unity Package Manager resolution.
         /// </summary>
-        public static bool FixConfigSync()
+        public static bool SyncConfigState()
+        {
+            var config = Resources.Load<SorollaConfig>("SorollaConfig");
+            if (config == null)
+                return false;
+
+            bool changed = SorollaSettings.SyncFromRuntimeConfig();
+            if (changed)
+                AssetDatabase.SaveAssets();
+            return changed;
+        }
+
+        /// <summary>
+        ///     Editor-workflow repair for package and scoped-registry state. This can trigger asynchronous
+        ///     Unity Package Manager work, so callers must refresh again when package registration settles.
+        /// </summary>
+        public static bool ResolveRequiredPackages()
         {
             var config = Resources.Load<SorollaConfig>("SorollaConfig");
             if (config == null)
                 return false;
 
             bool changed = false;
-
-            if (SorollaSettings.SyncFromRuntimeConfig())
-                changed = true;
-
             // Auto-install missing required SDKs. The installer also restores their registries.
             if (!SdkDetector.AreAllRequiredInstalled(config.isPrototypeMode))
             {

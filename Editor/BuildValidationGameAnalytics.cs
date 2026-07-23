@@ -34,6 +34,13 @@ namespace Sorolla.Palette.Editor
                 return results;
             }
 
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android &&
+                EditorUserBuildSettings.activeBuildTarget != BuildTarget.iOS)
+            {
+                results.Add(Skipped(category, "Select Android or iOS to check GameAnalytics platform keys"));
+                return results;
+            }
+
             string activeName = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS ? "iOS" : "Android";
             bool activeConfigured = SdkConfigDetector.GetGameAnalyticsStatus() == SdkConfigDetector.ConfigStatus.Configured;
 

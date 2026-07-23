@@ -50,7 +50,7 @@ namespace Sorolla.Palette
             bool any = false;
             foreach (SorollaDiagnosticRow row in rows)
             {
-                if (!NeedsAttention(row.Severity)) continue;
+                if (!DrivesHealth(row) || !NeedsAttention(row.Severity)) continue;
 
                 any = true;
                 sb.AppendLine($"{SeverityLabel(row.Severity),-7} [{row.Group}] {row.Name}: {row.Detail}");

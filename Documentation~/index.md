@@ -7,7 +7,7 @@
     <a class="srl-card" href="quick-start.html">
       <span class="srl-card-step">Step 1</span>
       <strong>Prototype Mode</strong>
-      <span>First integration. GameAnalytics, Facebook, and Firebase for publisher review builds and CPI tests. About an hour.</span>
+      <span>First integration. GameAnalytics and Facebook, with optional Firebase for publisher review builds and CPI tests. About an hour.</span>
     </a>
     <a class="srl-card" href="switching-to-full.html">
       <span class="srl-card-step">Step 2</span>
@@ -30,7 +30,7 @@ Every game follows the same path. Fresh installs start in Prototype mode automat
 
 | Mode | Included SDKs | Best for |
 |------|---------------|----------|
-| Prototype | GameAnalytics, Facebook, Firebase | Publisher review builds, CPI tests, gameplay iteration |
+| Prototype | GameAnalytics, Facebook; Firebase optional | Publisher review builds, CPI tests, gameplay iteration |
 | Full | Prototype SDKs plus AppLovin MAX and Adjust | Soft launch, monetization tests, paid UA |
 
 Palette auto-initializes at runtime. Studios only wire game events and game-specific placements.

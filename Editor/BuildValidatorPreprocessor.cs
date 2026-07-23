@@ -9,7 +9,7 @@ namespace Sorolla.Palette.Editor
     /// <summary>
     ///     Auto-run validation before builds.
     /// </summary>
-    public class BuildValidatorPreprocessor : IPreprocessBuildWithReport
+    public class BuildValidatorPreprocessor : IPreprocessBuildWithReport, IPostprocessBuildWithReport
     {
         public int callbackOrder => -100;
 
@@ -17,8 +17,10 @@ namespace Sorolla.Palette.Editor
         {
             Debug.Log("[Palette BuildValidator] Running pre-build validation...");
 
-            // Run all auto-fixes before validation
-            var fixes = BuildValidator.RunAutoFixes();
+            // Only synchronous repairs are safe here. Package resolution belongs to the editor workflow;
+            // missing packages remain visible build errors instead of starting asynchronous UPM work mid-build.
+            BuildValidator.SyncConfigState();
+            var fixes = BuildValidator.RunSafeAutoFixes();
             foreach (string fix in fixes)
                 Debug.Log($"[Palette BuildValidator] Auto-fix: {fix}");
 
@@ -52,6 +54,11 @@ namespace Sorolla.Palette.Editor
                 Debug.Log($"[Palette BuildValidator] Pre-build validation passed with {warnings.Count} warning(s)");
             else
                 Debug.Log("[Palette BuildValidator] Pre-build validation passed");
+        }
+
+        public void OnPostprocessBuild(BuildReport report)
+        {
+            Greenlight.BuildReceipt.Save(report);
         }
     }
 }

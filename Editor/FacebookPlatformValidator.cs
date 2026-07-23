@@ -73,8 +73,12 @@ namespace Sorolla.Palette.Editor
         // outlier shouting case among every other studio-facing platform label). The Graph API's own
         // vocabulary is still all-caps ("ANDROID"), so the comparison below is case-insensitive rather
         // than normalizing this string back to match it.
-        internal static string ActivePlatformName() =>
-            EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS ? "iOS" : "Android";
+        internal static string ActivePlatformName() => EditorUserBuildSettings.activeBuildTarget switch
+        {
+            BuildTarget.iOS => "iOS",
+            BuildTarget.Android => "Android",
+            _ => null,
+        };
 
         static string OtherPlatformName() => ActivePlatformName() == "iOS" ? "Android" : "iOS";
 
@@ -93,6 +97,8 @@ namespace Sorolla.Palette.Editor
         internal static void EnsureChecked(string appId, string clientToken)
         {
             string platformName = ActivePlatformName();
+            if (platformName == null)
+                return;
             string key = $"{appId}|{clientToken}|{platformName}";
             if (s_requestInFlight || s_lastRequestKey == key)
                 return;

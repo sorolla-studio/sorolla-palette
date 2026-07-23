@@ -51,10 +51,10 @@ If any package name, bundle ID, app token, or ad unit belongs to a different app
 3. Let Unity install and resolve the Full-mode packages.
 4. Reopen **Tools > Sorolla Palette SDK** and check the **Launch Readiness** verdict.
 
-Three checks must be satisfied before a Full-mode build will run at all: the Adjust app token, the
-Firebase config file for your build target, and the GameAnalytics game key + secret key pair for your
-build target. Everything else, including SDK versions, mode consistency, scoped registries, Firebase
-coherence, config sync and the Android manifest, warns rather than blocking.
+Launch Readiness blocks a build when it has proved definite active-platform data loss: missing or
+rejected GameAnalytics/Facebook credentials or platform registration, missing Full-mode AppLovin MAX
+ad units, the Adjust app token, or the active platform's Firebase config. A vendor endpoint that
+cannot be reached remains incomplete rather than blocking or passing.
 
 Launch Readiness judges the platform your build target is set to. Rows for the other platform are
 excluded from the verdict and return when you switch target, so a game shipping one platform can
@@ -74,7 +74,7 @@ The Prototype keys stay in place. Full mode needs these additional values:
 |-----|----------|---------------|
 | Firebase | Yes | `google-services.json` and `GoogleService-Info.plist` in `Assets/` |
 | AppLovin MAX | Yes | SDK Key plus Rewarded, Interstitial, and optional Banner ad unit IDs |
-| Adjust | Yes | App Token, Purchase Event Token, `adjustSandboxMode = true` for QA |
+| Adjust | Yes | App Token and Purchase Event Token. Use sandbox only in a Development Build for QA; turn it off and rebuild for release |
 | TikTok (parked) | Optional | `tiktokAppId`, `tiktokEmAppId`, `tiktokAccessToken` per platform. Parked vendor; configure only for an existing TikTok setup (see [TikTok Setup](guides/tiktok.md)) |
 
 Use the setup guides only when you need dashboard-level detail:

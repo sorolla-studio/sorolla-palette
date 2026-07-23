@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
+using System.Threading;
 using Sorolla.Palette.Adapters;
 using UnityEngine;
 
@@ -20,9 +21,9 @@ namespace Sorolla.Palette
     ///     it. A shared PIN for mutating <c>/qa/exec</c> may be added later (see <see cref="HandleRequest"/>);
     ///     none exists today.
     ///
-    ///     Threading: HttpListener callbacks run on worker threads. They only enqueue the context;
-    ///     every Unity/SDK read and the response write happen on the main thread in <see cref="Update"/>
-    ///     (the bridge's own runner: it must not assume the on-screen console exists).
+    ///     Threading: HttpListener callbacks run on worker threads. They validate and read the bounded
+    ///     transport request, then enqueue a parsed request. Unity/SDK reads and action dispatch happen on
+    ///     the main thread in <see cref="Update"/>.
     /// </summary>
     internal sealed class QaBridgeServer : MonoBehaviour
     {
@@ -34,11 +35,13 @@ namespace Sorolla.Palette
         const string LoopbackPrefix = "http://127.0.0.1:8765/";
         const string LocalhostPrefix = "http://localhost:8765/";
         const int MaxRequestsPerFrame = 4;
+        const int MaxPendingRequests = 16;
         const int MaxRequestBodyBytes = 4096;
 
         static QaBridgeServer s_instance;
 
-        readonly ConcurrentQueue<HttpListenerContext> _pending = new ConcurrentQueue<HttpListenerContext>();
+        readonly ConcurrentQueue<PendingRequest> _pending = new ConcurrentQueue<PendingRequest>();
+        int _pendingCount;
         HttpListener _listener;
         volatile bool _running;
 
@@ -123,8 +126,11 @@ namespace Sorolla.Palette
             _running = false;
             SafeCloseListener();
 
-            while (_pending.TryDequeue(out HttpListenerContext ctx))
-                TryAbort(ctx);
+            while (_pending.TryDequeue(out PendingRequest request))
+            {
+                Interlocked.Decrement(ref _pendingCount);
+                TryAbort(request.Context);
+            }
 
             PaletteLog.Vital("[Palette:QaBridge] Stopped.");
         }
@@ -172,7 +178,26 @@ namespace Sorolla.Palette
                 return;
             }
 
-            _pending.Enqueue(ctx);
+            if (Interlocked.Increment(ref _pendingCount) > MaxPendingRequests)
+            {
+                Interlocked.Decrement(ref _pendingCount);
+                WriteJson(ctx, 503, "{\"ok\":false,\"detail\":\"bridge_busy\"}");
+                return;
+            }
+
+            PendingRequest request = PrepareRequest(ctx);
+            if (request == null)
+            {
+                Interlocked.Decrement(ref _pendingCount);
+                return;
+            }
+            if (!_running)
+            {
+                Interlocked.Decrement(ref _pendingCount);
+                TryAbort(ctx);
+                return;
+            }
+            _pending.Enqueue(request);
         }
 
         void Update()
@@ -183,17 +208,21 @@ namespace Sorolla.Palette
             // snapshot stays current even when the on-screen console is closed.
             SorollaDiagnostics.UpdatePolling();
 
-            for (int i = 0; i < MaxRequestsPerFrame && _pending.TryDequeue(out HttpListenerContext ctx); i++)
-                HandleRequest(ctx);
+            for (int i = 0; i < MaxRequestsPerFrame && _pending.TryDequeue(out PendingRequest request); i++)
+            {
+                Interlocked.Decrement(ref _pendingCount);
+                HandleRequest(request);
+            }
         }
 
         // Main thread: safe to read Unity/SDK state and write the response.
-        void HandleRequest(HttpListenerContext ctx)
+        void HandleRequest(PendingRequest request)
         {
+            HttpListenerContext ctx = request.Context;
             try
             {
-                string path = ctx.Request.Url?.AbsolutePath ?? "";
-                string method = ctx.Request.HttpMethod;
+                string path = request.Path;
+                string method = request.Method;
 
                 if (!IsQaPath(path))
                 {
@@ -215,7 +244,7 @@ namespace Sorolla.Palette
                 // per-game secret). No such PIN exists today - exec is open like the reads.
                 if (path == "/qa/exec" && method == "POST")
                 {
-                    HandleExec(ctx);
+                    HandleExec(ctx, request.Body);
                     return;
                 }
 
@@ -233,15 +262,11 @@ namespace Sorolla.Palette
 
         // Fire-and-ack: parse the action, dispatch it on the main thread, reply immediately. The snapshot
         // is the single source of truth for the outcome (no blocking, no completion sources, no timeout).
-        void HandleExec(HttpListenerContext ctx)
+        void HandleExec(HttpListenerContext ctx, string body)
         {
-            if (TryRejectBody(ctx))
-                return;
-
             string action;
             try
             {
-                string body = ReadBody(ctx.Request);
                 action = string.IsNullOrEmpty(body) ? null : JsonUtility.FromJson<ExecRequest>(body)?.action;
             }
             catch (Exception e)
@@ -266,13 +291,51 @@ namespace Sorolla.Palette
             WriteJson(ctx, 400, BuildError(detail));
         }
 
-        static string ReadBody(HttpListenerRequest request)
+        static PendingRequest PrepareRequest(HttpListenerContext ctx)
         {
-            if (!request.HasEntityBody || request.ContentLength64 == 0)
-                return string.Empty;
+            HttpListenerRequest request = ctx.Request;
+            string path = request.Url?.AbsolutePath ?? "";
+            string method = request.HttpMethod;
 
-            using var reader = new System.IO.StreamReader(request.InputStream, request.ContentEncoding ?? Encoding.UTF8);
-            return reader.ReadToEnd();
+            if (!IsQaPath(path))
+            {
+                WriteJson(ctx, 404, "{\"ok\":false,\"detail\":\"unknown_endpoint\"}");
+                return null;
+            }
+
+            if (path != "/qa/exec" || method != "POST")
+                return new PendingRequest(ctx, path, method, null);
+
+            if (TryRejectBody(ctx))
+                return null;
+
+            if (!request.HasEntityBody || request.ContentLength64 == 0)
+                return new PendingRequest(ctx, path, method, string.Empty);
+
+            try
+            {
+                byte[] buffer = new byte[(int)request.ContentLength64];
+                int read = 0;
+                while (read < buffer.Length)
+                {
+                    int count = request.InputStream.Read(buffer, read, buffer.Length - read);
+                    if (count == 0)
+                        break;
+                    read += count;
+                }
+                if (read != buffer.Length)
+                {
+                    WriteJson(ctx, 400, "{\"ok\":false,\"detail\":\"incomplete_request_body\"}");
+                    return null;
+                }
+                return new PendingRequest(ctx, path, method,
+                    (request.ContentEncoding ?? Encoding.UTF8).GetString(buffer));
+            }
+            catch
+            {
+                WriteJson(ctx, 400, "{\"ok\":false,\"detail\":\"bad_request\"}");
+                return null;
+            }
         }
 
         // The loopback bind already gates the bridge (passwordless by design); this only bounds what the exec parser will read.
@@ -337,6 +400,22 @@ namespace Sorolla.Palette
         sealed class ExecRequest
         {
             public string action;
+        }
+
+        sealed class PendingRequest
+        {
+            internal readonly HttpListenerContext Context;
+            internal readonly string Path;
+            internal readonly string Method;
+            internal readonly string Body;
+
+            internal PendingRequest(HttpListenerContext context, string path, string method, string body)
+            {
+                Context = context;
+                Path = path;
+                Method = method;
+                Body = body;
+            }
         }
 
         void OnApplicationQuit()

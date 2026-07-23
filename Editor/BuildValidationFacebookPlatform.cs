@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using UnityEditor;
+using UnityEngine;
 
 namespace Sorolla.Palette.Editor
 {
@@ -14,6 +16,13 @@ namespace Sorolla.Palette.Editor
         {
             var results = new List<ValidationResult>();
             const CheckCategory category = CheckCategory.FacebookPlatformConfig;
+
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android &&
+                EditorUserBuildSettings.activeBuildTarget != BuildTarget.iOS)
+            {
+                results.Add(Skipped(category, "Select Android or iOS to check Facebook platform configuration"));
+                return results;
+            }
 
             if (!SdkDetector.IsInstalled(SdkId.Facebook))
             {
@@ -41,13 +50,8 @@ namespace Sorolla.Palette.Editor
                     results.Add(Unverifiable(category, probe.Detail));
                     break;
 
-                // Awareness-first severity ruling (Arthur, via supervisor): a studio may intentionally
-                // ship one platform at a time, so a missing/rejected FB platform registration is not a
-                // build blocker - it is a warning with a clear root cause, signal, and fix. Only the active
-                // build target is graded (2026-07-23); the other platform's registration is stated in the
-                // verified row's detail and is graded when that platform becomes the build target.
                 case FacebookPlatformValidator.ProbeState.PlatformMissing:
-                    results.Add(Warning(
+                    results.Add(Error(
                         category,
                         probe.Detail,
                         "FB console -> Settings -> Basic -> Add Platform"));
@@ -56,7 +60,7 @@ namespace Sorolla.Palette.Editor
                 case FacebookPlatformValidator.ProbeState.CredentialInvalid:
                     // Fix hint omits the "open FacebookSettings.asset" step (product-audit fix cycle
                     // residual, 2026-07-21): the row's "Open FB Settings" button already opens it.
-                    results.Add(Warning(
+                    results.Add(Error(
                         category,
                         probe.Detail,
                         "Compare the app id + client token against the Facebook developer console"));

@@ -102,5 +102,5 @@ Before uploading a soft-launch build:
 - [ ] `adjustSandboxMode` is **false**.
 - [ ] `verboseLogging` is **false** (auto-forced off in release builds regardless).
 - [ ] Mediation network test modes are off for production ad units.
-- [ ] The three checks that BLOCK a Full-mode build are satisfied: the Adjust app token, your build target's Firebase config file, and your build target's GameAnalytics game key + secret key pair. Every other check warns rather than blocking.
+- [ ] No Launch Readiness error remains. Definite active-platform data loss blocks: missing/rejected GameAnalytics or Facebook credentials/platform registration, missing Full-mode AppLovin MAX ad units, the Adjust app token, and the active platform's Firebase config.
 - [ ] Sorolla Vitals is green on a real device for every platform you ship.

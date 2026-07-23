@@ -8,20 +8,47 @@ namespace Sorolla.Palette
     // in parentheses when it's the searchable term, no overclaiming verbs, ids/counts literal.
     internal static partial class SorollaDiagnostics
     {
+        internal static (string why, string signal, string fix) DefaultDiagnosis(
+            string group, string name, string detail)
+        {
+            if (group == "SDKs" || group == "Firebase")
+                return (
+                    $"{name} has not reached a ready state ({detail}).",
+                    $"Features delivered by {name} are unavailable until this row resolves.",
+                    "Check the device network, wait for initialization, then relaunch. If it still does not resolve, copy the report and send it to Sorolla.");
+            if (group == "Identity")
+                return (
+                    $"{name} is not available yet ({detail}).",
+                    "Attribution or advertising identity evidence is incomplete for this run.",
+                    "Wait a few seconds after launch and recheck. Confirm the relevant consent choice and network access, then relaunch if it remains unresolved.");
+            if (group == "Activity")
+                return (
+                    $"{name} has only partial game-flow evidence ({detail}).",
+                    "Vitals cannot prove this integration path completed end to end.",
+                    "Trigger the matching real game flow to completion, then reopen Vitals.");
+            if (group == "Ads")
+                return (
+                    $"{name} is not ready ({detail}).",
+                    "The corresponding ad path cannot be proved or shown yet.",
+                    "Wait for AppLovin MAX initialization, retry on a real device, and disable VPN/ad blockers/private DNS if loading remains blocked.");
+            return (
+                $"{name} needs attention ({detail}).",
+                "This build cannot prove the affected SDK path is ready.",
+                "Follow the row detail, refresh Vitals after the state changes, and copy the report to Sorolla if it persists.");
+        }
+
         // ---- Config ----
 
-        // The "Palette mode" row's own Fail case (config missing so mode can't be determined at all -
-        // distinct from SorollaConfigMissingDiagnosis, which is the "Config" group's own row for the
-        // same underlying fact). Init may be wedged rather than merely running the wrong mode: see
-        // DR-133, a null-config early-return before subscribing MAX's init callback.
+        // The "Palette mode" row's own Fail case (config missing so mode cannot be determined at all).
+        // Current initialization explicitly completes in degraded no-ads mode instead of wedging.
         internal static (string why, string signal, string fix) PaletteModeUnknownDiagnosis() => (
             "No SorollaConfig asset was found in Resources, so Palette cannot determine which mode (Prototype or Full) it is running in.",
-            "Init may be wedged rather than merely degraded - a null config makes InitializeMax() early-return before subscribing MAX's init callback (DR-133), so IsInitialized never flips and OnInitialized never fires on a MAX-compiled build.",
+            "Palette completes initialization in degraded mode, but ads and mode-dependent vendor configuration cannot initialize correctly.",
             "In Unity: open Tools > Sorolla Palette SDK, then create the config asset (it must land at exactly Assets/Resources/SorollaConfig.asset).");
 
         internal static (string why, string signal, string fix) SorollaConfigMissingDiagnosis() => (
             "Assets/Resources/SorollaConfig.asset does not exist, or is not exactly at that path/name.",
-            "Palette silently runs Prototype mode instead of Full mode; ads, Adjust, and the vendor SDKs behave as if none of them are configured.",
+            "Palette reports an unknown mode and continues in degraded mode; analytics, consent, and IAP can continue, but ads and mode-dependent vendor configuration cannot initialize correctly.",
             "In Unity: open Tools > Sorolla Palette SDK and create the configuration asset at exactly Assets/Resources/SorollaConfig.asset. The path and filename are read via Resources.Load by string, so a rename or wrong folder is invisible until this check catches it.");
 
         // Adjust app token is a documented hard build gate in Full mode (BuildValidatorPreprocessor
@@ -31,6 +58,26 @@ namespace Sorolla.Palette
             "SorollaConfig.adjustAppToken is empty (or too short to be real) while the SDK is in Full mode.",
             "Every Adjust call is a no-op; attribution and the Adjust ADID/Attribution rows never resolve. A device or release build will fail outright - Full mode makes this token a hard build gate.",
             "Adjust dashboard -> the app -> All Settings -> copy the App Token into SorollaConfig.adjustAppToken. Prototype mode has no such requirement if Adjust isn't needed yet.");
+
+        internal static (string why, string signal, string fix) NetworkUnavailableDiagnosis() => (
+            "Unity reports that this device has no reachable network.",
+            "Vendor validation, ads, attribution, remote config, and analytics delivery cannot complete.",
+            "Restore Wi-Fi or mobile data, disable VPN/ad-blocking/private DNS if needed, then relaunch the app.");
+
+        internal static (string why, string signal, string fix) AdjustSandboxReleaseDiagnosis() => (
+            "This release build contains Adjust sandbox mode.",
+            "Live installs are attributed to Adjust's sandbox environment instead of production.",
+            "In Tools > Sorolla Palette SDK, turn Adjust Sandbox off, then make and install a new release build.");
+
+        internal static (string why, string signal, string fix) MissingAdUnitDiagnosis(string format) => (
+            $"The active platform has no {format} AppLovin MAX ad unit configured.",
+            $"{char.ToUpperInvariant(format[0]) + format.Substring(1)} ads cannot load or show on this build.",
+            $"Copy the active platform's {format} ad unit id from AppLovin MAX into SorollaConfig, then rebuild.");
+
+        internal static (string why, string signal, string fix) MissingPurchaseEventTokenDiagnosis() => (
+            "Full mode has no Adjust purchase event token.",
+            "Purchases can complete, but Adjust receives no purchase event for attribution and revenue reporting.",
+            "Copy the purchase event token from Adjust into SorollaConfig.adjustPurchaseEventToken, then rebuild.");
 
         // ---- SDK package missing (Full mode) ----
 
@@ -87,6 +134,30 @@ namespace Sorolla.Palette
             "The user has not granted the consent MAX's CMP requires before ads can be requested (GDPR/consent-mode gate), or consent was explicitly denied.",
             "No ad request leaves the device; Show rewarded/Show interstitial both report \"not loaded\" even though every other adapter row can still pass.",
             "This is often correct behavior, not a bug - a real user in a consent-required region who declines ads. To re-test the accepted-consent path: tap \"Reset consent\" on the Consent row under TEST YOUR GAME, then accept in the CMP form that reopens.");
+
+        internal static (string why, string signal, string fix) ConsentWaitingDiagnosis() => (
+            "The consent flow has not produced a resolved status yet.",
+            "Ad requests stay blocked while consent is Required or Unknown.",
+            "Bring the app to the foreground and complete the CMP form. If no form appears, tap Reset consent under TEST YOUR GAME and retry.");
+
+        internal static (string why, string signal, string fix) PurchaseVerificationFailureDiagnosis() => (
+            "The store or SDK reported that the observed purchase could not be verified.",
+            "The purchase was seen, but it cannot be trusted as a valid transaction for release evidence.",
+            "Use a sandbox/test-track product, confirm the store receipt-validation setup, then complete a fresh purchase and recheck Vitals.");
+
+        internal static (string why, string signal, string fix) PurchaseIssueDiagnosis(int duplicateCount) => (
+            duplicateCount > 0
+                ? "The same transaction was observed more than once."
+                : "Purchase tracking recorded an issue for the last transaction.",
+            duplicateCount > 0
+                ? $"{duplicateCount} duplicate callback(s) were suppressed; analytics would double-count without the SDK guard."
+                : "The purchase path did not complete cleanly enough to serve as release evidence.",
+            "Copy the Vitals report, reproduce one fresh sandbox purchase, and confirm the game attaches purchase tracking exactly once before sending the remaining SDK-side issue to Sorolla.");
+
+        internal static (string why, string signal, string fix) AdIssueDiagnosis(string issue) => (
+            $"The ad integration recorded an issue ({issue}).",
+            "At least one ad request, load, show, reward, or revenue callback did not complete as expected.",
+            "Retry on a real device with VPN/ad blockers/private DNS disabled. If it repeats, expand the Interstitial/Rewarded row and follow its specific fix.");
 
         internal static (string why, string signal, string fix) AttDeniedDiagnosis() => (
             "The user denied the iOS App Tracking Transparency (ATT) prompt, or it is restricted by an MDM/parental-controls profile.",

@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 Self-serve integration health. The Palette window now produces one Launch Readiness verdict for the
 game in front of it, backed by a canonical gate catalog and a single evaluator, and a copyable
-report that carries every row plus the exact SDK commit that produced it.
+report that carries every row plus the SDK commit recorded when the connected binary was built.
 
 This line is unreleased until the `v4.0.0` tag. The version string stays `4.0.0` across the whole
 development line, so it cannot identify a development commit: use the SDK commit printed in the
@@ -26,11 +26,12 @@ release verdict.
 - **Copy Report**: the full report as text - every gate with its stable id, definition version,
   requirement and reason, disposition, outcome, required and observed proof, evidence, and fix -
   including the inert rows the window filters out of view. It carries a fingerprint: application id,
-  app version, Unity build GUID, mode, platform, and the exact SDK commit resolved at export time.
+  app version, Unity build GUID, mode, platform, and the SDK commit from the matching post-build receipt.
 - **Device snapshot from the editor**: Connect Device pulls the live `/qa/snapshot` from a
   USB-connected device, Android over `adb forward` and iOS over `iproxy` (libimobiledevice). The
-  snapshot is bound to the connected build's identity, so a wrong-game, wrong-build, or unsupported
-  schema snapshot is rejected instead of trusted.
+  snapshot is bound to the editor's post-build receipt, so a wrong-game, wrong-build-GUID, or
+  unsupported-schema snapshot is rejected instead of trusted. The editor consumes the authoritative
+  runtime Vitals verdict from that snapshot.
 - **Per-build coverage ledger**: verified facts (consent resolved, a level played to completion, an
   ad watched to the end) persist for the exact build across relaunches, keyed to app version, Unity
   build GUID and SDK version, so proving the integration is one pass through the game rather than a
@@ -64,9 +65,10 @@ release verdict.
 
 ### Changed
 
-- **Three checks block a Full-mode build**: the Adjust app token, the active platform's Firebase
-  config file, and the active platform's GameAnalytics key pair. Each one, when missing, means the
-  build cannot report to that vendor at all. Every other check warns.
+- **Definite active-platform data loss blocks the build**: missing/rejected GameAnalytics or Facebook
+  credentials/platform registration, missing AppLovin MAX ad units in Full mode, the Adjust app
+  token, and the active platform's Firebase config. Unreachable network probes remain incomplete
+  rather than blocking or passing.
 - **One Palette window, grouped by vendor.** Each vendor has one foldout holding its status, its
   check rows, and its own configuration fields; the separate SDK Keys section is gone. A check row
   reads as its name and a short status word, with the message and fix wrapping underneath. Clicking

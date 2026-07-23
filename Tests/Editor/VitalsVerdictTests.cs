@@ -112,6 +112,9 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(SorollaRowOwner.Studio,
                 SorollaDiagnostics.OwnerOf(Row("Boot", "Palette mode", SorollaDiagnosticSeverity.Fail)),
                 "the mode row is the studio's SorollaConfig, not SDK bring-up");
+            Assert.AreEqual(SorollaRowOwner.Studio,
+                SorollaDiagnostics.OwnerOf(Row("Boot", "Network reachability", SorollaDiagnosticSeverity.Fail)),
+                "the studio owns its test device network");
         }
 
         [Test]

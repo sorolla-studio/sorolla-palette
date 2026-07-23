@@ -141,7 +141,9 @@ namespace Sorolla.Palette
         {
             // Boot is SDK bring-up (Sorolla's), EXCEPT the mode row - which is the studio's SorollaConfig.
             if (row.Group == "Boot")
-                return row.Name == "Palette mode" ? SorollaRowOwner.Studio : SorollaRowOwner.Sorolla;
+                return row.Name == "Palette mode" || row.Name == "Network reachability"
+                    ? SorollaRowOwner.Studio
+                    : SorollaRowOwner.Sorolla;
 
             // Red flags are SDK complaints, so they default to Sorolla - but once a producer has DIAGNOSED
             // one as the game's own configuration (e.g. a remote-config key that exists nowhere), the fix is

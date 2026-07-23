@@ -84,12 +84,8 @@ namespace Sorolla.Palette.Editor.Greenlight
         internal static EvaluationContext BuildContext()
         {
             bool resolved = TryDetectInstalledModules(out SdkModule modules);
-            SdkProvenance.Origin origin = SdkProvenance.ResolveOrigin();
             return new EvaluationContext
             {
-                Profile = origin.Profile,
-                Certification = origin.Certification,
-                CertificationEvidence = origin.Evidence,
                 Mode = ToEvalMode(SorollaSettings.Mode),
                 Platform = ToEvalPlatform(EditorUserBuildSettings.activeBuildTarget),
                 InstalledModules = modules,
@@ -246,7 +242,7 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         static readonly Dictionary<string, string> DeviceLabels = new Dictionary<string, string>
         {
-            [GateIds.DeviceNoSdkErrors] = "Device Snapshot: SDK Errors",
+            [GateIds.DeviceVitals] = "Device Vitals",
         };
 
         static readonly Dictionary<BuildValidator.CheckCategory, string> CategoryToGateId =

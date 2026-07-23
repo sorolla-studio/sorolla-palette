@@ -260,9 +260,11 @@ namespace Sorolla.Palette.Editor
 
             _autoFixLog.Clear();
 
-            if (BuildValidator.FixConfigSync())
-                _autoFixLog.Add("Synced config / required SDKs / registries");
-            _autoFixLog.AddRange(BuildValidator.RunAutoFixes());
+            if (BuildValidator.SyncConfigState())
+                _autoFixLog.Add("Synced editor mode from SorollaConfig");
+            if (BuildValidator.ResolveRequiredPackages())
+                _autoFixLog.Add("Resolving required SDK packages / registries");
+            _autoFixLog.AddRange(BuildValidator.RunSafeAutoFixes());
 
             _validationResults = BuildValidator.RunAllChecks();
             Repaint();

@@ -15,7 +15,7 @@ Follow these instructions to prepare the build in prototype mode:
 |-----|----|
 | GameAnalytics | Create the game, paste Game Key + Secret Key, add level calls |
 | Facebook SDK | Create the app, paste App ID + Client Token |
-| Firebase | Create the project, add config files, link to GameAnalytics project |
+| Firebase (optional) | Install only when this Prototype needs Firebase analytics, Crashlytics, or Remote Config |
 
 ---
 
@@ -85,7 +85,7 @@ Full details: [Facebook SDK Setup](guides/facebook.md).
 
 ---
 
-## 5. Create Firebase Configs
+## 5. Optional: Create Firebase Configs
 
 1. Go to [Firebase Console](https://console.firebase.google.com/).
 2. Create a project and enable **Google Analytics**.
@@ -98,7 +98,10 @@ Assets/google-services.json
 Assets/GoogleService-Info.plist
 ```
 
-In **Tools > Sorolla Palette SDK**, install Firebase from the Firebase row if it is not already installed. Then press **Refresh** in the window header and confirm the Firebase group reports the config file for your build target. The config gate for the platform you are not building reads as not applicable, which is expected.
+Skip this section when the Prototype does not need Firebase. In **Tools > Sorolla Palette SDK**,
+install Firebase from the Firebase row if it is needed, then press **Refresh** and confirm the
+Firebase group reports the config file for your active build target. Firebase becomes required in
+Full mode.
 
 Full details: [Firebase Setup](guides/firebase.md).
 
@@ -113,7 +116,7 @@ Confirm:
 - The current mode is **Prototype**.
 - GameAnalytics is configured.
 - Facebook SDK is configured.
-- Firebase is installed and config files are present.
+- If this Prototype uses Firebase, it is installed and the active platform config file is present.
 - The **Launch Readiness** verdict reads **HEALTHY**.
 
 Keep Prototype mode lean. Do not configure MAX, Adjust, IAP, consent, or store privacy yet. TikTok is a parked vendor: new integrations should not configure it, though an existing compatibility config may remain (see the [TikTok guide](guides/tiktok.md)).
@@ -164,7 +167,7 @@ Rules:
 - [ ] Unity package name and bundle ID match the dashboard apps.
 - [ ] GameAnalytics Game Key and Secret Key are configured.
 - [ ] Facebook App ID and Client Token are configured.
-- [ ] Firebase `google-services.json` and `GoogleService-Info.plist` are in `Assets/`.
+- [ ] If this Prototype uses Firebase, its active-platform config file is in `Assets/`.
 - [ ] **Tools > Sorolla Palette SDK** shows Prototype mode.
 - [ ] **Launch Readiness** has no blocking issues for your build target.
 - [ ] `Palette.Level.Start`, `Palette.Level.Complete`, and `Palette.Level.Fail` are wired in game code.

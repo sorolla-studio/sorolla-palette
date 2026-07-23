@@ -214,19 +214,25 @@ namespace Sorolla.Palette.Editor.UI
             actionsRow.Add(refreshButton);
 
             bool connecting = _snapshotState.Phase == GreenlightDeviceSnapshot.Phase.Running;
+            bool mobileTarget = report.Context?.Platform == EvalPlatform.Android ||
+                                report.Context?.Platform == EvalPlatform.iOS;
             var connectButton = new Button(_onConnectDevice)
             {
-                text = connecting ? "Connecting..." : "Connect Device (Android/iOS USB)",
-                tooltip = "Pulls the live QA snapshot from the connected device over USB. "
+                text = connecting ? "Connecting..." : mobileTarget
+                    ? "Connect Device (Android/iOS USB)"
+                    : "Select Android or iOS to connect",
+                tooltip = mobileTarget
+                    ? "Pulls the live QA snapshot from the connected device over USB. "
                     + "Android uses adb (USB debugging on); iOS uses iproxy from libimobiledevice (device unlocked + trusted). "
-                    + "Keep the game foregrounded on the device while connecting.",
+                    + "Keep the game foregrounded on the device while connecting."
+                    : "The device bridge is available only for Android and iOS build targets.",
             };
             connectButton.AddToClassList("sorolla-button-small");
-            connectButton.SetEnabled(!connecting);
+            connectButton.SetEnabled(mobileTarget && !connecting);
             actionsRow.Add(connectButton);
 
             // Copy the AUDITABLE canonical report: the readable rendering carries every row's
-            // disposition/requirement/proof plus a build fingerprint (including the exact SDK commit), so a
+            // disposition/requirement/proof plus a build fingerprint (including the receipt-bound SDK commit), so a
             // pasted result is unambiguous - and it includes the rows this view filters out, which is what
             // makes a single studio-curated window safe to ship.
             var copyButton = new Button(() =>
@@ -371,7 +377,7 @@ namespace Sorolla.Palette.Editor.UI
             // The device snapshot row's remedy is the Connect Device button in the window header - one home,
             // no per-row duplicate. The row still surfaces the failure REASON: Connect attempts used to fail
             // completely silently (F3), every failure path writing DetailMessage with nothing rendering it.
-            if (row.GateId == GateIds.DeviceNoSdkErrors && !isPass)
+            if (row.GateId == GateIds.DeviceVitals && !isPass)
             {
                 bool settledWithoutSnapshot = _snapshotState.Phase == GreenlightDeviceSnapshot.Phase.Done &&
                                               _snapshotState.Outcome != GreenlightDeviceSnapshot.Outcome.Parsed;

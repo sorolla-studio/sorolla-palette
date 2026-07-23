@@ -58,8 +58,12 @@ namespace Sorolla.Palette.Editor
 
         internal static ProbeResult Current => s_lastResult;
 
-        static string ActivePlatformName() =>
-            EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS ? "ios" : "android";
+        static string ActivePlatformName() => EditorUserBuildSettings.activeBuildTarget switch
+        {
+            BuildTarget.iOS => "ios",
+            BuildTarget.Android => "android",
+            _ => null,
+        };
 
         /// <summary>
         ///     Kicks off an init probe for this game key/secret key pair if one has not already run or
@@ -68,6 +72,10 @@ namespace Sorolla.Palette.Editor
         /// </summary>
         internal static void EnsureChecked(string gameKey, string secretKey)
         {
+            string platform = ActivePlatformName();
+            if (platform == null)
+                return;
+
             string key = $"{gameKey}|{secretKey}";
             if (s_requestInFlight || s_lastRequestKey == key)
                 return;
@@ -77,7 +85,6 @@ namespace Sorolla.Palette.Editor
             s_lastResult = new ProbeResult(ProbeState.Pending, gameKey,
                 "Checking GameAnalytics credentials...", EditorApplication.timeSinceStartup);
 
-            string platform = ActivePlatformName();
             string body = "{\"platform\":\"" + platform + "\",\"os_version\":\"" + platform + " 1.0\",\"sdk_version\":\"rest api v2\"}";
             byte[] bodyBytes = Encoding.UTF8.GetBytes(body);
             string authHeader = ComputeAuthHeader(bodyBytes, secretKey);

@@ -57,7 +57,7 @@ This repo is **public**. Never commit internal working docs here: audits, remedi
 
 Hard invariants for the init/adapter/analytics paths, surfaced by a 2026-06 architecture review. Static-source / traced, not yet device-repro'd.
 
-- **Init must never wedge on missing config.** On a MAX/Full build, `InitializeMax()` early-returns when `SorollaConfig` is null, BEFORE it subscribes the MAX init callback, so `IsInitialized` never flips, the pending-event queue never flushes, and `OnInitialized` never fires. "Ready" must be a guaranteed transition: never add an early return upstream of it, and a missing/misnamed config must fail loud or safe-degrade, not silently hang.
+- **Init must never wedge on missing config.** Current behavior completes initialization in degraded no-ads mode when `SorollaConfig` is absent. Preserve that guaranteed ready transition: never add an early return that can prevent `IsInitialized`, pending-event flush, or `OnInitialized`.
 - **Vendor callbacks feed non-thread-safe state.** The pending-event queue and `Palette.Level` start-times assume a main-thread-only contract that is not enforced. MAX callbacks are NOT guaranteed main-thread (they follow `InvokeEventsOnUnityMainThread`); pin `MaxSdk.SetInvokeEventsOnUnityMainThread(true)` if you touch MAX init. Adjust already marshals to the main thread, and `SorollaDiagnostics` is lock-guarded. The QA-bridge worker-enqueue / main-thread-drain split is correct concurrency engineering; do not "simplify" it away.
 - **`extraParams` on `Palette.Level.*` / `Palette.Economy.*` reach Firebase only, never GameAnalytics.** Per-vendor parameter parity is something to verify, not assume (see the Adapter Endpoint Review section).
 - **The QA bridge and 5-tap diagnostics console are intentional control surfaces.** Keep their access, and what `/qa/exec` can do, narrow; do not widen either.
@@ -116,7 +116,7 @@ When touching any method under `Runtime/Adapters/*/`*AdapterImpl.cs* (Firebase, 
 
 ## Diagnostics Console Iteration Loop
 
-- The runtime diagnostics console in `Runtime/Diagnostics/` is UI Toolkit: `UITK/SorollaDebugMenuOverlay*.cs` with USS/UXML under `UITK/Resources/` and a `PanelSettings` created at runtime. Keep it lightweight; do not add prefabs or Canvas UI, and do not reintroduce OnGUI.
+- The runtime diagnostics console in `Runtime/Diagnostics/` is code-created UI Toolkit: `UITK/SorollaDebugMenuOverlay*.cs` with USS/TSS under `UITK/Resources/` and a `PanelSettings` created at runtime. Keep it lightweight; do not add prefabs, UXML, Canvas UI, or OnGUI.
 - For small console UI/layout changes, use a lean loop: edit, search for dead references with `rg`, run `git diff --check`, then stop. Do not run Unity MCP compile checks or editor log searches by default.
 - For C# API/signature changes that could break compilation, run at most one focused local compile check such as `dotnet build Sorolla.Runtime.csproj --no-restore`. Do not retry flaky Unity MCP checks unless the user explicitly asks or the local compile check reports a real current failure.
 - Treat Unity Editor logs as noisy and potentially stale. Do not inspect them unless investigating a concrete current editor failure.

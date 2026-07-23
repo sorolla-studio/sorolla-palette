@@ -44,11 +44,22 @@ namespace Sorolla.Palette.Editor.Greenlight
 
             internal static Fingerprint Capture(string deviceBuildGuid)
             {
+                bool hasDevice = !string.IsNullOrEmpty(deviceBuildGuid);
+                BuildReceipt.Data receipt = null;
+                bool receiptMatches = hasDevice &&
+                    BuildReceipt.TryLoad(EditorUserBuildSettings.activeBuildTarget, out receipt) &&
+                    receipt.BuildGuid == deviceBuildGuid;
+
                 return new Fingerprint(
-                    Palette.SdkVersion, SdkProvenance.ResolveSdkCommit(),
-                    Application.identifier, PlatformName(EditorUserBuildSettings.activeBuildTarget),
-                    ModeName(SorollaSettings.Mode), Application.version,
-                    string.IsNullOrEmpty(deviceBuildGuid) ? "(no device connected)" : deviceBuildGuid,
+                    Palette.SdkVersion,
+                    hasDevice
+                        ? receiptMatches ? receipt.SdkCommit : "unknown (device source not proven)"
+                        : SdkProvenance.ResolveSdkCommit(),
+                    receiptMatches ? receipt.ApplicationId : Application.identifier,
+                    receiptMatches ? receipt.Platform : PlatformName(EditorUserBuildSettings.activeBuildTarget),
+                    receiptMatches ? receipt.Mode : ModeName(SorollaSettings.Mode),
+                    receiptMatches ? receipt.AppVersion : Application.version,
+                    hasDevice ? deviceBuildGuid : "(no device connected)",
                     DateTime.UtcNow.ToString("o"));
             }
 
@@ -78,9 +89,6 @@ namespace Sorolla.Palette.Editor.Greenlight
                           $"app: {fingerprint.ApplicationId} {fingerprint.AppVersion} | " +
                           $"platform: {fingerprint.Platform} | mode: {fingerprint.Mode}");
             sb.AppendLine($"device build: {fingerprint.DeviceBuildGuid}");
-            sb.AppendLine($"profile: {context?.Profile ?? ReportProfile.Unknown} | " +
-                          $"sdk certification: {context?.Certification ?? SdkCertification.Unknown} " +
-                          $"({(string.IsNullOrEmpty(context?.CertificationEvidence) ? "no evidence" : context.CertificationEvidence)})");
             sb.AppendLine($"generated: {fingerprint.GeneratedAtUtc}");
             sb.AppendLine();
 
