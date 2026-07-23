@@ -179,21 +179,13 @@ namespace Sorolla.Palette
             var section = new VisualElement();
             section.Add(BuildActionGroupTitle("SEND TO SOROLLA"));
 
-            var note = new Label("These are SDK-side, not your game. Copy the state and send it to Sorolla.");
+            var note = new Label("These are SDK-side, not your game. Use Copy report at the bottom and send it to Sorolla.");
             note.AddToClassList("sorolla-debugmenu-note");
             note.AddToClassList("sorolla-debugmenu-note-info");
             section.Add(note);
 
             foreach (SorollaDiagnosticRow row in sorollaRows)
                 section.Add(BuildIssueRow(row));
-
-            var copyState = new Button(() => GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildQaStateSummary())
-            {
-                text = "Copy SDK state",
-            };
-            copyState.AddToClassList("sorolla-debugmenu-action-button");
-            copyState.AddToClassList("sorolla-debugmenu-action-button-ghost");
-            section.Add(copyState);
 
             return section;
         }
@@ -299,15 +291,18 @@ namespace Sorolla.Palette
             return footer;
         }
 
+        /// <summary>The one support payload this screen produces: the verdict, what needs attention, and
+        /// the full SDK state behind it. A studio sends this, not a choice between two overlapping copies.</summary>
         static string BuildCopyReportText(string verdictWord, int fail, int warn, int wait, int pass)
         {
-            var sb = new StringBuilder(1024);
+            var sb = new StringBuilder(4096);
             sb.Append(verdictWord).Append(" — FAIL ").Append(fail).Append(" · WARN ").Append(warn)
                 .Append(" · WAIT ").Append(wait).Append(" · PASS ").Append(pass).AppendLine();
             sb.AppendLine(SorollaDiagnostics.BuildMenuContextLine());
             sb.AppendLine(SorollaDiagnostics.BuildMenuCoverageLine(out _));
             sb.AppendLine();
-            sb.Append(SorollaDiagnostics.BuildProblemsSummary());
+            sb.AppendLine(SorollaDiagnostics.BuildProblemsSummary());
+            sb.Append(SorollaDiagnostics.BuildQaStateSummary());
             return sb.ToString();
         }
 
