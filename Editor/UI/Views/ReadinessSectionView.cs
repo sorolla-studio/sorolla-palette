@@ -36,8 +36,8 @@ namespace Sorolla.Palette.Editor.UI
             GreenlightAdapter.VendorGroup.QaAndDiagnostics,
         };
 
-        /// <summary>Checks a studio should see even when green (Arthur ruling 2026-07-21 ~17:55: "keep the
-        /// important ones") - the facts a studio acts on or asks about: is every SDK present at the right
+        /// <summary>Checks a studio should see even when green - the facts a studio acts on or asks
+        /// about: is every SDK present at the right
         /// version in the right mode, is the Android build config sane, and did the per-game credentials it
         /// supplied itself actually check out. "No row" reads as "not checked", which is exactly the doubt
         /// these rows exist to remove. The internal-hygiene rest (registries, config sync, EDM4U, gradle java
@@ -149,14 +149,14 @@ namespace Sorolla.Palette.Editor.UI
             titleRow.Add(spacer);
 
             // The headline answers the pre-build question: is the INTEGRATION ready? Device evidence has its
-            // own group and its own badge below, and never holds this one down (2026-07-23) - a project whose
+            // own group and its own badge below, and never holds this one down - a project whose
             // static setup is clean must be able to read green before anyone connects a phone.
             titleRow.Add(StatusBadge.Create(
                 GreenlightEvaluator.VerdictLabel(report.Outcome, report.FailCount, report.WarnCount),
                 GreenlightEvaluator.BadgeSeverity(report.Outcome)));
             header.Add(titleRow);
 
-            // The report judges ONE platform - the build target Unity is set to (2026-07-23) - so it says
+            // The report judges ONE platform - the build target Unity is set to - so it says
             // which, and where the other platform's checks went. Without this line a studio that switched
             // target would see rows appear and disappear with no stated cause.
             var scope = new Label(ScopeLine(report.Context));
@@ -334,14 +334,13 @@ namespace Sorolla.Palette.Editor.UI
         }
 
         /// <summary>A check row plus any in-editor remedy control for that gate. Every row here is
-        /// machine-checked and carries real fix text - the manual attestation rows (and their Attest/Open
-        /// Dashboard affordances) were deleted 2026-07-22.</summary>
+        /// machine-checked and carries real fix text.</summary>
         VisualElement BuildRow(GreenlightEvaluator.Row row, GreenlightAdapter.VendorGroup group)
         {
             var container = new VisualElement();
 
-            // Pass rows suppress Fix text and remedy buttons entirely (product-audit finding F4,
-            // 2026-07-21): a green row with mandatory "Fix:" homework and an action button pointing at
+            // Pass rows suppress Fix text and remedy buttons entirely: a green row with mandatory "Fix:"
+            // homework and an action button pointing at
             // nothing-to-act-on is the glyph-vs-text contradiction family. (The GA credential probe's
             // platform-registration caveat rides in that row's own message rather than as fix text,
             // precisely so a passing row can still state what it did not prove.) Info rows - a deliberate
@@ -359,7 +358,7 @@ namespace Sorolla.Palette.Editor.UI
             if (row.GateId == GateIds.BuildAdjustSandboxMode)
                 container.Add(ConfigInputsView.SandboxModeToggle());
 
-            // Mode Consistency's fix is literally this window's own hero-header mode switch (F6), so render
+            // Mode Consistency's fix is literally this window's own hero-header mode switch, so render
             // it as a row action instead of prose alone. The switch always targets "the other mode" (only
             // two exist), so it is correct whichever direction this row's issue points.
             if (row.GateId == GateIds.BuildModeConsistency && !isPass)
@@ -367,7 +366,7 @@ namespace Sorolla.Palette.Editor.UI
 
             // Report Integrity is the synthetic row, and the ONLY row with no gate id (a schema/contract
             // error rather than a gate result). Its fix says "report it to Sorolla" with no channel to do
-            // so (F13.9), so point it straight at the issue tracker.
+            // so, so point it straight at the issue tracker.
             if (row.GateId == null && !isPass)
                 container.Add(RowAction("Report Issue", () => Application.OpenURL(FooterLinks.IssuesUrl)));
 

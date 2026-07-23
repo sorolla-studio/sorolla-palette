@@ -107,7 +107,7 @@ namespace Sorolla.Palette.Editor.UI
         }
 
         /// <summary>GameAnalytics' own signal is install state only. Key health is graded by the Platform Keys
-        /// CHECK - for the active build target, since 2026-07-23 - whose row escalates this header through the
+        /// CHECK - for the active build target - whose row escalates this header through the
         /// shared worst-of merge; the header cannot disagree with the row below it, which it could when both
         /// sides graded the same fact independently (the header said ERROR while its own child row said WARN).
         /// The caption naming BOTH platforms rides here as the header's detail text: it is the one place that

@@ -24,7 +24,7 @@ namespace Sorolla.Palette.Health
         public const string BuildAdjustSettings = "build.adjust_settings";
         public const string BuildEdm4uSettings = "build.edm4u_settings";
         public const string BuildGradleConfig = "build.gradle_config";
-        // One gate per platform config file (2026-07-22): they were a single build.firebase_config, and
+        // One gate per platform config file: they were a single build.firebase_config, and
         // the producer collapses a category to its worst result, so a project with a good
         // google-services.json and a missing GoogleService-Info.plist could only ever narrate one of them.
         public const string BuildFirebaseConfigAndroid = "build.firebase_config_android";
@@ -41,10 +41,10 @@ namespace Sorolla.Palette.Health
         public const string BuildSdkPin = "build.sdk_pin";
         public const string BuildGameAnalyticsCredentials = "build.gameanalytics_credentials";
 
-        // Every gate here is machine-checkable by the Editor. Human/dashboard confirmations (store catalog, vendor registration, relaunch and
-        // background/resume sessions) were deleted 2026-07-22 with the attestation mechanism - their only
-        // evidence was a person ticking a box, which proved nothing a report could stand behind.
-        // Where they went, precisely: the SDK-behavior ones (relaunch persistence, background/resume) are
+        // Every gate here is machine-checkable by the Editor. Human/dashboard confirmations (store catalog,
+        // vendor registration, relaunch and background/resume sessions) are not gates: their only evidence
+        // was a person ticking a box, which proved nothing a report could stand behind.
+        // Where they live instead: the SDK-behavior ones (relaunch persistence, background/resume) are
         // steps in Sorolla's release-candidate run on the reference game. The PER-GAME dashboard ones
         // (a studio's own GameAnalytics platform registration, its store catalog, cross-vendor delivery)
         // cannot be covered by a run on a different game - they belong to the studio, and the honest
@@ -54,11 +54,11 @@ namespace Sorolla.Palette.Health
 
     /// <summary>
     ///     The one canonical, code-defined gate catalog the SDK ships (not a ScriptableObject or YAML, so it
-    ///     is grep/diff/compile-checked and has no optional-asset failure mode - DR-133). Each definition
+    ///     is grep/diff/compile-checked and has no optional-asset failure mode). Each definition
     ///     owns its per-context requirement decision (the mode requirement table lives HERE, not in the
     ///     producer). The private gates.yaml workflow references the same string
     ///     ids without any portfolio data shipping here (design note section 4). Definitions are frozen on
-    ///     construction (review C3-07).
+    ///     construction.
     /// </summary>
     internal sealed class GateCatalog
     {
@@ -68,7 +68,7 @@ namespace Sorolla.Palette.Health
         internal GateCatalog(IEnumerable<GateDefinition> definitions)
         {
             // Defensive copy + freeze so All and ById can never disagree and a definition list cannot be
-            // mutated after construction (review C3-07). GateDefinition itself is immutable.
+            // mutated after construction. GateDefinition itself is immutable.
             _definitions = (definitions ?? Array.Empty<GateDefinition>())
                 .Where(d => d != null).ToArray();
             _byId = new Dictionary<string, GateDefinition>();
@@ -102,79 +102,52 @@ namespace Sorolla.Palette.Health
 
         // ── The mode requirement table ────────────────────────────────────
 
-        const string Version = "1"; // per-gate semantic version (R3-03); bump a single gate when its meaning changes.
-        // Gates whose MEANING changed carry a bumped version so the comparison instrument restarts exactly
-        // their agreement counts (F1 device applicability now targets-based; F5 store/tracking split).
-        const string V2 = "2";
-        // V3 (2026-07-23, platform scoping): a report judges ONE platform, the active build target. Every gate
-        // that used to say something about the platform NOT being built now says nothing about it - either by
-        // resolving NotApplicable (the two Firebase config gates, via Requirements.OnPlatform) or by the
-        // producer no longer looking at the other platform (GameAnalytics keys, Facebook platform, MAX ad
-        // units). All five change what a green row MEANS, so all five restart their agreement counts. No gate
-        // ids were added or removed: a per-platform id whose only remaining job is an audit row would be
-        // catalog churn, and the copied report already states which platform it judged.
-        const string V3 = "3";
-        // V4 (2026-07-23, capability scoping): package availability is owned by BuildRequiredSdks.
-        // Vendor-dependent checks now apply only when that package is included, eliminating duplicate
-        // missing-package rows and optional-vendor clutter.
-        const string V4 = "4";
 
         static IReadOnlyList<GateDefinition> BuildCanonical()
         {
-            // EVERY gate reaches EVERY report surface. The old phase axis (PreBuild/QaPass/ReleaseShip) was
-            // deleted 2026-07-22: it selected gates by which window asked, so a studio never saw the
-            // store-submission checks. That rested on "release approval is not delegated to studios", which is
-            // false - studios submit their own games, and a studio that ships in Adjust sandbox loses its live
-            // attribution data with nothing anywhere having told it. The only surviving distinction is
-            // GateDefinition.ReleaseOnly, which hides NO row: it just keeps the build preprocessor quiet on
-            // development builds for a check that is normally unsatisfied there (the release keystore).
+            // EVERY gate reaches EVERY report surface. The one distinction is GateDefinition.ReleaseOnly,
+            // which hides NO row: it keeps the build preprocessor quiet on development builds for a check
+            // that is normally unsatisfied there (the release keystore).
             var defs = new List<GateDefinition>();
 
             // Build Health - core SDKs, required in BOTH modes (GameAnalytics + Facebook are SdkRequirement.Core).
-            // required_sdks is a repo-shape rule (Structural); the credential/key rows are per-game inputs (Variant).
-            AddBuild(defs, GateIds.BuildRequiredSdks, GateClassification.Structural, Requirements.AlwaysRequired);
-            // V3 (2026-07-23): the keys check judges the ACTIVE build target only, and FAILS when that
-            // platform's key pair is missing. V2 had also warned about the other platform's keys; that warning
-            // blocked a green verdict for a game deliberately shipping one platform, and the other platform's
-            // state is now carried by the vendor group caption instead of by this gate.
-            defs.Add(new GateDefinition(GateIds.BuildGameAnalyticsKeys, V4, GateClassification.Variant,
+            AddBuild(defs, GateIds.BuildRequiredSdks, Requirements.AlwaysRequired);
+            // The keys check judges the ACTIVE build target only, and fails when that platform's key pair is
+            // missing. The other platform's state is carried by the vendor group caption, not by this gate.
+            defs.Add(new GateDefinition(GateIds.BuildGameAnalyticsKeys,
                 CapabilityPolicy.Dependent(SdkModule.GameAnalytics)));
-            defs.Add(new GateDefinition(GateIds.BuildGameAnalyticsCredentials, V4, GateClassification.Variant,
+            defs.Add(new GateDefinition(GateIds.BuildGameAnalyticsCredentials,
                 CapabilityPolicy.Dependent(SdkModule.GameAnalytics)));
-            // V2 (2026-07-23): the Facebook app's platform registration is judged for the active build target
-            // only. The Graph response still describes both platforms - the row just stops grading the one
-            // this build is not for.
-            defs.Add(new GateDefinition(GateIds.BuildFacebookPlatform, V4, GateClassification.Variant,
+            // The Facebook app's platform registration is judged for the active build target only. The Graph
+            // response still describes both platforms - the row just stops grading the one this build is not for.
+            defs.Add(new GateDefinition(GateIds.BuildFacebookPlatform,
                 CapabilityPolicy.Dependent(SdkModule.Facebook)));
 
             // Firebase is required in Full and validated in Prototype only when at least one Firebase module
             // is actually included. Package availability is owned by BuildRequiredSdks; dependent checks do
             // not duplicate a missing-package failure.
-            defs.Add(new GateDefinition(GateIds.BuildFirebaseCoherence, V4, GateClassification.Structural,
+            defs.Add(new GateDefinition(GateIds.BuildFirebaseCoherence,
                 CapabilityPolicy.FullSuiteDependent(SdkModule.Firebase)));
 
             // Full-mode vendors (AppLovin MAX FullRequired, Adjust FullOnly): Required in Full, Optional in
             // Prototype (evaluated only if the vendor is present). Both carry per-game credentials/ad-unit ids.
-            // Only the active build target's ad unit ids are graded. V4 also scopes both settings gates to
-            // the package-backed capability, so missing packages are owned by the root package gate.
-            defs.Add(new GateDefinition(GateIds.BuildMaxSettings, V4, GateClassification.Variant,
+            // Only the active build target's ad unit ids are graded. Both settings gates are scoped to the
+            // package-backed capability, so missing packages are owned by the root package gate.
+            defs.Add(new GateDefinition(GateIds.BuildMaxSettings,
                 CapabilityPolicy.Dependent(SdkModule.AppLovinMax)));
-            defs.Add(new GateDefinition(GateIds.BuildAdjustSettings, V4, GateClassification.Variant,
+            defs.Add(new GateDefinition(GateIds.BuildAdjustSettings,
                 CapabilityPolicy.Dependent(SdkModule.Adjust)));
 
-            // Firebase config files follow the SAME requirement as Firebase itself (review C4-05): when
+            // Firebase config files follow the SAME requirement as Firebase itself: when
             // Firebase is required (Full), a missing google-services.json / plist must block release
             // confidence, not sit as a non-blocking advisory warning. Optional in Prototype. One gate per
             // platform, so each file gets its own row and neither can hide the other.
-            // V2 (2026-07-23): each gate now applies ONLY on its own platform. The old shape judged both files
-            // on every build and demoted the non-active platform's Error to a Warning in the observation; that
-            // warning is what kept an iOS-only game from ever reading green. The asymmetry now lives in
-            // applicability instead of severity, so the row for the platform this build is not for leaves the
-            // verdict and the counts entirely (it still prints in the copied report as NotApplicable).
-            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfigAndroid, V4, GateClassification.Variant,
+            // Each gate applies ONLY on its own platform: the row for the platform this build is not for
+            // leaves the verdict and the counts entirely (it still prints in the copied report as NotApplicable).
+            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfigAndroid,
                 Requirements.OnPlatform(EvalPlatform.Android,
                     CapabilityPolicy.FullSuiteDependent(SdkModule.Firebase))));
-            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfigIos, V4, GateClassification.Variant,
+            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfigIos,
                 Requirements.OnPlatform(EvalPlatform.iOS,
                     CapabilityPolicy.FullSuiteDependent(SdkModule.Firebase))));
 
@@ -183,9 +156,9 @@ namespace Sorolla.Palette.Health
             // is still shown in every window, to everyone. Adjust sandbox mode is deliberately NOT ReleaseOnly:
             // sandbox is a one-time internal check that events reach Adjust, then it goes off and stays off, so
             // any sandbox-on state is worth a console warning on every build, not just release ones.
-            defs.Add(new GateDefinition(GateIds.BuildAndroidKeystore, Version, GateClassification.Variant,
+            defs.Add(new GateDefinition(GateIds.BuildAndroidKeystore,
                 Requirements.AndroidRequiredElseOptional, releaseOnly: true));
-            defs.Add(new GateDefinition(GateIds.BuildAdjustSandboxMode, V4, GateClassification.Structural,
+            defs.Add(new GateDefinition(GateIds.BuildAdjustSandboxMode,
                 CapabilityPolicy.Dependent(SdkModule.Adjust)));
 
             // Advisory Build Health rows - Optional in both modes. Their OBSERVED outcome still drives
@@ -193,11 +166,8 @@ namespace Sorolla.Palette.Health
             // OptionalSkipped, not a false pass and not a NotApplicable lie.
             //
             // BuildSdkPin: a studio pinned to a branch instead of a published tag is running an SDK line
-            // Sorolla has not certified, and must see that with the fix ("pin a tagged release"). This is the
-            // direct, studio-actionable form of the protection that used to work indirectly, by leaving
-            // SDK-invariant rows INCOMPLETE on an uncertified pin; those invariant rows were the human-attested
-            // gates and are gone, so the pin check now carries it alone. An embedded/local package reports
-            // Skipped, so Sorolla's own working tree is unaffected.
+            // Sorolla has not certified, and must see that with the fix ("pin a tagged release"). An
+            // embedded/local package reports Skipped, so Sorolla's own working tree is unaffected.
             foreach (string id in new[]
             {
                 GateIds.BuildSdkPin,
@@ -207,13 +177,13 @@ namespace Sorolla.Palette.Health
                 GateIds.BuildGradleJavaHome, GateIds.BuildGameAnalyticsResourceWhitelist,
                 GateIds.BuildAddressablesContent,
             })
-                AddBuild(defs, id, GateClassification.Structural, Requirements.AlwaysOptional);
+                AddBuild(defs, id, Requirements.AlwaysOptional);
 
             return defs;
 
-            void AddBuild(List<GateDefinition> list, string id, GateClassification classification,
+            void AddBuild(List<GateDefinition> list, string id,
                 Func<EvaluationContext, RequirementDecision> req) =>
-                list.Add(new GateDefinition(id, Version, classification, req));
+                list.Add(new GateDefinition(id, req));
         }
 
         static IReadOnlyList<EvaluationContext> BuildSupportedContexts()
@@ -231,7 +201,7 @@ namespace Sorolla.Palette.Health
         }
 
         /// <summary>
-        ///     Fails loud on a malformed catalog (review C3-07). Returns the list of problems (empty = valid).
+        ///     Fails loud on a malformed catalog. Returns the list of problems (empty = valid).
         ///     Rejects: duplicate ids; null/empty/whitespace ids; null/empty versions; missing requirement
         ///     predicate; unreachable gates (never Required/Optional under any supported context); a
         ///     non-exhaustive supported-context grid; and
@@ -252,7 +222,7 @@ namespace Sorolla.Palette.Health
                 if (group.Count() > 1)
                     problems.Add($"Duplicate gate id: '{group.Key}' ({group.Count()} definitions)");
 
-            // The context grid must be exhaustive over the supported mode x platform axes (review C3-07).
+            // The context grid must be exhaustive over the supported mode x platform axes.
             bool gridExhaustive = supportedContexts != null &&
                 (from EvalMode m in new[] { EvalMode.Prototype, EvalMode.Full }
                  from EvalPlatform p in new[] { EvalPlatform.Android, EvalPlatform.iOS }
@@ -265,15 +235,8 @@ namespace Sorolla.Palette.Health
             {
                 if (string.IsNullOrWhiteSpace(def.Id))
                     problems.Add("Gate with a null/empty/whitespace id.");
-                if (string.IsNullOrWhiteSpace(def.Version))
-                    problems.Add($"Gate '{def.Id}' has a null/empty version.");
                 if (def.Requirement == null)
                     problems.Add($"Gate '{def.Id}' has no requirement predicate.");
-                // Every gate must be classified: an unclassified gate has no declared owner, so no frontend
-                // can decide whether a studio must see it.
-                if (!HealthEnums.IsDefinedClassification(def.Classification) ||
-                    def.Classification == GateClassification.Unknown)
-                    problems.Add($"Gate '{def.Id}' is unclassified (GateClassification.Unknown).");
                 if (def.Requirement == null || supportedContexts == null || supportedContexts.Count == 0)
                     continue;
 
@@ -281,11 +244,6 @@ namespace Sorolla.Palette.Health
                 foreach (EvaluationContext ctx in supportedContexts)
                 {
                     RequirementDecision rd = def.Requirement(ctx);
-                    if (!HealthEnums.IsDefinedRequirement(rd.Value))
-                    {
-                        problems.Add($"Gate '{def.Id}' returns an undefined requirement value under a supported context.");
-                        continue;
-                    }
                     if (rd.Value == Requirement.Required || rd.Value == Requirement.Optional)
                         reachable = true;
                     // Reason mandatory for ALL four states (shape-GO refinement #1): an audit trail that goes
@@ -302,8 +260,8 @@ namespace Sorolla.Palette.Health
     }
 
     /// <summary>
-    ///     The context-derived requirement predicates the mode requirement table is built from (review
-    ///     C3-02). Each reads the trusted <see cref="EvaluationContext"/> only - a producer cannot self-exempt.
+    ///     The context-derived requirement predicates the mode requirement table is built from. Each reads
+    ///     the trusted <see cref="EvaluationContext"/> only - a producer cannot self-exempt.
     ///     Unknown mode/platform resolves to <see cref="Requirement.Unknown"/> (→ INCOMPLETE), never a silent
     ///     skip. NotApplicable / Unknown decisions always carry a reason.
     /// </summary>
@@ -326,13 +284,13 @@ namespace Sorolla.Palette.Health
             : Opt("evaluated only if reported off-Android");
 
         /// <summary>
-        ///     Scopes a gate about ONE platform's artifact to the platform it describes (2026-07-23). A report
+        ///     Scopes a gate about ONE platform's artifact to the platform it describes. A report
         ///     judges exactly one platform - the active build target - so a check about the platform NOT being
         ///     built resolves NotApplicable: out of the verdict, out of the counts, out of the rendered rows,
         ///     still printed in the copied report as an audit row. This "the active build target is the
         ///     intent" rule is what makes an iOS-only game
-        ///     able to read green without any studio-declared platform list (that mechanism was deleted
-        ///     2026-07-20 - do not reintroduce it). Severity for the ACTIVE platform is delegated untouched to
+        ///     able to read green without any studio-declared platform list (do not reintroduce one).
+        ///     Severity for the ACTIVE platform is delegated untouched to
         ///     <paramref name="whenActive"/>, so mode rules (Full blocks, Prototype advises) still apply there.
         ///     Off-mobile targets resolve NotApplicable because there is no mobile build to judge.
         /// </summary>

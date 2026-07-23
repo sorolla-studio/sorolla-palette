@@ -101,7 +101,7 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void Android_SameIdDifferentProject_IsMatch_DocumentedResidual()
         {
-            // The residual (F9): package_name matches but project_info.project_id differs. We CANNOT prove
+            // The residual: package_name matches but project_info.project_id differs. We CANNOT prove
             // Firebase project identity, so this correctly reads Match. The limitation is documented, not fixed.
             string differentProject =
                 $"{{\"project_info\":{{\"project_id\":\"a-DIFFERENT-project\"}},\"client\":" +

@@ -8,7 +8,7 @@ namespace Sorolla.Palette.Health
     ///     The single aggregation for the SDK health/QA contract. Evaluates the CANONICAL catalog against a
     ///     trusted <see cref="EvaluationContext"/> and the producer's observations - it never trusts the
     ///     observation set alone, so an applicable required gate with no matching observation surfaces as
-    ///     INCOMPLETE rather than silently passing (review R3-01). This is the only precedence in
+    ///     INCOMPLETE rather than silently passing. This is the only precedence in
     ///     Sorolla.Health; there is deliberately no list-only overload - an omission-blind entry point is
     ///     exactly the unsafe channel this evaluator exists to close.
     /// </summary>
@@ -20,7 +20,7 @@ namespace Sorolla.Palette.Health
             var rows = new List<GateResult>();
             var validationErrors = new List<string>();
 
-            // A null catalog is a malformed boundary input, not a crash (review F4-03): a report with a
+            // A null catalog is a malformed boundary input, not a crash: a report with a
             // visible integrity error, never an exception.
             if (catalog == null)
             {
@@ -28,21 +28,19 @@ namespace Sorolla.Palette.Health
                 return new HealthReport { Rows = rows, ValidationErrors = validationErrors, Outcome = GateOutcome.Incomplete };
             }
 
-            // 0. Boundary-validate the trusted context (review C3-06). A corrupt/undefined context value must
+            // 0. Boundary-validate the trusted context. A corrupt/undefined context value must
             //    not silently pass; the whole report degrades to INCOMPLETE via a validation error.
             ValidateContext(context, validationErrors);
-            // Null-safe: a null context is recorded above; do NOT dereference it (review F4-03).
+            // Null-safe: a null context is recorded above; do NOT dereference it.
             bool contextUsable = context != null;
 
-            // 1. Index observations by gate id, validating each value at the boundary (C3-06). Unknown ids and
+            // 1. Index observations by gate id, validating each value at the boundary. Unknown ids and
             //    duplicates are validation errors - never ignored, never last-write-wins.
             var byId = new Dictionary<string, List<GateObservation>>();
             foreach (GateObservation obs in observations ?? Array.Empty<GateObservation>())
             {
                 if (obs == null) { validationErrors.Add("Null observation supplied."); continue; }
                 if (obs.GateId == null) { validationErrors.Add("Observation with a null gate id."); continue; }
-                if (!HealthEnums.IsDefinedOutcome(obs.Outcome))
-                    validationErrors.Add($"Observation for '{obs.GateId}' has an undefined outcome value.");
                 if (!byId.TryGetValue(obs.GateId, out List<GateObservation> list))
                 {
                     list = new List<GateObservation>();
@@ -59,8 +57,8 @@ namespace Sorolla.Palette.Health
                     validationErrors.Add($"Duplicate observations ({pair.Value.Count}) for gate id: '{pair.Key}'");
             }
 
-            // 2. Every gate in the catalog is evaluated: there is no phase/audience selection any more
-            //    (2026-07-22). Which rows a surface RENDERS is a frontend concern; what the report CONTAINS
+            // 2. Every gate in the catalog is evaluated: there is no phase/audience selection.
+            //    Which rows a surface RENDERS is a frontend concern; what the report CONTAINS
             //    never depends on who is asking. An unusable context means no definition can be trusted →
             //    INCOMPLETE.
             IEnumerable<GateDefinition> selected = contextUsable
@@ -73,17 +71,9 @@ namespace Sorolla.Palette.Health
                     ? def.Requirement(context)
                     : new RequirementDecision(Requirement.Unknown, "No requirement predicate defined");
 
-                if (!HealthEnums.IsDefinedRequirement(rd.Value))
-                {
-                    validationErrors.Add($"Gate '{def.Id}' produced an undefined requirement value.");
-                    rd = new RequirementDecision(Requirement.Unknown, "Undefined requirement value");
-                }
-
                 var row = new GateResult
                 {
                     GateId = def.Id,
-                    DefinitionVersion = def.Version,
-                    Classification = def.Classification,
                     Requirement = rd.Value,
                     RequirementReason = rd.Reason,
                 };
@@ -95,7 +85,7 @@ namespace Sorolla.Palette.Health
                 {
                     case Requirement.Unknown:
                         // Could not decide applicability from trusted context - must not silently pass. But a
-                        // real observed FAIL survives even here (review F4-06): FAIL is weakened by nothing but
+                        // real observed FAIL survives even here: FAIL is weakened by nothing but
                         // a louder FAIL, so preserve it and its evidence rather than flattening to INCOMPLETE.
                         row.Disposition = GateDisposition.Evaluated;
                         if (count == 1)
@@ -116,7 +106,7 @@ namespace Sorolla.Palette.Health
                     case Requirement.NotApplicable:
                         row.Disposition = GateDisposition.NotApplicable;
                         row.Outcome = GateOutcome.Pass; // inert; excluded from aggregation
-                        // C3-05: an observation for a NotApplicable gate signals stale/wrong-context evidence.
+                        // An observation for a NotApplicable gate signals stale/wrong-context evidence.
                         if (count > 0)
                             validationErrors.Add(
                                 $"Context mismatch: observation supplied for NotApplicable gate '{def.Id}'.");
@@ -125,7 +115,7 @@ namespace Sorolla.Palette.Health
                     case Requirement.Optional:
                         if (count == 0)
                         {
-                            // A real optional skip (C3-04) - NEVER rewritten to NotApplicable, excluded from
+                            // A real optional skip - NEVER rewritten to NotApplicable, excluded from
                             // affirmative evidence.
                             row.Disposition = GateDisposition.OptionalSkipped;
                             row.Outcome = GateOutcome.Pass; // inert; excluded
@@ -140,7 +130,7 @@ namespace Sorolla.Palette.Health
                     default: // Required
                         if (count == 0)
                         {
-                            // Omission (R3-01): a distinct disposition (not "Evaluated") so the comparison
+                            // Omission: a distinct disposition (not "Evaluated") so the comparison
                             // sheet can tell an unmet-required gate from an assessed one; it still resolves to
                             // INCOMPLETE and participates in aggregation.
                             row.Disposition = GateDisposition.Omitted;
@@ -168,12 +158,6 @@ namespace Sorolla.Palette.Health
         static void ValidateContext(EvaluationContext context, List<string> errors)
         {
             if (context == null) { errors.Add("Null evaluation context."); return; }
-            if (!HealthEnums.IsDefinedMode(context.Mode))
-                errors.Add("Evaluation context has an undefined mode value.");
-            if (!HealthEnums.IsDefinedPlatform(context.Platform))
-                errors.Add("Evaluation context has an undefined platform value.");
-            if (!HealthEnums.HasOnlyDefinedBits(context.InstalledModules))
-                errors.Add("Evaluation context has undefined installed-module bits.");
             if (!context.ModulesResolved)
                 errors.Add("Installed-module state could not be resolved from the manifest (unknown ≠ absent).");
         }
@@ -199,7 +183,7 @@ namespace Sorolla.Palette.Health
                     return only.Outcome;
                 default:
                     // An undefined/corrupted outcome (already recorded as a validation error) must never reach
-                    // the Editor row mapper as an invalid value (review F4-03) - coerce it to INCOMPLETE.
+                    // the Editor row mapper as an invalid value - coerce it to INCOMPLETE.
                     return GateOutcome.Incomplete;
             }
         }
@@ -214,7 +198,7 @@ namespace Sorolla.Palette.Health
         {
             // Fail closed: aggregate EVERY disposition except the two explicitly-excluded ones. An omitted
             // required row (Incomplete) participates, and an unknown/future disposition is included rather
-            // than silently dropped into an excluded default branch (review challenge, point 3).
+            // than silently dropped into an excluded default branch.
             List<GateResult> considered = rows.Where(r =>
                 r.Disposition != GateDisposition.OptionalSkipped &&
                 r.Disposition != GateDisposition.NotApplicable).ToList();

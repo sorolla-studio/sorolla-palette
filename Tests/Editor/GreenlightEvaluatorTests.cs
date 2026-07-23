@@ -110,7 +110,7 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void EveryBuildValidatorCategory_MapsToACanonicalGate()
         {
-            // C4-09: no BuildValidator category may silently disappear - every one maps to a canonical gate.
+            // No BuildValidator category may silently disappear - every one maps to a canonical gate.
             foreach (BuildValidator.CheckCategory cat in
                      System.Enum.GetValues(typeof(BuildValidator.CheckCategory)))
             {
@@ -175,7 +175,7 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void ToOutcome_UndefinedStatus_ThrowsInsteadOfPass()
         {
-            // C4-09: an invalid ValidationStatus must fail closed, not map to a silent PASS.
+            // An invalid ValidationStatus must fail closed, not map to a silent PASS.
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => GreenlightAdapter.ToOutcome((BuildValidator.ValidationStatus)999));
         }
@@ -183,7 +183,7 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void ValidationErrors_AreRenderedAsVisibleRows()
         {
-            // C4-07: a contract/schema validation error must produce a visible, non-green row, not just flip
+            // A contract/schema validation error must produce a visible, non-green row, not just flip
             // the badge silently.
             var health = new HealthReport
             {
@@ -196,7 +196,7 @@ namespace Sorolla.Palette.Editor.Tests
                 "The validation error must be a visible Wait row.");
         }
 
-        // ── F4-02: bare-vendor absence is not an affirmative observation ───
+        // ── Bare-vendor absence is not an affirmative observation ───
 
         [Test]
         public void BareVendorAbsence_EmitsNoObservation()

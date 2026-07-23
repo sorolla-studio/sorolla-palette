@@ -64,8 +64,7 @@ namespace Sorolla.Palette.Editor.UI
                     {
                         inputs.Add(AdUnitFoldout("Rewarded", "rewardedAdUnit"));
                         inputs.Add(AdUnitFoldout("Interstitial", "interstitialAdUnit"));
-                        // "(optional)" casing matches every other optional-vendor label in this window
-                        // (F13.3, 2026-07-21 audit) - this was the one outlier capitalizing it.
+                        // "(optional)" casing matches every other optional-vendor label in this window.
                         inputs.Add(AdUnitFoldout("Banner (optional)", "bannerAdUnit"));
                     }
                     break;

@@ -20,7 +20,7 @@ namespace Sorolla.Palette.Editor.Greenlight
         {
             /// <summary>The canonical gate id (<see cref="Sorolla.Palette.Health.GateIds"/>), null for the
             /// synthetic Report Integrity row. Lets the window look up an in-editor remedy action for a
-            /// specific gate (product-audit fix cycle ruling 1/5, 2026-07-21 11:55) without re-deriving it
+            /// specific gate without re-deriving it
             /// from the display label.</summary>
             public string GateId;
             public string Label;
@@ -81,9 +81,7 @@ namespace Sorolla.Palette.Editor.Greenlight
 
                 RowStatus status = ToStatus(r.Outcome);
                 // A deliberate skip/absence still aggregates as Pass (non-blocking), but must never render
-                // as an affirmative green check (F5 residual, 2026-07-21 audit review: this collapsed back
-                // into Pass end-to-end once the Build Health row list - which special-cased it locally - was
-                // deleted by F12). Display-only override; PassCount below still counts it (the `default`
+                // as an affirmative green check. Display-only override; PassCount below still counts it (the `default`
                 // arm covers both Pass and Info), so the verdict/aggregation is untouched.
                 if (r.Informational && status == RowStatus.Pass)
                     status = RowStatus.Info;
@@ -106,7 +104,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             }
 
             // Contract/schema validation errors force the aggregate to INCOMPLETE; render each as an explicit,
-            // visible row (review C4-07) so a studio sees the actionable reason instead of a silent non-green
+            // visible row so a studio sees the actionable reason instead of a silent non-green
             // badge over passing-looking rows. Included in the copied plain-text report via report.Rows.
             foreach (string error in report.ValidationErrors)
             {

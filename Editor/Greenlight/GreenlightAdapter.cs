@@ -37,7 +37,7 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         /// <summary>
         ///     Installed modules from the package manifest (the SDK's source of truth for package state -
-        ///     assembly detection is unsafe during domain reloads, review C4-02). Returns false when the
+        ///     assembly detection is unsafe during domain reloads). Returns false when the
         ///     manifest is missing/unreadable so the caller can force INCOMPLETE rather than treat a
         ///     temporarily-absent package as uninstalled.
         /// </summary>
@@ -99,7 +99,7 @@ namespace Sorolla.Palette.Editor.Greenlight
         ///     it is normally unsatisfied during development. The catalog's <see cref="GateDefinition.ReleaseOnly"/>
         ///     flag is the single source of truth - this asks it rather than keeping a second list of category
         ///     names. Used ONLY by the build preprocessor, to keep such a warning off development builds; it
-        ///     never hides a row from any window (2026-07-22: every gate reaches every surface).
+        ///     never hides a row from any window - every gate reaches every surface.
         /// </summary>
         internal static bool IsReleaseOnly(BuildValidator.CheckCategory category) =>
             CategoryToGateId.TryGetValue(category, out string gateId) &&
@@ -110,7 +110,7 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         /// <summary>
         ///     Builds the neutral observations. Producer-side context guards ensure it never fabricates
-        ///     evidence for a gate the context makes NotApplicable (which would be a C3-05 context mismatch):
+        ///     evidence for a gate the context makes NotApplicable (which would be a context mismatch):
         ///     device observations are emitted only on a platform that has a shipping transport (Android via
         ///     adb, iOS via iproxy - F10). These are facts about which evidence EXISTS, not requirement
         ///     decisions - the catalog still owns those.
@@ -122,7 +122,7 @@ namespace Sorolla.Palette.Editor.Greenlight
 
         /// <summary>Vendor-coherence categories whose "not installed" result is vendor ABSENCE, not evidence
         /// of health. When the manifest says the module is absent, the review requires that absence to be an
-        /// OptionalSkipped (bare Prototype), not an affirmative PASS (F4-02) - so the adapter emits no
+        /// OptionalSkipped (bare Prototype), not an affirmative PASS - so the adapter emits no
         /// observation for these when the module is not installed, letting the Optional gate skip and the
         /// Required (Full) gate omit → INCOMPLETE.</summary>
         static readonly Dictionary<BuildValidator.CheckCategory, SdkModule> VendorCategoryModule =
@@ -134,7 +134,7 @@ namespace Sorolla.Palette.Editor.Greenlight
                 [BuildValidator.CheckCategory.MaxSettings] = SdkModule.AppLovinMax,
                 [BuildValidator.CheckCategory.AdjustSettings] = SdkModule.Adjust,
                 [BuildValidator.CheckCategory.AdjustSandboxMode] = SdkModule.Adjust,
-                // Extended to GameAnalytics/Facebook (product-audit finding F5, 2026-07-21): the same
+                // GameAnalytics/Facebook are here too: the same
                 // "not installed" result those categories emit is vendor absence, not evidence, exactly
                 // like Firebase/MAX/Adjust above - without this the canonical export could show
                 // `[Pass] build.gameanalytics_keys - "GameAnalytics not installed"` right beside a failing
@@ -159,13 +159,13 @@ namespace Sorolla.Palette.Editor.Greenlight
 
             foreach (var group in byCategory)
             {
-                // F4-02: a vendor "not installed" result is absence, not affirmative evidence - drop it so the
+                // A vendor "not installed" result is absence, not affirmative evidence - drop it so the
                 // gate skips (Optional) or omits (Required) instead of passing on absence.
                 if (VendorCategoryModule.TryGetValue(group.Key, out SdkModule module) &&
                     (context.InstalledModules & module) == 0)
                     continue;
 
-                // An unmapped category must not silently disappear (review C4-09): emit it under a sentinel
+                // An unmapped category must not silently disappear: emit it under a sentinel
                 // id so the evaluator flags it as an unknown-id validation error, visible + fail-closed.
                 bool mapped = CategoryToGateId.TryGetValue(group.Key, out string gateId);
                 if (!mapped)
@@ -184,7 +184,7 @@ namespace Sorolla.Palette.Editor.Greenlight
                     Outcome = ToOutcome(worst.Status),
                     Evidence = FirstLine(worst.Message),
                     FixHint = worst.Fix,
-                    // A deliberate skip (F5 residual, 2026-07-21 audit review) must render/export as
+                    // A deliberate skip must render/export as
                     // neutral end-to-end, not collapse into an affirmative Pass once it reaches a gate row -
                     // Outcome above still maps to Pass for aggregation (non-blocking), this flag is the
                     // separate signal frontends/export use to label it correctly.
@@ -194,7 +194,7 @@ namespace Sorolla.Palette.Editor.Greenlight
         }
 
         // Error is the most severe row we surface, then unverifiable (missing evidence), then warning, then
-        // valid. No permissive default - an undefined ValidationStatus fails closed (review C4-09).
+        // valid. No permissive default - an undefined ValidationStatus fails closed.
         static int StatusPriority(BuildValidator.ValidationStatus status) => status switch
         {
             BuildValidator.ValidationStatus.Error => 0,
@@ -202,7 +202,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             BuildValidator.ValidationStatus.Warning => 2,
             BuildValidator.ValidationStatus.Valid => 3,
             // Least severe: a deliberate skip (vendor absent, wrong platform/profile) never outranks an
-            // actual pass, error, warning, or pending check in the same category (F5, 2026-07-21).
+            // actual pass, error, warning, or pending check in the same category.
             BuildValidator.ValidationStatus.Skipped => 4,
             _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Undefined ValidationStatus."),
         };
@@ -213,7 +213,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             BuildValidator.ValidationStatus.Warning => GateOutcome.PassWithCaveats,
             BuildValidator.ValidationStatus.Unverifiable => GateOutcome.Incomplete,
             BuildValidator.ValidationStatus.Valid => GateOutcome.Pass,
-            // A skip is non-blocking, same gate outcome as a pass (F5) - only the CheckRow-level display
+            // A skip is non-blocking, same gate outcome as a pass - only the CheckRow-level display
             // (Build Health row list) distinguishes it as a neutral Info notice rather than a green check;
             // it does not change the gate's verdict contribution.
             BuildValidator.ValidationStatus.Skipped => GateOutcome.Pass,
@@ -272,7 +272,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             return map;
         }
 
-        // ── Vendor grouping (vendor-grouping cycle spec, supervisor 2026-07-21 ~13:50) ──
+        // ── Vendor grouping ───────────────────────────────────────────────
 
         /// <summary>One expandable group per vendor + two catch-alls, per the endorsed restructure. Not a
         /// second verdict/aggregation concept - purely a display bucket the window groups rows into.</summary>

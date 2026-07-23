@@ -8,21 +8,20 @@ using UnityEngine;
 namespace Sorolla.Palette.Editor.Greenlight
 {
     /// <summary>
-    ///     The AUDITABLE canonical report export (review F4). The Editor greenlight's flattened display rows
+    ///     The AUDITABLE canonical report export. The Editor greenlight's flattened display rows
     ///     drop almost everything a reviewer needs and hide inert rows; this exporter renders the FULL shared
     ///     <see cref="HealthReport"/> instead - every row (including NotApplicable and OptionalSkipped) with
     ///     its stable id, definition version, requirement + reason, disposition, outcome, evidence, and fix -
     ///     plus a build/context fingerprint so a pasted result can be tied to the
     ///     exact game, build, mode, platform, phase, and SDK COMMIT that produced it. One readable text
-    ///     rendering, clipboard as the transport (the parallel JSON export was deleted 2026-07-22: nothing
-    ///     consumed it, and one report beats two that can disagree).
+    ///     rendering, clipboard as the transport: one report beats two that can disagree.
     /// </summary>
     static class GreenlightReportExport
     {
         internal const string Schema = "sorolla.greenlight-report/1";
 
         /// <summary>Identity + context a report was produced under, so a copied result is never ambiguous about
-        /// which build it describes (review F4). Captured at evaluation time.</summary>
+        /// which build it describes. Captured at evaluation time.</summary>
         internal readonly struct Fingerprint
         {
             public readonly string SdkVersion;
@@ -85,14 +84,14 @@ namespace Sorolla.Palette.Editor.Greenlight
             foreach (GateResult r in health?.Rows ?? Array.Empty<GateResult>())
             {
                 // Never print an affirmative [Pass] for a result that was not evaluated evidence. Two cases:
-                // a deliberate skip/absence (F5 residual, 2026-07-21 audit review), and a gate that does not
-                // apply to the platform this report judged (2026-07-23) - the latter carries the default Pass
+                // a deliberate skip/absence, and a gate that does not
+                // apply to the platform this report judged - the latter carries the default Pass
                 // outcome because it never voted, which is exactly why it must not read as one.
                 string outcomeLabel =
                     r.Disposition == GateDisposition.NotApplicable ? "NotApplicable"
                     : r.Informational ? "Skipped"
                     : r.Outcome.ToString();
-                sb.AppendLine($"[{outcomeLabel}] {r.GateId} (v{r.DefinitionVersion}, {r.Classification}) " +
+                sb.AppendLine($"[{outcomeLabel}] {r.GateId} " +
                               $"req={r.Requirement} disp={r.Disposition}");
                 if (!string.IsNullOrEmpty(r.RequirementReason))
                     sb.AppendLine($"    reason: {r.RequirementReason}");

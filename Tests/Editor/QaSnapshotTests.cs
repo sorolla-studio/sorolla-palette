@@ -102,7 +102,7 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void WriteJson_EmitsSchemaAndBuildIdentity()
         {
-            // C4-03/08: the snapshot must carry a schema version + a build-identity block so a wrong-game or
+            // the snapshot must carry a schema version + a build-identity block so a wrong-game or
             // wrong-build snapshot can be rejected editor-side.
             object state = NewState();
             Set(state, "ApplicationId", "com.sorolla.hungrysnake");
@@ -224,11 +224,11 @@ namespace Sorolla.Palette.Editor.Tests
 
             RecordCustom(diag, "consent_resolved", null);
             Assert.That(StaticInt(diag, "s_customEventCount"), Is.EqualTo(before),
-                "SDK-self event must not drive the custom-event health counter (DR-60).");
+                "SDK-self event must not drive the custom-event health counter.");
 
             RecordCustom(diag, "game_event", new Dictionary<string, object> { { "sorolla_qa_test", true } });
             Assert.That(StaticInt(diag, "s_customEventCount"), Is.EqualTo(before),
-                "Tagged QA test event must not drive the health counter (DR-33).");
+                "Tagged QA test event must not drive the health counter.");
 
             RecordCustom(diag, "real_game_event", null);
             Assert.That(StaticInt(diag, "s_customEventCount"), Is.EqualTo(before + 1),

@@ -7,11 +7,11 @@ using Sorolla.Palette.Health;
 namespace Sorolla.Palette.Editor.Tests
 {
     /// <summary>
-    ///     The auditable canonical report export (review F4/F9): the copied report must carry EVERY catalog row
+    ///     The auditable canonical report export: the copied report must carry EVERY catalog row
     ///     - including the inert NotApplicable/OptionalSkipped rows the UI collapses -
-    ///     with its stable id, definition version, requirement + reason, disposition, and outcome, plus a
-    ///     build/context fingerprint. These pin that nothing load-bearing is dropped on the way to the clipboard.
-    ///     One export format only (the parallel JSON was deleted 2026-07-22 - nothing consumed it).
+    ///     with its stable id, requirement + reason, disposition, and outcome, plus a build/context
+    ///     fingerprint. These pin that nothing load-bearing is dropped on the way to the clipboard.
+    ///     One export format only.
     /// </summary>
     public class GreenlightReportExportTests
     {
@@ -59,7 +59,7 @@ namespace Sorolla.Palette.Editor.Tests
         /// <summary>A gate that did not apply to the platform this report judged carries the default Pass
         /// outcome precisely because it never voted. Printing it as [Pass] would turn the audit trail into a
         /// claim the SDK checked something it deliberately skipped, so the line is labelled by its
-        /// disposition instead (2026-07-23 platform-scoping pass).</summary>
+        /// disposition instead.</summary>
         [Test]
         public void Text_LabelsNotApplicableRows_NeverAsPass()
         {

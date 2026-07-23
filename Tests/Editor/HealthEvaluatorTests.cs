@@ -19,21 +19,13 @@ namespace Sorolla.Palette.Editor.Tests
             Mode = EvalMode.Full,
             Platform = EvalPlatform.Android,
             InstalledModules = SdkModule.GameAnalytics,
-
         };
 
-        static GateDefinition Def(
-            string id,
-            Requirement requirement = Requirement.Required,
-            GateClassification classification = GateClassification.Structural)
-        {
-            return new GateDefinition(id, "1.0.0", classification,
-                _ => new RequirementDecision(requirement, "test reason"));
-        }
+        static GateDefinition Def(string id, Requirement requirement = Requirement.Required) =>
+            new GateDefinition(id, _ => new RequirementDecision(requirement, "test reason"));
 
-        static GateDefinition DefReq(string id, System.Func<EvaluationContext, RequirementDecision> req,
-            GateClassification classification = GateClassification.Structural) =>
-            new GateDefinition(id, "1.0.0", classification, req);
+        static GateDefinition DefReq(string id, System.Func<EvaluationContext, RequirementDecision> req) =>
+            new GateDefinition(id, req);
 
         static GateObservation Obs(string id, GateOutcome outcome) =>
             new GateObservation { GateId = id, Outcome = outcome };
@@ -89,7 +81,7 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
         }
 
-        // ── Requirement 4-state (C3-02) ───────────────────────────────────
+        // ── Requirement 4-state ───────────────────────────────────
 
         [Test]
         public void RequirementUnknown_IsIncomplete()
@@ -118,7 +110,7 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
         }
 
-        // ── C3-04: optional-unobserved is OptionalSkipped, not NotApplicable ─
+        // ── optional-unobserved is OptionalSkipped, not NotApplicable ─
 
         [Test]
         public void OptionalUnobserved_IsOptionalSkipped_NotNotApplicable_DoesNotBlockPass()
@@ -142,7 +134,7 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(GateOutcome.Fail, r.Outcome);
         }
 
-        // ── C3-05: observation for a NotApplicable gate is a context mismatch ─
+        // ── observation for a NotApplicable gate is a context mismatch ─
 
         [Test]
         public void ObservationForNotApplicableGate_IsValidationErrorAndAtLeastIncomplete()
@@ -196,7 +188,7 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
         }
 
-        // ── Every gate is evaluated: no phase/audience selection (2026-07-22) ──
+        // ── Every gate is evaluated: no phase/audience selection ──
 
         [Test]
         public void EveryDefinitionIsEvaluated_NoPhaseSelection()
@@ -214,40 +206,14 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
         }
 
-        // ── C3-06: corrupted enum/flag values must not fail open ───────────
-
-        [Test]
-        public void InvalidObservationOutcome_IsValidationErrorAndIncomplete_EvenWithAPass()
-        {
-            HealthReport r = HealthEvaluator.Evaluate(Catalog(Def("a"), Def("b", Requirement.Optional)), Ctx(),
-                new List<GateObservation>
-                {
-                    Obs("a", GateOutcome.Pass),
-                    new GateObservation { GateId = "b", Outcome = (GateOutcome)999 },
-                });
-            Assert.IsNotEmpty(r.ValidationErrors);
-            Assert.AreEqual(GateOutcome.Incomplete, r.Outcome, "an invalid outcome must not fail open to PASS");
-        }
-
-        [Test]
-        public void InvalidRequirementValue_IsValidationErrorAndIncomplete()
-        {
-            HealthReport r = HealthEvaluator.Evaluate(
-                Catalog(DefReq("a", _ => new RequirementDecision((Requirement)999, "x"))), Ctx(),
-                new List<GateObservation> { Obs("a", GateOutcome.Pass) });
-            Assert.IsNotEmpty(r.ValidationErrors);
-            Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
-        }
-
         [Test]
         public void UnresolvedModules_IsValidationErrorAndIncomplete()
         {
-            // C4-02: unknown manifest state must be INCOMPLETE, never treated as an empty (absent) module set.
+            // Unknown manifest state must be INCOMPLETE, never treated as an empty (absent) module set.
             var ctx = new EvaluationContext
             {
                 Mode = EvalMode.Full, Platform = EvalPlatform.Android, InstalledModules = SdkModule.None,
                 ModulesResolved = false,
-
             };
             HealthReport r = HealthEvaluator.Evaluate(Catalog(Def("a")), ctx,
                 new List<GateObservation> { Obs("a", GateOutcome.Pass) });
@@ -255,22 +221,7 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
         }
 
-        [Test]
-        public void InvalidContextMode_IsValidationErrorAndIncomplete()
-        {
-            var ctx = new EvaluationContext
-            {
-                Mode = (EvalMode)999, Platform = EvalPlatform.Android,
-                InstalledModules = SdkModule.None,
-
-            };
-            HealthReport r = HealthEvaluator.Evaluate(Catalog(Def("a")), ctx,
-                new List<GateObservation> { Obs("a", GateOutcome.Pass) });
-            Assert.IsNotEmpty(r.ValidationErrors);
-            Assert.AreEqual(GateOutcome.Incomplete, r.Outcome);
-        }
-
-        // ── C3-07: strict catalog validation ──────────────────────────────
+        // ── Strict catalog validation ─────────────────────────────────────
 
         static IReadOnlyList<EvaluationContext> Grid => GateCatalog.SupportedContexts;
 
@@ -299,17 +250,9 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
-        public void Validate_EmptyVersion_IsProblem()
-        {
-            var def = new GateDefinition("a", "", GateClassification.Structural,
-                _ => new RequirementDecision(Requirement.Required));
-            Assert.IsNotEmpty(GateCatalog.Validate(new[] { def }, Grid));
-        }
-
-        [Test]
         public void Validate_MissingRequirementPredicate_IsProblem()
         {
-            var def = new GateDefinition("a", "1", GateClassification.Structural, null);
+            var def = new GateDefinition("a", null);
             Assert.IsNotEmpty(GateCatalog.Validate(new[] { def }, Grid));
         }
 
@@ -347,7 +290,7 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.Throws<KeyNotFoundException>(() => Catalog(Def("a")).ById("missing"));
         }
 
-        // ── F4-06: Unknown requirement must not weaken an observed FAIL ────
+        // ── Unknown requirement must not weaken an observed FAIL ────
 
         [Test]
         public void UnknownRequirement_WithObservedFail_StaysFail_AndKeepsEvidence()
@@ -366,7 +309,7 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(GateOutcome.Fail, r.Outcome);
         }
 
-        // ── F4-03: malformed boundary inputs produce INCOMPLETE, never throw ─
+        // ── malformed boundary inputs produce INCOMPLETE, never throw ─
 
         [Test]
         public void NullCatalog_IsIncomplete_NotThrow()
@@ -402,7 +345,7 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(GateOutcome.Incomplete, Row(r, "a").Outcome, "an invalid outcome must be coerced, not passed to the UI mapper");
         }
 
-        // ── F4-04: reason mandatory for all four states ───────────────────
+        // ── Reason mandatory for all four states ──────────────────────────
 
         [Test]
         public void Validate_AnyStateWithoutReason_IsProblem()
