@@ -119,7 +119,10 @@ Confirm:
 - If this Prototype uses Firebase, it is installed and the active platform config file is present.
 - The **Launch Readiness** verdict reads **HEALTHY**.
 
-Keep Prototype mode lean. Do not configure MAX, Adjust, IAP, consent, or store privacy yet. TikTok is a parked vendor: new integrations should not configure it, though an existing compatibility config may remain (see the [TikTok guide](guides/tiktok.md)).
+Keep Prototype mode lean. MAX and Firebase are optional: when absent, their checks and test steps do
+not appear; when installed, Palette validates them fully. Do not install Adjust or Unity IAP for a
+Prototype that does not use them. TikTok is a parked vendor: new integrations should not configure
+it, though an existing compatibility config may remain (see the [TikTok guide](guides/tiktok.md)).
 
 ---
 

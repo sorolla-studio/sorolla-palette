@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Sorolla.Palette.Adapters;
+using Sorolla.Palette.Health;
 using UnityEngine;
 
 namespace Sorolla.Palette
@@ -16,7 +17,12 @@ namespace Sorolla.Palette
             Snapshot snapshot = CaptureSnapshot();
 
             bool fullMode = IsFullMode(config, snapshot);
-            SorollaAdsCapability ads = SorollaRuntimeCapabilities.Ads(fullMode);
+            CapabilityState ads = SorollaRuntimeCapabilities.Max(fullMode);
+            CapabilityState adjust = SorollaRuntimeCapabilities.Adjust(fullMode);
+            CapabilityState firebaseAnalytics = SorollaRuntimeCapabilities.FirebaseAnalytics(fullMode);
+            CapabilityState firebaseCrashlytics = SorollaRuntimeCapabilities.FirebaseCrashlytics(fullMode);
+            CapabilityState firebaseRemoteConfig = SorollaRuntimeCapabilities.FirebaseRemoteConfig(fullMode);
+            CapabilityState iap = SorollaRuntimeCapabilities.UnityIap(fullMode);
 
             Add(rows, "Boot", "Auto-init marker", snapshot.AutoInitSeen ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
                 snapshot.AutoInitSeen ? "Observed" : "Waiting for bootstrap");
@@ -43,25 +49,27 @@ namespace Sorolla.Palette
                     "Missing Assets/Resources/SorollaConfig.asset", SorollaConfigMissingDiagnosis());
             }
 
-            if (fullMode && snapshot.AdjustMissingToken)
+            if (adjust.Applicable)
             {
-                AddDiagnosed(rows, "Config", "Adjust token", SorollaDiagnosticSeverity.Fail,
-                    "Missing or rejected by SDK", AdjustTokenMissingDiagnosis());
+                if (snapshot.AdjustMissingToken)
+                    AddDiagnosed(rows, "Config", "Adjust token", SorollaDiagnosticSeverity.Fail,
+                        "Missing or rejected by SDK", AdjustTokenMissingDiagnosis());
+                else
+                    Add(rows, "Config", "Adjust token",
+                        ConfigPresence(config?.adjustAppToken, true, snapshot.AdjustMissingToken));
+
+                SorollaDiagnosticSeverity environmentSeverity = AdjustEnvironmentSeverity(config, true);
+                string environmentDetail = AdjustEnvironmentDetail(config, true);
+                if (environmentSeverity == SorollaDiagnosticSeverity.Fail)
+                    AddDiagnosed(rows, "Config", "Adjust environment", environmentSeverity, environmentDetail,
+                        AdjustSandboxReleaseDiagnosis());
+                else
+                    Add(rows, "Config", "Adjust environment", environmentSeverity, environmentDetail);
             }
-            else
-            {
-                Add(rows, "Config", "Adjust token", ConfigPresence(config?.adjustAppToken, fullMode, snapshot.AdjustMissingToken));
-            }
-            SorollaDiagnosticSeverity environmentSeverity = AdjustEnvironmentSeverity(config, fullMode);
-            string environmentDetail = AdjustEnvironmentDetail(config, fullMode);
-            if (environmentSeverity == SorollaDiagnosticSeverity.Fail)
-                AddDiagnosed(rows, "Config", "Adjust environment", environmentSeverity, environmentDetail,
-                    AdjustSandboxReleaseDiagnosis());
-            else
-                Add(rows, "Config", "Adjust environment", environmentSeverity, environmentDetail);
             AddMaxConfigRows(rows, config, ads);
-            AddConfigPresence(rows, "Purchase event token", config?.adjustPurchaseEventToken, fullMode,
-                MissingPurchaseEventTokenDiagnosis());
+            if (adjust.Applicable && iap.Included)
+                AddConfigPresence(rows, "Purchase event token", config?.adjustPurchaseEventToken, true,
+                    MissingPurchaseEventTokenDiagnosis());
 
 #if GAMEANALYTICS_INSTALLED
             bool gameAnalyticsReady = GameAnalyticsAdapter.IsInitialized || snapshot.GaInitialized;
@@ -106,23 +114,28 @@ namespace Sorolla.Palette
                 Add(rows, "SDKs", "Facebook", facebookRowSeverity, facebookRowDetail);
             }
 #else
-            Add(rows, "SDKs", "Facebook", SorollaDiagnosticSeverity.Info, "Package not installed");
+            AddDiagnosed(rows, "SDKs", "Facebook", SorollaDiagnosticSeverity.Fail, "Package not installed",
+                PackageMissingDiagnosis("Facebook", "com.lacrearthur.facebook-sdk-for-unity"));
 #endif
 
             AddMaxSdkRows(rows, snapshot, ads);
 
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
-            Add(rows, "SDKs", "Adjust implementation", snapshot.AdjustRegistered ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
-                snapshot.AdjustRegistered ? "Registered" : "Waiting for adapter registration");
-            Add(rows, "SDKs", "Adjust initialized", AdjustRuntimeSeverity(snapshot, fullMode),
-                AdjustRuntimeDetail(snapshot, fullMode));
+            if (adjust.Applicable)
+            {
+                Add(rows, "SDKs", "Adjust implementation", snapshot.AdjustRegistered ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting,
+                    snapshot.AdjustRegistered ? "Registered" : "Waiting for adapter registration");
+                Add(rows, "SDKs", "Adjust initialized", AdjustRuntimeSeverity(snapshot, true),
+                    AdjustRuntimeDetail(snapshot, true));
+            }
 #else
-            if (fullMode)
+            if (adjust.Required)
                 AddDiagnosed(rows, "SDKs", "Adjust", SorollaDiagnosticSeverity.Fail, "Package missing for Full mode",
                     PackageMissingDiagnosis("Adjust", "com.adjust.sdk"));
-            else
-                Add(rows, "SDKs", "Adjust", SorollaDiagnosticSeverity.Info, "Not installed");
 #endif
+
+            AddMissingFirebaseSuiteRow(
+                rows, firebaseAnalytics, firebaseCrashlytics, firebaseRemoteConfig);
 
 #if FIREBASE_ANALYTICS_INSTALLED
             bool firebaseCoreReady = snapshot.FirebaseCoreReady || FirebaseCoreManager.IsInitialized;
@@ -134,11 +147,6 @@ namespace Sorolla.Palette
                 AdapterRowSeverity(snapshot.FirebaseAnalyticsOutcome, firebaseAnalyticsReady ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting),
                 AdapterRowDetail(snapshot.FirebaseAnalyticsOutcome, firebaseAnalyticsReady ? "Ready" : "Waiting for Firebase Analytics"));
 #else
-            if (fullMode)
-                AddDiagnosed(rows, "Firebase", "Analytics", SorollaDiagnosticSeverity.Fail, "Package missing for Full mode",
-                    PackageMissingDiagnosis("Firebase Analytics", "com.google.firebase.analytics"));
-            else
-                Add(rows, "Firebase", "Analytics", SorollaDiagnosticSeverity.Info, "Not installed");
 #endif
 
 #if FIREBASE_CRASHLYTICS_INSTALLED
@@ -147,11 +155,6 @@ namespace Sorolla.Palette
                 AdapterRowSeverity(snapshot.CrashlyticsOutcome, crashlyticsReady ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Waiting),
                 AdapterRowDetail(snapshot.CrashlyticsOutcome, crashlyticsReady ? "Initialized" : "Waiting for init"));
 #else
-            if (fullMode)
-                AddDiagnosed(rows, "Firebase", "Crashlytics", SorollaDiagnosticSeverity.Fail, "Package missing for Full mode",
-                    PackageMissingDiagnosis("Firebase Crashlytics", "com.google.firebase.crashlytics"));
-            else
-                Add(rows, "Firebase", "Crashlytics", SorollaDiagnosticSeverity.Info, "Not installed");
 #endif
 
 #if FIREBASE_REMOTE_CONFIG_INSTALLED
@@ -164,11 +167,6 @@ namespace Sorolla.Palette
                 AdapterRowSeverity(snapshot.RemoteConfigOutcome, remoteConfigSeverity),
                 AdapterRowDetail(snapshot.RemoteConfigOutcome, remoteConfigDetail));
 #else
-            if (fullMode)
-                AddDiagnosed(rows, "Firebase", "Remote Config", SorollaDiagnosticSeverity.Fail, "Package missing for Full mode",
-                    PackageMissingDiagnosis("Firebase Remote Config", "com.google.firebase.remote-config"));
-            else
-                Add(rows, "Firebase", "Remote Config", SorollaDiagnosticSeverity.Info, "Not installed");
 #endif
 
             AddMaxConsentRows(rows, snapshot, ads);
@@ -184,8 +182,11 @@ namespace Sorolla.Palette
                 Add(rows, "Consent", "ATT", att.severity, Palette.AttStatus.ToString());
 #endif
             AddObserved(rows, "Identity", AdvertisingIdLabel(), AdvertisingIdSeverity(snapshot), AdvertisingIdDetail(snapshot));
-            AddObserved(rows, "Identity", "Adjust ADID", AdjustIdSeverity(snapshot, fullMode), AdjustIdDetail(snapshot, fullMode));
-            AddObserved(rows, "Identity", "Attribution", AttributionSeverity(snapshot, fullMode), AttributionDetail(snapshot));
+            if (adjust.Applicable)
+            {
+                AddObserved(rows, "Identity", "Adjust ADID", AdjustIdSeverity(snapshot, true), AdjustIdDetail(snapshot, true));
+                AddObserved(rows, "Identity", "Attribution", AttributionSeverity(snapshot, true), AttributionDetail(snapshot));
+            }
 
             AddObserved(rows, "Activity", "Progression start/end", CountPairSeverity(snapshot.ProgressionStartCount, snapshot.ProgressionEndCount),
                 $"{snapshot.ProgressionStartCount} start / {snapshot.ProgressionEndCount} end observed");
@@ -199,12 +200,15 @@ namespace Sorolla.Palette
                 $"{snapshot.EconomyEarnCount} earn / {snapshot.EconomySpendCount} spend observed");
             AddObserved(rows, "Activity", "Custom events", snapshot.CustomEventCount > 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
                 snapshot.CustomEventCount > 0 ? $"{snapshot.CustomEventCount} observed, last={snapshot.LastCustomEvent}" : "None observed");
-            AddObserved(rows, "Activity", "IAP tracking attached", snapshot.PurchaseTrackingAttached ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
-                snapshot.PurchaseTrackingAttached ? "AttachPurchaseTracking wired" : "Waiting for store controller wiring");
-            AddObserved(rows, "Activity", "Purchase accepted", snapshot.PurchaseAcceptedCount > 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
-                snapshot.PurchaseAcceptedCount > 0 ? $"{snapshot.PurchaseAcceptedCount} purchase event(s)" : "No purchase observed");
-            AddPurchaseVerificationRow(rows, snapshot);
-            AddPurchaseIssuesRow(rows, snapshot);
+            if (iap.Included)
+            {
+                AddObserved(rows, "Activity", "IAP tracking attached", snapshot.PurchaseTrackingAttached ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
+                    snapshot.PurchaseTrackingAttached ? "AttachPurchaseTracking wired" : "Waiting for store controller wiring");
+                AddObserved(rows, "Activity", "Purchase accepted", snapshot.PurchaseAcceptedCount > 0 ? SorollaDiagnosticSeverity.Pass : SorollaDiagnosticSeverity.Info,
+                    snapshot.PurchaseAcceptedCount > 0 ? $"{snapshot.PurchaseAcceptedCount} purchase event(s)" : "No purchase observed");
+                AddPurchaseVerificationRow(rows, snapshot);
+                AddPurchaseIssuesRow(rows, snapshot);
+            }
 
             AddMaxAdRows(rows, snapshot, ads);
 
@@ -222,7 +226,7 @@ namespace Sorolla.Palette
         static void AddObserved(List<SorollaDiagnosticRow> rows, string group, string name, SorollaDiagnosticSeverity severity, string detail) =>
             Add(rows, group, name, severity, detail, SorollaDiagnosticKind.Observed);
 
-        static void AddMaxConfigRows(List<SorollaDiagnosticRow> rows, SorollaConfig config, SorollaAdsCapability ads)
+        static void AddMaxConfigRows(List<SorollaDiagnosticRow> rows, SorollaConfig config, CapabilityState ads)
         {
             if (!ads.Included) return;
 
@@ -232,7 +236,30 @@ namespace Sorolla.Palette
                 MissingAdUnitDiagnosis("interstitial"));
         }
 
-        static void AddMaxSdkRows(List<SorollaDiagnosticRow> rows, Snapshot snapshot, SorollaAdsCapability ads)
+        static void AddMissingFirebaseSuiteRow(
+            List<SorollaDiagnosticRow> rows,
+            CapabilityState analytics,
+            CapabilityState crashlytics,
+            CapabilityState remoteConfig)
+        {
+            if (!analytics.Required && !crashlytics.Required && !remoteConfig.Required) return;
+
+            var missing = new List<string>(3);
+            if (!analytics.Included) missing.Add("Analytics");
+            if (!crashlytics.Included) missing.Add("Crashlytics");
+            if (!remoteConfig.Included) missing.Add("Remote Config");
+            if (missing.Count == 0) return;
+
+            string detail = "Missing required modules: " + string.Join(", ", missing);
+            AddDiagnosed(rows, "Firebase", "Firebase suite", SorollaDiagnosticSeverity.Fail, detail,
+                (
+                    "Full mode requires the supported Firebase module suite, but this build includes only part of it.",
+                    "Missing modules cannot initialize or receive the SDK events assigned to them.",
+                    "In Tools > Sorolla Palette SDK, install the missing Firebase modules, then refresh validation."
+                ));
+        }
+
+        static void AddMaxSdkRows(List<SorollaDiagnosticRow> rows, Snapshot snapshot, CapabilityState ads)
         {
             if (!ads.Included)
             {
@@ -252,7 +279,7 @@ namespace Sorolla.Palette
                     snapshot.MaxInitialized ? "Initialized" : "Waiting for MAX callback"));
         }
 
-        static void AddMaxConsentRows(List<SorollaDiagnosticRow> rows, Snapshot snapshot, SorollaAdsCapability ads)
+        static void AddMaxConsentRows(List<SorollaDiagnosticRow> rows, Snapshot snapshot, CapabilityState ads)
         {
             if (!ads.Included) return;
 
@@ -274,7 +301,7 @@ namespace Sorolla.Palette
             Add(rows, "Consent", "Can request ads", SorollaDiagnosticSeverity.Pass, "True");
         }
 
-        static void AddMaxAdRows(List<SorollaDiagnosticRow> rows, Snapshot snapshot, SorollaAdsCapability ads)
+        static void AddMaxAdRows(List<SorollaDiagnosticRow> rows, Snapshot snapshot, CapabilityState ads)
         {
             if (!ads.Included) return;
 
@@ -368,8 +395,8 @@ namespace Sorolla.Palette
         {
             if (config == null && !snapshot.ModeKnown) return "Config missing / mode unknown";
             return IsFullMode(config, snapshot)
-                ? "Full mode (MAX + Adjust + GA + FB + Firebase)"
-                : "Prototype mode (GA + FB + Firebase; MAX/Adjust excluded by design)";
+                ? "Full mode (AppLovin MAX + Adjust + GameAnalytics + Facebook + Firebase)"
+                : "Prototype mode (GameAnalytics + Facebook; optional capabilities validated when included)";
         }
 
         static bool IsFullMode(SorollaConfig config, Snapshot snapshot)
@@ -405,16 +432,14 @@ namespace Sorolla.Palette
             return Debug.isDebugBuild ? "Sandbox (development)" : "Sandbox in release build";
         }
 
-        static string AdjustEnvironmentHeaderLabel(SorollaConfig config, bool fullMode)
+        static string AdjustEnvironmentHeaderLabel(SorollaConfig config)
         {
-            if (!fullMode) return "Adjust n/a";
             if (config == null) return "Adjust missing";
             return config.adjustSandboxMode ? "Adjust Sandbox" : "Adjust Production";
         }
 
-        static string ConsentHeaderLabel(bool fullMode)
+        static string ConsentHeaderLabel()
         {
-            if (!fullMode) return "Consent n/a";
             if (Palette.CanRequestAds) return "Ads OK";
 
             switch (Palette.ConsentStatus)
@@ -736,7 +761,7 @@ namespace Sorolla.Palette
             public static GameAnalyticsPlatformKeysDiagnostic Missing(string platformName) =>
                 new GameAnalyticsPlatformKeysDiagnostic
                 {
-                    Severity = SorollaDiagnosticSeverity.Warning,
+                    Severity = SorollaDiagnosticSeverity.Fail,
                     Detail = $"{platformName} has no game key + secret key pair in Assets/Resources/GameAnalytics/Settings.asset.",
                     PlatformName = platformName,
                     MissingKeyPair = true,

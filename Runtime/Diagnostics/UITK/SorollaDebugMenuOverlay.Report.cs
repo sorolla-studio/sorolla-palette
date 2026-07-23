@@ -254,14 +254,11 @@ namespace Sorolla.Palette
             detail.AddToClassList("sorolla-debugmenu-matrix-row-detail");
             textColumn.Add(detail);
 
-            // Cells the SDK can exercise itself get the button inline, so the to-do is one tap away.
-            // Progression / economy / custom-event cells stay button-less BY DESIGN: only real game code
-            // can honestly satisfy them, and a QA button firing them would inflate the studio's coverage.
-            string action = InlineActionFor(row);
-            bool retestableConsent = row.Name == "Consent";
-            if ((!row.Exercised || retestableConsent) && !row.IsManualReminder && action != null)
+            // The diagnostics model owns action applicability. This UI only renders the supplied action.
+            if ((!row.Exercised || row.Action == QaActionRegistry.ResetConsent) &&
+                !row.IsManualReminder && row.Action != null)
             {
-                var button = new Button(() => RunActionAndRefreshReport(action)) { text = InlineActionLabel(action) };
+                var button = new Button(() => RunActionAndRefreshReport(row.Action)) { text = row.ActionLabel };
                 button.AddToClassList("sorolla-debugmenu-action-button");
                 button.AddToClassList("sorolla-debugmenu-action-button-ghost");
                 textColumn.Add(button);
@@ -269,27 +266,6 @@ namespace Sorolla.Palette
 
             line.Add(textColumn);
             return line;
-        }
-
-        static string InlineActionFor(SorollaMenuMatrixRow row)
-        {
-            switch (row.Name)
-            {
-                case "Ads · interstitial": return QaActionRegistry.ShowInterstitial;
-                case "Ads · rewarded": return QaActionRegistry.ShowRewarded;
-                case "Consent": return QaActionRegistry.ResetConsent;
-                default: return null;
-            }
-        }
-
-        static string InlineActionLabel(string action)
-        {
-            switch (action)
-            {
-                case QaActionRegistry.ShowInterstitial: return "Show interstitial";
-                case QaActionRegistry.ShowRewarded: return "Show rewarded";
-                default: return "Reset consent";
-            }
         }
 
         void RunActionAndRefreshReport(string registryAction)

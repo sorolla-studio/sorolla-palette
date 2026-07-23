@@ -83,11 +83,11 @@ namespace Sorolla.Palette
             {
                 actions.Add(new Registration(ShowRewarded, _ => DoShowRewarded()));
                 actions.Add(new Registration(ShowInterstitial, _ => DoShowInterstitial()));
+                actions.Add(new Registration(OpenPrivacyOptions, _ => DoOpenPrivacyOptions()));
+                actions.Add(new Registration(ResetConsent, _ => DoResetConsent()));
+                actions.Add(new Registration(RefreshConsent, _ => DoRefreshConsent()));
             }
 
-            actions.Add(new Registration(OpenPrivacyOptions, _ => DoOpenPrivacyOptions()));
-            actions.Add(new Registration(ResetConsent, _ => DoResetConsent()));
-            actions.Add(new Registration(RefreshConsent, _ => DoRefreshConsent()));
             actions.Add(new Registration(TrackTestEvent, _ => DoTrackTestEvent()));
             actions.Add(new Registration(LevelStart, _ => DoLevelStart()));
             actions.Add(new Registration(LevelComplete, _ => DoLevelComplete()));

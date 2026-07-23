@@ -118,6 +118,10 @@ namespace Sorolla.Palette.Health
         // ids were added or removed: a per-platform id whose only remaining job is an audit row would be
         // catalog churn, and the copied report already states which platform it judged.
         const string V3 = "3";
+        // V4 (2026-07-23, capability scoping): package availability is owned by BuildRequiredSdks.
+        // Vendor-dependent checks now apply only when that package is included, eliminating duplicate
+        // missing-package rows and optional-vendor clutter.
+        const string V4 = "4";
 
         static IReadOnlyList<GateDefinition> BuildCanonical()
         {
@@ -137,29 +141,30 @@ namespace Sorolla.Palette.Health
             // platform's key pair is missing. V2 had also warned about the other platform's keys; that warning
             // blocked a green verdict for a game deliberately shipping one platform, and the other platform's
             // state is now carried by the vendor group caption instead of by this gate.
-            defs.Add(new GateDefinition(GateIds.BuildGameAnalyticsKeys, V3, GateClassification.Variant,
-                ProofScope.Static, Requirements.AlwaysRequired));
-            AddBuild(defs, GateIds.BuildGameAnalyticsCredentials, GateClassification.Variant, Requirements.AlwaysRequired);
+            defs.Add(new GateDefinition(GateIds.BuildGameAnalyticsKeys, V4, GateClassification.Variant,
+                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.GameAnalytics, CapabilityRule.Core)));
+            defs.Add(new GateDefinition(GateIds.BuildGameAnalyticsCredentials, V4, GateClassification.Variant,
+                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.GameAnalytics, CapabilityRule.Core)));
             // V2 (2026-07-23): the Facebook app's platform registration is judged for the active build target
             // only. The Graph response still describes both platforms - the row just stops grading the one
             // this build is not for.
-            defs.Add(new GateDefinition(GateIds.BuildFacebookPlatform, V2, GateClassification.Variant,
-                ProofScope.Static, Requirements.AlwaysRequired));
+            defs.Add(new GateDefinition(GateIds.BuildFacebookPlatform, V4, GateClassification.Variant,
+                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.Facebook, CapabilityRule.Core)));
 
-            // Firebase coherence - THE decided contradiction, expressed in the 4-state model. SdkRegistry
-            // marks every Firebase module FullRequired ("optional in Prototype, never uninstalled"), so it is
-            // Required in Full and Optional in Prototype: a prototype that ships Firebase has its coherence
-            // evaluated, a bare prototype skips it cleanly (no penalty), and no real observation is discarded.
-            AddBuild(defs, GateIds.BuildFirebaseCoherence, GateClassification.Structural,
-                Requirements.FullRequiredElseOptional);
+            // Firebase is required in Full and validated in Prototype only when at least one Firebase module
+            // is actually included. Package availability is owned by BuildRequiredSdks; dependent checks do
+            // not duplicate a missing-package failure.
+            defs.Add(new GateDefinition(GateIds.BuildFirebaseCoherence, V4, GateClassification.Structural,
+                ProofScope.Static, CapabilityPolicy.FullSuiteDependent(SdkModule.Firebase)));
 
             // Full-mode vendors (AppLovin MAX FullRequired, Adjust FullOnly): Required in Full, Optional in
             // Prototype (evaluated only if the vendor is present). Both carry per-game credentials/ad-unit ids.
-            // MAX V2 (2026-07-23): only the active build target's ad unit ids are graded (it used to demand
-            // every format on BOTH platforms). Adjust needs no version bump - its token was never per-platform.
-            defs.Add(new GateDefinition(GateIds.BuildMaxSettings, V2, GateClassification.Variant,
-                ProofScope.Static, Requirements.FullRequiredElseOptional));
-            AddBuild(defs, GateIds.BuildAdjustSettings, GateClassification.Variant, Requirements.FullRequiredElseOptional);
+            // Only the active build target's ad unit ids are graded. V4 also scopes both settings gates to
+            // the package-backed capability, so missing packages are owned by the root package gate.
+            defs.Add(new GateDefinition(GateIds.BuildMaxSettings, V4, GateClassification.Variant,
+                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.AppLovinMax, CapabilityRule.FullRequired)));
+            defs.Add(new GateDefinition(GateIds.BuildAdjustSettings, V4, GateClassification.Variant,
+                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.Adjust, CapabilityRule.FullOnly)));
 
             // Firebase config files follow the SAME requirement as Firebase itself (review C4-05): when
             // Firebase is required (Full), a missing google-services.json / plist must block release
@@ -170,10 +175,12 @@ namespace Sorolla.Palette.Health
             // warning is what kept an iOS-only game from ever reading green. The asymmetry now lives in
             // applicability instead of severity, so the row for the platform this build is not for leaves the
             // verdict and the counts entirely (it still prints in the copied report as NotApplicable).
-            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfigAndroid, V2, GateClassification.Variant,
-                ProofScope.Static, Requirements.OnPlatform(EvalPlatform.Android, Requirements.FullRequiredElseOptional)));
-            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfigIos, V2, GateClassification.Variant,
-                ProofScope.Static, Requirements.OnPlatform(EvalPlatform.iOS, Requirements.FullRequiredElseOptional)));
+            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfigAndroid, V4, GateClassification.Variant,
+                ProofScope.Static, Requirements.OnPlatform(EvalPlatform.Android,
+                    CapabilityPolicy.FullSuiteDependent(SdkModule.Firebase))));
+            defs.Add(new GateDefinition(GateIds.BuildFirebaseConfigIos, V4, GateClassification.Variant,
+                ProofScope.Static, Requirements.OnPlatform(EvalPlatform.iOS,
+                    CapabilityPolicy.FullSuiteDependent(SdkModule.Firebase))));
 
             // Keystore is Required on Android at release. ReleaseOnly: a release keystore is normally absent
             // mid-development, so the build preprocessor stays quiet about it on development builds - the ROW
@@ -182,8 +189,8 @@ namespace Sorolla.Palette.Health
             // any sandbox-on state is worth a console warning on every build, not just release ones.
             defs.Add(new GateDefinition(GateIds.BuildAndroidKeystore, Version, GateClassification.Variant,
                 ProofScope.Static, Requirements.AndroidRequiredElseOptional, releaseOnly: true));
-            defs.Add(new GateDefinition(GateIds.BuildAdjustSandboxMode, Version, GateClassification.Structural,
-                ProofScope.Static, Requirements.AlwaysOptional));
+            defs.Add(new GateDefinition(GateIds.BuildAdjustSandboxMode, V4, GateClassification.Structural,
+                ProofScope.Static, CapabilityPolicy.Dependent(SdkModule.Adjust, CapabilityRule.FullOnly)));
 
             // Advisory Build Health rows - Optional in both modes. Their OBSERVED outcome still drives
             // precedence (an error -> FAIL, a warning -> caveats); an unobserved conditional check is a real
@@ -324,11 +331,6 @@ namespace Sorolla.Palette.Health
 
         internal static readonly Func<EvaluationContext, RequirementDecision> AlwaysOptional =
             _ => Opt("advisory check");
-
-        internal static readonly Func<EvaluationContext, RequirementDecision> FullRequiredElseOptional = ctx =>
-            ctx.Mode == EvalMode.Unknown ? Unk("SDK mode is unknown (no config)")
-            : ctx.Mode == EvalMode.Full ? Req("required in Full mode")
-            : Opt("optional in Prototype (evaluated if present)");
 
         internal static readonly Func<EvaluationContext, RequirementDecision> AndroidRequiredElseOptional = ctx =>
             ctx.Platform == EvalPlatform.Unknown ? Unk("build platform is unknown")

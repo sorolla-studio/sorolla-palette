@@ -8,8 +8,8 @@ namespace Sorolla.Palette.Editor.Tests
     ///     Truth table for the populated canonical <see cref="GateCatalog"/> - the mode requirement table on
     ///     the repaired 4-state model (review C3-02). Pins each gate's context-derived requirement
     ///     (Required | Optional | NotApplicable | Unknown) under mode x platform, including the decided
-    ///     Firebase-in-Prototype semantics: Required in Full, Optional in Prototype (evaluated if present,
-    ///     cleanly skipped if not) - never NotApplicable, which would discard a real Firebase observation.
+    ///     Capability checks are applicable only when their package is included. Package absence is owned by
+    ///     the required-SDK root gate, so dependent checks never duplicate it.
     /// </summary>
     public class GateCatalogTests
     {
@@ -50,17 +50,24 @@ namespace Sorolla.Palette.Editor.Tests
         // ── Core SDK gates: Required in BOTH modes ─────────────────────────
 
         [Test]
-        public void CoreGates_RequiredInBothModes_EvenWithNoModules()
+        public void CorePackageRootOwnsAbsence_AndDependentsRequireIncludedPackage()
         {
+            Assert.AreEqual(Requirement.Required,
+                ReqOf(GateIds.BuildRequiredSdks, Ctx(EvalMode.Prototype, EvalPlatform.Android)));
+
             foreach (string id in new[]
-            {
-                GateIds.BuildRequiredSdks, GateIds.BuildGameAnalyticsKeys,
-                GateIds.BuildGameAnalyticsCredentials, GateIds.BuildFacebookPlatform,
-            })
-            {
-                Assert.AreEqual(Requirement.Required, ReqOf(id, Ctx(EvalMode.Prototype, EvalPlatform.Android)), id);
-                Assert.AreEqual(Requirement.Required, ReqOf(id, Ctx(EvalMode.Full, EvalPlatform.iOS)), id);
-            }
+                     {
+                         GateIds.BuildGameAnalyticsKeys,
+                         GateIds.BuildGameAnalyticsCredentials,
+                         GateIds.BuildFacebookPlatform,
+                     })
+                Assert.AreEqual(Requirement.NotApplicable,
+                    ReqOf(id, Ctx(EvalMode.Prototype, EvalPlatform.Android)), id);
+
+            Assert.AreEqual(Requirement.Required, ReqOf(GateIds.BuildGameAnalyticsKeys,
+                Ctx(EvalMode.Prototype, EvalPlatform.Android, SdkModule.GameAnalytics)));
+            Assert.AreEqual(Requirement.Required, ReqOf(GateIds.BuildFacebookPlatform,
+                Ctx(EvalMode.Full, EvalPlatform.iOS, SdkModule.Facebook)));
         }
 
         // ── Firebase: the decided contradiction (Optional-in-Prototype) ────
@@ -68,16 +75,17 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void Firebase_RequiredInFull()
         {
-            Assert.AreEqual(Requirement.Required, ReqOf(GateIds.BuildFirebaseCoherence, Ctx(EvalMode.Full, EvalPlatform.Android)));
+            Assert.AreEqual(Requirement.Required, ReqOf(GateIds.BuildFirebaseCoherence,
+                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.Firebase)));
         }
 
         [Test]
-        public void Firebase_OptionalInPrototype_NotNotApplicable()
+        public void Firebase_PrototypeDependsOnPackageInclusion()
         {
-            // The C3-04-correct expression: Optional preserves a real Firebase observation and skips cleanly
-            // when absent - never NotApplicable (which would discard evidence).
-            Requirement req = ReqOf(GateIds.BuildFirebaseCoherence, Ctx(EvalMode.Prototype, EvalPlatform.Android));
-            Assert.AreEqual(Requirement.Optional, req);
+            Assert.AreEqual(Requirement.NotApplicable, ReqOf(GateIds.BuildFirebaseCoherence,
+                Ctx(EvalMode.Prototype, EvalPlatform.Android)));
+            Assert.AreEqual(Requirement.Optional, ReqOf(GateIds.BuildFirebaseCoherence,
+                Ctx(EvalMode.Prototype, EvalPlatform.Android, SdkModule.FirebaseAnalytics)));
         }
 
         [Test]
@@ -89,31 +97,50 @@ namespace Sorolla.Palette.Editor.Tests
         // ── Full-mode vendors ──────────────────────────────────────────────
 
         [Test]
-        public void FullModeVendorSettings_RequiredInFull_OptionalInPrototype()
+        public void FullModeVendorSettings_FollowCapabilityInclusion()
         {
-            foreach (string id in new[]
-            {
-                GateIds.BuildMaxSettings, GateIds.BuildAdjustSettings,
-            })
-            {
-                Assert.AreEqual(Requirement.Required, ReqOf(id, Ctx(EvalMode.Full, EvalPlatform.Android)), id);
-                Assert.AreEqual(Requirement.Optional, ReqOf(id, Ctx(EvalMode.Prototype, EvalPlatform.Android)), id);
-            }
+            Assert.AreEqual(Requirement.NotApplicable, ReqOf(GateIds.BuildMaxSettings,
+                Ctx(EvalMode.Full, EvalPlatform.Android)));
+            Assert.AreEqual(Requirement.Required, ReqOf(GateIds.BuildMaxSettings,
+                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.AppLovinMax)));
+            Assert.AreEqual(Requirement.NotApplicable, ReqOf(GateIds.BuildMaxSettings,
+                Ctx(EvalMode.Prototype, EvalPlatform.Android)));
+            Assert.AreEqual(Requirement.Optional, ReqOf(GateIds.BuildMaxSettings,
+                Ctx(EvalMode.Prototype, EvalPlatform.Android, SdkModule.AppLovinMax)));
+
+            Assert.AreEqual(Requirement.NotApplicable, ReqOf(GateIds.BuildAdjustSettings,
+                Ctx(EvalMode.Prototype, EvalPlatform.Android, SdkModule.Adjust)));
+            Assert.AreEqual(Requirement.NotApplicable, ReqOf(GateIds.BuildAdjustSandboxMode,
+                Ctx(EvalMode.Prototype, EvalPlatform.Android, SdkModule.Adjust)));
+            Assert.AreEqual(Requirement.Required, ReqOf(GateIds.BuildAdjustSettings,
+                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.Adjust)));
+            Assert.AreEqual(Requirement.Required, ReqOf(GateIds.BuildAdjustSandboxMode,
+                Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.Adjust)));
         }
 
         [Test]
-        public void FirebaseConfig_RequiredInFull_OptionalInPrototype()
+        public void FirebaseConfig_FollowsIncludedFirebaseOnActivePlatform()
         {
             // C4-05: on its OWN platform, a Firebase config-file gate follows Firebase's own requirement,
             // not the advisory list - a missing config file blocks in Full mode and advises in Prototype.
             Assert.AreEqual(Requirement.Required,
-                ReqOf(GateIds.BuildFirebaseConfigAndroid, Ctx(EvalMode.Full, EvalPlatform.Android)));
+                ReqOf(GateIds.BuildFirebaseConfigAndroid,
+                    Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.Firebase)));
             Assert.AreEqual(Requirement.Optional,
-                ReqOf(GateIds.BuildFirebaseConfigAndroid, Ctx(EvalMode.Prototype, EvalPlatform.Android)));
+                ReqOf(GateIds.BuildFirebaseConfigAndroid,
+                    Ctx(EvalMode.Prototype, EvalPlatform.Android, SdkModule.FirebaseAnalytics)));
             Assert.AreEqual(Requirement.Required,
-                ReqOf(GateIds.BuildFirebaseConfigIos, Ctx(EvalMode.Full, EvalPlatform.iOS)));
+                ReqOf(GateIds.BuildFirebaseConfigIos,
+                    Ctx(EvalMode.Full, EvalPlatform.iOS, SdkModule.Firebase)));
             Assert.AreEqual(Requirement.Optional,
-                ReqOf(GateIds.BuildFirebaseConfigIos, Ctx(EvalMode.Prototype, EvalPlatform.iOS)));
+                ReqOf(GateIds.BuildFirebaseConfigIos,
+                    Ctx(EvalMode.Prototype, EvalPlatform.iOS, SdkModule.FirebaseAnalytics)));
+            Assert.AreEqual(Requirement.NotApplicable,
+                ReqOf(GateIds.BuildFirebaseConfigAndroid,
+                    Ctx(EvalMode.Full, EvalPlatform.Android)));
+            Assert.AreEqual(Requirement.NotApplicable,
+                ReqOf(GateIds.BuildFirebaseConfigAndroid,
+                    Ctx(EvalMode.Full, EvalPlatform.Android, SdkModule.FirebaseAnalytics)));
         }
 
         /// <summary>Platform scoping (2026-07-23): a report judges ONE platform, the active build target, so
@@ -261,14 +288,13 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void PlatformCoverageChanges_CarryTheRightRestartSignal()
         {
-            // Platform scoping (2026-07-23) changed what a green row MEANS on all five: each judges the
-            // active build target only, so each restarts its own agreement count. Adjust is deliberately
-            // absent - its token was never per-platform, so its meaning did not change.
-            Assert.AreEqual("3", GateCatalog.Canonical.ById(GateIds.BuildGameAnalyticsKeys).Version);
-            Assert.AreEqual("2", GateCatalog.Canonical.ById(GateIds.BuildFacebookPlatform).Version);
-            Assert.AreEqual("2", GateCatalog.Canonical.ById(GateIds.BuildMaxSettings).Version);
-            Assert.AreEqual("2", GateCatalog.Canonical.ById(GateIds.BuildFirebaseConfigAndroid).Version);
-            Assert.AreEqual("2", GateCatalog.Canonical.ById(GateIds.BuildFirebaseConfigIos).Version);
+            // Capability scoping changes what these rows mean: each now exists only when its package-backed
+            // capability is included, so each restarts its agreement count.
+            Assert.AreEqual("4", GateCatalog.Canonical.ById(GateIds.BuildGameAnalyticsKeys).Version);
+            Assert.AreEqual("4", GateCatalog.Canonical.ById(GateIds.BuildFacebookPlatform).Version);
+            Assert.AreEqual("4", GateCatalog.Canonical.ById(GateIds.BuildMaxSettings).Version);
+            Assert.AreEqual("4", GateCatalog.Canonical.ById(GateIds.BuildFirebaseConfigAndroid).Version);
+            Assert.AreEqual("4", GateCatalog.Canonical.ById(GateIds.BuildFirebaseConfigIos).Version);
         }
 
         // ── Every gate is machine-checkable (2026-07-22 deletion) ──────────

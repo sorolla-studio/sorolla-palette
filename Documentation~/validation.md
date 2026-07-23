@@ -44,7 +44,8 @@ If any identifier points to a different app, stop and fix the dashboard before t
 - [ ] **Launch Readiness** reads HEALTHY with your build target set to the platform you ship. If you ship both, check it once per target (switch in File > Build Settings).
 - [ ] Firebase config files match the app identifiers.
 - [ ] AppLovin MAX SDK Key and ad unit IDs are configured.
-- [ ] Adjust App Token and Purchase Event Token are configured.
+- [ ] Adjust App Token is configured.
+- [ ] If the game uses Unity IAP, the Adjust Purchase Event Token is configured.
 - [ ] `adjustSandboxMode` is **true** during QA.
 - [ ] TikTok fields are configured only for an existing parked TikTok setup (see the [TikTok guide](guides/tiktok.md)); TikTok is not part of the active vendor set.
 
@@ -56,6 +57,7 @@ If any identifier points to a different app, stop and fix the dashboard before t
 - [ ] Interstitial placements handle both `onComplete` and `onFailed` so game flow cannot stall on no-fill.
 - [ ] Privacy settings button is shown when `Palette.PrivacyOptionsRequired` is true.
 - [ ] If the game uses Unity IAP v5, `Palette.AttachPurchaseTracking(store)` is called once before `store.Connect()`.
+- [ ] If the game does not sell IAP, remove the Unity IAP package so Vitals does not ask for purchase coverage.
 
 ### Consent And Store Privacy
 

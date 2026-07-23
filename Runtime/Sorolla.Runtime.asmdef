@@ -4,6 +4,7 @@
     "references": [
         "GameAnalyticsSDK",
         "Sorolla.Adapters",
+        "Sorolla.Health",
         "Unity.Purchasing"
     ],
     "includePlatforms": [],

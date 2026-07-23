@@ -481,6 +481,30 @@ namespace Sorolla.Palette.Editor.Tests
                 "a present vendor's coherence result must be evaluated.");
         }
 
+        [Test]
+        public void Prototype_ExcludesFullOnlyVendorObservationEvenWhenPackageIsPresent()
+        {
+            var results = new List<BuildValidator.ValidationResult>
+            {
+                new BuildValidator.ValidationResult(
+                    BuildValidator.ValidationStatus.Skipped,
+                    "Adjust not required",
+                    null,
+                    BuildValidator.CheckCategory.AdjustSettings),
+            };
+            var context = new EvaluationContext
+            {
+                Mode = EvalMode.Prototype,
+                Platform = EvalPlatform.Android,
+                InstalledModules = SdkModule.Adjust,
+            };
+
+            List<GateObservation> observations = GreenlightAdapter.BuildObservations(
+                context, results, new GreenlightDeviceSnapshot.State());
+
+            Assert.IsFalse(observations.Any(o => o.GateId == GateIds.BuildAdjustSettings));
+        }
+
         // ── B-10: a claim without the required proof is NOT a pass ─────────
 
         [Test]

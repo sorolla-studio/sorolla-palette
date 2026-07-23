@@ -14,9 +14,10 @@ namespace Sorolla.Palette.Editor.UI
     ///     The window's verdict section: one vendor group per foldout, each carrying that vendor's status
     ///     pill, its check rows, and its config inputs.
     ///     The rendering contract, in one place: ONE group list, ONE pure view filter with no per-group
-    ///     exceptions, header status derived AFTER filtering from the same rows rendered below it (so a
+    ///     exceptions outside the shared capability policy, header status derived AFTER filtering from the
+    ///     same rows rendered below it (so a
     ///     header can never contradict its children), one shared row element and one shared button style.
-    ///     Nothing here may reintroduce a per-group special case in the VISIBILITY decision.
+    ///     Nothing here may infer capability visibility from labels or local mode checks.
     /// </summary>
     sealed class ReadinessSectionView
     {
@@ -462,6 +463,9 @@ namespace Sorolla.Palette.Editor.UI
             var groups = new List<GroupModel>();
             foreach (GreenlightAdapter.VendorGroup id in GroupOrder)
             {
+                if (!GroupApplies(id, report.Context))
+                    continue;
+
                 grouped.TryGetValue(id, out List<GreenlightEvaluator.Row> rows);
                 groups.Add(new GroupModel
                 {
@@ -475,6 +479,21 @@ namespace Sorolla.Palette.Editor.UI
                 });
             }
             return groups;
+        }
+
+        static bool GroupApplies(
+            GreenlightAdapter.VendorGroup group,
+            EvaluationContext context)
+        {
+            if (group != GreenlightAdapter.VendorGroup.Adjust || context == null)
+                return true;
+
+            CapabilityState adjust = CapabilityPolicy.Resolve(
+                context.Mode,
+                context.InstalledModules,
+                SdkModule.Adjust,
+                CapabilityRule.FullOnly);
+            return adjust.Required || adjust.Applicable;
         }
 
         /// <summary>Child rows inside a vendor group drop the redundant vendor name from their own label -

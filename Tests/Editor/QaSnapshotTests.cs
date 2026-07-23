@@ -283,6 +283,12 @@ namespace Sorolla.Palette.Editor.Tests
                 actionNames.Contains("show_rewarded"));
             Assert.AreEqual(SorollaRuntimeCapabilities.MaxCompiled,
                 actionNames.Contains("show_interstitial"));
+            Assert.AreEqual(SorollaRuntimeCapabilities.MaxCompiled,
+                actionNames.Contains("open_privacy_options"));
+            Assert.AreEqual(SorollaRuntimeCapabilities.MaxCompiled,
+                actionNames.Contains("reset_consent"));
+            Assert.AreEqual(SorollaRuntimeCapabilities.MaxCompiled,
+                actionNames.Contains("refresh_consent"));
         }
 
         static bool TryInvoke(object[] args)

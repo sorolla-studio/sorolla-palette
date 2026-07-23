@@ -103,10 +103,14 @@ namespace Sorolla.Palette.Health
         None = 0,
         GameAnalytics = 1 << 0,
         Facebook = 1 << 1,
-        Firebase = 1 << 2,
-        AppLovinMax = 1 << 3,
-        Adjust = 1 << 4,
-        UnityIap = 1 << 5,
+        FirebaseApp = 1 << 2,
+        FirebaseAnalytics = 1 << 3,
+        FirebaseCrashlytics = 1 << 4,
+        FirebaseRemoteConfig = 1 << 5,
+        AppLovinMax = 1 << 6,
+        Adjust = 1 << 7,
+        UnityIap = 1 << 8,
+        Firebase = FirebaseApp | FirebaseAnalytics | FirebaseCrashlytics | FirebaseRemoteConfig,
     }
 
     /// <summary>A requirement decision plus the reason/predicate-trace that produced it. The reason is

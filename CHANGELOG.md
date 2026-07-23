@@ -65,13 +65,17 @@ release verdict.
 - **Capability-owned MAX diagnostics**: Prototype builds without MAX omit MAX consent, ad health,
   ad coverage, and ad test actions entirely. Prototype builds that include MAX validate it fully;
   Full builds without MAX report the missing package without impossible dependent waits.
+- **Capability-scoped validation**: optional vendors that are absent do not create rows, waiting
+  states, actions, or coverage debt. Required-but-missing vendors report one package problem and
+  suppress dependent checks. Unity IAP adds purchase coverage and Adjust purchase requirements only
+  when the package is included.
 - **QA data files ship with the SDK** (`QA~/red-flags.txt`, `QA~/signal-markers.txt`,
   `QA~/known-non-blockers.txt`): the QA-pass grep patterns are version-pinned with the SDK.
 
 ### Changed
 
 - **Definite active-platform data loss blocks the build**: missing/rejected GameAnalytics or Facebook
-  credentials/platform registration, missing AppLovin MAX ad units in Full mode, the Adjust app
+  credentials/platform registration, missing AppLovin MAX ad units whenever MAX is included, the Adjust app
   token, and the active platform's Firebase config. Unreachable network probes remain incomplete
   rather than blocking or passing.
 - **One Palette window, grouped by vendor.** Each vendor has one foldout holding its status, its

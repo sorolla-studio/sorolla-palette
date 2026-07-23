@@ -50,41 +50,38 @@ namespace Sorolla.Palette.Editor
             }
 
             // MAX installed = the game intends to show ads (no separate "ads enabled" flag exists on
-            // SorollaConfig). Full mode only - ad units are optional in Prototype.
-            if (!SorollaSettings.IsPrototype)
+            // SorollaConfig), so its active-platform ad units are required in either mode.
+            var config = Resources.Load<SorollaConfig>("SorollaConfig");
+
+            // EVERY format, not "both formats empty" (2026-07-22): the old condition passed a game with a
+            // rewarded unit and no interstitial, and every interstitial call then failed to load with the
+            // row green. Formats are graded for the ACTIVE build target only (2026-07-23): the ad units
+            // for a platform this build does not target cannot break this build, and demanding them kept a
+            // one-platform game permanently below green. Both platforms' fields stay editable in the MAX
+            // group, and the other platform's units are graded when it becomes the build target.
+            bool activeIsIos = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS;
+            string platformName = activeIsIos ? "iOS" : "Android";
+            var missing = new List<string>();
+            foreach ((string format, PlatformAdUnitId unit) in new[]
+                     {
+                         ("Rewarded", config?.rewardedAdUnit),
+                         ("Interstitial", config?.interstitialAdUnit),
+                     })
             {
-                var config = Resources.Load<SorollaConfig>("SorollaConfig");
+                if (string.IsNullOrEmpty(activeIsIos ? unit?.ios : unit?.android)) missing.Add(format);
+            }
 
-                // EVERY format, not "both formats empty" (2026-07-22): the old condition passed a game with a
-                // rewarded unit and no interstitial, and every interstitial call then failed to load with the
-                // row green. Formats are graded for the ACTIVE build target only (2026-07-23): the ad units
-                // for a platform this build does not target cannot break this build, and demanding them kept a
-                // one-platform game permanently below green. Both platforms' fields stay editable in the MAX
-                // group, and the other platform's units are graded when it becomes the build target.
-                bool activeIsIos = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS;
-                string platformName = activeIsIos ? "iOS" : "Android";
-                var missing = new List<string>();
-                foreach ((string format, PlatformAdUnitId unit) in new[]
-                         {
-                             ("Rewarded", config?.rewardedAdUnit),
-                             ("Interstitial", config?.interstitialAdUnit),
-                         })
-                {
-                    if (string.IsNullOrEmpty(activeIsIos ? unit?.ios : unit?.android)) missing.Add(format);
-                }
-
-                if (missing.Count > 0)
-                {
-                    // Fix hint doesn't tell you to open the window you're already inside (F6, 2026-07-21
-                    // audit) - the MAX Ad Units fields are in this same window's AppLovin MAX group,
-                    // below this row (vendor-consolidation cycle, 2026-07-21 15:35: SDK Keys is gone).
-                    results.Add(Error(
-                        CheckCategory.MaxSettings,
-                        $"MAX ad unit IDs missing for {platformName} in SorollaConfig: {string.Join(", ", missing)}.\n" +
-                        "  Every ad call for a missing format fails to load; banner units are not checked (optional format).",
-                        $"Enter the AppLovin MAX ad unit IDs for {platformName} below"));
-                    return results;
-                }
+            if (missing.Count > 0)
+            {
+                // Fix hint doesn't tell you to open the window you're already inside (F6, 2026-07-21
+                // audit) - the MAX Ad Units fields are in this same window's AppLovin MAX group,
+                // below this row (vendor-consolidation cycle, 2026-07-21 15:35: SDK Keys is gone).
+                results.Add(Error(
+                    CheckCategory.MaxSettings,
+                    $"MAX ad unit IDs missing for {platformName} in SorollaConfig: {string.Join(", ", missing)}.\n" +
+                    "  Every ad call for a missing format fails to load; banner units are not checked (optional format).",
+                    $"Enter the AppLovin MAX ad unit IDs for {platformName} below"));
+                return results;
             }
 
             results.Add(Valid(CheckCategory.MaxSettings, "MAX settings synced"));

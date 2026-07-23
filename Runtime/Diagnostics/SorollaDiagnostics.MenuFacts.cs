@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Sorolla.Palette.Health;
 using UnityEngine;
 
 namespace Sorolla.Palette
@@ -29,9 +30,8 @@ namespace Sorolla.Palette
         internal static string BuildMenuCoverageLine(out bool thin)
         {
             SorollaQaState state = CaptureQaState();
-            SorollaAdsCapability ads = SorollaRuntimeCapabilities.Ads(state.Mode == "full");
+            CapabilityState ads = SorollaRuntimeCapabilities.Max(state.Mode == "full");
 
-            string consent = MenuConsentCell(state, out _);
             int events = 0;
             if (state.Events != null)
             {
@@ -45,8 +45,11 @@ namespace Sorolla.Palette
 
             thin = IsCoverageThin(state, proved);
 
-            string line = $"consent {consent} · session 1 · {events} events";
-            return ads.Included ? $"{line} · ads {(adsShown ? "shown" : "not shown")}" : line;
+            string line = $"session 1 · {events} events";
+            if (!ads.Included) return line;
+
+            string consent = MenuConsentCell(state, out _);
+            return $"consent {consent} · {line} · ads {(adsShown ? "shown" : "not shown")}";
         }
 
         /// <summary>Everything proved on THIS build: this launch's facts folded into the persisted ledger.</summary>
@@ -67,9 +70,27 @@ namespace Sorolla.Palette
         /// </summary>
         internal static bool IsCoverageThin(SorollaQaState state, SorollaCoverageFact proved)
         {
-            MenuConsentCell(state, out bool consentUnresolved);
-            if (consentUnresolved) return true;
+            bool fullMode = state.Mode == "full";
+            CapabilityState ads = SorollaRuntimeCapabilities.Max(fullMode);
+            CapabilityState iap = SorollaRuntimeCapabilities.UnityIap(fullMode);
+            return IsCoverageThin(state, proved, ads, iap);
+        }
+
+        internal static bool IsCoverageThin(
+            SorollaQaState state,
+            SorollaCoverageFact proved,
+            CapabilityState ads,
+            CapabilityState iap)
+        {
+            if (ads.Included)
+            {
+                MenuConsentCell(state, out bool consentUnresolved);
+                if (consentUnresolved) return true;
+            }
             if ((proved & SorollaCoverageFact.Progression) == 0) return true;
+            if (iap.Included && (!state.IapTrackingAttached ||
+                                 (proved & SorollaCoverageFact.IapPurchase) == 0))
+                return true;
             return !AdCoverageSatisfied(state, proved);
         }
 
@@ -77,14 +98,14 @@ namespace Sorolla.Palette
         /// nothing to prove (same shape as the build check that only warns when both units are empty).</summary>
         static bool AdCoverageSatisfied(SorollaQaState state, SorollaCoverageFact proved)
         {
-            SorollaAdsCapability ads = SorollaRuntimeCapabilities.Ads(state.Mode == "full");
+            CapabilityState ads = SorollaRuntimeCapabilities.Max(state.Mode == "full");
             SorollaConfig config = LoadConfig();
             bool rewardedConfigured = !string.IsNullOrEmpty(config?.rewardedAdUnit?.Current);
             bool interstitialConfigured = !string.IsNullOrEmpty(config?.interstitialAdUnit?.Current);
             return AdCoverageSatisfied(ads, rewardedConfigured, interstitialConfigured, proved);
         }
 
-        internal static bool AdCoverageSatisfied(SorollaAdsCapability ads, bool rewardedConfigured,
+        internal static bool AdCoverageSatisfied(CapabilityState ads, bool rewardedConfigured,
             bool interstitialConfigured, SorollaCoverageFact proved)
         {
             if (!ads.Included) return true;
@@ -164,7 +185,9 @@ namespace Sorolla.Palette
         {
             Snapshot snap = CaptureSnapshot();
             SorollaQaState state = CaptureQaState();
-            SorollaAdsCapability ads = SorollaRuntimeCapabilities.Ads(state.Mode == "full");
+            CapabilityState ads = SorollaRuntimeCapabilities.Max(state.Mode == "full");
+            CapabilityState adjust = SorollaRuntimeCapabilities.Adjust(state.Mode == "full");
+            CapabilityState iap = SorollaRuntimeCapabilities.UnityIap(state.Mode == "full");
             var rows = new List<SorollaMenuMatrixRow>(8);
 
             // Coverage is per BUILD, not per launch: a path proved earlier on this same build stays proved
@@ -172,12 +195,15 @@ namespace Sorolla.Palette
             SorollaCoverageFact session = SessionCoverageFacts(snap, state);
             SorollaCoverageFact proved = SorollaCoverageLedger.Merge(session);
 
-            bool consentResolved = (proved & SorollaCoverageFact.Consent) != 0;
-            rows.Add(new SorollaMenuMatrixRow("Consent", consentResolved,
-                Cell(session, SorollaCoverageFact.Consent, MenuConsentCell(state, out _)),
-                ads.Included
-                    ? "Open the app and resolve the CMP prompt"
-                    : "Open the app and complete the consent or ATT prompt if shown"));
+            if (ads.Included)
+            {
+                bool consentResolved = (proved & SorollaCoverageFact.Consent) != 0;
+                rows.Add(new SorollaMenuMatrixRow("Consent", consentResolved,
+                    Cell(session, SorollaCoverageFact.Consent, MenuConsentCell(state, out _)),
+                    "Open the app and resolve the CMP prompt",
+                    QaActionRegistry.ResetConsent,
+                    "Reset consent"));
+            }
 
             bool progressionSeen = (proved & SorollaCoverageFact.Progression) != 0;
             rows.Add(new SorollaMenuMatrixRow("Progression", progressionSeen,
@@ -205,25 +231,32 @@ namespace Sorolla.Palette
 
             AddMaxCoverageRows(rows, state, session, proved, ads);
 
-            // IAP row only when the game has IAP wired at all (tracking attached or a purchase already
-            // observed) - a game with no store integration would otherwise show a permanently
-            // not-exercised row with no honest way to satisfy it.
-            if (state.IapTrackingAttached || state.IapPurchaseCount > 0)
+            if (iap.Included)
             {
+                rows.Add(new SorollaMenuMatrixRow("IAP wiring", state.IapTrackingAttached,
+                    state.IapTrackingAttached ? "AttachPurchaseTracking wired" : "not attached",
+                    "Call Palette.AttachPurchaseTracking(store) before store.Connect(); remove Unity IAP if this game has no purchases"));
                 bool purchaseSeen = (proved & SorollaCoverageFact.IapPurchase) != 0;
                 rows.Add(new SorollaMenuMatrixRow("IAP", purchaseSeen,
                     Cell(session, SorollaCoverageFact.IapPurchase, $"{state.IapPurchaseCount} purchase(s) tracked"),
                     "Complete one purchase (sandbox/test track)"));
-                rows.Add(SorollaMenuMatrixRow.ManualReminder("Adjust purchase verification",
-                    "Check the Adjust dashboard purchase-verification setting; see Documentation~/dashboards/adjust.md"));
+                if (adjust.Applicable)
+                    rows.Add(SorollaMenuMatrixRow.ManualReminder("Adjust purchase verification",
+                        "Check the Adjust dashboard purchase-verification setting; see Documentation~/dashboards/adjust.md"));
             }
 
             rows.Add(SorollaMenuMatrixRow.ManualReminder("GameAnalytics platform registration",
                 "Confirm this build platform exists in the GameAnalytics dashboard; see Documentation~/dashboards/gameanalytics.md"));
 
-            if (state.Mode == "full")
+            if (ads.Included && adjust.Applicable)
                 rows.Add(SorollaMenuMatrixRow.ManualReminder("AppLovin / Adjust app identity",
                     "Confirm both dashboards describe this same game and platform; see Documentation~/dashboards/"));
+            else if (ads.Included)
+                rows.Add(SorollaMenuMatrixRow.ManualReminder("AppLovin app identity",
+                    "Confirm the AppLovin dashboard describes this game and platform; see Documentation~/dashboards/applovin-max.md"));
+            else if (adjust.Applicable)
+                rows.Add(SorollaMenuMatrixRow.ManualReminder("Adjust app identity",
+                    "Confirm the Adjust dashboard describes this game and platform; see Documentation~/dashboards/adjust.md"));
 
             // Relaunch persistence is NOT machine-detectable in a single session - always render as a
             // manual reminder, never as exercised/not-exercised (spec section 11 item 3).
@@ -234,7 +267,7 @@ namespace Sorolla.Palette
         }
 
         static void AddMaxCoverageRows(List<SorollaMenuMatrixRow> rows, SorollaQaState state,
-            SorollaCoverageFact session, SorollaCoverageFact proved, SorollaAdsCapability ads)
+            SorollaCoverageFact session, SorollaCoverageFact proved, CapabilityState ads)
         {
             if (!ads.Included) return;
 
@@ -242,13 +275,17 @@ namespace Sorolla.Palette
             rows.Add(new SorollaMenuMatrixRow("Ads · interstitial", interExercised,
                 Cell(session, SorollaCoverageFact.Interstitial,
                     $"loaded {YesNo(state.InterstitialLoaded)} · shown-to-completion {YesNo(state.InterstitialCompleted)}"),
-                "Tap Show interstitial below, or reach one through your own game flow"));
+                "Tap Show interstitial below, or reach one through your own game flow",
+                QaActionRegistry.ShowInterstitial,
+                "Show interstitial"));
 
             bool rewardedExercised = (proved & SorollaCoverageFact.Rewarded) != 0;
             rows.Add(new SorollaMenuMatrixRow("Ads · rewarded", rewardedExercised,
                 Cell(session, SorollaCoverageFact.Rewarded,
                     $"loaded {YesNo(state.RewardedLoaded)} · shown-to-completion {YesNo(state.RewardedCompleted)}"),
-                "Tap Show rewarded below, or reach one through your own game flow"));
+                "Tap Show rewarded below, or reach one through your own game flow",
+                QaActionRegistry.ShowRewarded,
+                "Show rewarded"));
 
             bool revenueSeen = (proved & SorollaCoverageFact.AdRevenue) != 0;
             rows.Add(new SorollaMenuMatrixRow("Ads · revenue", revenueSeen,
@@ -296,14 +333,20 @@ namespace Sorolla.Palette
         public readonly string Cell;
         public readonly string Hint;
         public readonly bool IsManualReminder;
+        public readonly string Action;
+        public readonly string ActionLabel;
 
-        public SorollaMenuMatrixRow(string name, bool exercised, string cell, string hint)
+        public SorollaMenuMatrixRow(
+            string name, bool exercised, string cell, string hint,
+            string action = null, string actionLabel = null)
         {
             Name = name;
             Exercised = exercised;
             Cell = cell;
             Hint = hint;
             IsManualReminder = false;
+            Action = action;
+            ActionLabel = actionLabel;
         }
 
         SorollaMenuMatrixRow(string name, string cell, string hint, bool manualReminder)
@@ -313,6 +356,8 @@ namespace Sorolla.Palette
             Cell = cell;
             Hint = hint;
             IsManualReminder = manualReminder;
+            Action = null;
+            ActionLabel = null;
         }
 
         public static SorollaMenuMatrixRow ManualReminder(string name, string hint) =>

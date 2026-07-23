@@ -164,8 +164,10 @@ namespace Sorolla.Palette
             var sb = new StringBuilder(192);
             AppendContextPart(sb, "SDK " + Palette.SdkVersion);
             AppendContextPart(sb, ModeShortLabel(config, snapshot));
-            AppendContextPart(sb, AdjustEnvironmentHeaderLabel(config, fullMode));
-            AppendContextPart(sb, ConsentHeaderLabel(fullMode));
+            if (SorollaRuntimeCapabilities.Adjust(fullMode).Applicable)
+                AppendContextPart(sb, AdjustEnvironmentHeaderLabel(config));
+            if (SorollaRuntimeCapabilities.Max(fullMode).Included)
+                AppendContextPart(sb, ConsentHeaderLabel());
             if (Palette.VerboseLogging)
                 AppendContextPart(sb, "Verbose logs");
             return sb.ToString();
@@ -205,20 +207,9 @@ namespace Sorolla.Palette
             return $"Build: {(Debug.isDebugBuild ? "Development" : "Release")} | {BuildHeaderContext()}";
         }
 
-        static string BuildReportDetail(List<SorollaDiagnosticRow> rows)
+        static string BuildReportDetail(List<SorollaDiagnosticRow> _)
         {
-            return $"Build: {(Debug.isDebugBuild ? "Development" : "Release")} | Mode: {FindDetail(rows, "Boot", "Palette mode")} | Env: {FindDetail(rows, "Config", "Adjust environment")}";
-        }
-
-        static string FindDetail(List<SorollaDiagnosticRow> rows, string group, string name)
-        {
-            foreach (SorollaDiagnosticRow row in rows)
-            {
-                if (row.Group == group && row.Name == name)
-                    return row.Detail;
-            }
-
-            return "Unknown";
+            return $"Build: {(Debug.isDebugBuild ? "Development" : "Release")} | {BuildHeaderContext()}";
         }
 
         static void AppendEventLog(StringBuilder sb)

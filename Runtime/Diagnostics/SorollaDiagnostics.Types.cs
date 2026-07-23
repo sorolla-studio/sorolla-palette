@@ -1,40 +1,67 @@
 using System;
+using Sorolla.Palette.Health;
 
 namespace Sorolla.Palette
 {
-    /// <summary>
-    ///     Applicability of the SDK's MAX-backed advertising capability. Mode decides whether the
-    ///     capability is required; the compiled package set decides whether it exists. Diagnostics,
-    ///     coverage, and QA actions consume this value instead of each inventing their own rule.
-    /// </summary>
-    internal readonly struct SorollaAdsCapability
-    {
-        public readonly bool Required;
-        public readonly bool Included;
-
-        public SorollaAdsCapability(bool required, bool included)
-        {
-            Required = required;
-            Included = included;
-        }
-    }
-
     internal static class SorollaRuntimeCapabilities
     {
-        internal static SorollaAdsCapability Ads(bool fullMode) => Ads(fullMode, MaxCompiled);
+        internal static CapabilityState Max(bool fullMode) =>
+            Resolve(fullMode, SdkModule.AppLovinMax, CapabilityRule.FullRequired);
 
-        internal static SorollaAdsCapability Ads(bool fullMode, bool maxCompiled) =>
-            new SorollaAdsCapability(fullMode, maxCompiled);
+        internal static CapabilityState Adjust(bool fullMode) =>
+            Resolve(fullMode, SdkModule.Adjust, CapabilityRule.FullOnly);
 
-        internal static bool MaxCompiled
+        internal static CapabilityState FirebaseAnalytics(bool fullMode) =>
+            Resolve(fullMode, SdkModule.FirebaseAnalytics, CapabilityRule.FullRequired);
+
+        internal static CapabilityState FirebaseCrashlytics(bool fullMode) =>
+            Resolve(fullMode, SdkModule.FirebaseCrashlytics, CapabilityRule.FullRequired);
+
+        internal static CapabilityState FirebaseRemoteConfig(bool fullMode) =>
+            Resolve(fullMode, SdkModule.FirebaseRemoteConfig, CapabilityRule.FullRequired);
+
+        internal static CapabilityState UnityIap(bool fullMode) =>
+            Resolve(fullMode, SdkModule.UnityIap, CapabilityRule.Optional);
+
+        internal static bool MaxCompiled => (CompiledModules & SdkModule.AppLovinMax) != 0;
+        internal static bool UnityIapCompiled => (CompiledModules & SdkModule.UnityIap) != 0;
+
+        internal static CapabilityState ResolveForTests(
+            bool fullMode, SdkModule installedModules, SdkModule module, CapabilityRule rule) =>
+            Resolve(fullMode, module, rule, installedModules);
+
+        static CapabilityState Resolve(
+            bool fullMode, SdkModule module, CapabilityRule rule, SdkModule? installedModules = null) =>
+            CapabilityPolicy.Resolve(
+                fullMode ? EvalMode.Full : EvalMode.Prototype,
+                installedModules ?? CompiledModules,
+                module,
+                rule);
+
+        static SdkModule CompiledModules
         {
             get
             {
+                SdkModule modules = SdkModule.GameAnalytics | SdkModule.Facebook;
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-                return true;
-#else
-                return false;
+                modules |= SdkModule.AppLovinMax;
 #endif
+#if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
+                modules |= SdkModule.Adjust;
+#endif
+#if FIREBASE_ANALYTICS_INSTALLED
+                modules |= SdkModule.FirebaseApp | SdkModule.FirebaseAnalytics;
+#endif
+#if FIREBASE_CRASHLYTICS_INSTALLED
+                modules |= SdkModule.FirebaseCrashlytics;
+#endif
+#if FIREBASE_REMOTE_CONFIG_INSTALLED
+                modules |= SdkModule.FirebaseRemoteConfig;
+#endif
+#if UNITY_PURCHASING_INSTALLED
+                modules |= SdkModule.UnityIap;
+#endif
+                return modules;
             }
         }
     }

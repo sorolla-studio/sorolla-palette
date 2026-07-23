@@ -52,9 +52,10 @@ namespace Sorolla.Palette.Editor.Greenlight
             if (HasPackage(dependencies, SdkId.Facebook)) modules |= SdkModule.Facebook;
             if (HasPackage(dependencies, SdkId.AppLovinMAX)) modules |= SdkModule.AppLovinMax;
             if (HasPackage(dependencies, SdkId.Adjust)) modules |= SdkModule.Adjust;
-            if (HasPackage(dependencies, SdkId.FirebaseApp) || HasPackage(dependencies, SdkId.FirebaseAnalytics) ||
-                HasPackage(dependencies, SdkId.FirebaseCrashlytics) || HasPackage(dependencies, SdkId.FirebaseRemoteConfig))
-                modules |= SdkModule.Firebase;
+            if (HasPackage(dependencies, SdkId.FirebaseApp)) modules |= SdkModule.FirebaseApp;
+            if (HasPackage(dependencies, SdkId.FirebaseAnalytics)) modules |= SdkModule.FirebaseAnalytics;
+            if (HasPackage(dependencies, SdkId.FirebaseCrashlytics)) modules |= SdkModule.FirebaseCrashlytics;
+            if (HasPackage(dependencies, SdkId.FirebaseRemoteConfig)) modules |= SdkModule.FirebaseRemoteConfig;
             // Unity IAP is not in SdkRegistry (it is a Unity-owned package), so match its package id directly.
             if (dependencies.ContainsKey("com.unity.purchasing")) modules |= SdkModule.UnityIap;
             return true;
@@ -120,7 +121,7 @@ namespace Sorolla.Palette.Editor.Greenlight
             GreenlightDeviceSnapshot.State snapshotState)
         {
             var observations = new List<GateObservation>();
-            observations.AddRange(BuildHealthObservations(buildHealthResults, context.InstalledModules));
+            observations.AddRange(BuildHealthObservations(buildHealthResults, context));
 
             // Emit device evidence on any platform that has a shipping snapshot collector. Both mobile
             // transports ship now: Android over `adb forward`, iOS over `iproxy` (libimobiledevice USB). Off
@@ -161,7 +162,7 @@ namespace Sorolla.Palette.Editor.Greenlight
         /// category emits several results), keyed to the per-category gate id. Categories with no gate id
         /// are skipped. Proof scope is Static - Build Health is an editor-time check.</summary>
         static IEnumerable<GateObservation> BuildHealthObservations(
-            List<BuildValidator.ValidationResult> results, SdkModule installedModules)
+            List<BuildValidator.ValidationResult> results, EvaluationContext context)
         {
             if (results == null)
                 yield break; // Build Health never ran: the required core gates omit -> INCOMPLETE.
@@ -174,7 +175,7 @@ namespace Sorolla.Palette.Editor.Greenlight
                 // F4-02: a vendor "not installed" result is absence, not affirmative evidence - drop it so the
                 // gate skips (Optional) or omits (Required) instead of passing on absence.
                 if (VendorCategoryModule.TryGetValue(group.Key, out SdkModule module) &&
-                    (installedModules & module) == 0)
+                    (context.InstalledModules & module) == 0)
                     continue;
 
                 // An unmapped category must not silently disappear (review C4-09): emit it under a sentinel
@@ -182,6 +183,9 @@ namespace Sorolla.Palette.Editor.Greenlight
                 bool mapped = CategoryToGateId.TryGetValue(group.Key, out string gateId);
                 if (!mapped)
                     gateId = "unmapped:" + group.Key;
+                else if (GateCatalog.Canonical.ById(gateId).Requirement(context).Value ==
+                         Requirement.NotApplicable)
+                    continue;
 
                 BuildValidator.ValidationResult worst = group
                     .OrderBy(r => StatusPriority(r.Status))

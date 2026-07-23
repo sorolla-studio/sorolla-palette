@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using Sorolla.Palette.Health;
 
 namespace Sorolla.Palette.Editor.Tests
 {
@@ -103,7 +104,11 @@ namespace Sorolla.Palette.Editor.Tests
         public void AdsCapability_IsOwnedByModeAndCompiledPackage(
             bool fullMode, bool maxCompiled, bool required)
         {
-            SorollaAdsCapability ads = SorollaRuntimeCapabilities.Ads(fullMode, maxCompiled);
+            CapabilityState ads = SorollaRuntimeCapabilities.ResolveForTests(
+                fullMode,
+                maxCompiled ? SdkModule.AppLovinMax : SdkModule.None,
+                SdkModule.AppLovinMax,
+                CapabilityRule.FullRequired);
 
             Assert.AreEqual(required, ads.Required);
             Assert.AreEqual(maxCompiled, ads.Included);
@@ -112,7 +117,8 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void AdsExcluded_NeverCreatesThinCoverage_EvenWithStaleAdUnits()
         {
-            SorollaAdsCapability ads = SorollaRuntimeCapabilities.Ads(fullMode: false, maxCompiled: false);
+            CapabilityState ads = SorollaRuntimeCapabilities.ResolveForTests(
+                false, SdkModule.None, SdkModule.AppLovinMax, CapabilityRule.FullRequired);
 
             Assert.IsTrue(SorollaDiagnostics.AdCoverageSatisfied(
                 ads,
@@ -124,7 +130,8 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void AdsIncluded_RequiresConfiguredAdCoverage()
         {
-            SorollaAdsCapability ads = SorollaRuntimeCapabilities.Ads(fullMode: false, maxCompiled: true);
+            CapabilityState ads = SorollaRuntimeCapabilities.ResolveForTests(
+                false, SdkModule.AppLovinMax, SdkModule.AppLovinMax, CapabilityRule.FullRequired);
 
             Assert.IsFalse(SorollaDiagnostics.AdCoverageSatisfied(
                 ads,
@@ -136,6 +143,52 @@ namespace Sorolla.Palette.Editor.Tests
                 rewardedConfigured: true,
                 interstitialConfigured: false,
                 proved: SorollaCoverageFact.Rewarded));
+        }
+
+        [Test]
+        public void ExcludedCapabilities_DoNotCreateCoverageDebt()
+        {
+            var state = new SorollaQaState
+            {
+                ConsentStatus = "Unknown",
+                IapTrackingAttached = false,
+            };
+            var excluded = new CapabilityState(required: false, included: false, applicable: false);
+
+            Assert.IsFalse(SorollaDiagnostics.IsCoverageThin(
+                state,
+                SorollaCoverageFact.Progression,
+                excluded,
+                excluded));
+        }
+
+        [Test]
+        public void IncludedIap_RequiresWiringAndPurchase()
+        {
+            var state = new SorollaQaState { IapTrackingAttached = false };
+            var excludedAds = new CapabilityState(false, false, false);
+            var includedIap = new CapabilityState(false, true, true);
+
+            Assert.IsTrue(SorollaDiagnostics.IsCoverageThin(
+                state, SorollaCoverageFact.Progression, excludedAds, includedIap));
+
+            state.IapTrackingAttached = true;
+            Assert.IsFalse(SorollaDiagnostics.IsCoverageThin(
+                state,
+                SorollaCoverageFact.Progression | SorollaCoverageFact.IapPurchase,
+                excludedAds,
+                includedIap));
+        }
+
+        [Test]
+        public void FullOnlyCapability_IsExcludedFromPrototypeEvenWhenCompiled()
+        {
+            CapabilityState adjust = SorollaRuntimeCapabilities.ResolveForTests(
+                false, SdkModule.Adjust, SdkModule.Adjust, CapabilityRule.FullOnly);
+
+            Assert.IsTrue(adjust.Included);
+            Assert.IsFalse(adjust.Required);
+            Assert.IsFalse(adjust.Applicable);
         }
 
         [Test]
