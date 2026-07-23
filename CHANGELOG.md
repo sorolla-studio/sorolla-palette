@@ -4,462 +4,122 @@ All notable changes to this project will be documented in this file.
 
 ## [4.0.0] - Unreleased
 
-The 4.x development line. Master identifies as `4.0.0` from this point forward; the QA/health
-evaluator foundation work (trustworthy self-serve health reports) lands under this header as it is
-built. The version string stays `4.0.0` across the whole development line, so `4.0.0` alone cannot
-distinguish two development commits — snapshots and reports must additionally carry the exact SDK
-commit/build to be unambiguous. This line is unreleased until the eventual `v4.0.0` tag: do not
-treat master as a released `4.0.0`, do not use the Greenlight `HEALTHY` label as a release verdict,
-and do not pin a game to this development checkout as if it were a released version.
+Self-serve integration health. The Palette window now produces one Launch Readiness verdict for the
+game in front of it, backed by a canonical gate catalog and a single evaluator, and a copyable
+report that carries every row plus the exact SDK commit that produced it.
 
-Vendor platform truth (Phase 1 of the QA self-serve plan): closes the false-green class where a
-vendor is provisioned/configured for one platform only, every SDK indicator reads green, and the
-failure only surfaces on-device (GA issue #8; Boulder Evolution FB Android-only provisioning
-2026-07-08). Editor-only except the Facebook runtime probe diagnosis.
-
-Awareness-first, not a gate: a studio may intentionally ship one platform at a time, so every new
-check below warns rather than blocks the build. Each warning states the root cause, the on-device
-signal it produces, and the fix.
-
-### Changed (platform scoping)
-
-- The health report evaluates the active build target only. GameAnalytics platform keys, the Firebase
-  config file, Facebook platform registration, and AppLovin MAX ad unit ids no longer raise findings
-  for the platform the project is not building; those checks apply again when the build target
-  switches. A game shipping one platform can now reach a green verdict.
-- The Launch Readiness header states which platform the report judged.
-- The copied report lists the other platform's gates as `NotApplicable` with the reason, and labels
-  such rows `[NotApplicable]` instead of `[Pass]`.
-- The GameAnalytics group caption names the active platform first and reads "not set up" for the
-  other one; the Facebook row states both platforms' registration without grading either.
-- Vitals no longer renders the ATT row off iOS, and the QA snapshot reports `att: null` there instead
-  of a constant "authorized".
-- The Firebase device diagnosis names only the config file the running platform loads.
-- Gate ids and the 25-gate catalog are unchanged. Definition versions bumped:
-  `build.gameanalytics_keys` v3; `build.facebook_platform`, `build.max_settings`,
-  `build.firebase_config_android`, `build.firebase_config_ios` v2.
-
-### Removed (2026-07-22 QA simplification)
-
-The health report now judges only what the SDK can observe for itself. Everything below was
-machinery whose evidence was a person asserting something, or tooling that checked other tooling.
-
-- **Manual/dashboard attestations are gone**, and so are the six gates that only an attestation
-  could satisfy: store-console configuration, GameAnalytics platform registration, Adjust purchase
-  verification, cross-vendor dashboard drift, consent persistence across relaunch, and the
-  background/resume cycle. A tick in an editor window never proved any of them. They remain real
-  checks in Sorolla's release process, evidenced by an actual device run, not by a checkbox.
-  Canonical catalog: 30 gates → 24.
-- **Consequence, and the point of the change: `HEALTHY` is now reachable.** Previously six required
-  gates could never pass from machine evidence, so a project with everything genuinely green still
-  reported INCOMPLETE - a verdict that is always amber teaches people to ignore it. Now INCOMPLETE
-  means something specific and fixable is missing.
-- **The Validation Profile (QA Pass / Release) selector is gone.** The phase is derived from which
-  window is asking: Sorolla's internal window evaluates at the release phase and therefore sees the
-  release-only checks (keystore, Adjust sandbox, SDK tag pin); a studio window evaluates at QA-pass
-  and does not, because release approval is not delegated to studios. Nothing to set, nothing to
-  forget, and the release checks now always run rather than reporting a hollow "Skipped".
-- **Copy Report (JSON) and Export Gate Catalog are gone.** One copyable text report is the product;
-  it already carries every row plus the exact SDK commit that produced it. The private
-  catalog-vs-catalog validator they fed has been retired with them.
-
-### Changed (2026-07-22 one studio window)
-
-The SDK ships exactly ONE editor window, curated for studios. The parallel full-depth "internal"
-window is deleted: the canonical Copy Report already renders every gate - including the inert and
-passing ones the window filters out of view - so a second window was only a second thing to keep in
-sync. Nothing about what gets CHECKED changes.
-
-- **Check rows read top-down instead of edge-to-edge.** A row is now the check's name and a short
-  status word (PASS / WARN / FAIL / PENDING) on one line, with the check's own message and its fix
-  wrapped underneath. The message used to sit in the row's right-hand slot, bold and colored, where
-  full-sentence validator output wrapped into a ragged column fighting the name for width; a passing
-  row with no message rendered a blank slot instead of "PASS". Both are gone structurally.
-- **Firebase reports each platform separately.** `build.firebase_config` is split into
-  `build.firebase_config_android` and `build.firebase_config_ios`, so `google-services.json` and
-  `GoogleService-Info.plist` each get their own row. They shared one check category, and a category
-  collapses to its worst result, so a missing plist could hide a healthy google-services.json and
-  vice versa. **Breaking for anything parsing gate ids out of a report.** Canonical catalog: 24 → 25.
-- **Fixed: a stray `GoogleService-Info.plist` anywhere in the project no longer pins the report
-  amber.** iOS config discovery searched the whole project while Android checked exact paths only, so
-  any second copy (a vendor sample, a backup folder) made the shipping config "ambiguous" forever.
-  Both platforms now check the same exact paths Unity actually ships from.
-- **Fixed: config edits re-run validation immediately.** Editing the config left the row that grades
-  it showing a snapshot taken when the window opened - stale in BOTH directions, including a green
-  "sandbox off" row over a config with sandbox on. Every check that reads the config now updates as
-  you type or click, with no Refresh press.
-- **Fixed: a check waiting on a network answer resolves itself.** The GameAnalytics credential check
-  reads PENDING while it probes the vendor, and the row stayed on that stale PENDING until someone
-  pressed Refresh. It now updates the moment the probe answers, the way the Facebook platform check
-  already did.
-- **The whole vendor header folds its group.** Folding responded only to the small arrow glyph, so
-  clicking the vendor name - or anywhere else along the header - did nothing. The full header row is
-  now the target, with a hover tint to advertise it and a larger arrow; the header's own action
-  button still just performs its action instead of also folding.
-- **The Adjust sandbox checkbox sits under the warning that explains it**, instead of telling you to
-  go find it in the vendor's field list below. It stays visible when the check passes, so turning
-  sandbox ON for a verification run is possible from the same place.
-- **Fixed: Quick Start code snippets render.** They were blank - the monospace font request returned
-  null during window construction and a null font renders a label empty. Copy always worked, which
-  is why it went unnoticed. The snippets now use the editor's default font.
-- **The fail/warn/pending/pass counts are back, in the studio window.** The verdict pill says a
-  report is not green without saying how far off, and the pass count is the visible proof that the
-  row list is a filtered view rather than every check that ran.
-- Internals: `SorollaWindow` is a shell again (lifecycle, layout, the validation run); what it shows
-  moved into a view layer. The MAX settings sync no longer runs from inside UI construction, so
-  rendering the window no longer writes to disk.
-
-### Changed (2026-07-21 editor window simplification)
-- **One menu entry, period.** `Tools > Sorolla Palette SDK` is the only Palette entry this package
-  adds. The `Tools > Sorolla Palette SDK Internal` checkable toggle is gone.
-- **Studio window shows only what a studio controls.** SDK Overview, the full Build Health row list,
-  the Greenlight fail/warn/wait count strip, Copy Report (JSON), Export Gate Catalog, and the manual
-  attestation/dashboard checklist rows no longer render in the shipped window. Build Health still
-  runs and auto-fixes on every refresh and before every build; only its section is gone. The
-  Greenlight verdict badge still aggregates every row (including hidden ones), and Copy Report (text)
-  still carries every row - nothing here changes what gets checked or exported, only what's rendered.
-- **Fixed**: detail/requirement text on Greenlight and Build Health rows no longer truncates off the
-  right edge - it wraps.
-- Sorolla's own full-depth debugging surface (SDK Overview, every Build Health row, every Greenlight
-  row incl. attestations, JSON/catalog exports) has moved out of this package entirely, into a
-  gitignored, non-shipping harness in the testbed. Not part of the public API or this package.
-
-### Changed (2026-07-20 hungrysnake iOS re-QA fixes)
-- **A fresh build can no longer report itself HEALTHY.** The "did this session exercise anything"
-  judgment now reads the per-build coverage ledger instead of counting events, because a normal boot
-  already fires consent, store-ready and auto level-start events - enough to make an untouched
-  launch look played. Green now requires consent resolved, a level played to completion, and one ad
-  watched to the end on a format the game has ad units for; anything less reads NOT PROVEN even when
-  every check passes. One completed ad is enough on purpose: per-format unit keys are already proved
-  by the ad loading, so a second format is never demanded, and a game with no ad units configured
-  owes no ad evidence at all. Coverage survives a relaunch (same build), so this is one pass through
-  the game, not a per-launch chore.
-- **Fix text only points at things you can actually see.** On-device copy no longer sends a studio to
-  an Actions tab, an Issues tab, or a "Send to Sorolla" section that studio mode does not render:
-  the ad and consent to-dos point at the buttons sitting on those very rows, the "we cannot diagnose
-  this" fallback points at Copy report in the footer (always present), and the Facebook catch-all
-  drops the internal triage-ladder reference. Editor-side fix text stops telling you to open the
-  window you are already looking at, and the config fixes say up front that they are Unity actions.
-- **The report redraws while you watch it.** A fact landing while the report is on screen (an ad
-  finishing, a level completing) now updates the report within a second instead of needing the menu
-  closed and reopened. The pane is checked once a second and rebuilt only when the underlying facts
-  actually changed, so nothing is rebuilt per frame.
-
-### Changed (2026-07-20 hungrysnake verification-run fixes)
-- **Studio platform declarations deleted.** A game no longer declares which stores it ships on or
-  sells on. The active build target is the studio's intent, and the presence of Unity IAP is the
-  commerce declaration, so both `SorollaConfig.distributionPlatforms` and `commercePlatforms` (and
-  the `SorollaPlatforms` enum, the Release Targets section of the Palette window, and the
-  fail-closed "targets not declared" paths behind them) are gone. Device checks now apply on the
-  active mobile build target and are NotApplicable off mobile; the store-config check is required
-  exactly when Unity IAP is installed. Consumer games with the two fields serialized keep dead YAML
-  lines Unity ignores - clean them on the repin commit.
-- **A user's privacy choice is no longer reported as a problem.** ATT denied/restricted and a zeroed
-  advertising id are informational, not warning/failure. This removes the case where a fresh,
-  fully-configured session on a correct build reported issues, and removes a row that flapped
-  between amber and red depending on where the 4-second advertising-id fetch landed.
-- **The headline count and the listed problems always agree.** One rule now decides both, so a red
-  row that nothing counted can no longer render above a headline that says otherwise, and coverage
-  to-dos (progression, economy) stay in the TEST YOUR GAME list instead of appearing as problems.
-- **No problem is reported without a fix.** Row producers supply the diagnosis; the remaining generic
-  fallback points at affordances a studio can actually reach (the send-to-Sorolla copy button, the
-  5-tap gesture) instead of a tab that is hidden in the studio view. A remote-config key that exists
-  in neither the console nor the registered in-app defaults now gets a real diagnosis and routes to
-  the studio's own list.
-- **Coverage survives a relaunch.** Verified coverage is remembered per build (keyed to app version,
-  Unity build GUID and SDK version) instead of resetting on every launch: a studio cannot exercise
-  every path in one session. Any rebuild starts from an empty ledger.
-- **The invariant set narrows to what is genuinely SDK-only.** Consent persistence across a
-  force-quit and the SDK-session half of the background/resume cycle stay certified once per
-  release; the game-quality clauses that rode along with them are deleted. Cross-vendor dashboard
-  drift and on-device SDK errors become per-game checks, and the advertising-id check is deleted
-  outright. A certified invariant now renders nothing on a studio screen - the certification line is
-  gone from the Palette window; certificate status remains in the report export.
-
-### Fixed (2026-07-20 hungrysnake verification-run fixes)
-- **The duplicate-purchase counter could never fire.** It watched for wording the drop site never
-  logged; it is now recorded where the duplicate is actually dropped. A replayed purchase increments
-  it again.
-- **QA bridge actions were only attributable after the fact.** Every accepted or refused `/qa/exec`
-  now logs a receipt, so an agent-triggered ad or consent reset is visible in the console stream
-  rather than only in the next snapshot's counters.
+This line is unreleased until the `v4.0.0` tag. The version string stays `4.0.0` across the whole
+development line, so it cannot identify a development commit: use the SDK commit printed in the
+report. Do not pin a game to the development checkout, and do not treat a `HEALTHY` badge as a
+release verdict.
 
 ### Added
-- **Firebase config active-app matching (Build Health)**: the Firebase config check no longer only asks
-  "is a google-services.json / GoogleService-Info.plist present?" - it parses the file and confirms it
-  carries the ACTIVE application id (Android `package_name` read as a set of clients; iOS `BUNDLE_ID`).
-  A copied wrong-game config now FAILs with both identifiers named, instead of passing silently and
-  breaking Firebase only at runtime. Missing-file severity is unchanged (blocks in Full, warns in
-  Prototype). Several candidate files, an unreadable file, or a file that will not parse resolve to
-  INCOMPLETE (never a false pass), and the iOS search reports zero/one/many rather than silently picking
-  one plist. The parser is Unity-free and unit-tested (match, mismatch, malformed, multi-client,
-  duplicate clients, whitespace/BOM, wrong file type, same-id-different-project). Honest limit: matching
-  the bundle id catches a wrong-GAME file but does NOT prove Firebase PROJECT identity - a config for the
-  right bundle id but the wrong Firebase project still passes (project-identity verification stays an
-  open item until an authoritative expected project id is defined).
-- **iOS device snapshot ingest in the Editor Greenlight**: the Connect Device button now pulls the
-  live `/qa/snapshot` from a USB-connected iOS device over `iproxy` (libimobiledevice), the direct
-  analog of the existing Android `adb forward` path - both land on the same loopback bridge and share
-  identity/schema validation. The Greenlight adapter emits device-readiness and purchase-tracking-wiring
-  observations on iOS as well as Android, and binds device-session manual attestations (relaunch /
-  background-resume) to the connected build's Unity build GUID on iOS. An iOS build's device gates and
-  device-backed attestations are now reachable instead of permanently `INCOMPLETE`.
-- **Mode requirement table + live Greenlight cutover to the shared evaluator**: the canonical
-  `Sorolla.Health` gate catalog is now populated with a stable id, per-gate version, phase, required
-  flag, proof scope, and a mode/platform/installed-modules applicability predicate for every Build
-  Health check (each row, not a collapsed summary), each device-snapshot fact, and each manual
-  attestation. The Editor Greenlight no longer runs its own precedence: an adapter maps Build Health
-  results, the device snapshot, and the manual checklist onto neutral observations plus a trusted
-  evaluation context, and the single `HealthEvaluator.Evaluate` produces the verdict; the badge, label,
-  summary and copy-report export only MAP the aggregate outcome. The interim per-row precedence and its
-  `Verdict` enum are deleted - there is now exactly one aggregation. Behaviour: a build with no run
-  evidence, or one whose required gates lack scoped proof, renders a non-green `INCOMPLETE`, unchanged
-  in spirit from the interim floor but now driven by the real requirement table.
-  - **Firebase-in-Prototype decided**: the SDK's source-of-truth `SdkRegistry` marks every Firebase
-    module `FullRequired` (required in Full, optional in Prototype and never uninstalled), so the mode
-    table makes the Firebase coherence gate **required in Full and optional in Prototype** - a prototype
-    that ships Firebase has its coherence evaluated, a bare prototype skips it cleanly with no penalty,
-    and no real Firebase observation is ever discarded. The architecture doc, which had called Firebase
-    "required for prototype builds," is corrected to match the installer.
-  - **Legacy manual checkmarks are not evidence (B-10)**: a ticked greenlight checkbox now maps to an
-    observation with no scoped proof, so the manual gate's required vendor/device proof is unmet and the
-    row resolves to `INCOMPLETE` - a legacy check-off can no longer produce an affirmative pass. The
-    studio is prompted to re-attest with scoped evidence.
-- **Health model integrity hardening (independent-review repairs)**: the shared evaluator no longer hides
-  a known-broken requirement - an observed `FAIL` stays `FAIL` even when extra proof is missing (missing
-  required proof downgrades only affirmative claims). Requirement is one context-derived four-state
-  decision (`Required | Optional | NotApplicable | Unknown`, with a reason) instead of a fixed flag, so a
-  gate can be required in Full and optional in Prototype without duplicating its id; the requested phase
-  lives in the evaluation context and the evaluator - not the caller - selects the gates for that phase.
-  An applicable-but-unobserved optional gate is an explicit skip, never relabelled `NotApplicable`; an
-  observation supplied for a `NotApplicable` gate is a context-mismatch validation error (not silently
-  dropped); corrupted/undefined enum or flag values are validated at the boundary and cannot fail open to
-  a pass; the catalog is frozen on construction with strict validation (every requirement decision now
-  carries a mandatory reason). A machine-readable gate-catalog export (`Palette > QA > Export Gate
-  Catalog`) feeds a private one-source divergence check. Installed-module context is read from the package
-  manifest (unreadable → INCOMPLETE, never treated as absent). Release-only Build Health checks (keystore,
-  Adjust sandbox, SDK pin, Prototype Mode Intent) are tagged release-ship, so a QA-pass report no longer
-  reads a profile-"Skipped" result as a pass. In-app-purchase coverage is represented as its own gate
-  (Required when Unity IAP is installed, its store-console proof unavailable to the SDK → INCOMPLETE;
-  NotApplicable otherwise) so it did not vanish with the QA-expectations removal (Cycle 5R below refines
-  this: store config is also gated on an intended release target and is split from purchase-tracking wiring). The legacy manual
-  checkboxes are relabelled as non-evidence until scoped attestation lands. The device snapshot now
-  carries a schema version and a build-identity binding (application id, platform, mode, app version, and
-  the Unity build GUID); the greenlight rejects an unsupported schema or a wrong-game / wrong-build snapshot
-  instead of trusting it for device readiness - and a snapshot missing its platform or build GUID no longer
-  passes silently (both are required identity now). It also requires the snapshot's SDK-error evidence (a
-  missing or malformed `problems`/`sdk_errors` value is INCOMPLETE, not a permissive zero). A vendor's "not installed" Build
-  Health result is no longer treated as an affirmative pass - vendor absence in Prototype is a penalty-free
-  skip, and a missing active-platform Firebase config in Full now blocks (Error) instead of only warning.
-  An `Unknown` requirement can no longer flatten an observed FAIL, and malformed evaluator inputs (null
-  catalog/context, null gate id, corrupted enum values) produce a visible INCOMPLETE integrity report
-  rather than an exception. The greenlight's requested phase follows the active Build Health profile, so
-  release-only checks are reachable under the Release profile and never read as a QA-pass PASS.
-- **Scoped manual attestations replace the legacy checkbox**: a manual QA gate is now satisfied by an
-  attestation recorded against the current build - who attested, when, the game/build identity (application
-  id, platform, mode, app version), the gate id + definition version + phase, the proof scope claimed, a
-  human evidence note, and (for device-session gates) the connected build's GUID - not an unscoped
-  EditorPrefs tick. Every field is validated end to end: a wrong gate id / non-Pass outcome / blank actor /
-  wrong proof scope / a vendor gate with no evidence note is Invalid, and a gate-definition version change,
-  phase mismatch, different game/build, device-build-GUID mismatch, or expiry (14-day window) makes the
-  attestation Stale - both resolve to INCOMPLETE, never PASS (so a gate-version bump voids prior
-  attestations, per the Phase 3 restart rule). Recording is a confirmation prompt with a required evidence
-  note - not a one-click PASS - and the UI states plainly that this is a human attestation, not
-  machine-observed proof. Storage is a real same-volume atomic replace under `UserSettings/` that keeps the
-  prior valid file until the write succeeds; a corrupt store surfaces as INCOMPLETE integrity evidence, not
-  a silent empty set. In-app-purchase store config is attestable through this path (an explicit IAP
-  descriptor, honestly scoped as store-config attestation, NOT the later full purchase/grant/confirmation
-  chain), so an Unity-IAP game can reach HEALTHY. This makes a legitimate HEALTHY reachable once every gate
-  is genuinely satisfied, while keeping the no-false-green guarantee.
-- **Release-target applicability, IAP gate split, and an auditable report export (Cycle 5R)**: gate
-  applicability is now separated from evidence-collector availability. A studio declares the store
-  platforms a game actually ships to (new `SorollaConfig` release-target flags - Android / iOS); the
-  device and store gates are evaluated against those declared targets, not against which packages happen
-  to be installed. On an intended release platform the device gates stay applicable even where no evidence
-  collector exists yet (iOS today) - they resolve to INCOMPLETE (a capability gap), never dropping out as
-  NotApplicable, so an iOS-only build can no longer read HEALTHY without ever running on its only shipping
-  platform. Building for a platform the game does not ship on makes those gates NotApplicable with a
-  recorded reason (a one-store game is never forced to prove the other store). Undeclared targets fail
-  closed to INCOMPLETE. In-app purchases are now two distinct gates: `iap.store_configured` (Required only
-  when Unity IAP is installed AND the active platform is an intended commerce target; vendor-attested) and
-  a new `iap.tracking_attached` (that `Palette.AttachPurchaseTracking` is wired, observed on device) - a
-  store attestation can no longer stand in for purchase-tracking wiring. The Editor greenlight's Copy
-  Report buttons now emit the AUDITABLE canonical report (readable text and JSON) with every row - including
-  the inert NotApplicable/OptionalSkipped rows the UI collapses - carrying its stable id, definition
-  version, requirement + reason, disposition, outcome, required/observed proof, evidence (with safe
-  attestation provenance), plus a build/context fingerprint, so a pasted result is unambiguous about which
-  game/build/mode/platform/phase produced it. Affected gate versions are bumped (device gates and
-  `iap.store_configured` → v2) so the comparison instrument restarts only their agreement counts.
-- **Commerce/distribution target split, live SDK-commit provenance, and privacy UX (Cycle 5R.1)**: the
-  studio-declared release targets are now TWO curated flags values on `SorollaConfig` -
-  `distributionPlatforms` (where the app ships, drives device gates) and `commercePlatforms` (where IAP
-  sells, drives the store-config gate), replacing the interim per-store booleans. A game distributing on
-  Android while selling IAP only on iOS now has a NotApplicable Android store gate (not Required-deferred),
-  while its Android device gates still apply. Both are surfaced as a "Release Targets" control in the
-  Palette configuration window with an undeclared-state warning, so studios can discover and set this
-  mandatory state without editing the raw asset. The copied report's fingerprint now resolves the EXACT
-  SDK source commit at export time (embedded/local package via git; git-URL package via the resolved
-  lock hash; otherwise an explicit "unknown"), because SDK version `4.0.0` alone cannot identify a
-  development build; both target axes are recorded too. The attest prompt takes an explicit, editable
-  tester identity (defaulting to the machine username) and warns - at entry and at copy time - that the
-  tester name and evidence note are exported into shared reports, so no secrets/tokens/personal data
-  should be entered. `iap.tracking_attached` gains scenario provenance: a parsed snapshot showing tracking
-  not wired now FAILs when the store-init/attach scenario actually ran this session, and stays INCOMPLETE
-  only when it has not run yet.
-- **Shared health-result contract (internal foundation)**: a new leaf assembly `Sorolla.Health`
-  (`noEngineReferences`, internal types, no studio API) holds the neutral gate-result model and the
-  single aggregation `HealthEvaluator.Evaluate(catalog, context, observations)`. It evaluates a
-  canonical gate catalog against a trusted evaluation context and the producer's observations, so an
-  applicable required gate with no observation resolves to INCOMPLETE (omission is detectable, not a
-  silent pass); unknown gate ids and duplicate observations are validation errors; applicability is
-  definition-derived and tri-state (Unknown → INCOMPLETE); required vs observed proof scopes are
-  separate flag sets (missing required proof → INCOMPLETE). The canonical catalog ships as a
-  code-defined registry with duplicate/unreachable validation; ids are assigned in a later cycle. The
-  Editor greenlight keeps its existing interim precedence for one cycle until it is routed through this
-  evaluator. No behavior change to shipped greenlight output yet.
-- **GameAnalytics per-platform key validation** (closes #8): Build Health now warns when the active
-  build target has no game key + secret key pair in `Assets/Resources/GameAnalytics/Settings.asset`,
-  instead of passing on any key existing for any platform. The SDK Overview row shows a per-platform
-  breakdown ("Android configured, iOS key missing") in both the configured and not-configured states.
-- **`unverifiable` validation state**: a third terminal `ValidationStatus` for network-dependent checks
-  (offline / endpoint unreachable). Never blocks a build, never renders as a pass; shown as a neutral
-  row in Build Health. Built generically so future network checks reuse it.
-- **Facebook platform + credential Graph check** (Build Health): when FacebookSettings has an app id +
-  client token, an async, non-blocking Graph API call (`GET /{app-id}?fields=supported_platforms`)
-  verifies the active build target's platform is registered on the FB app and that the credential pair
-  is accepted. A missing platform warns with the exact console action; a rejected credential pair
-  warns distinctly; offline/timeout reads `unverifiable` instead of failing the build. Result is cached
-  per app id/client token/platform combination and refreshes Build Health once the probe settles.
-- **Facebook runtime probe diagnosis**: when the 3.18.1 Graph readiness probe fails, the adapter now
-  asks the Graph API whether the current platform is registered on the FB app before reporting
-  `last_sdk_error`, so a platform-provisioning gap (the Boulder Evolution root cause) reads as
-  "IOS not registered on FB app <id>" instead of the vendor's raw SSL/transport noise.
-- **MAX per-platform ad-unit warning**: in Full mode with MAX installed, Build Health warns when the
-  active build target has no rewarded or interstitial ad unit ID set in SorollaConfig.
+
+- **Launch Readiness report** (Palette window): one verdict - `HEALTHY`, `N ISSUES`, `INCOMPLETE`,
+  `FAILING` - aggregated by a single evaluator over a 25-gate catalog, with fail/warn/pending/pass
+  counts. It is fail-closed: a gate whose evidence is missing, pending, unverifiable, or supplied
+  without the proof it requires reads `INCOMPLETE`, never green. A fresh project with nothing checked
+  reads `INCOMPLETE`.
+- **The report evaluates the active build target.** Checks about the platform the project is not
+  building do not appear in the verdict, the counts, or the rows, and apply again when the build
+  target switches. A game shipping one platform can reach a green verdict.
+- **Copy Report**: the full report as text - every gate with its stable id, definition version,
+  requirement and reason, disposition, outcome, required and observed proof, evidence, and fix -
+  including the inert rows the window filters out of view. It carries a fingerprint: application id,
+  app version, Unity build GUID, mode, platform, and the exact SDK commit resolved at export time.
+- **Device snapshot from the editor**: Connect Device pulls the live `/qa/snapshot` from a
+  USB-connected device, Android over `adb forward` and iOS over `iproxy` (libimobiledevice). The
+  snapshot is bound to the connected build's identity, so a wrong-game, wrong-build, or unsupported
+  schema snapshot is rejected instead of trusted.
+- **Per-build coverage ledger**: verified facts (consent resolved, a level played to completion, an
+  ad watched to the end) persist for the exact build across relaunches, keyed to app version, Unity
+  build GUID and SDK version, so proving the integration is one pass through the game rather than a
+  per-launch chore. Any rebuild starts from an empty ledger. A game with no ad units configured owes
+  no ad evidence.
+- **Firebase config active-app matching**: the config check parses `google-services.json` /
+  `GoogleService-Info.plist` and confirms it carries the active application id (Android
+  `package_name`, iOS `BUNDLE_ID`). A copied wrong-game config fails with both identifiers named
+  instead of passing and breaking Firebase only at runtime. Several candidate files, an unreadable
+  file, or one that will not parse read `INCOMPLETE`, never a pass. Honest limit: matching the bundle
+  id catches a wrong-GAME file but does not prove Firebase PROJECT identity.
+- **GameAnalytics per-platform keys** (closes #8): the check reads the active build target's game key
+  and secret key pair instead of passing on any key existing for any platform.
+- **GameAnalytics credential probe**: the key/secret pair is validated against the vendor endpoint,
+  so syntactically populated but invalid credentials no longer read as configured.
+- **Facebook platform and credential probe**: an async, non-blocking Graph API call verifies that the
+  active platform is registered on the Facebook app and that the app id / client token pair is
+  accepted. A missing platform and a rejected credential pair report distinctly.
+- **AppLovin MAX ad unit check**: in Full mode, the rewarded and interstitial ad unit ids for the
+  active build target must be set.
+- **Build Health checks**: verbose logging left on, Development Build left on, Adjust sandbox mode
+  left on, missing Android release keystore, a machine-local `org.gradle.java.home` committed into
+  `gradleTemplate.properties`, an empty GameAnalytics `ResourceCurrencies` whitelist, missing
+  Addressables content, and `com.sorolla.sdk` pinned to a branch instead of a published tag.
+- **`unverifiable` validation state** for network-dependent checks (offline, endpoint unreachable).
+  It never blocks a build and never renders as a pass.
+- **Copy SDK state** (on-device debug console): copies the same data `/qa/snapshot` serves as plain
+  text, so a studio can paste device state to Sorolla when an on-device problem cannot be self-fixed.
 - **QA data files ship with the SDK** (`QA~/red-flags.txt`, `QA~/signal-markers.txt`,
-  `QA~/known-non-blockers.txt`): the QA-pass grep patterns are now version-pinned with the SDK
-  instead of living only in the private qa-greenlight skill. `qa-gate.sh` reads the package copy
-  first (via `--game-root` or `$SOROLLA_SDK_QA_DIR`), falling back to the skill copy for older
-  SDK pins.
-
-- **"Copy SDK state" button** (debug console, Actions tab, QA Bridge section): copies the same data
-  `/qa/snapshot` serves (header, mode, consent, remote config, adapters, identity, ads, IAP, events,
-  problems) as a formatted plain-text report to the system clipboard, so a studio dev can paste it to
-  Sorolla when a red row on-device can't be self-fixed. Phase 5' cut (a) of the QA self-serve plan;
-  the console's Vitals tab already covers the rest of cut (a)'s "QA status section" (per-area rows,
-  header health summary, honest unverified states) off the same underlying snapshot data.
-
-### Fixed
-- **`MiniJson` no longer hangs on truncated JSON**: `ParseObject`/`ParseArray` looped forever at 100% CPU
-  when input ended mid-object/array (EOF reads as `(char)-1`, which never matches `}`/`]`/`,`), so a
-  truncated config file could wedge the editor. Both loops now return the partial structure on EOF. Found
-  via the new Firebase config parser, which feeds `MiniJson` a real `google-services.json` that may be
-  truncated.
-- **`google-services.json` detection no longer false-positives on the desktop file**: the Firebase
-  Android config check required exactly `Assets/google-services.json` (or the StreamingAssets copy);
-  the fuzzy `AssetDatabase.FindAssets("google-services")` fallback that matched the auto-generated
-  `google-services-desktop.json` is removed. The missing-config-file case for both platforms is now a
-  warning, not a build-blocking error, per the awareness-first ruling above.
-
-### Added (Phase 3 - Build Health parity with the pre-build gates)
-Ports the ~10 machine-checkable pre-build gates that Build Health lacked relative to the manual
-qa-greenlight pass. Awareness-first throughout: every check below is a Warning or an informational
-row, never an Error - existing checks (Adjust token, etc.) keep their current severity untouched.
-- **Validation profile** (QA Pass / Release, default QA Pass): a dropdown next to Build Health's
-  Refresh button, persisted per-project in EditorPrefs. Release-scoped checks below only fire in the
-  Release profile; switching profiles re-runs validation immediately.
-- **Prototype-mode intent** (Release profile): warns when `SorollaConfig.isPrototypeMode` is on while
-  a Full-mode SDK (MAX and/or Adjust) is installed - the 2026-04-23 prototype-leak incident class.
-- **Verbose logging drift**: warns when `SorollaConfig.verboseLogging` is on (both profiles). Runtime
-  already forces it off in non-development builds; this is hygiene, not a leak gate.
-- **Development Build flag** (both profiles): warns when `EditorUserBuildSettings.development` is on
-  or any `Library/BuildProfiles/*.asset` has `m_Development: 1`.
-- **Adjust sandbox mode** (Release profile): warns when `SorollaConfig.adjustSandboxMode` is on -
-  must be off before store submission.
-- **Android keystore** (Release profile, Android target): warns when no release keystore is
-  configured in Player Settings, or the configured file is missing.
-- **Hardcoded Gradle `org.gradle.java.home`** (Android target, both profiles): warns when
-  `gradleTemplate.properties` has a machine-local `org.gradle.java.home` line committed - breaks
-  every other teammate's build.
-- **GameAnalytics ResourceCurrencies whitelist**: warns when GA's `Settings.asset` exists with an
-  empty `ResourceCurrencies` list. States the conditionality in the message (only matters if the game
-  tracks economy via `Palette.Economy`) rather than inferring usage from game scripts.
-- **Addressables content** (only when the Addressables package is installed): warns when
-  `Assets/AddressableAssetsData` is missing or no `link.xml` exists in the project.
-- **SDK pin info row**: Release profile warns when `com.sorolla.sdk` in `manifest.json` isn't pinned
-  to a published `#vX.Y.Z` tag (master/hash pins are irreproducible for a release build); QA Pass
-  profile shows the current ref as an informational row instead. Embedded/local packages (no manifest
-  entry) skip the check entirely.
-- **Adjust resolved version info row** (when Adjust is installed): surfaces the version resolved into
-  `Library/PackageCache` as an informational row. Skew judgment stays human - this never warns.
+  `QA~/known-non-blockers.txt`): the QA-pass grep patterns are version-pinned with the SDK.
 
 ### Changed
-- **Greenlight status is now four-state - closes the false-green class**: the status adds
-  `INCOMPLETE` between `N ISSUES` and `FAILING`, with precedence `FAILING` > `INCOMPLETE` >
-  `N ISSUES` > `HEALTHY`. Previously the aggregation only reacted to failing and warning rows, and
-  the badge fell through to a green default, so a report with no evidence at all (every gate pending
-  or unticked, only neutral rows, or no rows evaluated) rendered a green `HEALTHY`. Now `INCOMPLETE`
-  (a non-green badge) fires whenever evidence is pending/unverifiable - a probe that never ran, a
-  device snapshot that never connected, an unticked manual gate - OR when there is no affirmative
-  evidence at all (an empty report, or one built only from neutral `info` rows). `info` never fails
-  and never blocks `HEALTHY` when real evidence exists, but it can never carry a report to `HEALTHY`
-  on its own. The collapsed rows foldout follows suit: an incomplete report never reads "rows
-  checked". A fresh report (nothing checked yet) reads `INCOMPLETE`, not `HEALTHY`. This is an INTERIM
-  Greenlight status, not a release verdict: the current rule is a deliberately broad safety floor
-  (any `wait` row, or no affirmative evidence) that stops the false-green until a later cycle lands
-  the canonical per-row required/proof-scope requirement table. `info` is not a mechanism for
-  silently excluding a requirement - that is the requirement table's job, not this floor's.
-  Both the badge severity and the verdict label/plain-text export now map every state explicitly and
-  throw on an unknown verdict instead of defaulting to a green `HEALTHY`, so a future state cannot
-  leak a false-green through the copy-report path.
+
+- **Three checks block a Full-mode build**: the Adjust app token, the active platform's Firebase
+  config file, and the active platform's GameAnalytics key pair. Each one, when missing, means the
+  build cannot report to that vendor at all. Every other check warns.
+- **One Palette window, grouped by vendor.** Each vendor has one foldout holding its status, its
+  check rows, and its own configuration fields; the separate SDK Keys section is gone. A check row
+  reads as its name and a short status word, with the message and fix wrapping underneath. Clicking
+  anywhere on a group header folds it.
+- **Configuration edits re-run validation as you type**, with no Refresh press, and a check waiting on
+  a network answer updates itself when the probe returns.
+- **The window states which platform the report judged**, and the Adjust sandbox checkbox sits under
+  the warning that explains it.
+- **A user's privacy choice is no longer reported as a problem**: ATT denied or restricted and a
+  zeroed advertising id are informational, not warnings.
+- **Sorolla Vitals redraws while open**: a fact landing on device (an ad finishing, a level
+  completing) updates the report within a second.
+- **Vitals and `/qa/snapshot` report the platform they run on**: the iOS-only ATT row no longer
+  renders off iOS, and the snapshot sends `att: null` there instead of a constant "authorized".
+- **Facebook readiness failures name the cause**: when the Graph readiness probe fails, the adapter
+  reports whether the running platform is registered on the Facebook app instead of the vendor's raw
+  SSL/transport error.
+- **On-device fix text points only at controls the studio can see**, and editor fix text no longer
+  tells you to open the window you are already in.
+
+### Fixed
+
+- **`MiniJson` no longer hangs on truncated JSON**: parsing input that ended mid-object or mid-array
+  looped forever at 100% CPU, so a truncated config file could wedge the editor.
+- **`google-services.json` detection no longer matches the desktop file**: the fuzzy search that
+  matched the auto-generated `google-services-desktop.json` reported a missing Android config as
+  present.
+- **A stray `GoogleService-Info.plist` no longer pins the report amber**: iOS config discovery
+  searched the whole project, so any second copy made the shipping config permanently ambiguous. Both
+  platforms now check the exact paths Unity ships from.
+- **Quick Start code snippets render.** They displayed blank, though the copy button still worked.
+- **Detail and fix text wraps** instead of truncating off the right edge.
+- **The duplicate-purchase counter fires.** It watched for wording the drop site never logged, so a
+  replayed purchase was never counted.
+- **`/qa/exec` actions are attributable as they happen**: every accepted or refused call logs a
+  receipt to the console stream rather than surfacing only in the next snapshot's counters.
 
 ### Removed
-- **QA bridge password gate removed (KISS security posture)**: the `/qa/*` bridge no longer requires a
-  password. `QaBridgeAuth` (header / `Authorization: Bearer` / `qa_password=` resolution) and the public
-  `SorollaConfig.qaBridgePassword` field are deleted; the server no longer emits `403
-  qa_password_required`. The bridge still binds loopback (`127.0.0.1`) only, which is the actual
-  boundary - reads are open by design, reachable only by someone who can already USB-forward the port,
-  and studios no longer manage a per-game secret. Editor Greenlight's Connect Device step sends no auth
-  header. Snapshot output should be treated as potentially readable; the mutating `/qa/exec` endpoint is
-  the future insertion point for a single shared PIN if one is ever needed (none today). Migration:
-  remove any `X-Sorolla-QA-Password` header / `qa_password` param from your own scripts (a stale header
-  is simply ignored); a value previously set in `SorollaConfig.qaBridgePassword` is now inert.
-- **`SorollaQaExpectations` asset and its types removed (breaking)**: the `SorollaQaExpectations`
-  ScriptableObject (and `SorollaQaIntendedMode`, `SorollaQaSku`, `SorollaQaSkuType`, `SorollaQaArea`,
-  `SorollaQaPlatform`, `SorollaQaExpectedFailure`, plus the **Assets > Create > Palette > QA
-  Expectations** menu) are deleted. Greenlight applicability derives from mode, platform, installed
-  modules, and observed exact-build facts, plus the studio-declared distribution/commerce target sets on
-  `SorollaConfig` (functional product config added in Cycle 5R/5R.1, NOT a resurrected QA-expectations
-  asset). The Mode Intent row and the expectations-driven Store SKUs manual row are gone. Migration for
-  studios: a leftover `Assets/Resources/SorollaQaExpectations.asset` is now inert and can be deleted;
-  additionally, declare `distributionPlatforms` and `commercePlatforms` on your `SorollaConfig` (Palette
-  window → Release Targets) - an existing asset predating these fields reads them as undeclared, which
-  keeps the device/store QA gates `INCOMPLETE` until you set them. These removed types were
-  internal-workflow surface and never appeared in the generated `api-reference.md`.
+
+- **QA bridge password gate** (breaking): the `/qa/*` bridge no longer requires a password. The
+  password was a constant compiled into every build, so it protected nothing; the real boundary is
+  that the bridge binds loopback only and is reachable only by someone who can already USB-forward
+  the port. Migration: remove the `X-Sorolla-QA-Password` header or `qa_password` parameter from your
+  scripts (a stale one is ignored). Treat snapshot output as potentially readable.
 
 ### Documentation
-- **TikTok marked parked across the public docs and config source**: TikTok is not part of the active
-  supported vendor set; compatibility remains for existing integrations. The adapter still ships and the
-  `SorollaConfig` TikTok fields remain, so existing setups keep working. Every doc that presented TikTok
-  as a normal integration step now carries a consistent "parked" marker pointing at `guides/tiktok.md`
-  (guide banner, `guides/toc.yml` label, `index.md`, `switching-to-full.md`, `dashboard-setup.md`
-  including the Full-mode init-order reference, `validation.md`, `quick-start.md`, and the
-  `architecture.md` vendor list). The `SorollaConfig` TikTok field XML doc comments and the inspector
-  `[Header]` are updated to parked wording at the source. Nothing removed: parked is not deprecated and
-  not removed. The generated `api-reference.md` now carries the parked TikTok field wording, regenerated
-  once the docs pipeline was repaired (see below).
-- **Docs pipeline repaired + `api-reference.md` freshness enforced in CI**: the DocFX shadow project
-  (`Documentation~/docfx/sdk.csproj`) had failed to compile since the UI Toolkit debug-menu overlay
-  landed, so `docfx metadata` extracted zero public API and `api-reference.md` could not be regenerated
-  at all. The shadow project now references `UnityEngine.UIElementsModule` and uGUI and excludes the
-  separate `Sorolla.Runtime.InputSystem` assembly the compile glob wrongly pulled in. The debug-menu
-  overlay itself cannot be excluded: it is reachable from the public `Palette.ShowDebugger` /
-  `HideDebugger` / `ToggleDebugger` API, so it is part of the documented surface. `api-reference.md` is
-  regenerated (picks up SDK version `4.0.0` and the parked-TikTok wording). `docs-check.yml` now fails on a zero/partial extraction and on
-  staleness: it regenerates in CI and diffs against the committed file with the Unity-IAP-conditional
-  surface (`#if UNITY_PURCHASING_INSTALLED`; `Unity.Purchasing.dll` is not present in the CI image)
-  masked from both sides via `Tools~/api-reference-mask.awk`, so a newly added purchasing-gated member
-  fails the check visibly rather than being silently missed.
+
+- **TikTok is marked parked** across the public docs and in the `SorollaConfig` field comments and
+  inspector headers. The adapter still ships and existing integrations keep working; parked is
+  neither deprecated nor removed.
+- **`api-reference.md` is regenerated and its freshness is enforced in CI.** The DocFX shadow project
+  had failed to compile since the UI Toolkit overlay landed, extracting zero public API; CI now fails
+  on a zero or partial extraction and on a stale committed file.
 
 ## [3.18.3] - 2026-07-08
 
