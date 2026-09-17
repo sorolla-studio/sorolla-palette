@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.0.7] - 2026-09-17
+
+### Changed
+
+- The AdMob app id fix names the Google Ad Manager row of the AppLovin Integration Manager, where
+  AppLovin places the App ID fields.
+- Missing Android or iOS ad units and AdMob app id now also suggest switching Build Settings when
+  the game does not ship on the graded platform.
+- The Adjust app token texts (Launch Readiness, Vitals, Adjust guide and dashboard doc) state that
+  the token is per game, created in Sorolla's Adjust account, and requested from Sorolla ops.
+- The Adjust App Token field no longer claims it is required for builds; builds never stop on it.
+
 ## [4.0.6] - 2026-08-06
 
 ### Changed
