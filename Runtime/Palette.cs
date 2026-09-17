@@ -19,7 +19,7 @@ namespace Sorolla.Palette
         const string Tag = "[Palette]";
 
         /// <summary>Package version of the Sorolla Palette SDK.</summary>
-        public const string SdkVersion = "4.0.6";
+        public const string SdkVersion = "4.0.7";
 
         /// <summary>Whether the SDK is initialized</summary>
         public static bool IsInitialized { get; private set; }
