@@ -58,7 +58,7 @@ namespace Sorolla.Palette
         internal static (string why, string signal, string fix) AdjustTokenMissingDiagnosis() => (
             "SorollaConfig.adjustAppToken is empty (or too short to be real) while the SDK is in Full mode.",
             "Every Adjust call is a no-op; attribution and the Adjust ADID/Attribution rows never resolve. The pre-build report grades this red - do not launch campaigns until it is set.",
-            "Adjust dashboard -> the app -> All Settings -> copy the App Token into SorollaConfig.adjustAppToken. Prototype mode has no such requirement if Adjust isn't needed yet.");
+            "Request this game's Adjust app token from Sorolla ops (the app lives in Sorolla's Adjust account; never copy another game's token) and paste it into SorollaConfig.adjustAppToken. Prototype mode has no such requirement if Adjust isn't needed yet.");
 
         internal static (string why, string signal, string fix) NetworkUnavailableDiagnosis() => (
             "Unity reports that this device has no reachable network.",

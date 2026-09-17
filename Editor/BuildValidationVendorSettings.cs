@@ -75,6 +75,10 @@ namespace Sorolla.Palette.Editor
             // group, and the other platform's units are graded when it becomes the build target.
             bool activeIsIos = EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS;
             string platformName = activeIsIos ? "iOS" : "Android";
+            // Two studios in a row (2026-09-17) read the active-platform FAILs as work to do for a
+            // platform their game never ships on; the header line naming the judged target was not enough.
+            string switchHint = $", or switch Build Settings to {(activeIsIos ? "Android" : "iOS")} " +
+                                $"if this game does not ship on {platformName}";
 
             // The consent flow above is Google UMP: it initializes the Google Mobile Ads SDK, which aborts
             // when no AdMob application id is present in the manifest / Info.plist. AppLovin writes that id
@@ -82,7 +86,7 @@ namespace Sorolla.Palette.Editor
             // capability, scope, severity, and studio action as the rest of this row, so it grades here
             // rather than as its own check.
             ValidationResult adMob = GradeMaxAdMobAppId(
-                MaxSettingsSanitizer.GetAdMobAppId(activeIsIos), platformName);
+                MaxSettingsSanitizer.GetAdMobAppId(activeIsIos), platformName, switchHint);
             if (adMob != null)
                 results.Add(adMob);
 
@@ -105,7 +109,7 @@ namespace Sorolla.Palette.Editor
                     ReadinessChecks.MaxSettings,
                     $"MAX ad unit IDs missing for {platformName} in SorollaConfig: {string.Join(", ", missing)}.\n" +
                     "  Every ad call for a missing format fails to load; banner units are not checked (optional format).",
-                    $"Enter the AppLovin MAX ad unit IDs for {platformName} below"));
+                    $"Enter the AppLovin MAX ad unit IDs for {platformName} below{switchHint}"));
             }
 
             // A missing AdMob id and missing ad units are two separate studio actions, so both findings are
@@ -127,7 +131,7 @@ namespace Sorolla.Palette.Editor
         ///     read at all - an AppLovin version that renamed or removed it, or a reflection throw - and
         ///     grading an unread field as missing would block builds on a fact this check never observed.
         /// </summary>
-        internal static ValidationResult GradeMaxAdMobAppId(string adMobAppId, string platformName)
+        internal static ValidationResult GradeMaxAdMobAppId(string adMobAppId, string platformName, string switchHint)
         {
             if (adMobAppId == null)
             {
@@ -150,12 +154,13 @@ namespace Sorolla.Palette.Editor
                     // AdMob account, so a studio cannot generate this value and there is no local source of
                     // truth for Palette to fill in either - a fix text that only said "paste it" sent studios
                     // looking for an id that did not exist yet. The destination is the real control on the
-                    // installed AppLovin (8.6.4): a per-platform App ID field on the AdMob row of the
-                    // Mediated Networks list, not a menu path.
+                    // installed AppLovin (8.6.4): a per-platform App ID field that AppLovin renders under the
+                    // Google Ad Manager row of the Mediated Networks list (the AdMob row has no field; a
+                    // studio hunted for it there, 2026-09-17), not a menu path.
                     $"Request the AdMob {platformName} app id (ca-app-pub-…~…) for this game from Sorolla ops - " +
                     "it is created in Sorolla's AdMob account - then open the AppLovin Integration Manager " +
-                    $"window and paste it into the \"App ID ({platformName})\" field on the AdMob row of the " +
-                    "Mediated Networks list")
+                    $"window and paste it into the \"App ID ({platformName})\" field under the Google Ad Manager " +
+                    $"row of the Mediated Networks list (AppLovin puts the AdMob app id there){switchHint}")
                 : null;
         }
 
@@ -207,8 +212,8 @@ namespace Sorolla.Palette.Editor
                     ReadinessChecks.AdjustSettings,
                     "Adjust app token is not configured!\n" +
                     "  Attribution tracking will not work without a valid app token.\n" +
-                    "  Enter your Adjust app token below.",
-                    "Enter Adjust app token below"));
+                    "  The token is per game and created in Sorolla's Adjust account - never copy another game's token.",
+                    "Request this game's Adjust app token from Sorolla ops, then enter it below"));
             }
             else
             {

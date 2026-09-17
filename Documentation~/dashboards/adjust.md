@@ -4,7 +4,7 @@ Adjust is required in **Full mode** only (not used in Prototype). What must be t
 
 ## Create ONE multi-platform app, not per-platform apps
 
-**Create a single Adjust app that covers both Android and iOS**, and use its one App Token everywhere. Do not create a separate Adjust app per platform.
+**Create a single Adjust app that covers both Android and iOS**, and use its one App Token everywhere. Do not create a separate Adjust app per platform. Sorolla ops creates the app in Sorolla's Adjust account and hands the studio its App Token; the token is per game and must never be copied from another game.
 
 This isn't a preference — the SDK's config schema holds exactly one Adjust App Token (`SorollaConfig`), applied to whichever platform the build targets. There is no per-platform token field. A studio that creates two apps (one Android, one iOS) will end up with two App Tokens and only one field to put either of them in — whichever platform's token isn't in `SorollaConfig` silently reports under the wrong app, or fails init entirely. If a studio already has separate per-platform apps from before integrating with Sorolla, consolidate to one multi-platform app before going to Full mode.
 

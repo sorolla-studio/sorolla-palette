@@ -69,9 +69,9 @@ namespace Sorolla.Palette.Editor.UI
                     }
                     break;
 
-                // Adjust (Full mode only). adjustAppToken is the ONE documented hard build gate
-                // (BuildValidationVendorSettings / SdkConfigDetector: empty or length <= 5 fails a Full-mode
-                // build) - Invalid state + subtext while unresolved, no subtext once valid. Sandbox Mode is
+                // Adjust (Full mode only). adjustAppToken is required in Full mode (SdkConfigDetector: empty
+                // or length <= 5 grades the row red; builds are never stopped, see BuildValidatorPreprocessor)
+                // - Invalid state + subtext while unresolved, no subtext once valid. Sandbox Mode is
                 // deliberately NOT here: its checkbox renders under its own check row, beside the warning
                 // that explains it (see SandboxModeToggle).
                 case ReadinessGroup.Adjust:
@@ -81,7 +81,7 @@ namespace Sorolla.Palette.Editor.UI
                             SerializedConfig.FindProperty("adjustAppToken"), "App Token",
                             value => !string.IsNullOrEmpty(value) && value.Length > 5
                                 ? (ValidatedField.State.Valid, (string)null)
-                                : (ValidatedField.State.Invalid, "Required for Full-mode builds"));
+                                : (ValidatedField.State.Invalid, "Required in Full mode - request from Sorolla ops"));
                         inputs.Add(AdjustAppTokenField);
                         inputs.Add(OptionalField("adjustPurchaseEventToken", "Purchase Event Token"));
                     }
