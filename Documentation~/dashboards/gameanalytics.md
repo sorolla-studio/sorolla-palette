@@ -16,7 +16,7 @@ The **GameAnalytics Credentials probe** in Launch Readiness HMAC-signs a real `i
 
 **It cannot prove the active platform is registered in the GA dashboard.** The GA collector's `init` and `events` endpoints accept any syntactically valid platform string as long as the credentials are valid — a schema-valid event for a platform that was never added to the dashboard still returns `200`. This was confirmed live against the collector (2026-07), not inferred: a complete, correctly-signed request for a never-registered platform succeeds at the HTTP layer and is silently dropped dashboard-side. There is no credential the SDK holds that exposes platform-level dashboard state (that lives behind GA's Organization API, which needs a separate org-admin key the SDK does not carry).
 
-This is a real, previously-seen failure mode: a build reported `ready: true` with the credential probe passing while GA silently dropped 100% of events for one platform because it was never added to the dashboard game settings. The credential probe closes the "wrong keys" case; it structurally cannot close the "right keys, wrong platform" case.
+This failure mode has been observed in production: a build reported `ready: true` with the credential probe passing while GA silently dropped 100% of events for one platform because it was never added to the dashboard game settings. The credential probe closes the "wrong keys" case; it structurally cannot close the "right keys, wrong platform" case.
 
 ## What the verdict shows when it's wrong
 

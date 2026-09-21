@@ -8,12 +8,12 @@ How the Sorolla SDK interacts with Unity's Android build system across Unity ver
 
 | | Unity 2022.3 LTS | Unity 2023.x | Unity 6 (6000.x) |
 |---|---|---|---|
-| **AGP** | 7.4.2 | 7.x - 8.x | 8.10.0 (6.0 - 6.4), 9.0.0 (6.5+, also 6000.4.8f1) |
+| **AGP** | 7.4.2 | 7.x - 8.x | 8.10.0 (early 6.x patches), 9.0.0 (current patches of every stream: 6000.3.24f1, 6000.4.8f1, 6.5+, 6.6) |
 | **R8 pin needed** | Yes (8.1.56+) | Depends on AGP | No |
 | **Activity class** | UnityPlayerActivity only | Both available | Both, GameActivity default |
 | **`androidApplicationEntry`** | 1 (only option) | 1=Activity, 2=GameActivity | 1=Activity, 2=GameActivity |
 | **Split manifest** | No | Partial | Yes (launcher + library modules) |
-| **Minimum Gradle** | 7.x | 7.x - 8.x | 8.13 (6.0 - 6.4), 9.1 (6.5+) |
+| **Minimum Gradle** | 7.x | 7.x - 8.x | 8.13 (early 6.x patches), 9.1 (current 6.3 / 6.4 / 6.5 / 6.6.0 patches), 9.3.1 (6.6.2+) |
 | **JDK** | 11 or 17 | 17 | 17 |
 
 ---
@@ -55,9 +55,9 @@ buildscript {
 
 ### Unity 6 (AGP 8.10.0 / 9.0.0)
 
-AGP 8.10.0 (Unity 6.0 - 6.4) and 9.0.0 (Unity 6.5 and later, also 6000.4.8f1) bundle a modern R8 that handles Kotlin 2.0 natively. The R8 pin from Unity 2022 **must be removed** - it causes `NoSuchMethodError: setBuildMetadataConsumer` because the old R8 is incompatible with the AGP 8+ dex merger.
+AGP 8.10.0 (early Unity 6 patches) and 9.0.0 (the current patch of every 6.x stream: 6000.3.24f1, 6000.4.8f1, 6.5 and later) bundle a modern R8 that handles Kotlin 2.0 natively. The R8 pin from Unity 2022 **must be removed** - it causes `NoSuchMethodError: setBuildMetadataConsumer` because the old R8 is incompatible with the AGP 8+ dex merger.
 
-Unity 6.5 and later also raise the minimum Android API to 26 (Android 8.0); a lower `AndroidMinSdkVersion` only warns at build time in 6.5, so move it to 26 when upgrading. The Gradle 9.1 / AGP 9.0.0 toolchain and its JDK 17 requirement are bundled by the Editor; no template change is needed for it.
+Unity 6.5 and later also raise the minimum Android API to 26 (Android 8.0); a lower `AndroidMinSdkVersion` only warns at build time in 6.5, so move it to 26 when upgrading. The Gradle 9.1 (9.3.1 from 6.6.2) / AGP 9.0.0 toolchain and its JDK 17 requirement are bundled by the Editor; no template change is needed for it. The SDK's manifest sanitizer and consent-mode injection are verified on 6000.6.0f1 and 6000.6.2f1 Android builds.
 
 ---
 

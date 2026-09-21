@@ -2,13 +2,13 @@
 
 Field incidents seen by studios integrating the SDK, with verified causes and fixes. One entry per issue, newest first. If you hit something not listed here, check [Troubleshooting](troubleshooting.md) first, then report it so it gets logged.
 
-Entry format: symptom, root cause, fix, prevention. Each entry records the date first seen and the game/setup it was seen on.
+Entry format: symptom, root cause, fix, prevention. Each entry records the date first seen and the setup it was seen on.
 
 ---
 
 ## Compile errors in GameAnalytics after upgrading to Unity 6.5 or later (CS0619 `hierarchyWindowItemOnGUI`, `InstanceIDToObject`)
 
-**First seen**: 2026-09-21, Sorolla testbed (Unity 6000.6.0f1, GameAnalytics 8.0.1).
+**First seen**: 2026-09-21 (Unity 6000.6.0f1, GameAnalytics 8.0.1).
 
 **Symptom**: The project opens with compile errors in `Library/PackageCache/com.gameanalytics.sdk@…/Runtime/Scripts/GameAnalytics.cs`:
 
@@ -27,7 +27,7 @@ Every assembly that references GameAnalytics stays uncompiled, including the Sor
 
 ## TestFlight upload rejected: "Invalid bundle structure … libFirebaseCpp*.a binary file is not permitted" (ITMS-90171)
 
-**First seen**: 2026-07-08, Rolling Wheel (Unity 6000.4.4, Firebase packages 13.7.0).
+**First seen**: 2026-07-08, a partner game (Unity 6000.4.4, Firebase packages 13.7.0).
 
 **Symptom**: App Store Connect rejects the upload with code `90171` for `YourGame.app/Frameworks/libFirebaseCppApp.a`, `libFirebaseCppCrashlytics.a`, and/or `libFirebaseCppRemoteConfig.a`:
 
