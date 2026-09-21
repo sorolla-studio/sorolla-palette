@@ -19,7 +19,7 @@ namespace Sorolla.Palette
         internal static GameObject CreateIfMissing()
         {
 #if UNITY_2023_1_OR_NEWER
-            if (UnityEngine.Object.FindFirstObjectByType<EventSystem>() != null) return null;
+            if (UnityEngine.Object.FindAnyObjectByType<EventSystem>() != null) return null;
 #else
             if (UnityEngine.Object.FindObjectOfType<EventSystem>() != null) return null;
 #endif

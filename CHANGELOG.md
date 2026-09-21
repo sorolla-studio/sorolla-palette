@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- The Vitals debug menu no longer triggers Unity 6.6's `FindFirstObjectByType` obsolete warning when
+  it looks for an existing EventSystem.
+
+### Documentation
+
+- Unity 6.5 and 6.6: the Android build guide lists the Android Gradle plugin 9.0.0 / Gradle 9.1
+  toolchain and the API 26 minimum those versions ship, and Known Issues covers the GameAnalytics
+  compile failure on them. Verified on Unity 6000.6.0f1 (editor test suite 240/240, Android build).
+
 ## [4.0.7] - 2026-09-17
 
 ### Changed
@@ -13,6 +26,8 @@ All notable changes to this project will be documented in this file.
 - The Adjust app token texts (Launch Readiness, Vitals, Adjust guide and dashboard doc) state that
   the token is per game, created in Sorolla's Adjust account, and requested from Sorolla ops.
 - The Adjust App Token field no longer claims it is required for builds; builds never stop on it.
+- GameAnalytics requirement is 8.2.0 (was 8.0.1). GameAnalytics 8.0.1 does not compile on Unity 6.5
+  or later.
 
 ## [4.0.6] - 2026-08-06
 

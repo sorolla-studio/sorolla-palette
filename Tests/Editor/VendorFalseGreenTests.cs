@@ -188,7 +188,7 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void Max_MissingActivePlatformAdMobAppId_IsErrorNamingTheField()
         {
-            BuildValidator.ValidationResult result = BuildValidator.GradeMaxAdMobAppId("", "Android");
+            BuildValidator.ValidationResult result = BuildValidator.GradeMaxAdMobAppId("", "Android", "");
 
             Assert.AreEqual(BuildValidator.ValidationStatus.Error, result.Status);
             // The control that exists (AppLovin 8.6.4): a per-platform App ID field on the AdMob row of the
@@ -202,7 +202,7 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void Max_PresentAdMobAppId_ProducesNoFinding()
         {
-            Assert.IsNull(BuildValidator.GradeMaxAdMobAppId("ca-app-pub-123~456", "Android"));
+            Assert.IsNull(BuildValidator.GradeMaxAdMobAppId("ca-app-pub-123~456", "Android", ""));
         }
 
         /// <summary>
@@ -212,7 +212,7 @@ namespace Sorolla.Palette.Editor.Tests
         [Test]
         public void Max_UnreadableAdMobAppId_IsIncompleteNamingTheFailedRead()
         {
-            BuildValidator.ValidationResult result = BuildValidator.GradeMaxAdMobAppId(null, "Android");
+            BuildValidator.ValidationResult result = BuildValidator.GradeMaxAdMobAppId(null, "Android", "");
 
             Assert.AreEqual(BuildValidator.ValidationStatus.Unverifiable, result.Status);
             Assert.That(result.Message, Does.Contain("Could not read"));
@@ -326,7 +326,7 @@ namespace Sorolla.Palette.Editor.Tests
                 new List<BuildValidator.ValidationResult>
                 {
                     BuildValidator.GradeFacebookPlatform(false, default, null),
-                    BuildValidator.GradeMaxAdMobAppId("", "Android"),
+                    BuildValidator.GradeMaxAdMobAppId("", "Android", ""),
                     BuildValidator.GradeFacebookPlatform(true, unreachable.State, unreachable.Detail),
                 });
 
