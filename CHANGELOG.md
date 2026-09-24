@@ -2,10 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [4.0.8] - 2026-09-24
 
 ### Fixed
 
+- Players that AppLovin places in a consent region but who never answered the consent form were
+  recorded as refusing consent, which turned off GameAnalytics, Firebase Analytics, Adjust and ad
+  personalization for them. This covered nearly every player in Brazil, where AppLovin applies the
+  consent region but Google shows no form. Only an answer recorded by the consent form now counts as
+  a refusal. When the consent form reports that GDPR does not apply, consent resolves to
+  `NotApplicable`; when the form has not been answered, it resolves to `Required` (analytics on; ad
+  storage, ad personalization and Adjust off until the player answers). For these players the
+  `consent_resolved` event reports `gdpr` as `not_applicable` or `required` instead of `denied`.
+- The `ShowPrivacyOptions` completion callback, and the consent update that follows the form, now
+  run on the main thread.
 - The Vitals debug menu no longer triggers Unity 6.6's `FindFirstObjectByType` obsolete warning when
   it looks for an existing EventSystem.
 
