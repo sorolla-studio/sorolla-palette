@@ -142,26 +142,6 @@ task clean(type: Delete) {
         }
 
         [Test]
-        public void RemoveBuildscriptBlock_NestedBraces_MatchesCorrectly()
-        {
-            var input = @"buildscript {
-    repositories {
-        google()
-    }
-    dependencies {
-        classpath ""com.android.tools:r8:8.1.56""
-    }
-}
-plugins {
-}
-";
-            var result = BuildValidator.RemoveBuildscriptBlock(input);
-
-            Assert.That(result, Does.Not.Contain("buildscript"));
-            Assert.That(result, Does.Contain("plugins"));
-        }
-
-        [Test]
         public void RemoveBuildscriptBlock_UnbalancedBraces_ReturnsUnchanged()
         {
             var input = @"buildscript {

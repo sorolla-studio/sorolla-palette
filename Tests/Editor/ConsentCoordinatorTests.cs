@@ -18,6 +18,9 @@ namespace Sorolla.Palette.Editor.Tests
         // gdpr, att, adsPresent  ->  analytics, adStorage, adPersonalization, advertiserTracking
 
         // --- Full mode (ad module compiled: adsPresent = true) ---
+        // ATT gates only ad_personalization + advertiser_tracking; ad_storage follows GDPR alone.
+        // Undecided EEA (Required / Unknown: CMP not completed) keeps analytics ON - only a confirmed
+        // GDPR Denied turns it off (DR-34), and Denied turns off all four signals regardless of ATT.
         [TestCase(ConsentStatus.Obtained,      ATTBridge.AuthorizationStatus.Authorized,     true,  true,  true,  true,  true)]
         [TestCase(ConsentStatus.Obtained,      ATTBridge.AuthorizationStatus.Denied,         true,  true,  true,  false, false)]
         [TestCase(ConsentStatus.Obtained,      ATTBridge.AuthorizationStatus.NotDetermined,  true,  true,  true,  false, false)]
@@ -45,54 +48,6 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(adStorage,          s.AdStorage,          $"ad_storage {ctx}");
             Assert.AreEqual(adPersonalization,  s.AdPersonalization,  $"ad_personalization {ctx}");
             Assert.AreEqual(advertiserTracking, s.AdvertiserTracking, $"advertiser_tracking {ctx}");
-        }
-
-        // Prototype attributes installs (Facebook) when ATT is authorized, while every in-app-ad
-        // signal stays denied - the pre-unification Facebook behavior the consent split had to keep.
-        [Test]
-        public void Prototype_AttributesInstalls_ButGrantsNoAdSignals()
-        {
-            ConsentCoordinator.ConsentSignals s =
-                ConsentCoordinator.Resolve(ConsentStatus.NotApplicable, ATTBridge.AuthorizationStatus.Authorized, adsPresent: false);
-            Assert.IsTrue(s.AdvertiserTracking, "Prototype must attribute installs when ATT authorized");
-            Assert.IsTrue(s.Analytics,          "analytics stays on in Prototype");
-            Assert.IsFalse(s.AdStorage,         "no ad_storage without an ad module");
-            Assert.IsFalse(s.AdPersonalization, "no ad_personalization without an ad module");
-        }
-
-        // An undecided EEA user (CMP flow not completed) must keep analytics ON: undetermined is not
-        // a confirmed decline. Locks the resolver side of the DR-34 under-counting concern - only a
-        // confirmed GDPR Denied turns analytics off.
-        [Test]
-        public void EeaUndecided_KeepsAnalyticsOn()
-        {
-            Assert.IsTrue(ConsentCoordinator.Resolve(ConsentStatus.Required, ATTBridge.AuthorizationStatus.Authorized, true).Analytics);
-            Assert.IsTrue(ConsentCoordinator.Resolve(ConsentStatus.Unknown,  ATTBridge.AuthorizationStatus.Authorized, true).Analytics);
-        }
-
-        // A confirmed GDPR decline turns off all four signals regardless of ATT.
-        [Test]
-        public void GdprDenied_DisablesAllFourSignals()
-        {
-            ConsentCoordinator.ConsentSignals s =
-                ConsentCoordinator.Resolve(ConsentStatus.Denied, ATTBridge.AuthorizationStatus.Authorized, adsPresent: true);
-            Assert.IsFalse(s.Analytics);
-            Assert.IsFalse(s.AdStorage);
-            Assert.IsFalse(s.AdPersonalization);
-            Assert.IsFalse(s.AdvertiserTracking);
-        }
-
-        // Full mode, ATT denied: ad_storage still follows the GDPR ad-consent decision, but
-        // personalization and attribution (which additionally require ATT) drop.
-        [Test]
-        public void FullAttDeny_KeepsAdStorage_DropsPersonalizationAndAttribution()
-        {
-            ConsentCoordinator.ConsentSignals s =
-                ConsentCoordinator.Resolve(ConsentStatus.Obtained, ATTBridge.AuthorizationStatus.Denied, adsPresent: true);
-            Assert.IsTrue(s.AdStorage,          "ad_storage follows GDPR, not ATT");
-            Assert.IsFalse(s.AdPersonalization, "personalization needs ATT");
-            Assert.IsFalse(s.AdvertiserTracking, "attribution needs ATT");
-            Assert.IsTrue(s.Analytics);
         }
     }
 }

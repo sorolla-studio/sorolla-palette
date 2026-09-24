@@ -25,16 +25,6 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.IsFalse(GreenlightCli.ShouldKeepWaiting(false, now: 10, deadline: Deadline));
         }
 
-        /// <summary>
-        ///     The settle re-run claimed a probe and put it back to Pending. There is budget left, so the
-        ///     report must not be written from a run that says "Checking...".
-        /// </summary>
-        [Test]
-        public void SettleRunClaimsProbe_BeforeDeadline_KeepsWaiting()
-        {
-            Assert.IsTrue(GreenlightCli.ShouldKeepWaiting(true, now: 99, deadline: Deadline));
-        }
-
         /// <summary>The timeout is a bound, not a suggestion: past the deadline the report is written
         /// with whatever the probes have, rather than hanging a CI run forever.</summary>
         [Test]

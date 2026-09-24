@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Xml.Linq;
 using NUnit.Framework;
 using Sorolla.Palette.Editor;
@@ -10,19 +9,6 @@ namespace Sorolla.Palette.Editor.Tests
     {
         private const string ActivityClass = "com.unity3d.player.UnityPlayerActivity";
         private const string GameActivityClass = "com.unity3d.player.UnityPlayerGameActivity";
-
-        // --- Bitmask logic ---
-        // GetExpectedMainActivity() reads PlayerSettings which can't be mocked in EditMode tests.
-        // These tests verify the bitmask formula itself: (value & 2) != 0 -> GameActivity.
-
-        [TestCase(1, false, Description = "Activity only")]
-        [TestCase(2, true, Description = "GameActivity only")]
-        [TestCase(3, true, Description = "Both - prefers GameActivity")]
-        public void BitmaskLogic_CorrectlyDetectsGameActivity(int bitmask, bool expectGameActivity)
-        {
-            var isGameActivity = (bitmask & 2) != 0;
-            Assert.AreEqual(expectGameActivity, isGameActivity);
-        }
 
         // --- DetectWrongMainActivityInXml ---
 
@@ -210,39 +196,6 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.IsNotNull(replaceAttr,
                 "tools:replace should be added when requireToolsReplace is true");
             Assert.That(replaceAttr.Value, Does.Contain("android:theme"));
-        }
-
-        // --- StripLibraryLauncherIntent (pure XML via internal helper) ---
-
-        [Test]
-        public void StripLibraryLauncherIntent_RemovesLauncherCategory()
-        {
-            var ns = AndroidManifestSanitizer.AndroidNs;
-            var xml = @"<?xml version=""1.0"" encoding=""utf-8""?>
-<manifest xmlns:android=""http://schemas.android.com/apk/res/android"" package=""com.test"">
-    <application>
-        <activity android:name=""com.unity3d.player.UnityPlayerGameActivity"" android:exported=""true"">
-            <intent-filter>
-                <action android:name=""android.intent.action.MAIN"" />
-                <category android:name=""android.intent.category.LAUNCHER"" />
-            </intent-filter>
-        </activity>
-    </application>
-</manifest>";
-            var doc = XDocument.Parse(xml);
-            var application = doc.Root.Element("application");
-            var activity = application.Element("activity");
-
-            // Manually strip LAUNCHER intent-filter (same logic as StripLibraryLauncherIntent)
-            var launcherFilters = activity.Elements("intent-filter")
-                .Where(f => f.Elements("category")
-                    .Any(c => c.Attribute(ns + "name")?.Value == "android.intent.category.LAUNCHER"))
-                .ToList();
-            foreach (var filter in launcherFilters)
-                filter.Remove();
-
-            Assert.IsNull(AndroidManifestSanitizer.FindLauncherActivity(application),
-                "LAUNCHER intent should be removed from library manifest");
         }
     }
 }

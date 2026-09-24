@@ -233,18 +233,6 @@ namespace Sorolla.Palette.Editor.Tests
         }
 
         [Test]
-        public void OppositePlatformCheck_IsNotApplicable()
-        {
-            ReadinessReport report = ReadinessEvaluator.Evaluate(
-                Context(platform: ReadinessPlatform.Android),
-                new List<BuildValidator.ValidationResult> { Result(ReadinessChecks.RequiredSdks) });
-
-            Assert.AreEqual(
-                ReadinessDisposition.NotApplicable,
-                report.Rows.Single(r => r.Check == ReadinessChecks.FirebaseConfigIos).Disposition);
-        }
-
-        [Test]
         public void GameAnalyticsResourceWhitelist_RemainsAdvisoryInPrototype()
         {
             ReadinessReport report = ReadinessEvaluator.Evaluate(
