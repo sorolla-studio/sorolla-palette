@@ -139,6 +139,21 @@ namespace Sorolla.Palette.Adapters
         public static ConsentStatus ConsentStatus => s_impl?.ConsentStatus ?? ConsentStatus.Unknown;
 
         /// <summary>
+        ///     Consent for a user MAX places in a GDPR geography with a supported CMP, read from the
+        ///     CMP's on-device record. Only a recorded answer counts as a refusal (DR-34): AppLovin also
+        ///     places Brazil in the Gdpr geography, where Google shows no form, so HasUserConsent() is
+        ///     false there without anyone having refused. <paramref name="tcStringPresent"/> null = the
+        ///     record could not be read, so a refusal cannot be ruled out.
+        /// </summary>
+        internal static ConsentStatus ConsentFromCmp(bool hasUserConsent, bool? tcStringPresent, int gdprApplies)
+        {
+            if (hasUserConsent) return ConsentStatus.Obtained;
+            if (tcStringPresent != false) return ConsentStatus.Denied;  // answer on record, or unreadable
+            if (gdprApplies == 0) return ConsentStatus.NotApplicable;    // the CMP says GDPR does not apply
+            return ConsentStatus.Required;                               // consent region, no answer yet
+        }
+
+        /// <summary>
         ///     Whether ads can be requested (consent obtained or not required).
         ///     Use this to gate ad loading/showing in GDPR regions.
         /// </summary>

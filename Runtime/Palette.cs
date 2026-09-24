@@ -763,55 +763,20 @@ namespace Sorolla.Palette
                 PaletteLog.Verbose($"{Tag} [Consent Diagnostics] Could not read MAX consent state: {e.Message}");
             }
 
-#if UNITY_ANDROID
-            try
+            // The read logs its own failure.
+            if (IabTcf.Read(out bool tcStringPresent, out int gdprApplies, out string purposeConsents))
             {
-                using var activity = new UnityEngine.AndroidJavaClass("com.unity3d.player.UnityPlayer")
-                    .GetStatic<UnityEngine.AndroidJavaObject>("currentActivity");
-                using var context = activity.Call<UnityEngine.AndroidJavaObject>("getApplicationContext");
-                using var prefs = context.Call<UnityEngine.AndroidJavaObject>(
-                    "getSharedPreferences", "IABTCF_CMP_SDK", 0);
-                string tcfString = prefs.Call<string>("getString", "IABTCF_TCString", null);
-                string purposeConsents = prefs.Call<string>("getString", "IABTCF_PurposeConsents", null);
-                PaletteLog.Verbose($"{Tag} [Consent Diagnostics] Android TCF string={PaletteLog.Present(tcfString)}, purposeConsents={PaletteLog.Present(purposeConsents)}");
-                if (!string.IsNullOrEmpty(purposeConsents))
+                PaletteLog.Verbose($"{Tag} [Consent Diagnostics] TCF tcString={(tcStringPresent ? "present" : "absent")}, gdprApplies={gdprApplies}, purposeConsents={(purposeConsents.Length > 0 ? purposeConsents : "absent")}");
+                if (purposeConsents.Length > 0)
                 {
                     // Purposes 1 (storage), 3 (ad personalization), 4 (ad selection) must be '1'
-                    bool p1 = purposeConsents.Length > 0 && purposeConsents[0] == '1';
+                    bool p1 = purposeConsents[0] == '1';
                     bool p3 = purposeConsents.Length > 2 && purposeConsents[2] == '1';
                     bool p4 = purposeConsents.Length > 3 && purposeConsents[3] == '1';
-                    PaletteLog.Verbose($"{Tag} [Consent Diagnostics] Purpose 1 (storage)={p1}, Purpose 3 (personalization)={p3}, Purpose 4 (ad selection)={p4}");
                     if (!p1 || !p3 || !p4)
                         PaletteLog.Warning($"{Tag} Consent hint: required TCF ad purposes are missing; ads may be non-personalized. Rebuild with verbose logging to inspect purpose bits.");
                 }
             }
-            catch (System.Exception e)
-            {
-                PaletteLog.Verbose($"{Tag} [Consent Diagnostics] Android TCF read failed: {e.Message}");
-            }
-#endif
-#if UNITY_IOS && !UNITY_EDITOR
-            try
-            {
-                string tcfString = UnityEngine.iOS.Device.advertisingIdentifier; // triggers ATT read as side-effect
-                string tcf = PlayerPrefs.GetString("IABTCF_TCString", null);
-                string purposes = PlayerPrefs.GetString("IABTCF_PurposeConsents", null);
-                PaletteLog.Verbose($"{Tag} [Consent Diagnostics] iOS TCF string={PaletteLog.Present(tcf)}, purposeConsents={PaletteLog.Present(purposes)}");
-                if (!string.IsNullOrEmpty(purposes))
-                {
-                    bool p1 = purposes.Length > 0 && purposes[0] == '1';
-                    bool p3 = purposes.Length > 2 && purposes[2] == '1';
-                    bool p4 = purposes.Length > 3 && purposes[3] == '1';
-                    PaletteLog.Verbose($"{Tag} [Consent Diagnostics] Purpose 1 (storage)={p1}, Purpose 3 (personalization)={p3}, Purpose 4 (ad selection)={p4}");
-                    if (!p1 || !p3 || !p4)
-                        PaletteLog.Warning($"{Tag} Consent hint: required TCF ad purposes are missing; ads may be non-personalized. Rebuild with verbose logging to inspect purpose bits.");
-                }
-            }
-            catch (System.Exception e)
-            {
-                PaletteLog.Verbose($"{Tag} [Consent Diagnostics] iOS TCF read failed: {e.Message}");
-            }
-#endif
 #endif
         }
 

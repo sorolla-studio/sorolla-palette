@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.Scripting;
 
@@ -106,7 +107,9 @@ namespace Sorolla.Palette.Adapters
             // Pin all MAX publisher callbacks to the Unity main thread. The default marshals most
             // events to the main thread, but per-event keepInBackground flags (or any code setting
             // this property false) can deliver a callback on a background thread - and Palette's
-            // pending-event queues are not thread-safe (B-2). Forcing true guarantees main-thread delivery.
+            // pending-event queues are not thread-safe (B-2). Forcing true guarantees main-thread delivery
+            // for every event routed through MAX's InvokeEvent. The CMP completion is not (MAX 8.6.4
+            // calls MaxCmpService directly); ShowPrivacyOptions marshals that one back itself.
             MaxSdkBase.InvokeEventsOnUnityMainThread = true;
 
             MaxSdkCallbacks.OnSdkInitializedEvent += OnSdkInit;
@@ -138,7 +141,12 @@ namespace Sorolla.Palette.Adapters
                 }
 
                 PaletteLog.Vital("[Palette:MAX] Showing privacy options...");
-                MaxSdk.CmpService.ShowCmpForExistingUser(error =>
+                // MAX delivers the CMP completion off the Unity main thread, bypassing
+                // InvokeEventsOnUnityMainThread. Post it back: the consent refresh reads PlayerPrefs and
+                // fans out to vendors, and the caller's callback is game code. Callers are main-thread
+                // (game UI, Vitals, and the QA bridge, which drains its queue on the main thread).
+                SynchronizationContext mainThread = SynchronizationContext.Current;
+                MaxSdk.CmpService.ShowCmpForExistingUser(error => mainThread.Post(_ =>
                 {
                     if (error != null)
                     {
@@ -153,7 +161,7 @@ namespace Sorolla.Palette.Adapters
                         RefreshConsentStatus();
                     }
                     onComplete?.Invoke();
-                });
+                }, null));
             }
             catch (Exception e)
             {
@@ -305,6 +313,7 @@ namespace Sorolla.Palette.Adapters
         void UpdateConsentStatusFromConfig(MaxSdkBase.SdkConfiguration config)
         {
             ConsentStatus oldStatus = ConsentStatus;
+            string cmpRecord = "";
 
             if (config.ConsentFlowUserGeography == MaxSdkBase.ConsentFlowUserGeography.Gdpr)
             {
@@ -312,8 +321,14 @@ namespace Sorolla.Palette.Adapters
                 {
                     if (MaxSdk.CmpService.HasSupportedCmp)
                     {
-                        bool hasConsent = MaxSdk.HasUserConsent();
-                        ConsentStatus = hasConsent ? ConsentStatus.Obtained : ConsentStatus.Denied;
+                        // The CMP's on-device record decides, not HasUserConsent() alone: false there
+                        // also means "never asked" (Brazil: Gdpr geography, no Google form).
+                        bool readable = IabTcf.Read(out bool tcStringPresent, out int gdprApplies, out _);
+                        ConsentStatus = MaxAdapter.ConsentFromCmp(MaxSdk.HasUserConsent(),
+                            readable ? tcStringPresent : (bool?)null, gdprApplies);
+                        cmpRecord = readable
+                            ? $" cmp: tcString={(tcStringPresent ? "present" : "absent")}, gdprApplies={(gdprApplies < 0 ? "unset" : gdprApplies.ToString())}"
+                            : " cmp: record unreadable";
                     }
                     else
                     {
@@ -334,9 +349,9 @@ namespace Sorolla.Palette.Adapters
                 ConsentStatus = ConsentStatus.NotApplicable;
             }
 
-            PaletteLog.Vital($"[Palette:MAX] ConsentStatus: {ConsentStatus} (Geography: {config.ConsentFlowUserGeography})");
+            PaletteLog.Vital($"[Palette:MAX] ConsentStatus: {ConsentStatus} (Geography: {config.ConsentFlowUserGeography}){cmpRecord}");
             AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Ready,
-                "consent_status", $"ConsentStatus: {ConsentStatus} (Geography: {config.ConsentFlowUserGeography})");
+                "consent_status", $"ConsentStatus: {ConsentStatus} (Geography: {config.ConsentFlowUserGeography}){cmpRecord}");
 
             if (oldStatus != ConsentStatus)
             {

@@ -128,7 +128,7 @@ namespace Sorolla.Palette
             Snapshot snap = CaptureSnapshot();
             bool fullMode = IsFullMode(config, snap);
 
-            ReadIabtcf(out bool tcStringPresent, out string purposeConsents);
+            IabTcf.Read(out bool tcStringPresent, out _, out string purposeConsents);
 
             var events = new List<SorollaQaEvent>(s_eventAggregates.Count);
             CopyEventAggregates(events);
@@ -347,37 +347,6 @@ namespace Sorolla.Palette
 #else
             return "not_installed";
 #endif
-        }
-
-        // IAB TCF v2 strings. iOS CMPs and the Editor store them in standard user defaults, which Unity
-        // maps to PlayerPrefs. Android stores them in the default SharedPreferences (per the IAB spec),
-        // reachable only via JNI. Only the TC-string PRESENCE is exposed (never the string); purpose
-        // bits are the consent decision a gate checks, not PII.
-        static void ReadIabtcf(out bool tcStringPresent, out string purposeConsents)
-        {
-            tcStringPresent = false;
-            purposeConsents = "";
-            try
-            {
-#if UNITY_ANDROID && !UNITY_EDITOR
-                using var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
-                using var activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
-                using var context = activity.Call<AndroidJavaObject>("getApplicationContext");
-                using var prefsManager = new AndroidJavaClass("android.preference.PreferenceManager");
-                using var prefs = prefsManager.CallStatic<AndroidJavaObject>("getDefaultSharedPreferences", context);
-                string tcf = prefs.Call<string>("getString", "IABTCF_TCString", null);
-                purposeConsents = prefs.Call<string>("getString", "IABTCF_PurposeConsents", null) ?? "";
-                tcStringPresent = !string.IsNullOrEmpty(tcf);
-#else
-                string tcf = PlayerPrefs.GetString("IABTCF_TCString", "");
-                purposeConsents = PlayerPrefs.GetString("IABTCF_PurposeConsents", "");
-                tcStringPresent = !string.IsNullOrEmpty(tcf);
-#endif
-            }
-            catch (Exception e)
-            {
-                PaletteLog.Verbose($"[Palette] QA snapshot IABTCF read failed: {e.Message}");
-            }
         }
     }
 }

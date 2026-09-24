@@ -43,9 +43,6 @@ idfa 00000000-0000-0000-0000-000000000000
 # Firebase Core init failure — events silently dropped (appear in Vitals, never reach Firebase)
 Firebase init failed — dropping analytics events
 
-# CMP misconfiguration — no TCF string emitted
-IABTCF_TCString=EMPTY
-
 # Game-owned patterns (FATAL EXCEPTION, NullReferenceException, InvalidKeyException) moved to
 # game-exceptions.txt 2026-07-23: they were binding here, and a game whose own code throws
 # produced a red SDK verdict with nothing SDK-side wrong (a false red on a live run).
