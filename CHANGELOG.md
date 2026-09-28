@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [4.0.8] - 2026-09-24
 
+### Changed
+
+- Palette runs the consent flow itself instead of AppLovin's. At launch, players where Google
+  requires consent (EEA, UK, Switzerland) see Google's consent form, then on iOS the tracking (ATT)
+  prompt. Everyone else sees only the ATT prompt on iOS, and nothing on Android. AppLovin's "Terms and
+  Privacy Policy" alert no longer appears. Ads start once the flow completes. The 30-second limit on
+  AppLovin's start no longer includes time the player spends on the consent form or the ATT prompt;
+  before, an answer slower than 30 seconds finished startup early and the session lost its
+  `consent_resolved` event.
+- Google's consent platform (UMP) alone decides whether GDPR applies; AppLovin's region guess no
+  longer counts. When UMP has recorded nothing, because the device was offline or no GDPR message is
+  published in AdMob for the app, consent stays `Unknown`: analytics on; ad storage, ad
+  personalization and Adjust off. Vitals flags it.
+- Studio setup: AppLovin's "MAX Terms and Privacy Policy Flow" must now be off. Palette's build check
+  turns it off and removes it from an existing iOS Xcode project on Append builds, and the AppLovin
+  MAX readiness row fails if it stays on. The privacy policy URL is no longer set in MAX. Palette
+  declares Google UMP itself (Android 4.0.0, iOS 3.1), so Prototype builds also carry it, unused.
+  The GDPR message published in AdMob, and the Google Ad Manager or AdMob adapter with its App ID,
+  remain required: the consent form reads that App ID.
+- iOS: with AppLovin's flow off, AppLovin no longer writes its tracking prompt text or its
+  translations. The ATT prompt shows Palette's English text unless the game sets its own.
+
 ### Fixed
 
 - Players that AppLovin places in a consent region but who never answered the consent form were
@@ -22,8 +44,18 @@ All notable changes to this project will be documented in this file.
   as on a project's first open when the SDK raises a dependency version. It resumes after the reload,
   writes the report and exits.
 
+### Removed (breaking)
+
+- `PaletteConstants.PrivacyPolicyUrl` and `PaletteConstants.IsExpectedPrivacyPolicyUrl`, and the
+  editor methods `MaxSettingsSanitizer.IsConsentFlowConfigured` and
+  `MaxSettingsSanitizer.SyncConsentFlowSettings`. They only served AppLovin's consent flow. The editor
+  replacements are `MaxSettingsSanitizer.IsConsentFlowDisabled` and
+  `MaxSettingsSanitizer.DisableConsentFlow`.
+
 ### Documentation
 
+- The GDPR guide lists what players see in each region, and the setup, validation and store privacy
+  pages describe the new consent setup: AppLovin's flow off, the AdMob App ID filled in.
 - Unity 6.5 and 6.6: the Android build guide lists the Android Gradle plugin 9.0.0 / Gradle 9.1
   toolchain that current 6.x patches ship and the API 26 minimum from 6.5, and Known Issues covers
   the GameAnalytics compile failure on 6.5 and later. Compatibility verified on Unity 6000.3.24f1,

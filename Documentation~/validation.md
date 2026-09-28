@@ -62,9 +62,9 @@ If any identifier points to a different app, stop and fix the dashboard before t
 
 - [ ] GDPR consent message is published in AdMob.
 - [ ] Google Ad Manager or Google AdMob mediated network is installed in AppLovin Integration Manager.
-- [ ] MAX Terms and Privacy Policy Flow is configured.
-- [ ] Privacy Policy URL is live and set in MAX.
-- [ ] iOS ATT usage description is set.
+- [ ] Its AdMob App ID is filled in for each platform.
+- [ ] MAX Terms and Privacy Policy Flow is off.
+- [ ] Privacy Policy URL is live on the web.
 - [ ] `app-ads.txt` is live on the developer website.
 - [ ] App Store privacy answers match the enabled SDKs.
 
@@ -77,7 +77,7 @@ If any identifier points to a different app, stop and fix the dashboard before t
 | Sorolla Vitals | Required SDKs are green. |
 | Level events | GameAnalytics progression events arrive. |
 | Firebase | Analytics events arrive and Crashlytics is configured. |
-| Consent | GDPR CMP appears and resolves from an EU test state. |
+| Consent | The Google consent form appears and resolves from an EU test state; outside the EEA, UK and Switzerland no form appears. |
 | Rewarded ad | Ad shows or failure UI handles no-fill cleanly. |
 | Interstitial | Ad shows or game flow continues on failure. |
 | Adjust sandbox | Install, session, and events appear with the sandbox filter. |
@@ -93,7 +93,7 @@ Run the Android checks, plus:
 |-------|------|
 | CocoaPods | Xcode project builds without pod install or linker errors. |
 | Signing | Device build installs successfully. |
-| ATT | Prompt appears after consent when applicable on iOS 14.5+. |
+| ATT | Prompt appears once on iOS 14.5+, after the Google consent form where one is shown. |
 | Store privacy | App Store Connect metadata matches enabled SDKs. |
 
 ### Upload Build

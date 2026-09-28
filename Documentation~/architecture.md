@@ -65,6 +65,7 @@ Runtime/
 ├── Adapters/
 │   ├── Sorolla.Adapters.asmdef     ← Core stubs (no external refs)
 │   ├── MaxAdapter.cs               ← Stub (delegates to impl)
+│   ├── UmpBridge.cs                ← Google UMP consent form and privacy options (JNI / iOS plugin)
 │   ├── AdjustAdapter.cs            ← Stub (delegates to impl)
 │   ├── FacebookAdapter.cs          ← Facebook (#if SOROLLA_FACEBOOK_ENABLED)
 │   ├── FirebaseAdapter.cs          ← Stub (delegates to impl)
@@ -119,14 +120,21 @@ Creates "[Sorolla SDK]" GameObject (DontDestroyOnLoad)
     ↓
 iOS without MAX: request native ATT authorization when status is NotDetermined
     ↓
-Palette.Initialize()
+Palette.Initialize()                           ← Boot consent: analytics on, ad signals denied
     ├── GameAnalyticsAdapter.Initialize()      ← Always
     ├── FacebookAdapter.Initialize()           ← Always
-    ├── MaxAdapter.Initialize()                ← If configured
-    │   └── OnSdkInitialized → AdjustAdapter.Initialize()
     ├── FirebaseAdapter.Initialize()           ← If enabled
     ├── FirebaseCrashlyticsAdapter.Initialize()
     └── FirebaseRemoteConfigAdapter.Initialize()
+    ↓
+With MAX:
+    UmpBridge.Gather()                         ← Google UMP update, consent form where required
+    ↓
+    iOS: request ATT when status is NotDetermined
+    ↓
+    Palette.OnConsentGathered()                ← Re-reads consent, updates every adapter
+        └── MaxAdapter.Initialize()            ← AppLovin's own consent flow stays off
+            └── OnSdkInitialized → AdjustAdapter.Initialize()
     ↓
 IsInitialized = true
 ```

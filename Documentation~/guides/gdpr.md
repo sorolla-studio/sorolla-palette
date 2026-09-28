@@ -41,15 +41,23 @@ Practical effect: an EEA user emits one identified `first_open` before the CMP r
 ## 2. Unity Setup
 
 1. Open **AppLovin** → **Integration Manager**
-2. Under **Mediated Networks**, install **Google Ad Manager** (or Google AdMob). This is required - MAX uses the Google Mobile Ads SDK to render the UMP consent form. Without it, only the MAX privacy popup appears, not the GDPR CMP dialog.
-3. Enable **MAX Terms and Privacy Policy Flow**
-4. Set **Privacy Policy URL** (your company's policy)
-5. Set **User Tracking Usage Description**. App Review (Guideline 5.1.1) wants the purpose plus a
-   concrete example; vague strings get rejected:
+2. Under **Mediated Networks**, install **Google Ad Manager** (or Google AdMob) and fill in its **App ID** for each platform. This is required: Palette's consent form is Google UMP, which reads that AdMob App ID to find your GDPR message, and AppLovin writes the id into the build only when a Google adapter is installed.
+3. Leave **MAX Terms and Privacy Policy Flow** off. Palette shows the Google consent form and the iOS tracking prompt itself; AppLovin's flow would add its own "Terms and Privacy Policy" alert. Palette's build check turns it off if it is on.
+4. iOS tracking prompt text: Palette adds this `NSUserTrackingUsageDescription` to `Info.plist` when the build has none. App Review (Guideline 5.1.1) wants the purpose plus a concrete example; vague strings get rejected:
    ```
    This identifier lets us show you more relevant ads and measure ad performance - for example, ads for games similar to this one.
    ```
-6. Click **Save**
+
+## What players see
+
+Palette runs the consent flow at launch, before ads start:
+
+| Player | iOS | Android |
+|--------|-----|---------|
+| Where Google UMP requires consent (EEA, UK, Switzerland) | Google consent form, then the ATT prompt | Google consent form |
+| Everyone else | ATT prompt only | Nothing |
+
+Each prompt appears once per install; later launches reuse the stored answers. If you configure Google's IDFA explainer message in AdMob, UMP shows it and the ATT prompt itself, and Palette does not ask again.
 
 ## 3. Add Privacy Button
 
@@ -117,7 +125,8 @@ Palette.ShowPrivacyOptions(onComplete: () => { });
 
 | Issue | Solution |
 |-------|----------|
-| Dialog not showing | Verify GDPR message is **published** in AdMob AND Google Ad Manager adapter is installed in MAX Integration Manager |
+| Dialog not showing | Verify the GDPR message is **published** in AdMob, and the Google Ad Manager adapter is installed with its App ID set in the MAX Integration Manager |
 | ATT not appearing | iOS 14.5+ only, shows once per install |
-| Consent always denied | Check Privacy Policy URL is valid |
+| Consent stays `Unknown` | The device was offline, or no GDPR message is published in AdMob for this app. Ad consent stays denied until Google UMP answers; relaunch online |
+| AppLovin "Terms and Privacy Policy" alert appears | Untick **MAX Terms and Privacy Policy Flow** in the Integration Manager (Palette's build check does this), then rebuild |
 | Ads not loading after consent | Wait for consent callback to complete |

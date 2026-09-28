@@ -42,7 +42,7 @@ health markers, warnings, and errors are still logged when this is false.
 public static bool VerboseLogging { get; }
 ```
 #### ConsentStatus
-Current consent status from MAX's UMP integration.
+Current consent status, read from the consent record Google UMP keeps on the device.
 Use this to determine ad loading/showing in GDPR regions.
 
 ```csharp title="Declaration"
@@ -73,7 +73,7 @@ else
 ```
 #### PrivacyOptionsRequired
 Whether a privacy options button should be shown in settings.
-Only true if MAX CMP is available and user is in a consent region.
+True when Google UMP requires one, which means the user is in a consent region.
 
 ```csharp title="Declaration"
 public static bool PrivacyOptionsRequired { get; }
@@ -148,7 +148,7 @@ if (Palette.PrivacyOptionsRequired)
 | `System.Action` | *onComplete* | Optional callback when form is dismissed |
 
 #### RefreshConsentStatus()
-Refresh consent status from MAX SDK.
+Re-read the consent record Google UMP keeps on the device and propagate any change.
 Call this if consent may have changed externally.
 
 ```csharp title="Declaration"

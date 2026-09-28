@@ -121,8 +121,8 @@ Purchase dashboard note:
 This order matters. Reversing it causes silent failure (app works, GDPR dialog never shows):
 
 1. **AdMob:** Privacy & Messaging > GDPR > create message > enable ad partners (AppLovin, AdMob, Meta, Unity) > **Publish**
-2. **MAX Integration Manager:** install **Google Ad Manager** (or Google AdMob) under Mediated Networks (required for UMP consent form to render)
-3. **MAX Integration Manager:** enable Terms and Privacy Policy Flow > set Privacy Policy URL > set ATT Usage Description > Save
+2. **MAX Integration Manager:** install **Google Ad Manager** (or Google AdMob) under Mediated Networks and fill in its App ID (the UMP consent form reads it)
+3. **MAX Integration Manager:** leave Terms and Privacy Policy Flow **off** (Palette runs Google UMP and ATT itself)
 4. **Build and test**
 
 ---
@@ -131,13 +131,12 @@ This order matters. Reversing it causes silent failure (app works, GDPR dialog n
 
 How Palette.cs initializes in Full mode:
 
-1. MAX SDK initializes (handles CMP consent first)
-2. On MAX initialized callback:
-   - Adjust initializes (reads consent state set by MAX)
+1. Firebase (Analytics, Crashlytics, Remote Config), GameAnalytics and Facebook (if `SOROLLA_FACEBOOK_ENABLED`) initialize with the boot consent: analytics on, ad signals denied
+2. Consent flow: Google UMP (the consent form where UMP requires one), then the ATT prompt on iOS. The result updates the SDKs above
+3. MAX SDK initializes with the resolved consent
+4. On MAX initialized callback:
+   - Adjust initializes (with the resolved consent)
    - MAX ad loading begins (rewarded, interstitial, banner)
    - ILRD callback registered (ad revenue -> Adjust and Firebase)
-3. Firebase initializes (Analytics, Crashlytics, Remote Config)
-4. GameAnalytics initializes
-5. Facebook initializes (if `SOROLLA_FACEBOOK_ENABLED`)
 
 Consent is resolved before attribution starts. Do not reorder.

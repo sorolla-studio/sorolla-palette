@@ -6,7 +6,7 @@ AppLovin MAX is required in **Full mode** only (not used in Prototype). What mus
 
 - Ad units created per format (Rewarded, Interstitial, optionally Banner) for each platform, entered into `Tools > Sorolla Palette SDK`.
 - Mediation networks configured under Monetize → Manage (AdMob, Meta Audience Network, Unity Ads, etc.).
-- GDPR/consent flow: Google Ad Manager or AdMob installed under Mediated Networks (required for the UMP consent form to render), Terms and Privacy Policy Flow enabled with a Privacy Policy URL and ATT usage description.
+- GDPR/consent flow: Google Ad Manager or AdMob installed under Mediated Networks with its App ID filled in (the Google UMP consent form reads it). Leave the Terms and Privacy Policy Flow off: Palette runs Google UMP and ATT itself.
 - `app-ads.txt` published on the studio's developer website domain.
 
 Full procedure: [AppLovin MAX docs](https://developers.applovin.com/en/max/unity/overview/integration). Sorolla's internal dashboard-creation runbook: [dashboard-setup.md](../dashboard-setup.md).

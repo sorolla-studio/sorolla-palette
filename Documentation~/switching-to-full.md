@@ -17,7 +17,7 @@ Full mode adds:
 |------|--------------|-------------|
 | Ads | AppLovin MAX with mediation | Add ad placements and validate fill |
 | Attribution | Adjust install, session, ad revenue, and purchase attribution | Use sandbox during QA, production before launch |
-| Consent | GDPR CMP and iOS ATT flow | Publish consent message, add privacy settings access |
+| Consent | Google consent form and iOS ATT flow | Publish consent message, add privacy settings access |
 | Revenue | Purchases can fan out to Adjust, Firebase, and GameAnalytics | Wire Unity IAP once if the game sells IAP |
 
 Start from [Prototype Mode](quick-start.md). Do not migrate a build that has not already passed Prototype validation.
@@ -133,7 +133,7 @@ public void OnLevelComplete()
 
 ### Privacy Settings
 
-GDPR requires users to reopen privacy options when the CMP says the option is required:
+GDPR requires users to reopen privacy options when Google UMP says the option is required:
 
 ```csharp
 privacyButton.gameObject.SetActive(Palette.PrivacyOptionsRequired);
@@ -175,14 +175,12 @@ If the game has no IAP, skip this section.
 Consent setup has an order. Follow it exactly:
 
 1. Publish the GDPR consent message in AdMob.
-2. In AppLovin Integration Manager, install **Google Ad Manager** or **Google AdMob** as a mediated network.
-3. Configure the MAX Terms and Privacy Policy Flow.
-4. Set the Privacy Policy URL.
-5. Set the iOS ATT usage description.
-6. Add the privacy settings button in game UI.
-7. Build and test on device.
+2. In AppLovin Integration Manager, install **Google Ad Manager** or **Google AdMob** as a mediated network and fill in its App ID for each platform.
+3. Leave the MAX Terms and Privacy Policy Flow off. Palette runs the consent flow itself, and its build check turns AppLovin's flow off.
+4. Add the privacy settings button in game UI.
+5. Build and test on device.
 
-MAX uses the Google Mobile Ads SDK to render the UMP consent form. If the Google mediated network is missing, the app may run and ads may load, but the GDPR CMP dialog will not appear correctly for EU users.
+Palette shows Google's UMP consent form, which reads the AdMob App ID to find your GDPR message. AppLovin writes that id into the build only when a Google mediated network is installed. If it is missing, the app may run and ads may load, but EU players never see the consent form and ad consent stays denied. See [GDPR & ATT Consent](guides/gdpr.md) for what players see in each region.
 
 Also complete the store-facing items:
 
@@ -202,7 +200,7 @@ Before uploading a soft-launch build:
 - [ ] Rewarded and interstitial placements are wired and failure-safe.
 - [ ] Privacy settings button is present when `Palette.PrivacyOptionsRequired` is true.
 - [ ] GDPR consent message is published.
-- [ ] Privacy Policy URL is set in MAX and live on the web.
+- [ ] Privacy Policy URL is live on the web.
 - [ ] `app-ads.txt` is live on your developer website.
 - [ ] Full-mode validation passes in [Full Mode Validation](validation.md#full-mode-soft-launch-validation).
 
