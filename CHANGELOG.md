@@ -14,9 +14,17 @@ All notable changes to this project will be documented in this file.
   before, an answer slower than 30 seconds finished startup early and the session lost its
   `consent_resolved` event.
 - Google's consent platform (UMP) alone decides whether GDPR applies; AppLovin's region guess no
-  longer counts. When UMP has recorded nothing, because the device was offline or no GDPR message is
-  published in AdMob for the app, consent stays `Unknown`: analytics on; ad storage, ad
-  personalization and Adjust off. Vitals flags it.
+  longer counts. When UMP has recorded nothing, consent stays `Unknown`: analytics on; ad storage, ad
+  personalization and Adjust off. If UMP answered and still recorded nothing, the AdMob setup is
+  incomplete (most likely no GDPR message published for the app), and every player would be affected:
+  the SDK logs an error, so QA fails. If the device was offline, it logs a warning.
+- Ad personalization and ad user data (Firebase) and Facebook advertiser tracking now also require
+  the player's consent to TCF purposes 3, 4 and 7, not only purpose 1, following Google's Consent
+  Mode mapping. Before, a player who allowed only storage under "Manage options" had them granted.
+- At launch, consent starts from the player's recorded answer. Before, every launch started
+  undecided, so a returning player who had refused had analytics on until the consent flow finished,
+  and `OnConsentStatusChanged` and the `consent_changed` event fired on every launch. They now fire
+  only when the answer changes; read `Palette.ConsentStatus` for the current value.
 - Studio setup: AppLovin's "MAX Terms and Privacy Policy Flow" must now be off. Palette's build check
   turns it off and removes it from an existing iOS Xcode project on Append builds, and the AppLovin
   MAX readiness row fails if it stays on. The privacy policy URL is no longer set in MAX. Palette
@@ -39,7 +47,12 @@ All notable changes to this project will be documented in this file.
   storage, ad personalization and Adjust off until the player answers). For these players the
   `consent_resolved` event reports `gdpr` as `not_applicable` or `required` instead of `denied`.
 - The `ShowPrivacyOptions` completion callback, and the consent update that follows the form, now
-  run on the main thread.
+  run on the main thread. On iOS, a second call while the form is open (a double tap) no longer
+  drops the first call's callback and the consent update when the form closes.
+- The consent flow no longer stalls on iOS when the game sets `Time.timeScale` to 0 before it
+  starts: the short wait for the app to be visible uses real time.
+- An exception thrown by a game's `OnConsentStatusChanged` handler no longer skips the SDK's own
+  consent bookkeeping; the SDK logs it as an error.
 - The Vitals debug menu no longer triggers Unity 6.6's `FindFirstObjectByType` obsolete warning when
   it looks for an existing EventSystem.
 - The command-line greenlight report no longer hangs when a package change reloads scripts mid-run,

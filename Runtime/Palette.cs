@@ -392,7 +392,10 @@ namespace Sorolla.Palette
             VerboseLogging = Config != null && Config.verboseLogging && Debug.isDebugBuild;
             PaletteLog.Configure(VerboseLogging);
 
-            // Resolve the boot decision once: analytics on, ads denied until the consent flow resolves.
+            // Resolve the boot decision from the player's last recorded answer, so a returning player who
+            // declined never starts with analytics on. A first launch has none: ads denied until the
+            // consent flow resolves.
+            ConsentCoordinator.Refresh();
             ConsentCoordinator.ConsentSignals boot = ConsentCoordinator.ResolveCurrent(ATTBridge.GetStatus());
             s_adConsent = boot.AdStorage;
             s_lastAttStatus = ATTBridge.GetStatus(); // R1: baseline for the app-focus ATT re-propagation
@@ -427,14 +430,14 @@ namespace Sorolla.Palette
         // Called by SorollaBootstrapper once Google UMP (then ATT on iOS) has finished. MAX starts only
         // now: AppLovin requires a publisher's own consent flow to complete before its SDK initializes,
         // and records its consent flag at initialization.
-        internal static void OnConsentGathered()
+        internal static void OnConsentGathered(bool umpAnswered)
         {
             // Catch-continue (R2): a vendor throw here must not keep MAX from starting.
             try
             {
                 ResolveConsent(); // also hands MAX its consent flag, before its init below
                 PaletteLog.Vital($"{Tag} Consent resolved: {ConsentStatus} (consent={s_adConsent})");
-                LogConsentDiagnostics();
+                LogConsentDiagnostics(umpAnswered);
             }
             catch (Exception e) { PaletteLog.Error($"{Tag} Consent propagation failed: {e.Message}. Continuing."); }
 
@@ -515,14 +518,24 @@ namespace Sorolla.Palette
 
             ConsentCoordinator.ConsentSignals s = ConsentCoordinator.ResolveCurrent(att);
             ConsentCoordinator.ApplyConsent(s, initial: false);
-            if (status != previous)
-                OnConsentStatusChanged?.Invoke(status);
 
             // Change-gated: only the analytics EVENT and the ad-consent flag flip are guarded on the
             // ad-consent bucket actually changing. Before readiness the event queues behind the
             // consent_resolved marker, which leads the flush (DR-41).
-            if (s_adConsent == s.AdStorage) return s;
+            if (s_adConsent != s.AdStorage)
+                RecordAdConsentChange(status, att, s);
 
+            // The game's handler runs last, so a throw in it cannot leave Palette's own state half-updated.
+            if (status != previous)
+            {
+                try { OnConsentStatusChanged?.Invoke(status); }
+                catch (Exception e) { PaletteLog.Error($"{Tag} A game OnConsentStatusChanged handler threw: {e.Message}"); }
+            }
+            return s;
+        }
+
+        static void RecordAdConsentChange(Adapters.ConsentStatus status, ATTBridge.AuthorizationStatus att, ConsentCoordinator.ConsentSignals s)
+        {
             s_adConsent = s.AdStorage;
             PaletteLog.Vital($"{Tag} Consent updated by UMP: {status} -> propagating to adapters (adStorage={s.AdStorage}, adPersonalization={s.AdPersonalization}, analytics={s.Analytics})");
 
@@ -536,7 +549,6 @@ namespace Sorolla.Palette
             changed["att_status"] = AttString(att);
 #endif
             TrackEvent("consent_changed", changed);
-            return s;
         }
 
         // Threading contract (B-14): all Palette analytics/IAP entry points and these pending queues
@@ -722,7 +734,7 @@ namespace Sorolla.Palette
             });
         }
 
-        static void LogConsentDiagnostics()
+        static void LogConsentDiagnostics(bool umpAnswered)
         {
             string summary = $"Consent summary: canRequestAds={CanRequestAds}, consentStatus={ConsentStatus}";
             PaletteLog.Vital($"{Tag} {summary}");
@@ -730,21 +742,16 @@ namespace Sorolla.Palette
 
             // The read logs its own failure.
             if (IabTcf.Read(out bool tcStringPresent, out int gdprApplies, out string purposeConsents))
-            {
                 PaletteLog.Verbose($"{Tag} [Consent Diagnostics] TCF tcString={(tcStringPresent ? "present" : "absent")}, gdprApplies={gdprApplies}, purposeConsents={(purposeConsents.Length > 0 ? purposeConsents : "absent")}");
-                if (purposeConsents.Length > 0)
-                {
-                    // Purposes 1 (storage), 3 (ad personalization), 4 (ad selection) must be '1'. A missing
-                    // one is the player's own choice in the form, not an integration problem: info, not a warning.
-                    bool p1 = purposeConsents[0] == '1';
-                    bool p3 = purposeConsents.Length > 2 && purposeConsents[2] == '1';
-                    bool p4 = purposeConsents.Length > 3 && purposeConsents[3] == '1';
-                    if (!p1 || !p3 || !p4)
-                        PaletteLog.Vital($"{Tag} Consent hint: the player refused TCF ad purposes; ads are non-personalized. Rebuild with verbose logging to inspect purpose bits.");
-                }
-            }
-            if (ConsentStatus == Adapters.ConsentStatus.Unknown)
-                PaletteLog.Warning($"{Tag} Consent unresolved: Google UMP has written no GDPR applicability (offline, or no GDPR message published in AdMob). Ad consent stays denied until it resolves.");
+            // A refused purpose is the player's own choice in the form, not an integration problem: info, not a warning.
+            if (!ConsentCoordinator.AdPurposesGranted)
+                PaletteLog.Vital($"{Tag} Consent hint: the player refused TCF ad purposes (1, 3, 4 or 7); personalized-ad signals stay denied. Rebuild with verbose logging to inspect purpose bits.");
+            if (ConsentStatus != Adapters.ConsentStatus.Unknown) return;
+            // UMP answered yet wrote nothing: an AdMob setup problem that denies ad consent to every player.
+            if (umpAnswered)
+                PaletteLog.Error($"{Tag} Consent unresolved: Google UMP answered but wrote no GDPR applicability. Check that this app has a published GDPR message in AdMob (Privacy & messaging). Until then every player gets ads without consent and no Adjust attribution.");
+            else
+                PaletteLog.Warning($"{Tag} Consent unresolved: Google UMP did not answer (offline, a UMP error above, or the Editor). Ad consent stays denied until it resolves.");
         }
 
 

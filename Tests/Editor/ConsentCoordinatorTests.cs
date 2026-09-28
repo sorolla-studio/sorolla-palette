@@ -15,35 +15,38 @@ namespace Sorolla.Palette.Editor.Tests
     [TestFixture]
     public class ConsentCoordinatorTests
     {
-        // gdpr, att, adsPresent  ->  analytics, adStorage, adPersonalization, advertiserTracking
+        // gdpr, adPurposes, att, adsPresent  ->  analytics, adStorage, adPersonalization, advertiserTracking
 
         // --- Full mode (ad module compiled: adsPresent = true) ---
         // ATT gates only ad_personalization + advertiser_tracking; ad_storage follows GDPR alone.
         // Undecided EEA (Required / Unknown: UMP not completed) keeps analytics ON - only a confirmed
         // GDPR Denied turns it off (DR-34), and Denied turns off all four signals regardless of ATT.
-        [TestCase(ConsentStatus.Obtained,      ATTBridge.AuthorizationStatus.Authorized,     true,  true,  true,  true,  true)]
-        [TestCase(ConsentStatus.Obtained,      ATTBridge.AuthorizationStatus.Denied,         true,  true,  true,  false, false)]
-        [TestCase(ConsentStatus.Obtained,      ATTBridge.AuthorizationStatus.NotDetermined,  true,  true,  true,  false, false)]
-        [TestCase(ConsentStatus.Obtained,      ATTBridge.AuthorizationStatus.Restricted,     true,  true,  true,  false, false)]
-        [TestCase(ConsentStatus.NotApplicable, ATTBridge.AuthorizationStatus.Authorized,     true,  true,  true,  true,  true)]
-        [TestCase(ConsentStatus.NotApplicable, ATTBridge.AuthorizationStatus.Denied,         true,  true,  true,  false, false)]
-        [TestCase(ConsentStatus.Required,      ATTBridge.AuthorizationStatus.Authorized,     true,  true,  false, false, false)]
-        [TestCase(ConsentStatus.Required,      ATTBridge.AuthorizationStatus.Denied,         true,  true,  false, false, false)]
-        [TestCase(ConsentStatus.Unknown,       ATTBridge.AuthorizationStatus.Authorized,     true,  true,  false, false, false)]
-        [TestCase(ConsentStatus.Denied,        ATTBridge.AuthorizationStatus.Authorized,     true,  false, false, false, false)]
+        [TestCase(ConsentStatus.Obtained,      true,  ATTBridge.AuthorizationStatus.Authorized,     true,  true,  true,  true,  true)]
+        [TestCase(ConsentStatus.Obtained,      true,  ATTBridge.AuthorizationStatus.Denied,         true,  true,  true,  false, false)]
+        [TestCase(ConsentStatus.Obtained,      true,  ATTBridge.AuthorizationStatus.NotDetermined,  true,  true,  true,  false, false)]
+        [TestCase(ConsentStatus.Obtained,      true,  ATTBridge.AuthorizationStatus.Restricted,     true,  true,  true,  false, false)]
+        [TestCase(ConsentStatus.NotApplicable, true,  ATTBridge.AuthorizationStatus.Authorized,     true,  true,  true,  true,  true)]
+        [TestCase(ConsentStatus.NotApplicable, true,  ATTBridge.AuthorizationStatus.Denied,         true,  true,  true,  false, false)]
+        [TestCase(ConsentStatus.Required,      true,  ATTBridge.AuthorizationStatus.Authorized,     true,  true,  false, false, false)]
+        [TestCase(ConsentStatus.Required,      true,  ATTBridge.AuthorizationStatus.Denied,         true,  true,  false, false, false)]
+        [TestCase(ConsentStatus.Unknown,       true,  ATTBridge.AuthorizationStatus.Authorized,     true,  true,  false, false, false)]
+        [TestCase(ConsentStatus.Denied,        true,  ATTBridge.AuthorizationStatus.Authorized,     true,  false, false, false, false)]
+        // A GDPR answer that grants storage (Purpose 1) but refuses an ad purpose (3, 4 or 7) keeps
+        // ad_storage and denies the personalized-ad signals, whatever ATT says.
+        [TestCase(ConsentStatus.Obtained,      false, ATTBridge.AuthorizationStatus.Authorized,     true,  true,  true,  false, false)]
         // --- Prototype mode (no ad module: adsPresent = false) ---
         // ad_storage / ad_personalization can NEVER be granted; advertiser_tracking still can
         // (Facebook attribution is not gated on ads being present - the FB-1 regression guard).
-        [TestCase(ConsentStatus.NotApplicable, ATTBridge.AuthorizationStatus.Authorized,     false, true,  false, false, true)]
-        [TestCase(ConsentStatus.NotApplicable, ATTBridge.AuthorizationStatus.Denied,         false, true,  false, false, false)]
-        [TestCase(ConsentStatus.Unknown,       ATTBridge.AuthorizationStatus.Authorized,     false, true,  false, false, false)]
-        [TestCase(ConsentStatus.Denied,        ATTBridge.AuthorizationStatus.Authorized,     false, false, false, false, false)]
+        [TestCase(ConsentStatus.NotApplicable, true,  ATTBridge.AuthorizationStatus.Authorized,     false, true,  false, false, true)]
+        [TestCase(ConsentStatus.NotApplicable, true,  ATTBridge.AuthorizationStatus.Denied,         false, true,  false, false, false)]
+        [TestCase(ConsentStatus.Unknown,       true,  ATTBridge.AuthorizationStatus.Authorized,     false, true,  false, false, false)]
+        [TestCase(ConsentStatus.Denied,        true,  ATTBridge.AuthorizationStatus.Authorized,     false, false, false, false, false)]
         public void Resolve_MatchesTruthTable(
-            ConsentStatus gdpr, ATTBridge.AuthorizationStatus att, bool adsPresent,
+            ConsentStatus gdpr, bool adPurposes, ATTBridge.AuthorizationStatus att, bool adsPresent,
             bool analytics, bool adStorage, bool adPersonalization, bool advertiserTracking)
         {
-            ConsentCoordinator.ConsentSignals s = ConsentCoordinator.Resolve(gdpr, att, adsPresent);
-            string ctx = $"(gdpr={gdpr}, att={att}, adsPresent={adsPresent})";
+            ConsentCoordinator.ConsentSignals s = ConsentCoordinator.Resolve(gdpr, adPurposes, att, adsPresent);
+            string ctx = $"(gdpr={gdpr}, adPurposes={adPurposes}, att={att}, adsPresent={adsPresent})";
             Assert.AreEqual(analytics,          s.Analytics,          $"analytics {ctx}");
             Assert.AreEqual(adStorage,          s.AdStorage,          $"ad_storage {ctx}");
             Assert.AreEqual(adPersonalization,  s.AdPersonalization,  $"ad_personalization {ctx}");

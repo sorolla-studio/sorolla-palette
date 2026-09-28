@@ -127,14 +127,14 @@ namespace Sorolla.Palette
     #if UNITY_IOS && !UNITY_EDITOR
             yield return WaitForVisibleApp();
     #endif
-            bool gathered = false;
-            UmpBridge.Gather(() => gathered = true);
-            while (!gathered)
+            bool? umpAnswered = null;
+            UmpBridge.Gather(answered => umpAnswered = answered);
+            while (umpAnswered == null)
                 yield return null;
     #if UNITY_IOS && !UNITY_EDITOR
             yield return RequestAttIfNotDetermined();
     #endif
-            Palette.OnConsentGathered();
+            Palette.OnConsentGathered(umpAnswered.Value);
 #elif UNITY_IOS && !UNITY_EDITOR
             // Prototype on iOS: no GDPR form and no ads. Resolve ATT BEFORE Initialize so the boot
             // fan-out reads the final status; analytics stay ON regardless of ATT (no ads to gate).
@@ -165,7 +165,7 @@ namespace Sorolla.Palette
         static IEnumerator WaitForVisibleApp()
         {
             yield return null; // let first frame render
-            yield return new WaitForSeconds(1f); // ensure app has focus
+            yield return new WaitForSecondsRealtime(1f); // ensure app has focus, even in a game paused at timeScale 0
         }
 
         // Native ATT dialog only (no soft prompt). Skipped once the status is determined, including

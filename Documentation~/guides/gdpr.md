@@ -128,6 +128,7 @@ Palette.ShowPrivacyOptions(onComplete: () => { });
 |-------|----------|
 | Dialog not showing | Verify the GDPR message is **published** in AdMob, and the Google Ad Manager adapter is installed with its App ID set in the MAX Integration Manager |
 | ATT not appearing | iOS 14.5+ only, shows once per install |
-| Consent stays `Unknown` | The device was offline, or no GDPR message is published in AdMob for this app. Ad consent stays denied until Google UMP answers; relaunch online |
+| Consent stays `Unknown`, with an SDK error | Google UMP answered but recorded nothing: publish a GDPR message for this app in AdMob (Privacy & messaging). Until then every player gets ads without consent and no Adjust attribution |
+| Consent stays `Unknown`, with a warning | The device was offline. Ad consent stays denied until Google UMP answers; relaunch online |
 | AppLovin "Terms and Privacy Policy" alert appears | Untick **MAX Terms and Privacy Policy Flow** in the Integration Manager (Palette's build check does this), then rebuild |
 | Ads not loading after consent | Wait for consent callback to complete |

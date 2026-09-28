@@ -20,8 +20,11 @@ namespace Sorolla.Palette.Adapters
     {
         const string Tag = "[Palette:UMP]";
 
-        /// <summary>Consent information update, then the consent form if UMP requires one.</summary>
-        internal static void Gather(Action onDone)
+        /// <summary>
+        ///     Consent information update, then the consent form if UMP requires one. <paramref name="onDone"/>
+        ///     gets whether UMP answered without error; false in the Editor, where UMP does not run.
+        /// </summary>
+        internal static void Gather(Action<bool> onDone)
         {
 #if UNITY_IOS && !UNITY_EDITOR
             s_gathered = OnMainThread("Consent update", onDone);
@@ -47,7 +50,7 @@ namespace Sorolla.Palette.Adapters
                     new Listener(Ump + "ConsentInformation$OnConsentInfoUpdateFailureListener", done));
             });
 #else
-            onDone?.Invoke();
+            onDone?.Invoke(false);
 #endif
         }
 
@@ -83,10 +86,14 @@ namespace Sorolla.Palette.Adapters
         internal static void ShowPrivacyOptions(Action onClosed)
         {
 #if UNITY_IOS && !UNITY_EDITOR
-            s_privacyOptionsClosed = OnMainThread("Privacy options", onClosed);
-            _SorollaUMP_ShowPrivacyOptions(OnPrivacyOptionsClosed);
+            // A second call while the form is up (a double tap) waits for that form: overwriting the one
+            // callback slot would drop the first caller's completion when the form closes.
+            bool formOpen = s_privacyOptionsClosed != null;
+            s_privacyOptionsClosed += OnMainThread("Privacy options", _ => onClosed?.Invoke());
+            if (!formOpen)
+                _SorollaUMP_ShowPrivacyOptions(OnPrivacyOptionsClosed);
 #elif UNITY_ANDROID && !UNITY_EDITOR
-            Action<string> done = OnMainThread("Privacy options", onClosed);
+            Action<string> done = OnMainThread("Privacy options", _ => onClosed?.Invoke());
             RunOnUiThread(done, activity =>
             {
                 using var ump = new AndroidJavaClass(Ump + "UserMessagingPlatform");
@@ -100,14 +107,14 @@ namespace Sorolla.Palette.Adapters
 
         // UMP answers on its own thread (the Android UI thread, the iOS main queue). Callers are on the
         // Unity main thread, so post the completion back to the context they called from.
-        static Action<string> OnMainThread(string step, Action then)
+        static Action<string> OnMainThread(string step, Action<bool> then)
         {
             SynchronizationContext mainThread = SynchronizationContext.Current;
             return error => mainThread.Post(_ =>
             {
                 if (error != null)
                     PaletteLog.Warning($"{Tag} {step} failed: {error}");
-                then?.Invoke();
+                then?.Invoke(error == null);
             }, null);
         }
 

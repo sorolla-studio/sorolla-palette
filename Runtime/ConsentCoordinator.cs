@@ -40,7 +40,7 @@ namespace Sorolla.Palette
         ///     MAX/Full ad module is compiled in; in Prototype it is false so ad signals can never
         ///     be granted (no ad-consent basis, no ads: the compliant default).
         /// </summary>
-        internal static ConsentSignals Resolve(Adapters.ConsentStatus gdpr, ATTBridge.AuthorizationStatus att, bool adsPresent)
+        internal static ConsentSignals Resolve(Adapters.ConsentStatus gdpr, bool adPurposes, ATTBridge.AuthorizationStatus att, bool adsPresent)
         {
             // Analytics is broader than ad consent: granted for everyone EXCEPT a confirmed GDPR
             // decline, so installs/first_open stay countable for non-GDPR (NotApplicable),
@@ -48,10 +48,10 @@ namespace Sorolla.Palette
             bool analytics = gdpr != Adapters.ConsentStatus.Denied;
             // ad_storage follows the GDPR/UMP decision (and requires ads to exist).
             bool adStorage = adsPresent && (gdpr == Adapters.ConsentStatus.Obtained || gdpr == Adapters.ConsentStatus.NotApplicable);
-            // ad_personalization / ad_user_data additionally require ATT authorization on iOS
-            // (personalized ads need BOTH consent AND ATT). AttStatus returns Authorized off-iOS,
-            // so this collapses to ad_storage on Android.
-            bool adPersonalization = adStorage && att == ATTBridge.AuthorizationStatus.Authorized;
+            // ad_personalization / ad_user_data additionally require the TCF ad purposes (see
+            // AdPurposesGranted) and ATT authorization on iOS (personalized ads need BOTH consent AND
+            // ATT). AttStatus returns Authorized off-iOS, so ATT drops out on Android.
+            bool adPersonalization = adStorage && adPurposes && att == ATTBridge.AuthorizationStatus.Authorized;
             // Facebook advertiser tracking is ATTRIBUTION, not in-app ad serving: it follows the
             // GDPR ad-consent decision and iOS ATT, but is NOT gated on ads being present, so a
             // Prototype build (FB used solely for attribution, no in-app ads) still attributes
@@ -59,7 +59,7 @@ namespace Sorolla.Palette
             // Full -> (GDPR ad consent AND ATT); Prototype -> ATT only (GDPR NotApplicable, no UMP flow).
             bool advertiserTracking =
                 (gdpr == Adapters.ConsentStatus.Obtained || gdpr == Adapters.ConsentStatus.NotApplicable)
-                && att == ATTBridge.AuthorizationStatus.Authorized;
+                && adPurposes && att == ATTBridge.AuthorizationStatus.Authorized;
             return new ConsentSignals(analytics, adStorage, adPersonalization, advertiserTracking);
         }
 
@@ -82,8 +82,23 @@ namespace Sorolla.Palette
             Adapters.ConsentStatus.NotApplicable;
 #endif
 
+        /// <summary>
+        ///     Whether the TCF record grants the ad purposes behind the personalized-ad signals. Google's
+        ///     Consent Mode mapping grounds ad_personalization on Purposes 3 and 4 and ad_user_data on 1
+        ///     and 7; one signal feeds both, so all four. True when the record holds no answer (outside
+        ///     GDPR, or not asked yet): <see cref="Status"/> alone decides then.
+        /// </summary>
+        internal static bool AdPurposesGranted { get; private set; } = true;
+
+        internal static bool GrantsAdPurposes(bool tcStringPresent, string purposeConsents) =>
+            !tcStringPresent || (Granted(purposeConsents, 1) && Granted(purposeConsents, 3)
+                && Granted(purposeConsents, 4) && Granted(purposeConsents, 7));
+
+        static bool Granted(string purposeConsents, int purpose) =>
+            purposeConsents != null && purposeConsents.Length >= purpose && purposeConsents[purpose - 1] == '1';
+
         /// <summary>The current decision resolved against <paramref name="att"/>.</summary>
-        internal static ConsentSignals ResolveCurrent(ATTBridge.AuthorizationStatus att) => Resolve(Status, att, AdsPresent);
+        internal static ConsentSignals ResolveCurrent(ATTBridge.AuthorizationStatus att) => Resolve(Status, AdPurposesGranted, att, AdsPresent);
 
         /// <summary>
         ///     Re-reads the TCF record into <see cref="Status"/> (Full only). Main thread only: the
@@ -94,6 +109,7 @@ namespace Sorolla.Palette
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
             bool readable = IabTcf.Read(out bool tcStringPresent, out int gdprApplies, out string purposeConsents);
             Status = FromTcfRecord(readable, tcStringPresent, gdprApplies, purposeConsents);
+            AdPurposesGranted = GrantsAdPurposes(tcStringPresent, purposeConsents);
             string record = readable
                 ? $"tcString={(tcStringPresent ? "present" : "absent")}, gdprApplies={(gdprApplies < 0 ? "unset" : gdprApplies.ToString())}"
                 : "record unreadable";

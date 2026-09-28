@@ -28,5 +28,21 @@ namespace Sorolla.Palette.Editor.Tests
         {
             Assert.AreEqual(expected, ConsentCoordinator.FromTcfRecord(readable, tcStringPresent, gdprApplies, purposeConsents));
         }
+
+        // tcStringPresent, purposeConsents  ->  the personalized-ad purposes (1, 3, 4, 7) are all granted
+        [TestCase(false, null,      true)]  // no answer on record: the GDPR status alone decides
+        [TestCase(true,  "1111111", true)]
+        [TestCase(true,  "1011001", true)]  // Purposes 2, 5, 6 do not matter
+        [TestCase(true,  "0111111", false)] // storage refused
+        [TestCase(true,  "1101111", false)] // ad profile refused
+        [TestCase(true,  "1110111", false)] // ad selection refused
+        [TestCase(true,  "1111110", false)] // ad measurement refused
+        [TestCase(true,  "1111",    false)] // Purpose 7 absent
+        [TestCase(true,  "",        false)]
+        [TestCase(true,  null,      false)]
+        public void GrantsAdPurposes(bool tcStringPresent, string purposeConsents, bool expected)
+        {
+            Assert.AreEqual(expected, ConsentCoordinator.GrantsAdPurposes(tcStringPresent, purposeConsents));
+        }
     }
 }
