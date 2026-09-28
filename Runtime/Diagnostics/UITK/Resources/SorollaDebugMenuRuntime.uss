@@ -48,7 +48,7 @@
 .sorolla-debugmenu-title {
     font-size: 12px; /* "Sorolla Vitals" label token: 12px */
     -unity-font-style: bold;
-    color: rgb(106, 116, 132); /* #6a7484 */
+    color: rgb(185, 195, 210);
     flex-grow: 1;
     flex-shrink: 1;
     min-width: 60px;
@@ -58,6 +58,7 @@
 }
 
 .sorolla-debugmenu-close {
+    min-height: 44px;
     background-color: rgb(23, 29, 39); /* normal action bg #171d27 */
     color: rgb(211, 218, 228); /* normal action fg #d3dae4 */
     border-width: 1px;
@@ -144,19 +145,16 @@
     width: 100%;
 }
 
-/* Tier-3 structural fix (Arthur, phase 6 fix round): COVERAGE caption + sentence are now ONE
-   Label using UITK rich text (<size>/<color>/<b> spans) built in SorollaDebugMenuOverlay.cs, so
-   they share one line box/baseline by construction - the old two-Label + margin-nudge approach
-   (dead classes -row/-caption/-line-thin removed) could never truly align two different font
-   sizes with a flat margin guess. Base size here is the SENTENCE size; the caption span overrides
-   its own size via <size=9.5px> inline. Color is baked into the rich text markup per-build (thin
-   vs normal), not a CSS class, since the two spans need different colors within one Label. */
 .sorolla-debugmenu-coverage-line {
     font-size: 11px;
     color: rgb(125, 134, 148);
     white-space: normal;
     width: 100%;
     margin-bottom: 2px;
+}
+
+.sorolla-debugmenu-coverage-thin {
+    color: rgb(217, 166, 54);
 }
 
 /* Severity count strip (header, spec 2.1.2). Colored counts: FAIL #ff9d94, WARN #f3d27a,
@@ -179,6 +177,7 @@
 .sorolla-debugmenu-count-zero { color: rgb(82, 92, 107); } /* #525c6b */
 
 .sorolla-debugmenu-healthy-toggle {
+    min-height: 44px;
     align-self: flex-start;
     background-color: rgba(0, 0, 0, 0);
     border-width: 0;
@@ -195,14 +194,17 @@
 
 .sorolla-debugmenu-tabs {
     flex-direction: row;
+    flex-shrink: 0;
 }
 
 /* Tabs & accents token block: active bg #1c5b63 / fg #dffafd / border #2a7a85, radius 8 8 0 0,
    underline #2a5a63; inactive bg #12151c / fg #7d8694 / border #1c222c. */
 .sorolla-debugmenu-tab {
     flex-grow: 1;
+    flex-basis: 0;
+    min-height: 44px;
     background-color: rgb(18, 21, 28); /* #12151c */
-    color: rgb(125, 134, 148); /* #7d8694 */
+    color: rgb(185, 195, 210);
     border-width: 1px;
     border-color: rgb(28, 34, 44); /* #1c222c */
     border-top-left-radius: 8px;
@@ -219,7 +221,8 @@
     background-color: rgb(24, 29, 38);
 }
 
-.sorolla-debugmenu-tab-active {
+.sorolla-debugmenu-tab.sorolla-debugmenu-tab-active,
+.sorolla-debugmenu-console-toolbar-button.sorolla-debugmenu-tab-active {
     background-color: rgb(28, 91, 99); /* #1c5b63 */
     color: rgb(223, 250, 253); /* #dffafd */
     border-color: rgb(42, 122, 133); /* #2a7a85 */
@@ -234,6 +237,7 @@
    adds to those edges. */
 .sorolla-debugmenu-content {
     flex-grow: 1;
+    min-height: 0;
     padding: 16px 0 16px 16px;
 }
 
@@ -244,9 +248,11 @@
 
 /* ---- Issues tab (phase 2): mockups 01/02, spec 2.2 + section 3 ---- */
 
-.sorolla-debugmenu-issues-pane {
+.sorolla-debugmenu-issues-pane,
+.sorolla-debugmenu-console-pane,
+.sorolla-debugmenu-actions-pane {
     flex-grow: 1;
-    flex-direction: column;
+    min-height: 0;
 }
 
 /* padding-right reserves a gutter so the vertical scrollbar (drawn inside the ScrollView's own
@@ -259,6 +265,7 @@
    it matches the left gutter exactly; the thumb (below) sits inside it via its own left margin. */
 .sorolla-debugmenu-issues-scroll {
     flex-grow: 1;
+    min-height: 0;
     padding-right: 16px;
 }
 
@@ -306,8 +313,23 @@
     padding: 6px 10px;
 }
 
+.sorolla-debugmenu-row-button {
+    margin: 0;
+    border-width: 0;
+    border-radius: 0;
+    background-color: rgba(0, 0, 0, 0);
+    -unity-text-align: middle-left;
+}
+
+.sorolla-debugmenu-row-button:hover,
+.sorolla-debugmenu-row-button:focus,
+.sorolla-debugmenu-row-button:active {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
 /* Severity badge: bg/fg per design-tokens.md (FAIL/WARN/WAIT/PASS/INFO). Square radius 5px. */
 .sorolla-debugmenu-severity-badge {
+    flex-shrink: 0;
     font-size: 10px;
     -unity-font-style: bold;
     letter-spacing: 0.5px;
@@ -328,7 +350,7 @@
     font-size: 13px;
     -unity-font-style: bold;
     color: rgb(211, 218, 228);
-    margin-right: 8px;
+    white-space: normal;
 }
 
 /* Ellipsis truncation needs all three of these (UITK, not one shorthand); flex-shrink + min-width:0
@@ -349,6 +371,8 @@
 .sorolla-debugmenu-issue-chevron {
     font-size: 15px;
     color: rgb(125, 134, 148);
+    flex-shrink: 0;
+    margin-left: 8px;
 }
 
 /* Expanded WHY/SIGNAL/FIX block (design-tokens.md "Diagnosis expansion"): 46px key column,
@@ -413,6 +437,7 @@
     -unity-font-style: bold;
     color: rgb(207, 232, 214); /* #cfe8d6 */
     margin-bottom: 10px;
+    white-space: normal;
 }
 
 /* ---- Notes / callouts (info + warn) ---- */
@@ -441,6 +466,7 @@
 /* ---- Buttons (Copy diagnosis / Copy problems) ---- */
 
 .sorolla-debugmenu-action-button {
+    min-height: 44px;
     border-radius: 9px;
     border-width: 1px;
     padding: 8px 14px;
@@ -463,7 +489,7 @@
     align-self: flex-start;
 }
 
-/* ---- Report pane (2026-07-20): the one studio-visible surface ---- */
+/* ---- Report pane ---- */
 
 /* Verdict hero: the big badge + count strip, moved here from the header (spec item 1). Reuses the
    existing badge/countstrip classes verbatim so it renders pixel-identical to the old header
@@ -520,6 +546,7 @@
     font-size: 12px;
     -unity-font-style: bold;
     color: rgb(211, 218, 228); /* #d3dae4 */
+    white-space: normal;
 }
 
 .sorolla-debugmenu-matrix-row-detail {
@@ -529,38 +556,18 @@
     margin-top: 2px;
 }
 
-.sorolla-debugmenu-section-count {
-    font-size: 10.5px;
-    -unity-font-style: bold;
-}
-
-.sorolla-debugmenu-section-count-warn { color: rgb(217, 166, 54); } /* CTXT.WARN */
-.sorolla-debugmenu-section-count-clean { color: rgb(95, 138, 110); } /* #5f8a6e */
-
 /* ---- Console tab (phase 3): mockup 04, spec 2.4 ---- */
 
-.sorolla-debugmenu-console-pane {
-    flex-grow: 1;
-    flex-direction: column;
-}
-
-/* flex-wrap (phase4 carry-over fix): at narrow portrait width the summary text + toggle + Copy +
-   Clear don't fit one row; without wrap, Clear silently ran off the right panel edge instead of
-   visibly overflowing (found in tier-2 review of the phase-3 console capture). Same fix shape as
-   the header-row overlap bug - let the row wrap instead of clipping/overlapping. */
 .sorolla-debugmenu-console-toolbar {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
+    flex-shrink: 0;
+    padding-right: 16px;
     margin-bottom: 10px;
 }
 
 .sorolla-debugmenu-console-summary {
     font-size: 11px;
     color: rgb(125, 134, 148); /* #7d8694 */
-    flex-grow: 1;
-    flex-shrink: 1;
-    min-width: 90px;
+    white-space: normal;
     margin-bottom: 4px;
 }
 
@@ -574,6 +581,20 @@
     font-size: 11px;
     color: rgb(125, 134, 148);
     margin-right: 8px;
+    min-height: 44px;
+    flex-grow: 1;
+    align-items: center;
+}
+
+.sorolla-debugmenu-console-filters {
+    flex-direction: row;
+}
+
+.sorolla-debugmenu-console-filters > .sorolla-debugmenu-console-toolbar-button {
+    flex-grow: 1;
+    flex-basis: 0;
+    margin-left: 0;
+    margin-right: 4px;
 }
 
 /* No default widget chrome: strip the built-in Toggle checkbox texture, use a small token-colored
@@ -593,6 +614,7 @@
 }
 
 .sorolla-debugmenu-console-toolbar-button {
+    min-height: 44px;
     background-color: rgb(26, 33, 44); /* #1a212c */
     color: rgb(185, 195, 210); /* #b9c3d2 */
     border-width: 1px;
@@ -642,21 +664,19 @@
     border-top-color: rgba(255, 255, 255, 0.06);
 }
 
-/* Expanded payload key/value rows: bg #0e1219, key mono 11px #6f7a8a (108px column), value mono
-   11px #cdd5e0 (design-tokens.md "Console"). */
+/* Stacked keys and values leave the full phone width for messages and stack traces. */
 .sorolla-debugmenu-console-payload-line {
-    flex-direction: row;
     background-color: rgb(14, 18, 25);
     border-radius: 4px;
-    padding: 3px 6px;
+    padding: 6px;
     margin-top: 3px;
 }
 
 .sorolla-debugmenu-console-payload-key {
-    width: 108px;
     font-size: 11px;
-    color: rgb(111, 122, 138); /* #6f7a8a */
-    flex-shrink: 0;
+    color: rgb(154, 165, 182);
+    white-space: normal;
+    margin-bottom: 2px;
 }
 
 .sorolla-debugmenu-console-payload-value {
@@ -669,11 +689,6 @@
 }
 
 /* ---- Actions tab (phase 4): mockup 05, spec 2.5 ---- */
-
-.sorolla-debugmenu-actions-pane {
-    flex-grow: 1;
-    flex-direction: column;
-}
 
 /* Section-title / action-group accent token: #4fd0dd, 12px/800 (design-tokens.md "Tabs & accents"). */
 .sorolla-debugmenu-action-group-title {
@@ -694,7 +709,8 @@
     border-radius: 9px;
     border-width: 1px;
     padding: 10px 14px;
-    margin-bottom: 6px;
+    margin: 0 0 6px 0;
+    -unity-text-align: middle-left;
 }
 
 .sorolla-debugmenu-action-card-text {
@@ -739,15 +755,12 @@
 .sorolla-debugmenu-action-card-normal .sorolla-debugmenu-action-card-sub { color: rgb(125, 134, 148); } /* #7d8694 */
 .sorolla-debugmenu-action-card-normal .sorolla-debugmenu-action-card-arrow { color: rgb(106, 116, 132); } /* #6a7484 */
 
-/* Disabled: no arrow, opacity 0.85, reason shown inline in the sub line (design-tokens.md). */
-.sorolla-debugmenu-action-card-disabled {
-    background-color: rgb(18, 21, 28); /* #12151c */
-    border-color: rgb(28, 34, 44); /* #1c222c */
-    opacity: 0.85;
+.sorolla-debugmenu-action-card:hover,
+.sorolla-debugmenu-action-card:focus,
+.sorolla-debugmenu-action-card:active,
+.sorolla-debugmenu-action-button:focus,
+.sorolla-debugmenu-console-toolbar-button:focus,
+.sorolla-debugmenu-tab:focus,
+.sorolla-debugmenu-close:focus {
+    border-color: rgb(79, 208, 221);
 }
-
-.sorolla-debugmenu-action-card-disabled .sorolla-debugmenu-action-card-label { color: rgb(95, 104, 117); } /* #5f6875 */
-.sorolla-debugmenu-action-card-disabled .sorolla-debugmenu-action-card-sub { color: rgb(77, 86, 99); } /* #4d5663 */
-
-/* Event chip row CSS removed (phase 6 punch list item 4): the 4 event triggers now render as full
-   action-cards via BuildActionButton, no bespoke chip skin left to maintain. */

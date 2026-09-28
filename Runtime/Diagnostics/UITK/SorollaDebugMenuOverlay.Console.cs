@@ -57,8 +57,7 @@ namespace Sorolla.Palette
             pane.AddToClassList("sorolla-debugmenu-console-pane");
             pane.Add(BuildConsoleToolbar());
 
-            var scroll = new ScrollView(ScrollViewMode.Vertical);
-            scroll.AddToClassList("sorolla-debugmenu-issues-scroll");
+            var scroll = BuildScrollView();
             _consoleListHost = new VisualElement();
             scroll.Add(_consoleListHost);
             pane.Add(scroll);
@@ -88,14 +87,17 @@ namespace Sorolla.Palette
             });
             controls.Add(newest);
 
-            var clear = new Button(ClearConsole) { text = "Clear" };
+            var clear = new Button(ClearConsole) { text = "Clear all" };
             clear.AddToClassList("sorolla-debugmenu-console-toolbar-button");
             controls.Add(clear);
             bar.Add(controls);
 
-            AddConsoleFilterButton(bar, ConsoleFilter.All, "All");
-            AddConsoleFilterButton(bar, ConsoleFilter.Problems, "Problems");
-            AddConsoleFilterButton(bar, ConsoleFilter.Events, "Events");
+            var filters = new VisualElement();
+            filters.AddToClassList("sorolla-debugmenu-console-filters");
+            AddConsoleFilterButton(filters, ConsoleFilter.All, "All");
+            AddConsoleFilterButton(filters, ConsoleFilter.Problems, "Problems");
+            AddConsoleFilterButton(filters, ConsoleFilter.Events, "Events");
+            bar.Add(filters);
             RefreshConsoleFilterButtons();
 
             return bar;
@@ -134,6 +136,7 @@ namespace Sorolla.Palette
             _expandedConsoleEvents.Clear();
             _expandedConsoleProblems.Clear();
             RefreshConsoleList(true);
+            RefreshDiagnosticViews();
         }
 
         void RefreshConsoleList(bool force = false)
@@ -283,7 +286,8 @@ namespace Sorolla.Palette
             var row = new VisualElement();
             row.AddToClassList("sorolla-debugmenu-console-row");
 
-            var collapsed = new VisualElement();
+            var collapsed = new Button();
+            collapsed.AddToClassList("sorolla-debugmenu-row-button");
             collapsed.AddToClassList("sorolla-debugmenu-console-row-collapsed");
 
             var badge = new Label(entry.BadgeText);
@@ -291,7 +295,7 @@ namespace Sorolla.Palette
             badge.AddToClassList(entry.BadgeClass);
             collapsed.Add(badge);
 
-            var title = new Label(entry.Title);
+            var title = new Label(entry.Title) { enableRichText = false };
             title.AddToClassList("sorolla-debugmenu-console-row-title");
             collapsed.Add(title);
 
@@ -301,17 +305,25 @@ namespace Sorolla.Palette
             collapsed.Add(chevron);
             row.Add(collapsed);
 
-            VisualElement expanded = BuildConsolePayload(entry);
-            expanded.style.display = isExpanded ? DisplayStyle.Flex : DisplayStyle.None;
-            row.Add(expanded);
-
-            collapsed.RegisterCallback<ClickEvent>(_ =>
+            VisualElement expanded = null;
+            if (isExpanded)
             {
-                bool nowExpanded = expanded.style.display == DisplayStyle.None;
+                expanded = BuildConsolePayload(entry);
+                row.Add(expanded);
+            }
+
+            collapsed.clicked += () =>
+            {
+                bool nowExpanded = !IsConsoleEntryExpanded(entry);
+                if (expanded == null)
+                {
+                    expanded = BuildConsolePayload(entry);
+                    row.Add(expanded);
+                }
                 expanded.style.display = nowExpanded ? DisplayStyle.Flex : DisplayStyle.None;
                 chevron.text = nowExpanded ? "⌄" : "›";
                 SetConsoleEntryExpanded(entry, nowExpanded);
-            });
+            };
 
             return row;
         }
@@ -320,6 +332,9 @@ namespace Sorolla.Palette
         {
             var expanded = new VisualElement();
             expanded.AddToClassList("sorolla-debugmenu-console-payload");
+            var title = new Label(entry.Title) { enableRichText = false };
+            title.AddToClassList("sorolla-debugmenu-console-payload-value");
+            expanded.Add(title);
 
             if (entry.Payload.Length == 0)
             {
@@ -334,11 +349,14 @@ namespace Sorolla.Palette
                     var line = new VisualElement();
                     line.AddToClassList("sorolla-debugmenu-console-payload-line");
 
-                    var key = new Label(payload.Key);
+                    var key = new Label(payload.Key) { enableRichText = false };
                     key.AddToClassList("sorolla-debugmenu-console-payload-key");
                     line.Add(key);
 
-                    var value = new Label(string.IsNullOrEmpty(payload.Value) ? "None" : payload.Value);
+                    var value = new Label(string.IsNullOrEmpty(payload.Value) ? "None" : payload.Value)
+                    {
+                        enableRichText = false,
+                    };
                     value.AddToClassList("sorolla-debugmenu-console-payload-value");
                     line.Add(value);
                     expanded.Add(line);

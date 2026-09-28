@@ -22,9 +22,8 @@ namespace Sorolla.Palette
         }
 
         /// <summary>
-        ///     Header coverage line: what this BUILD has proved (spec 2.1.4). Session count is always
-        ///     reported as 1 - the SDK has no cross-launch session counter today; a real counter is
-        ///     future SDK work, not a phase-2 gap. The ads word reads off the per-build ledger, so it
+        ///     Header coverage line: recorded events and what this BUILD has proved.
+        ///     The ads word reads off the per-build ledger, so it
         ///     agrees with the coverage matrix and the verdict instead of resetting on every relaunch.
         /// </summary>
         internal static string BuildMenuCoverageLine(out bool thin)
@@ -45,7 +44,7 @@ namespace Sorolla.Palette
 
             thin = IsCoverageThin(state, proved);
 
-            string line = $"session 1 · {events} events";
+            string line = $"{events} events recorded";
             if (!ads.Included) return line;
 
             string consent = MenuConsentCell(state);
@@ -167,7 +166,7 @@ namespace Sorolla.Palette
                     Cell(session, SorollaCoverageFact.Consent, inputs.ConsentCell),
                     "Open the app and resolve the CMP prompt",
                     QaActionRegistry.ResetConsent,
-                    "Reset consent"));
+                    "Retest consent"));
 
             // One format proves nothing about the other: each configured unit id is its own mediation
             // chain, so each configured format owes its own completed ad. A format with no unit id for

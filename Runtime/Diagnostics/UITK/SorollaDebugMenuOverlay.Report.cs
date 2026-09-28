@@ -5,21 +5,11 @@ using UnityEngine.UIElements;
 
 namespace Sorolla.Palette
 {
-    // The ONE studio-visible pane (2026-07-20 studio-UX simplification). It replaces the Overview +
-    // Issues + coverage-matrix trio: a studio launches the game, opens Vitals, and reads one report -
-    // green or not, with a row per thing to fix. Sorolla-owned rows are not hidden, they are routed to
-    // their own "send to Sorolla" section, because a studio cannot fix SDK internals and should not be
-    // asked to. Display-only, same BuildRows()/CaptureQaState fact pipeline as every other pane.
+    // Report the SDK verdict, fixes and coverage from the shared diagnostics facts.
     internal sealed partial class SorollaDebugMenuOverlay
     {
-        // 5 taps on the SDK context line unlock the internal (Sorolla) view. Deliberately obscure and
-        // deliberately not a build-time flag: the full depth ships in every build, it is just not the
-        // studio's default surface.
-        const int InternalUnlockTapCount = 5;
-        const float InternalUnlockWindowSeconds = 2f;
-
-        int _internalUnlockTaps;
-        float _internalUnlockFirstTapTime;
+        VisualElement _reportHost;
+        readonly HashSet<(string Group, string Name)> _expandedReportRows = new HashSet<(string, string)>();
         bool _showHealthyChecks;
 
         internal VisualElement BuildReportTab(List<SorollaDiagnosticRow> rows)
@@ -27,30 +17,28 @@ namespace Sorolla.Palette
             var pane = new VisualElement();
             pane.AddToClassList("sorolla-debugmenu-issues-pane");
 
-            var scroll = new ScrollView(ScrollViewMode.Vertical);
-            // Vertical MODE alone does not stop Unity from laying out the horizontal scroller (verified
-            // live 2026-07-20: display=Flex, no horizontal overflow), and it renders as a light desktop
-            // scrollbar band across the pane's bottom edge. USS cannot fix it - ScrollView writes the
-            // scroller's display as an INLINE style, which beats any stylesheet rule.
-            scroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
-            scroll.AddToClassList("sorolla-debugmenu-issues-scroll");
-            var host = new VisualElement();
-            scroll.Add(host);
+            var scroll = BuildScrollView();
+            _reportHost = new VisualElement();
+            scroll.Add(_reportHost);
             pane.Add(scroll);
+            RefreshReportContent(rows);
+            return pane;
+        }
 
+        void RefreshReportContent(List<SorollaDiagnosticRow> rows)
+        {
+            _reportHost.Clear();
             SorollaVitalsVerdictReport verdict = SorollaDiagnostics.ComputeVerdict(rows);
 
-            host.Add(BuildVerdictHero(verdict));
-            host.Add(BuildHealthyChecksSection(rows));
-            host.Add(BuildContextLine());
-            host.Add(BuildFixTheseSection(rows));
+            _reportHost.Add(BuildVerdictHero(verdict));
+            _reportHost.Add(BuildContextLine());
+            _reportHost.Add(BuildFixTheseSection(rows));
             VisualElement sorollaSection = BuildSendToSorollaSection(rows);
             if (sorollaSection != null)
-                host.Add(sorollaSection);
-            host.Add(BuildTestYourGameSection());
-            host.Add(BuildReportFooter(verdict));
-
-            return pane;
+                _reportHost.Add(sorollaSection);
+            _reportHost.Add(BuildTestYourGameSection());
+            _reportHost.Add(BuildHealthyChecksSection(rows));
+            _reportHost.Add(BuildReportFooter());
         }
 
         // ── Verdict hero ──────────────────────────────────────────────────
@@ -173,7 +161,7 @@ namespace Sorolla.Palette
             name.AddToClassList("sorolla-debugmenu-matrix-row-name");
             textColumn.Add(name);
 
-            var detail = new Label(row.Detail);
+            var detail = new Label(row.Detail) { enableRichText = false };
             detail.AddToClassList("sorolla-debugmenu-matrix-row-detail");
             textColumn.Add(detail);
 
@@ -183,32 +171,11 @@ namespace Sorolla.Palette
 
         // ── SDK context + responsibility division ─────────────────────────
 
-        // The SDK context line, and the 5-tap target that unlocks the internal view. The
-        // responsibility/certification sentence that used to sit under it is deleted: a studio cannot act on
-        // who certifies SDK internals, and zero-leverage info does not render on a studio surface (scope
-        // lens, 2026-07-20). That framing lives in the report export / agent payload.
-        VisualElement BuildContextLine()
+        static VisualElement BuildContextLine()
         {
             var contextLine = new Label(SorollaDiagnostics.BuildMenuContextLine());
             contextLine.AddToClassList("sorolla-debugmenu-context-line");
-            contextLine.RegisterCallback<ClickEvent>(_ => RegisterInternalUnlockTap());
             return contextLine;
-        }
-
-        void RegisterInternalUnlockTap()
-        {
-            float now = Time.unscaledTime;
-            if (now - _internalUnlockFirstTapTime > InternalUnlockWindowSeconds)
-            {
-                _internalUnlockFirstTapTime = now;
-                _internalUnlockTaps = 0;
-            }
-
-            _internalUnlockTaps++;
-            if (_internalUnlockTaps < InternalUnlockTapCount) return;
-
-            _internalUnlockTaps = 0;
-            ToggleInternalMode();
         }
 
         // ── FIX THESE (studio-owned) ──────────────────────────────────────
@@ -314,7 +281,7 @@ namespace Sorolla.Palette
             // The diagnostics model owns action applicability. This UI only renders the supplied action.
             if ((!row.Exercised || row.Action == QaActionRegistry.ResetConsent) && row.Action != null)
             {
-                var button = new Button(() => RunActionAndRefreshReport(row.Action)) { text = row.ActionLabel };
+                var button = new Button(() => RunActionAndRefresh(row.Action)) { text = row.ActionLabel };
                 button.AddToClassList("sorolla-debugmenu-action-button");
                 button.AddToClassList("sorolla-debugmenu-action-button-ghost");
                 textColumn.Add(button);
@@ -324,22 +291,13 @@ namespace Sorolla.Palette
             return line;
         }
 
-        void RunActionAndRefreshReport(string registryAction)
-        {
-            QaActionRegistry.TryInvoke(registryAction, null, out _);
-            RefreshDiagnosticViews();
-        }
-
         // ── Footer ────────────────────────────────────────────────────────
 
-        VisualElement BuildReportFooter(in SorollaVitalsVerdictReport verdict)
+        VisualElement BuildReportFooter()
         {
             var footer = new VisualElement();
 
-            string word = SorollaDiagnostics.VerdictWord(verdict);
-            int fail = verdict.Fail, warn = verdict.Warn, wait = verdict.Wait, pass = verdict.Pass;
-            var copyReport = new Button(() =>
-                GUIUtility.systemCopyBuffer = BuildCopyReportText(word, fail, warn, wait, pass))
+            var copyReport = new Button(() => GUIUtility.systemCopyBuffer = BuildCopyReportText())
             {
                 text = "Copy report",
             };
@@ -358,11 +316,15 @@ namespace Sorolla.Palette
 
         /// <summary>The one support payload this screen produces: the verdict, what needs attention, and
         /// the full SDK state behind it. A studio sends this, not a choice between two overlapping copies.</summary>
-        static string BuildCopyReportText(string verdictWord, int fail, int warn, int wait, int pass)
+        static string BuildCopyReportText()
         {
+            var rows = new List<SorollaDiagnosticRow>(64);
+            SorollaDiagnostics.BuildRows(rows);
+            SorollaVitalsVerdictReport verdict = SorollaDiagnostics.ComputeVerdict(rows);
             var sb = new StringBuilder(4096);
-            sb.Append(verdictWord).Append(" — FAIL ").Append(fail).Append(" · WARN ").Append(warn)
-                .Append(" · WAIT ").Append(wait).Append(" · PASS ").Append(pass).AppendLine();
+            sb.Append(SorollaDiagnostics.VerdictWord(verdict)).Append(" — FAIL ").Append(verdict.Fail)
+                .Append(" · WARN ").Append(verdict.Warn).Append(" · WAIT ").Append(verdict.Wait)
+                .Append(" · PASS ").Append(verdict.Pass).AppendLine();
             sb.AppendLine(SorollaDiagnostics.BuildMenuContextLine());
             sb.AppendLine(SorollaDiagnostics.BuildMenuCoverageLine(out _));
             sb.AppendLine();
@@ -380,16 +342,15 @@ namespace Sorolla.Palette
             checkCircle.AddToClassList("sorolla-debugmenu-empty-check");
             card.Add(checkCircle);
 
-            var title = new Label("Nothing to fix in your game's setup");
+            var title = new Label("No setup issues observed");
             title.AddToClassList("sorolla-debugmenu-empty-title");
             card.Add(title);
 
             SorollaDiagnostics.BuildMenuCoverageLine(out bool thin);
             if (thin)
             {
-                var warnNote = new Label("Coverage is thin: this build has not yet been played through a level "
-                    + "and an ad watched to the end. A clean report only covers what was actually exercised — "
-                    + "work the TEST YOUR GAME list, then re-check.");
+                var warnNote = new Label("This build still has untested paths. Complete the remaining "
+                    + "TEST YOUR GAME checks, then re-check.");
                 warnNote.AddToClassList("sorolla-debugmenu-note");
                 warnNote.AddToClassList("sorolla-debugmenu-note-warn");
                 card.Add(warnNote);
@@ -409,12 +370,12 @@ namespace Sorolla.Palette
         // The generic shape for a row whose producer supplied no diagnosis. Producers are expected to supply
         // WHY/SIGNAL/FIX (see SorollaDiagnostics.Diagnoses.cs); this is the last resort, and it routes through
         // an affordance a studio can ALWAYS see: the footer's own Copy report button. The SEND TO SOROLLA
-        // section is absent whenever no Sorolla-owned row exists, and the 5-tap console is internal.
+        // section is absent whenever no Sorolla-owned row exists.
         const string UnknownSignal = "—";
         const string UnknownFix = "Not diagnosable from inside the app. Use \"Copy report\" at the bottom "
             + "of this screen and send it to Sorolla.";
 
-        static VisualElement BuildIssueRow(SorollaDiagnosticRow row)
+        VisualElement BuildIssueRow(SorollaDiagnosticRow row)
         {
             (string why, string signal, string fix) diagnosis = row.HasStructuredDiagnosis
                 ? (row.Why, row.Signal, row.Fix)
@@ -424,7 +385,8 @@ namespace Sorolla.Palette
             container.AddToClassList("sorolla-debugmenu-issue-row");
             container.AddToClassList(RowSeverityClass(row.Severity));
 
-            var collapsed = new VisualElement();
+            var collapsed = new Button();
+            collapsed.AddToClassList("sorolla-debugmenu-row-button");
             collapsed.AddToClassList("sorolla-debugmenu-issue-row-collapsed");
 
             var badge = new Label(SorollaDiagnostics.SeverityLabel(row.Severity));
@@ -432,30 +394,37 @@ namespace Sorolla.Palette
             badge.AddToClassList(BadgeSeverityClass(row.Severity));
             collapsed.Add(badge);
 
-            var name = new Label(row.Name);
+            var textColumn = new VisualElement();
+            textColumn.AddToClassList("sorolla-debugmenu-matrix-row-text");
+            var name = new Label(row.Name) { enableRichText = false };
             name.AddToClassList("sorolla-debugmenu-issue-name");
-            collapsed.Add(name);
+            textColumn.Add(name);
 
-            var detail = new Label(SafeFirstLine(row.Detail));
+            var detail = new Label(SafeFirstLine(row.Detail)) { enableRichText = false };
             detail.AddToClassList("sorolla-debugmenu-issue-detail");
-            collapsed.Add(detail);
+            textColumn.Add(detail);
+            collapsed.Add(textColumn);
 
-            var chevron = new Label("›");
+            var key = (row.Group, row.Name);
+            bool isExpanded = _expandedReportRows.Contains(key);
+            var chevron = new Label(isExpanded ? "⌄" : "›");
             chevron.AddToClassList("sorolla-debugmenu-issue-chevron");
             collapsed.Add(chevron);
 
             container.Add(collapsed);
 
             VisualElement expanded = BuildExpandedDiagnosis(diagnosis);
-            expanded.style.display = DisplayStyle.None;
+            expanded.style.display = isExpanded ? DisplayStyle.Flex : DisplayStyle.None;
             container.Add(expanded);
 
-            collapsed.RegisterCallback<ClickEvent>(_ =>
+            collapsed.clicked += () =>
             {
                 bool nowExpanded = expanded.style.display == DisplayStyle.None;
                 expanded.style.display = nowExpanded ? DisplayStyle.Flex : DisplayStyle.None;
                 chevron.text = nowExpanded ? "⌄" : "›";
-            });
+                if (nowExpanded) _expandedReportRows.Add(key);
+                else _expandedReportRows.Remove(key);
+            };
 
             return container;
         }
@@ -490,7 +459,7 @@ namespace Sorolla.Palette
             keyLabel.AddToClassList(keyClass);
             line.Add(keyLabel);
 
-            var valueLabel = new Label(value);
+            var valueLabel = new Label(value) { enableRichText = false };
             valueLabel.AddToClassList("sorolla-debugmenu-diagnosis-value");
             line.Add(valueLabel);
 
@@ -510,9 +479,7 @@ namespace Sorolla.Palette
         {
             if (string.IsNullOrEmpty(detail)) return "";
             int newline = detail.IndexOf('\n');
-            string firstLine = newline >= 0 ? detail.Substring(0, newline) : detail;
-            const int maxLength = 60;
-            return firstLine.Length <= maxLength ? firstLine : firstLine.Substring(0, maxLength - 1) + "…";
+            return newline >= 0 ? detail.Substring(0, newline) : detail;
         }
 
         static int SeverityRank(SorollaDiagnosticSeverity severity)

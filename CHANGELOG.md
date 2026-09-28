@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- Vitals opens with Report, Console and Actions tabs available immediately. The gesture that opens
+  the menu is unchanged; the extra internal-view unlock and its saved preference are removed.
+- Larger touch targets, safe-area spacing, clearer selected filters, stacked console payloads and
+  issue summaries improve the menu's phone layout. Action labels describe their existing behavior;
+  Retest consent reopens privacy options without erasing consent or resetting ATT.
+
+### Fixed
+
+- Report details update even when health counts stay the same. Expanded diagnoses and the report's
+  scroll container survive refreshes, and the header updates on every tab. Copied reports calculate
+  their verdict when copied instead of using the one captured when the button was created.
+- Coverage wording describes evidence from the current build, without inventing a session count or
+  asking games without ads to watch one. Log text is displayed literally, and collapsed console rows
+  create their payload controls only when expanded.
+
 ## [4.0.8] - 2026-09-28
 
 ### Changed

@@ -6,16 +6,11 @@ namespace Sorolla.Palette
 {
     // Code-created runtime debug menu: no prefab or scene setup. All facts come from the existing
     // diagnostics/snapshot pipeline, and all runtime UI objects are torn down when the menu closes.
-    //
-    // Studio surface (2026-07-20): ONE report pane, no tab bar. The full depth (Console, Actions) is
-    // still in every build - it is unlocked by 5 taps on the SDK context line and persisted, because
-    // hiding it behind a build flag would mean the thing we ship is not the thing we debug.
     internal sealed partial class SorollaDebugMenuOverlay : MonoBehaviour
     {
         const string HostName = "[Palette SDK Debug Menu]";
         const string ThemeResourcePath = "SorollaDebugMenuTheme";
         const string UssResourcePath = "SorollaDebugMenuRuntime";
-        const string InternalModePrefKey = "sorolla.vitals.internal";
         const int PanelSortingOrder = 32000;
         const float LiveRefreshIntervalSeconds = 0.2f;
 
@@ -42,31 +37,20 @@ namespace Sorolla.Palette
         PanelSettings _panelSettings;
         GameObject _createdEventSystem;
         VisualElement _root;
-        VisualElement _header;
-        VisualElement _content;
-        VisualElement[] _tabPanes = System.Array.Empty<VisualElement>();
-        Button[] _tabButtons = System.Array.Empty<Button>();
+        Label _headerVerdict;
+        Label _headerCoverage;
+        readonly VisualElement[] _tabPanes = new VisualElement[3];
+        readonly Button[] _tabButtons = new Button[3];
+        Rect _safeArea;
+        Vector2Int _screenSize;
         int _activeTabIndex;
         float _nextLiveRefreshTime;
         float _nextReportFactsCheckTime;
         int _reportFingerprint;
 
-        // Computed once per Build() (menu open), never per frame - rebuilt tree, not rebuilt rows.
         readonly List<SorollaDiagnosticRow> _rows = new List<SorollaDiagnosticRow>(64);
 
         internal static bool IsOpen => s_instance != null;
-
-        /// <summary>Internal (Sorolla) view: Report + Console + Actions behind tabs. Persisted so an
-        /// internal session survives a relaunch; a studio never trips over it.</summary>
-        static bool InternalMode
-        {
-            get => PlayerPrefs.GetInt(InternalModePrefKey, 0) != 0;
-            set
-            {
-                PlayerPrefs.SetInt(InternalModePrefKey, value ? 1 : 0);
-                PlayerPrefs.Save();
-            }
-        }
 
         internal static void Open()
         {
@@ -121,48 +105,26 @@ namespace Sorolla.Palette
             else
                 Debug.LogWarning("[Palette] Debug menu runtime USS not found at Resources/" + UssResourcePath);
 
-            BuildTree();
-
-            _createdEventSystem = SorollaDebugMenuEventSystemFactory.CreateIfMissing();
-        }
-
-        /// <summary>Builds (or rebuilds) everything below the root: header, optional tab bar, panes. One
-        /// entry point so flipping the internal view is a rebuild, not a second layout path.</summary>
-        void BuildTree()
-        {
-            _root.Clear();
+            RefreshPanelGeometry();
             SorollaDiagnostics.BuildRows(_rows);
             _reportFingerprint = SorollaDiagnostics.ComputeFactsFingerprint(_rows);
 
-            _header = BuildHeader();
-            _root.Add(_header);
+            _root.Add(BuildHeader());
+            RefreshHeader();
+            _root.Add(BuildTabBar());
 
-            bool internalMode = InternalMode;
-            _tabPanes = new VisualElement[internalMode ? 3 : 1];
-            _tabButtons = internalMode ? new Button[3] : System.Array.Empty<Button>();
-
-            if (internalMode)
-                _root.Add(BuildTabBar());
-
-            _content = new VisualElement();
-            _content.AddToClassList("sorolla-debugmenu-content");
+            var content = new VisualElement();
+            content.AddToClassList("sorolla-debugmenu-content");
             _tabPanes[0] = BuildReportTab(_rows);
-            if (internalMode)
-            {
-                _tabPanes[1] = BuildConsoleTab();
-                _tabPanes[2] = BuildActionsTab();
-            }
+            _tabPanes[1] = BuildConsoleTab();
+            _tabPanes[2] = BuildActionsTab();
             foreach (VisualElement pane in _tabPanes)
-                _content.Add(pane);
-            _root.Add(_content);
+                content.Add(pane);
+            _root.Add(content);
 
             SetActiveTab(0);
-        }
-
-        void ToggleInternalMode()
-        {
-            InternalMode = !InternalMode;
-            BuildTree();
+            _nextReportFactsCheckTime = Time.unscaledTime + ReportFactsCheckIntervalSeconds;
+            _createdEventSystem = SorollaDebugMenuEventSystemFactory.CreateIfMissing();
         }
 
         VisualElement BuildHeader()
@@ -173,13 +135,11 @@ namespace Sorolla.Palette
             var titleRow = new VisualElement();
             titleRow.AddToClassList("sorolla-debugmenu-header-row");
 
-            SorollaVitalsVerdictReport verdict = SorollaDiagnostics.ComputeVerdict(_rows);
-            var chip = new Label(SorollaDiagnostics.VerdictWord(verdict));
-            chip.AddToClassList("sorolla-debugmenu-compact-chip");
-            chip.AddToClassList(VerdictBadgeClass(verdict.Verdict));
-            titleRow.Add(chip);
+            _headerVerdict = new Label();
+            _headerVerdict.AddToClassList("sorolla-debugmenu-compact-chip");
+            titleRow.Add(_headerVerdict);
 
-            var title = new Label(InternalMode ? "Sorolla Vitals · internal" : "Sorolla Vitals");
+            var title = new Label("Sorolla Vitals");
             title.AddToClassList("sorolla-debugmenu-title");
             titleRow.Add(title);
 
@@ -189,16 +149,23 @@ namespace Sorolla.Palette
 
             header.Add(titleRow);
 
-            // Rich text keeps the caption and sentence in one line box and on one baseline.
-            string coverageText = SorollaDiagnostics.BuildMenuCoverageLine(out bool thin);
-            string lineColor = thin ? "d9a636" : "7d8694";
-            var coverageLine = new Label(
-                $"<size=9.5px><color=#{lineColor}><b>COVERAGE</b></color></size>  <color=#{lineColor}>{coverageText}</color>");
-            coverageLine.enableRichText = true;
-            coverageLine.AddToClassList("sorolla-debugmenu-coverage-line");
-            header.Add(coverageLine);
+            _headerCoverage = new Label();
+            _headerCoverage.AddToClassList("sorolla-debugmenu-coverage-line");
+            header.Add(_headerCoverage);
 
             return header;
+        }
+
+        void RefreshHeader()
+        {
+            SorollaVitalsVerdictReport verdict = SorollaDiagnostics.ComputeVerdict(_rows);
+            _headerVerdict.text = SorollaDiagnostics.VerdictWord(verdict);
+            _headerVerdict.EnableInClassList("sorolla-debugmenu-badge-failing", verdict.Verdict == SorollaVitalsVerdict.Failing);
+            _headerVerdict.EnableInClassList("sorolla-debugmenu-badge-issues",
+                verdict.Verdict == SorollaVitalsVerdict.ActionNeeded || verdict.Verdict == SorollaVitalsVerdict.NotProven);
+            _headerVerdict.EnableInClassList("sorolla-debugmenu-badge-healthy", verdict.Verdict == SorollaVitalsVerdict.Pass);
+            _headerCoverage.text = "COVERAGE  " + SorollaDiagnostics.BuildMenuCoverageLine(out bool thin);
+            _headerCoverage.EnableInClassList("sorolla-debugmenu-coverage-thin", thin);
         }
 
         VisualElement BuildTabBar()
@@ -221,33 +188,14 @@ namespace Sorolla.Palette
         void RefreshDiagnosticViews()
         {
             SorollaDiagnostics.BuildRows(_rows);
-            _reportFingerprint = SorollaDiagnostics.ComputeFactsFingerprint(_rows);
-            RebuildHeaderAndReport();
-        }
+            RefreshHeader();
+            if (_activeTabIndex != 0) return;
 
-        /// <summary>Rebuilds the report pane only when the facts behind it actually changed, so a fact
-        /// landing while the report is on screen (an ad completing) redraws without a per-tick rebuild.</summary>
-        void RefreshReportIfFactsChanged()
-        {
-            SorollaDiagnostics.BuildRows(_rows);
             int fingerprint = SorollaDiagnostics.ComputeFactsFingerprint(_rows);
             if (fingerprint == _reportFingerprint) return;
 
             _reportFingerprint = fingerprint;
-            RebuildHeaderAndReport();
-        }
-
-        void RebuildHeaderAndReport()
-        {
-            VisualElement nextHeader = BuildHeader();
-            _root.Remove(_header);
-            _root.Insert(0, nextHeader);
-            _header = nextHeader;
-
-            _content.Remove(_tabPanes[0]);
-            _tabPanes[0] = BuildReportTab(_rows);
-            _tabPanes[0].style.display = _activeTabIndex == 0 ? DisplayStyle.Flex : DisplayStyle.None;
-            _content.Insert(0, _tabPanes[0]);
+            RefreshReportContent(_rows);
         }
 
         void SetActiveTab(int index)
@@ -256,29 +204,24 @@ namespace Sorolla.Palette
             for (int i = 0; i < _tabPanes.Length; i++)
                 _tabPanes[i].style.display = i == index ? DisplayStyle.Flex : DisplayStyle.None;
             for (int i = 0; i < _tabButtons.Length; i++)
-            {
-                _tabButtons[i].RemoveFromClassList("sorolla-debugmenu-tab-active");
-                if (i == index)
-                    _tabButtons[i].AddToClassList("sorolla-debugmenu-tab-active");
-            }
+                _tabButtons[i].EnableInClassList("sorolla-debugmenu-tab-active", i == index);
 
-            if (index == 1)
-                RefreshConsoleList(true);
+            if (index == 0)
+                RefreshDiagnosticViews();
+            else if (index == 1)
+                RefreshConsoleList();
             else if (index == 2)
                 RefreshActionState();
         }
 
         void Update()
         {
-            if (_panelSettings != null)
-                _panelSettings.scale = ComputePanelScale();
+            RefreshPanelGeometry();
 
-            if (_activeTabIndex == 0)
+            if (Time.unscaledTime >= _nextReportFactsCheckTime)
             {
-                if (Time.unscaledTime < _nextReportFactsCheckTime) return;
                 _nextReportFactsCheckTime = Time.unscaledTime + ReportFactsCheckIntervalSeconds;
-                RefreshReportIfFactsChanged();
-                return;
+                RefreshDiagnosticViews();
             }
 
             if (Time.unscaledTime < _nextLiveRefreshTime) return;
@@ -288,6 +231,32 @@ namespace Sorolla.Palette
                 RefreshConsoleList();
             else if (_activeTabIndex == 2)
                 RefreshActionState();
+        }
+
+        void RefreshPanelGeometry()
+        {
+            var size = new Vector2Int(Screen.width, Screen.height);
+            Rect safeArea = Screen.safeArea;
+            if (size == _screenSize && safeArea == _safeArea) return;
+
+            _screenSize = size;
+            _safeArea = safeArea;
+            float scale = ComputePanelScale();
+            _panelSettings.scale = scale;
+            _root.style.paddingLeft = safeArea.xMin / scale;
+            _root.style.paddingRight = (size.x - safeArea.xMax) / scale;
+            _root.style.paddingTop = (size.y - safeArea.yMax) / scale;
+            _root.style.paddingBottom = safeArea.yMin / scale;
+        }
+
+        static ScrollView BuildScrollView()
+        {
+            var scroll = new ScrollView(ScrollViewMode.Vertical)
+            {
+                horizontalScrollerVisibility = ScrollerVisibility.Hidden,
+            };
+            scroll.AddToClassList("sorolla-debugmenu-issues-scroll");
+            return scroll;
         }
 
         static string TabLabel(int index)

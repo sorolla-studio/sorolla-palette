@@ -15,12 +15,6 @@ namespace Sorolla.Palette
             Events,
         }
 
-        enum ActionButtonStyle
-        {
-            Primary,
-            Normal,
-        }
-
         readonly struct ActionPresentation
         {
             public readonly ActionGroup Group;
@@ -46,8 +40,7 @@ namespace Sorolla.Palette
             var pane = new VisualElement();
             pane.AddToClassList("sorolla-debugmenu-actions-pane");
 
-            var scroll = new ScrollView(ScrollViewMode.Vertical);
-            scroll.AddToClassList("sorolla-debugmenu-issues-scroll");
+            var scroll = BuildScrollView();
             var host = new VisualElement();
             scroll.Add(host);
             pane.Add(scroll);
@@ -55,14 +48,12 @@ namespace Sorolla.Palette
             host.Add(BuildActionGroupTitle("REPORT"));
             host.Add(BuildActionButton(
                 "Refresh diagnostics",
-                "Refresh identifiers and rebuild the Overview and Issues facts",
-                ActionButtonStyle.Normal,
+                "Refresh identifiers and the report",
                 RefreshDiagnostics).Root);
             host.Add(BuildActionButton(
                 "Copy SDK state",
                 "Full report: context, consent, adapters, config, events, problems",
-                ActionButtonStyle.Primary,
-                () => GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildQaStateSummary()).Root);
+                () => GUIUtility.systemCopyBuffer = SorollaDiagnostics.BuildQaStateSummary(), primary: true).Root);
 
             ActionGroup? currentGroup = null;
             foreach (string actionName in QaActionRegistry.ActionNames)
@@ -80,7 +71,6 @@ namespace Sorolla.Palette
                 ActionCard card = BuildActionButton(
                     presentation.Label,
                     presentation.Detail,
-                    ActionButtonStyle.Normal,
                     () => RunActionAndRefresh(actionName));
                 BindDynamicActionDetail(actionName, card.Detail);
                 host.Add(card.Root);
@@ -94,9 +84,8 @@ namespace Sorolla.Palette
         {
             host.Add(BuildActionGroupTitle("QA BRIDGE"));
             ActionCard bridge = BuildActionButton(
-                "Bridge",
+                "Restart QA bridge",
                 string.Empty,
-                ActionButtonStyle.Normal,
                 RestartQaBridgeAndRefresh);
             _bridgeActionLabel = bridge.Label;
             _bridgeActionDetail = bridge.Detail;
@@ -128,13 +117,13 @@ namespace Sorolla.Palette
                 case QaActionRegistry.ShowInterstitial:
                     return new ActionPresentation(ActionGroup.Ads, "Show interstitial", string.Empty);
                 case QaActionRegistry.OpenPrivacyOptions:
-                    return new ActionPresentation(ActionGroup.Consent, "Show privacy options", "Re-opens the consent form");
+                    return new ActionPresentation(ActionGroup.Consent, "Show privacy options", "Opens privacy options where required by the consent platform");
                 case QaActionRegistry.ResetConsent:
-                    return new ActionPresentation(ActionGroup.Consent, "Reset consent", "Re-opens the CMP and records a consent reset");
+                    return new ActionPresentation(ActionGroup.Consent, "Retest consent", "Reopens privacy options to change the answer; does not erase consent or reset ATT");
                 case QaActionRegistry.RefreshConsent:
                     return new ActionPresentation(ActionGroup.Consent, "Refresh consent status", string.Empty);
                 case QaActionRegistry.TrackTestEvent:
-                    return new ActionPresentation(ActionGroup.Events, "Fire test event", "sorolla_vitals_test — visible in Console + vendor dashboards");
+                    return new ActionPresentation(ActionGroup.Events, "Fire test event", "Send sorolla_vitals_test; inspect the local event in Console");
                 case QaActionRegistry.LevelStart:
                     return new ActionPresentation(ActionGroup.Events, "Level start", "Fires level_start for the test level");
                 case QaActionRegistry.LevelComplete:
@@ -174,14 +163,13 @@ namespace Sorolla.Palette
         void RefreshDiagnostics()
         {
             SorollaDiagnostics.RefreshIdentifiers();
-            RefreshDiagnosticViews();
             RefreshAfterAction();
         }
 
         void RefreshAfterAction()
         {
             RefreshActionState();
-            RefreshConsoleList(true);
+            RefreshDiagnosticViews();
         }
 
         void RefreshActionState()
@@ -200,10 +188,10 @@ namespace Sorolla.Palette
 
             if (_bridgeActionLabel == null || _bridgeActionDetail == null) return;
             bool bridgeArmed = QaBridgeServer.IsArmed;
-            _bridgeActionLabel.text = bridgeArmed ? "Bridge running" : "Bridge not running";
+            _bridgeActionLabel.text = bridgeArmed ? "Restart QA bridge" : "Retry QA bridge";
             _bridgeActionDetail.text = bridgeArmed
-                ? $"127.0.0.1:{QaBridgeServer.Port} — serves this same data as JSON"
-                : "Bind failed or unavailable — tap to retry";
+                ? $"Running at 127.0.0.1:{QaBridgeServer.Port} — serves this same data as JSON"
+                : "Not running — tap to retry";
         }
 
         static VisualElement BuildActionGroupTitle(string title)
@@ -227,11 +215,13 @@ namespace Sorolla.Palette
             }
         }
 
-        static ActionCard BuildActionButton(string label, string detail, ActionButtonStyle style, Action onClick)
+        static ActionCard BuildActionButton(string label, string detail, Action onClick, bool primary = false)
         {
-            var root = new VisualElement();
+            var root = new Button(onClick);
             root.AddToClassList("sorolla-debugmenu-action-card");
-            root.AddToClassList(ActionCardClass(style));
+            root.AddToClassList(primary
+                ? "sorolla-debugmenu-action-card-primary"
+                : "sorolla-debugmenu-action-card-normal");
 
             var textColumn = new VisualElement();
             textColumn.AddToClassList("sorolla-debugmenu-action-card-text");
@@ -248,14 +238,7 @@ namespace Sorolla.Palette
             var arrow = new Label("→");
             arrow.AddToClassList("sorolla-debugmenu-action-card-arrow");
             root.Add(arrow);
-            root.RegisterCallback<ClickEvent>(_ => onClick?.Invoke());
-
             return new ActionCard(root, labelElement, detailElement);
         }
-
-        static string ActionCardClass(ActionButtonStyle style) =>
-            style == ActionButtonStyle.Primary
-                ? "sorolla-debugmenu-action-card-primary"
-                : "sorolla-debugmenu-action-card-normal";
     }
 }

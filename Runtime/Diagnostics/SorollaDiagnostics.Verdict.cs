@@ -90,8 +90,8 @@ namespace Sorolla.Palette
             SorollaVitalsVerdict.Failing => "Something is broken in this build - fix the rows below.",
             SorollaVitalsVerdict.ActionNeeded => "This build is not clean yet - work the rows below.",
             SorollaVitalsVerdict.NotProven =>
-                "Every check passes, but this session barely exercised the game - play it, then re-check.",
-            _ => "Everything checked passes and this session exercised the game.",
+                "No SDK issues found, but this build still has untested paths. Complete TEST YOUR GAME below.",
+            _ => "SDK checks pass and the required paths were exercised on this build.",
         };
 
         /// <summary>Stable machine token for the QA-bridge snapshot (agents key on this, not the display word).</summary>
@@ -104,22 +104,23 @@ namespace Sorolla.Palette
         };
 
         /// <summary>
-        ///     A cheap change detector for the facts a report pane renders: the verdict counts plus the
-        ///     per-build coverage bits. A live view compares it against the previous tick and rebuilds only
-        ///     when it moved, so a fact landing while the report is on screen redraws it (an interstitial
-        ///     completing used to need a close/reopen) without a full tree rebuild every tick.
+        ///     Detect changes to the report's displayed facts, including detail-only changes that leave
+        ///     the verdict counts and coverage bits unchanged.
         /// </summary>
         internal static int ComputeFactsFingerprint(List<SorollaDiagnosticRow> rows)
         {
-            SorollaVitalsVerdictReport report = ComputeVerdict(rows);
-            int hash = (int)report.Verdict;
-            hash = hash * 31 + report.Fail;
-            hash = hash * 31 + report.Warn;
-            hash = hash * 31 + report.Wait;
-            hash = hash * 31 + report.Pass;
-            hash = hash * 31 + (report.CoverageThin ? 1 : 0);
-            hash = hash * 31 + (int)ProvedCoverageFacts();
-            return hash;
+            unchecked
+            {
+                int hash = 17;
+                foreach (SorollaDiagnosticRow row in rows)
+                    if (DrivesHealth(row))
+                        hash = hash * 31 + (row.Group, row.Name, row.Severity, row.Detail,
+                            row.Why, row.Signal, row.Fix).GetHashCode();
+                foreach (SorollaMenuMatrixRow row in BuildCoverageMatrixRows())
+                    hash = hash * 31 + (row.Name, row.Exercised, row.Cell, row.Hint,
+                        row.Action, row.ActionLabel).GetHashCode();
+                return hash * 31 + QaBridgeServer.IsArmed.GetHashCode();
+            }
         }
 
         /// <summary>Convenience for the bridge: capture the current rows and return the verdict token.</summary>
