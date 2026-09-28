@@ -168,7 +168,7 @@ namespace Sorolla.Palette
 #else
 #endif
 
-            AddMaxConsentRows(rows, snapshot, ads);
+            AddConsentRows(rows, snapshot, ads);
 
             // App Tracking Transparency exists only on iOS. Off-iOS the bridge answers a constant
             // "Authorized", so this row used to render on Android as a green fact about a prompt that can
@@ -280,17 +280,17 @@ namespace Sorolla.Palette
                     snapshot.MaxInitialized ? "Initialized" : "Waiting for MAX callback"));
         }
 
-        static void AddMaxConsentRows(List<SorollaDiagnosticRow> rows, Snapshot snapshot, CapabilityState ads)
+        static void AddConsentRows(List<SorollaDiagnosticRow> rows, Snapshot snapshot, CapabilityState ads)
         {
             if (!ads.Included) return;
 
             SorollaDiagnosticSeverity consentSeverity = ConsentSeverity(snapshot);
-            string consentDetail = snapshot.MaxConsentSeen ? snapshot.MaxConsentDetail : "Waiting for consent status";
+            string consentDetail = snapshot.ConsentSummarySeen ? snapshot.ConsentSummaryDetail : "Waiting for consent status";
             if (consentSeverity == SorollaDiagnosticSeverity.Waiting)
-                AddDiagnosed(rows, "Consent", "MAX consent", consentSeverity, consentDetail,
+                AddDiagnosed(rows, "Consent", "UMP consent", consentSeverity, consentDetail,
                     ConsentWaitingDiagnosis());
             else
-                Add(rows, "Consent", "MAX consent", consentSeverity, consentDetail);
+                Add(rows, "Consent", "UMP consent", consentSeverity, consentDetail);
 
             if (!Palette.CanRequestAds)
             {
@@ -489,7 +489,7 @@ namespace Sorolla.Palette
             if (AdapterOutcomeIsReady(snapshot.AdjustOutcome)) return $"Verified ({snapshot.AdjustEnvironment})";
             if (snapshot.AdjustInitialized) return $"Initialized ({snapshot.AdjustEnvironment}); waiting for ADID callback";
             if (snapshot.AdjustInitializing) return $"Initializing ({snapshot.AdjustEnvironment})";
-            return "Waiting for MAX consent before Adjust init";
+            return "Waiting for consent and MAX before Adjust init";
         }
 
         static string RemoteConfigRowDetail(RemoteConfigStatus status, Snapshot snapshot)
@@ -506,8 +506,8 @@ namespace Sorolla.Palette
 
         static SorollaDiagnosticSeverity ConsentSeverity(Snapshot snapshot)
         {
-            string detail = snapshot.MaxConsentDetail ?? "";
-            if (!snapshot.MaxConsentSeen) return SorollaDiagnosticSeverity.Waiting;
+            string detail = snapshot.ConsentSummaryDetail ?? "";
+            if (!snapshot.ConsentSummarySeen) return SorollaDiagnosticSeverity.Waiting;
             if (detail.Contains("Obtained") || detail.Contains("NotApplicable") || detail.Contains("canRequestAds=True"))
                 return SorollaDiagnosticSeverity.Pass;
             if (detail.Contains("Denied")) return SorollaDiagnosticSeverity.Info;

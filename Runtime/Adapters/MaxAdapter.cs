@@ -14,7 +14,7 @@ namespace Sorolla.Palette.Adapters
 
     /// <summary>
     ///     Consent status for GDPR/privacy compliance.
-    ///     Reflects the user's consent state as determined by MAX's UMP integration.
+    ///     Reflects the user's consent state as recorded by Google UMP on the device.
     /// </summary>
     public enum ConsentStatus
     {
@@ -44,19 +44,13 @@ namespace Sorolla.Palette.Adapters
         bool HasInterstitialLoadFailed { get; }
         string LastRewardedLoadIssue { get; }
         string LastInterstitialLoadIssue { get; }
-        ConsentStatus ConsentStatus { get; }
-        bool CanRequestAds { get; }
-        bool IsPrivacyOptionsRequired { get; }
 
         event Action<AdType, bool> OnAdLoadingStateChanged;
         event Action OnSdkInitialized;
-        event Action<ConsentStatus> OnConsentStatusChanged;
 
-        void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent, bool verboseLogging = false);
+        void Initialize(string rewardedId, string interstitialId, string bannerId, bool verboseLogging = false);
         void ShowRewardedAd(Action onComplete, Action onFailed);
         void ShowInterstitialAd(Action onComplete, Action onFailed);
-        void ShowPrivacyOptions(Action onComplete);
-        void RefreshConsentStatus();
         void UpdateConsent(bool consent);
         void ShowMediationDebugger();
         void ShowCreativeDebugger();
@@ -110,7 +104,6 @@ namespace Sorolla.Palette.Adapters
             // Forward events from implementation
             impl.OnAdLoadingStateChanged += (type, loading) => OnAdLoadingStateChanged?.Invoke(type, loading);
             impl.OnSdkInitialized += () => OnSdkInitialized?.Invoke();
-            impl.OnConsentStatusChanged += (status) => OnConsentStatusChanged?.Invoke(status);
         }
 
         /// <summary>Whether a MAX implementation has registered</summary>
@@ -132,47 +125,11 @@ namespace Sorolla.Palette.Adapters
         public static string LastRewardedLoadIssue => s_impl?.LastRewardedLoadIssue ?? "Not requested";
         public static string LastInterstitialLoadIssue => s_impl?.LastInterstitialLoadIssue ?? "Not requested";
 
-        /// <summary>
-        ///     Current consent status from MAX's UMP integration.
-        ///     Check this after SDK initialization to determine if ads can be shown.
-        /// </summary>
-        public static ConsentStatus ConsentStatus => s_impl?.ConsentStatus ?? ConsentStatus.Unknown;
-
-        /// <summary>
-        ///     Consent for a user MAX places in a GDPR geography with a supported CMP, read from the
-        ///     CMP's on-device record. Only a recorded answer counts as a refusal (DR-34): AppLovin also
-        ///     places Brazil in the Gdpr geography, where Google shows no form, so HasUserConsent() is
-        ///     false there without anyone having refused. <paramref name="tcStringPresent"/> null = the
-        ///     record could not be read, so a refusal cannot be ruled out.
-        /// </summary>
-        internal static ConsentStatus ConsentFromCmp(bool hasUserConsent, bool? tcStringPresent, int gdprApplies)
-        {
-            if (hasUserConsent) return ConsentStatus.Obtained;
-            if (tcStringPresent != false) return ConsentStatus.Denied;  // answer on record, or unreadable
-            if (gdprApplies == 0) return ConsentStatus.NotApplicable;    // the CMP says GDPR does not apply
-            return ConsentStatus.Required;                               // consent region, no answer yet
-        }
-
-        /// <summary>
-        ///     Whether ads can be requested (consent obtained or not required).
-        ///     Use this to gate ad loading/showing in GDPR regions.
-        /// </summary>
-        public static bool CanRequestAds => s_impl?.CanRequestAds ?? false;
-
-        /// <summary>
-        ///     Whether privacy options should be shown in settings.
-        ///     Only true if a CMP is available and user is in a consent region.
-        /// </summary>
-        public static bool IsPrivacyOptionsRequired => s_impl?.IsPrivacyOptionsRequired ?? false;
-
         /// <summary>Event fired when ad loading state changes. (adType, isLoading)</summary>
         public static event Action<AdType, bool> OnAdLoadingStateChanged;
 
         /// <summary>Event fired when MAX SDK is initialized. Use this to initialize other SDKs like Adjust.</summary>
         public static event Action OnSdkInitialized;
-
-        /// <summary>Event fired when consent status changes.</summary>
-        public static event Action<ConsentStatus> OnConsentStatusChanged;
 
         internal static event Action<MaxAdRevenueInfo> OnAdRevenueTracked;
 
@@ -181,10 +138,10 @@ namespace Sorolla.Palette.Adapters
             OnAdRevenueTracked?.Invoke(info);
         }
 
-        public static void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent, bool verboseLogging = false)
+        public static void Initialize(string rewardedId, string interstitialId, string bannerId, bool verboseLogging = false)
         {
             if (s_impl != null)
-                s_impl.Initialize(rewardedId, interstitialId, bannerId, consent, verboseLogging);
+                s_impl.Initialize(rewardedId, interstitialId, bannerId, verboseLogging);
             else
             {
                 AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Unavailable,
@@ -210,30 +167,8 @@ namespace Sorolla.Palette.Adapters
         }
 
         /// <summary>
-        ///     Show privacy options form (UMP consent form) for users to update their consent.
-        ///     Call this from your settings screen when PrivacyOptionsRequired is true.
-        /// </summary>
-        public static void ShowPrivacyOptions(Action onComplete = null)
-        {
-            if (s_impl != null)
-                s_impl.ShowPrivacyOptions(onComplete);
-            else
-                onComplete?.Invoke();
-        }
-
-        /// <summary>
-        ///     Refresh consent status from MAX SDK.
-        ///     Call this after showing privacy options or if consent may have changed.
-        /// </summary>
-        public static void RefreshConsentStatus()
-        {
-            s_impl?.RefreshConsentStatus();
-        }
-
-        /// <summary>
-        ///     Update consent status manually.
-        ///     Note: When UMP/CMP is enabled, use ShowPrivacyOptions() instead for GDPR compliance.
-        ///     This method is primarily for iOS ATT consent when CMP is not configured.
+        ///     GDPR consent flag for AppLovin (SetHasUserConsent). Set before MAX initializes, and again
+        ///     whenever the consent decision changes.
         /// </summary>
         public static void UpdateConsent(bool consent)
         {

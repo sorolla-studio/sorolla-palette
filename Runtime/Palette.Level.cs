@@ -37,11 +37,11 @@ namespace Sorolla.Palette
                     EvictOldestStartTime();
 
                 // Capture timestamp synchronously so duration reflects player wall-time,
-                // not whenever the event flushes after MAX consent resolves.
+                // not whenever the event flushes after consent resolves.
                 s_startTimes[(world, level)] = Time.realtimeSinceStartup;
 
                 // Snapshot the caller's dict on the pre-consent queued path (DR-145 residual): the
-                // closure runs 1-3s later after consent resolves, so a caller that mutates or reuses
+                // closure runs later, after consent resolves, so a caller that mutates or reuses
                 // the same dict before the flush would otherwise rewrite the dispatched values.
                 // Matches TrackEvent/Economy, which already snapshot at enqueue (B-13). Only the queued
                 // path needs it - when initialized, QueueOrExecute runs synchronously (no mutate window).

@@ -126,12 +126,11 @@ namespace Sorolla.Palette
 
         static void DoResetConsent()
         {
-            // AppLovin MAX MaxSdk.CmpService.ShowCmpForExistingUser both RE-SHOWS the consent form AND
-            // RESETS the user's existing consent (verified against AppLovin/Axon docs 2026-06-12). It is
-            // the same supported call behind open_privacy_options - there is no separate reset API - so
-            // re-testing a consent scenario no longer needs a reinstall (only iOS ATT still does).
-            // reset_consent records a distinct marker so a QA run can tell a consent re-test apart from a
-            // settings-screen privacy-options open.
+            // Google UMP's privacy options form, the same call behind open_privacy_options: the tester
+            // changes the stored answer there, so re-testing a consent scenario needs no reinstall (only
+            // iOS ATT still does). It re-opens where UMP requires privacy options (consent regions); it
+            // does not clear the stored answer. reset_consent records a distinct marker so a QA run can
+            // tell a consent re-test apart from a settings-screen privacy-options open.
             SorollaDiagnostics.RecordEventDispatch("vitals", "consent_reset_requested");
             Palette.ShowPrivacyOptions(() =>
             {

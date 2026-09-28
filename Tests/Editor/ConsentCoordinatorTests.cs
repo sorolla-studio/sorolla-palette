@@ -19,7 +19,7 @@ namespace Sorolla.Palette.Editor.Tests
 
         // --- Full mode (ad module compiled: adsPresent = true) ---
         // ATT gates only ad_personalization + advertiser_tracking; ad_storage follows GDPR alone.
-        // Undecided EEA (Required / Unknown: CMP not completed) keeps analytics ON - only a confirmed
+        // Undecided EEA (Required / Unknown: UMP not completed) keeps analytics ON - only a confirmed
         // GDPR Denied turns it off (DR-34), and Denied turns off all four signals regardless of ATT.
         [TestCase(ConsentStatus.Obtained,      ATTBridge.AuthorizationStatus.Authorized,     true,  true,  true,  true,  true)]
         [TestCase(ConsentStatus.Obtained,      ATTBridge.AuthorizationStatus.Denied,         true,  true,  true,  false, false)]

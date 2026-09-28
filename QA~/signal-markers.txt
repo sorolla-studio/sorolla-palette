@@ -26,9 +26,10 @@ FirebaseCrashlytics
 # consent_resolved / consent_changed — those are TrackEvent events, not Debug.Log lines,
 # so they never appear in the device-log capture.
 Consent mode signals:
-Consent updated by MAX CMP:
-MAX consent resolved:
+Consent updated by UMP:
+Consent resolved:
 ConsentStatus:
+SetHasUserConsent(
 SetAdvertiserTrackingEnabled(
 Firebase init failed — dropping analytics events
 Event submission:

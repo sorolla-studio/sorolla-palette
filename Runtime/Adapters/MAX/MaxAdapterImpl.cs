@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using UnityEngine;
 using UnityEngine.Scripting;
 
@@ -13,10 +12,9 @@ namespace Sorolla.Palette.Adapters
     internal class MaxAdapterImpl : IMaxAdapter
     {
         string _bannerId;
-        bool _consent;
         bool _init;
         // _init only flips true after MAX finishes (OnSdkInit), so a second Initialize() in the
-        // CMP window would pass an `if (_init)` guard and re-subscribe OnSdkInitializedEvent,
+        // init window would pass an `if (_init)` guard and re-subscribe OnSdkInitializedEvent,
         // double-registering the ad-revenue callbacks. _initStarted is set at entry to block that (DR-02).
         bool _initStarted;
         string _interstitialId;
@@ -40,7 +38,6 @@ namespace Sorolla.Palette.Adapters
         string _lastRewardedLoadIssue = "Not requested";
         string _lastInterstitialLoadIssue = "Not requested";
 
-        MaxSdkBase.SdkConfiguration _sdkConfig;
         int _savedSleepTimeout;
         bool _screenAwakeActive;
 
@@ -63,31 +60,11 @@ namespace Sorolla.Palette.Adapters
         public bool HasInterstitialLoadFailed => _interstitialLoadFailed;
         public string LastRewardedLoadIssue => _lastRewardedLoadIssue;
         public string LastInterstitialLoadIssue => _lastInterstitialLoadIssue;
-        public ConsentStatus ConsentStatus { get; private set; } = ConsentStatus.Unknown;
-
-        public bool CanRequestAds => ConsentStatus == ConsentStatus.Obtained ||
-                                     ConsentStatus == ConsentStatus.NotApplicable;
-
-        public bool IsPrivacyOptionsRequired
-        {
-            get {
-                if (!_init) return false;
-                try
-                {
-                    return MaxSdk.CmpService.HasSupportedCmp;
-                }
-                catch
-                {
-                    return false;
-                }
-            }
-        }
 
         public event Action<AdType, bool> OnAdLoadingStateChanged;
         public event Action OnSdkInitialized;
-        public event Action<ConsentStatus> OnConsentStatusChanged;
 
-        public void Initialize(string rewardedId, string interstitialId, string bannerId, bool consent, bool verboseLogging = false)
+        public void Initialize(string rewardedId, string interstitialId, string bannerId, bool verboseLogging = false)
         {
             if (_init || _initStarted) return;
             _initStarted = true;
@@ -95,7 +72,6 @@ namespace Sorolla.Palette.Adapters
             _rewardedId = rewardedId;
             _interstitialId = interstitialId;
             _bannerId = bannerId;
-            _consent = consent;
 
             PaletteLog.Vital("[Palette:MAX] Initializing...");
             AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Initializing,
@@ -108,85 +84,13 @@ namespace Sorolla.Palette.Adapters
             // events to the main thread, but per-event keepInBackground flags (or any code setting
             // this property false) can deliver a callback on a background thread - and Palette's
             // pending-event queues are not thread-safe (B-2). Forcing true guarantees main-thread delivery
-            // for every event routed through MAX's InvokeEvent. The CMP completion is not (MAX 8.6.4
-            // calls MaxCmpService directly); ShowPrivacyOptions marshals that one back itself.
+            // for every event routed through MAX's InvokeEvent.
             MaxSdkBase.InvokeEventsOnUnityMainThread = true;
 
             MaxSdkCallbacks.OnSdkInitializedEvent += OnSdkInit;
 
             // SDK key is read from AppLovinSettings; Palette editor auto-syncs the shared publisher key.
             MaxSdk.InitializeSdk();
-        }
-
-        public void ShowPrivacyOptions(Action onComplete)
-        {
-            if (!_init)
-            {
-                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
-                    "privacy_options_before_init", "Privacy options requested before MAX initialized");
-                PaletteLog.Warning("[Palette:MAX] Cannot show privacy options - SDK not initialized");
-                onComplete?.Invoke();
-                return;
-            }
-
-            try
-            {
-                if (!MaxSdk.CmpService.HasSupportedCmp)
-                {
-                    AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
-                        "privacy_options_unavailable", "No CMP configured - privacy options not available");
-                    PaletteLog.Warning("[Palette:MAX] No CMP configured - privacy options not available");
-                    onComplete?.Invoke();
-                    return;
-                }
-
-                PaletteLog.Vital("[Palette:MAX] Showing privacy options...");
-                // MAX delivers the CMP completion off the Unity main thread, bypassing
-                // InvokeEventsOnUnityMainThread. Post it back: the consent refresh reads PlayerPrefs and
-                // fans out to vendors, and the caller's callback is game code. Callers are main-thread
-                // (game UI, Vitals, and the QA bridge, which drains its queue on the main thread).
-                SynchronizationContext mainThread = SynchronizationContext.Current;
-                MaxSdk.CmpService.ShowCmpForExistingUser(error => mainThread.Post(_ =>
-                {
-                    if (error != null)
-                    {
-                        AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
-                            "privacy_options_error", "Privacy options error");
-                        PaletteLog.Warning("[Palette:MAX] Privacy options error. Rebuild with verbose logging to inspect SDK details.");
-                        PaletteLog.Verbose($"[Palette:MAX] Privacy options error detail: {error.Message}");
-                    }
-                    else
-                    {
-                        PaletteLog.Vital("[Palette:MAX] Privacy options dismissed");
-                        RefreshConsentStatus();
-                    }
-                    onComplete?.Invoke();
-                }, null));
-            }
-            catch (Exception e)
-            {
-                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Warning,
-                    "cmp_unavailable", "CMP service not available");
-                PaletteLog.Warning("[Palette:MAX] CMP service not available. Rebuild with verbose logging to inspect SDK details.");
-                PaletteLog.Verbose($"[Palette:MAX] CmpService not available: {e.Message}");
-                onComplete?.Invoke();
-            }
-        }
-
-        public void RefreshConsentStatus()
-        {
-            if (!_init || _sdkConfig == null) return;
-
-            try
-            {
-                _consent = MaxSdk.HasUserConsent();
-            }
-            catch
-            {
-                // HasUserConsent not available - keep existing value
-            }
-
-            UpdateConsentStatusFromConfig(_sdkConfig);
         }
 
         public void ShowMediationDebugger()
@@ -209,34 +113,12 @@ namespace Sorolla.Palette.Adapters
             MaxSdk.ShowCreativeDebugger();
         }
 
+        // Palette runs Google UMP itself with AppLovin's consent flow disabled, so AppLovin takes the
+        // resolved decision from this flag (it records it at SDK initialization).
         public void UpdateConsent(bool consent)
         {
-            _consent = consent;
-
-            bool cmpHandlesConsent = false;
-            try
-            {
-                cmpHandlesConsent = _init && MaxSdk.CmpService.HasSupportedCmp;
-            }
-            catch
-            {
-                // CmpService not available
-            }
-
-            if (!cmpHandlesConsent)
-            {
-                MaxSdk.SetHasUserConsent(consent);
-                PaletteLog.Vital($"[Palette:MAX] UpdateConsent({consent})");
-            }
-            else
-            {
-                PaletteLog.Warning("[Palette:MAX] UpdateConsent called but CMP is enabled - use ShowPrivacyOptions() instead");
-            }
-
-            if (_init && _sdkConfig != null)
-            {
-                UpdateConsentStatusFromConfig(_sdkConfig);
-            }
+            MaxSdk.SetHasUserConsent(consent);
+            PaletteLog.Vital($"[Palette:MAX] SetHasUserConsent({consent})");
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -274,89 +156,17 @@ namespace Sorolla.Palette.Adapters
 
         void OnSdkInit(MaxSdkBase.SdkConfiguration config)
         {
+            // config is not read: its consent geography is AppLovin's, and Google UMP decides consent.
             PaletteLog.Vital("[Palette:MAX] Initialized");
             AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Ready,
                 "initialized", "Initialized");
 
             _init = true;
-            _sdkConfig = config;
-
-            // Check if CMP (UMP) is handling consent automatically
-            bool cmpHandlesConsent = false;
-            try
-            {
-                cmpHandlesConsent = MaxSdk.CmpService.HasSupportedCmp;
-            }
-            catch
-            {
-                // CmpService not available in older SDK versions
-            }
-
-            if (cmpHandlesConsent)
-            {
-                PaletteLog.Vital("[Palette:MAX] CMP enabled - consent handled by UMP");
-            }
-            else
-            {
-                MaxSdk.SetHasUserConsent(_consent);
-                PaletteLog.Vital($"[Palette:MAX] SetHasUserConsent({_consent}) - no CMP");
-            }
-
-            UpdateConsentStatusFromConfig(config);
 
             InitRewarded();
             InitInterstitial();
 
             OnSdkInitialized?.Invoke();
-        }
-
-        void UpdateConsentStatusFromConfig(MaxSdkBase.SdkConfiguration config)
-        {
-            ConsentStatus oldStatus = ConsentStatus;
-            string cmpRecord = "";
-
-            if (config.ConsentFlowUserGeography == MaxSdkBase.ConsentFlowUserGeography.Gdpr)
-            {
-                try
-                {
-                    if (MaxSdk.CmpService.HasSupportedCmp)
-                    {
-                        // The CMP's on-device record decides, not HasUserConsent() alone: false there
-                        // also means "never asked" (Brazil: Gdpr geography, no Google form).
-                        bool readable = IabTcf.Read(out bool tcStringPresent, out int gdprApplies, out _);
-                        ConsentStatus = MaxAdapter.ConsentFromCmp(MaxSdk.HasUserConsent(),
-                            readable ? tcStringPresent : (bool?)null, gdprApplies);
-                        cmpRecord = readable
-                            ? $" cmp: tcString={(tcStringPresent ? "present" : "absent")}, gdprApplies={(gdprApplies < 0 ? "unset" : gdprApplies.ToString())}"
-                            : " cmp: record unreadable";
-                    }
-                    else
-                    {
-                        ConsentStatus = _consent ? ConsentStatus.Obtained : ConsentStatus.Required;
-                    }
-                }
-                catch
-                {
-                    ConsentStatus = _consent ? ConsentStatus.Obtained : ConsentStatus.Required;
-                }
-            }
-            else if (config.ConsentFlowUserGeography == MaxSdkBase.ConsentFlowUserGeography.Unknown)
-            {
-                ConsentStatus = _consent ? ConsentStatus.Obtained : ConsentStatus.Required;
-            }
-            else
-            {
-                ConsentStatus = ConsentStatus.NotApplicable;
-            }
-
-            PaletteLog.Vital($"[Palette:MAX] ConsentStatus: {ConsentStatus} (Geography: {config.ConsentFlowUserGeography}){cmpRecord}");
-            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Max, AdapterDiagnosticStatus.Ready,
-                "consent_status", $"ConsentStatus: {ConsentStatus} (Geography: {config.ConsentFlowUserGeography}){cmpRecord}");
-
-            if (oldStatus != ConsentStatus)
-            {
-                OnConsentStatusChanged?.Invoke(ConsentStatus);
-            }
         }
 
         #region Rewarded

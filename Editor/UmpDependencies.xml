@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Google UMP for Sorolla SDK, resolved by EDM4U.
+  Palette shows the Google consent form itself, with AppLovin's consent flow disabled, and
+  AppLovin only adds UMP to its own dependencies while that flow is enabled. Versions match
+  the ones the AppLovin MAX plugin pins for its UMP integration.
+-->
+<dependencies>
+  <androidPackages>
+    <androidPackage spec="com.google.android.ump:user-messaging-platform:4.0.0" />
+  </androidPackages>
+
+  <iosPods>
+    <iosPod name="GoogleUserMessagingPlatform" version="~> 3.1" />
+  </iosPods>
+</dependencies>

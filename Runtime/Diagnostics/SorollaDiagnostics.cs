@@ -70,8 +70,8 @@ namespace Sorolla.Palette
         static bool s_fullMode;
         static string s_initDetail = "Not observed yet";
 
-        static bool s_maxConsentSeen;
-        static string s_maxConsentDetail = "Not observed yet";
+        static bool s_consentSummarySeen;
+        static string s_consentSummaryDetail = "Not observed yet";
         static bool s_adjustInitializing;
         static bool s_adjustMissingToken;
         static string s_adjustEnvironment = "Unknown";
@@ -187,8 +187,8 @@ namespace Sorolla.Palette
         {
             lock (s_lock)
             {
-                s_maxConsentSeen = true;
-                s_maxConsentDetail = SafeDetail(detail);
+                s_consentSummarySeen = true;
+                s_consentSummaryDetail = SafeDetail(detail);
             }
         }
 
@@ -542,8 +542,8 @@ namespace Sorolla.Palette
             public bool MaxRegistered;
             public bool MaxInitialized;
             public AdapterDiagnosticState MaxOutcome;
-            public bool MaxConsentSeen;
-            public string MaxConsentDetail;
+            public bool ConsentSummarySeen;
+            public string ConsentSummaryDetail;
             public bool AdjustRegistered;
             public bool AdjustInitializing;
             public bool AdjustInitialized;

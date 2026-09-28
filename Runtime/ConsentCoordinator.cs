@@ -16,8 +16,8 @@ namespace Sorolla.Palette
         ///     (== ad_user_data; ad consent AND iOS ATT, gated on ads being present), and
         ///     advertiserTracking (Facebook attribution; ad consent AND iOS ATT but NOT gated on ads
         ///     being present, so Prototype still attributes installs). One <see cref="Resolve"/>
-        ///     produces this, one <see cref="ApplyConsent"/> consumes it, so the boot path and the
-        ///     CMP-resolution path share a single source of truth.
+        ///     produces this, one <see cref="ApplyConsent"/> consumes it, so the boot path and every
+        ///     later re-resolution share a single source of truth.
         /// </summary>
         internal readonly struct ConsentSignals
         {
@@ -56,41 +56,82 @@ namespace Sorolla.Palette
             // GDPR ad-consent decision and iOS ATT, but is NOT gated on ads being present, so a
             // Prototype build (FB used solely for attribution, no in-app ads) still attributes
             // installs when ATT-authorized. Reproduces pre-unification FB behavior on both paths:
-            // Full -> (GDPR ad consent AND ATT); Prototype -> ATT only (GDPR NotApplicable, no CMP).
+            // Full -> (GDPR ad consent AND ATT); Prototype -> ATT only (GDPR NotApplicable, no UMP flow).
             bool advertiserTracking =
                 (gdpr == Adapters.ConsentStatus.Obtained || gdpr == Adapters.ConsentStatus.NotApplicable)
                 && att == ATTBridge.AuthorizationStatus.Authorized;
             return new ConsentSignals(analytics, adStorage, adPersonalization, advertiserTracking);
         }
 
+        // Whether the MAX/Full ad module is compiled in (see Resolve).
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+        const bool AdsPresent = true;
+#else
+        const bool AdsPresent = false;
+#endif
+
         /// <summary>
-        ///     Boot-time consent before any CMP/ATT resolution. Always {Analytics:true,
-        ///     AdStorage:false, AdPersonalization:false}: analytics ON so first_open counts, ads
-        ///     gated until OnMaxConsentChanged resolves them (Full) or absent entirely (Prototype).
+        ///     The GDPR decision, read from the IAB TCF record Google UMP keeps on the device. Unknown
+        ///     until the consent flow first reads it, so ad signals stay denied at boot (Full). Without the
+        ///     MAX module there is no UMP flow and no ads to gate: NotApplicable, never re-read.
         /// </summary>
-        internal static ConsentSignals ResolveBootSignals()
+        internal static Adapters.ConsentStatus Status { get; private set; } =
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            Adapters.ConsentStatus.Unknown;
+#else
+            Adapters.ConsentStatus.NotApplicable;
+#endif
+
+        /// <summary>The current decision resolved against <paramref name="att"/>.</summary>
+        internal static ConsentSignals ResolveCurrent(ATTBridge.AuthorizationStatus att) => Resolve(Status, att, AdsPresent);
+
+        /// <summary>
+        ///     Re-reads the TCF record into <see cref="Status"/> (Full only). Main thread only: the
+        ///     record is PlayerPrefs on iOS.
+        /// </summary>
+        internal static Adapters.ConsentStatus Refresh()
         {
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-            // MAX/UMP owns the ad-consent decision and hasn't resolved yet; treat GDPR as Unknown so
-            // ad signals stay denied until OnMaxConsentChanged refines them.
-            return Resolve(Adapters.ConsentStatus.Unknown, ATTBridge.GetStatus(), adsPresent: true);
-#else
-            // No MAX module: not a UMP/GDPR context and no ads to gate.
-            return Resolve(Adapters.ConsentStatus.NotApplicable, ATTBridge.GetStatus(), adsPresent: false);
+            bool readable = IabTcf.Read(out bool tcStringPresent, out int gdprApplies, out string purposeConsents);
+            Status = FromTcfRecord(readable, tcStringPresent, gdprApplies, purposeConsents);
+            string record = readable
+                ? $"tcString={(tcStringPresent ? "present" : "absent")}, gdprApplies={(gdprApplies < 0 ? "unset" : gdprApplies.ToString())}"
+                : "record unreadable";
+            PaletteLog.Vital($"[Palette] ConsentStatus: {Status} ({record})");
 #endif
+            return Status;
+        }
+
+        /// <summary>
+        ///     GDPR status from the TCF record UMP writes. UMP is the one authority on applicability
+        ///     (IABTCF_gdprApplies). Only a recorded answer counts as a refusal, and it outranks a later
+        ///     "does not apply" (DR-34). The answer is Purpose 1 (store and access information on a
+        ///     device), the purpose Consent Mode grounds ad_storage on. An unreadable record, or one UMP
+        ///     has not written (no successful update yet, or no GDPR message published), is Unknown.
+        /// </summary>
+        internal static Adapters.ConsentStatus FromTcfRecord(bool readable, bool tcStringPresent, int gdprApplies, string purposeConsents)
+        {
+            if (!readable) return Adapters.ConsentStatus.Unknown;
+            if (tcStringPresent)
+                return !string.IsNullOrEmpty(purposeConsents) && purposeConsents[0] == '1'
+                    ? Adapters.ConsentStatus.Obtained
+                    : Adapters.ConsentStatus.Denied;
+            if (gdprApplies == 1) return Adapters.ConsentStatus.Required;      // consent region, no answer yet
+            if (gdprApplies == 0) return Adapters.ConsentStatus.NotApplicable; // UMP: GDPR does not apply
+            return Adapters.ConsentStatus.Unknown;
         }
 
         /// <summary>
         ///     Idempotent fan-out of a resolved decision to every vendor. <paramref name="initial"/>
-        ///     true on the boot path (adapters get Initialize), false on a CMP / mid-session
-        ///     resolution (UpdateConsent). Consent analytics EVENTS are deliberately NOT here: they
+        ///     true on the boot path (adapters get Initialize), false on every re-resolution
+        ///     (consent flow, privacy options, app focus: UpdateConsent). Consent analytics EVENTS are deliberately NOT here: they
         ///     stay change-gated at the call site (DR-41: markers must lead FlushPending).
         /// </summary>
         internal static void ApplyConsent(ConsentSignals s, bool initial)
         {
             // R2: guard each vendor's boot Initialize behind catch-continue so one vendor throwing
-            // can't skip the others or the trailing diagnostics snapshot. UpdateConsent (the CMP /
-            // app-focus path) is left unguarded; its callers guard at their own call site.
+            // can't skip the others or the trailing diagnostics snapshot. UpdateConsent (the
+            // re-resolution path) is left unguarded; its callers guard at their own call site.
             if (initial)
                 Palette.SafeInit("GameAnalytics", () => GameAnalyticsAdapter.Initialize(s.Analytics, Palette.VerboseLogging));
             else
@@ -107,7 +148,7 @@ namespace Sorolla.Palette
 
 #if FIREBASE_ANALYTICS_INSTALLED
             // Boot analytics consent is GRANTED by default (collection on) so first_open is countable
-            // even before the CMP resolves; ad consent follows the resolved signals. See
+            // even before UMP resolves; ad consent follows the resolved signals. See
             // SorollaIOSPostProcessor / GradlePropertiesFixer for the matching platform Consent Mode
             // defaults that govern the very first native ping.
             if (initial)
@@ -117,12 +158,19 @@ namespace Sorolla.Palette
 #endif
 
             // Adjust is initialized later, inside OnMaxSdkInitialized (MAX docs: init other SDKs in
-            // the MAX callback). On the boot pass its impl is null so this no-ops; on a CMP
-            // resolution it takes the resolved ad-storage decision. Gated on ad-consent, NOT ATT
+            // the MAX callback). Until then its impl is null so this no-ops; on a later
+            // re-resolution it takes the resolved ad-storage decision. Gated on ad-consent, NOT ATT
             // (disabling on ATT-deny would break SKAdNetwork / organic install attribution). Full-only.
 #if SOROLLA_ADJUST_ENABLED && ADJUST_SDK_INSTALLED
             if (!initial)
                 AdjustAdapter.UpdateConsent(s.AdStorage);
+#endif
+
+            // MAX takes the ad-storage decision as its GDPR consent flag. AppLovin records it at SDK
+            // initialization, and the consent flow resolves before MAX starts (Palette.OnConsentGathered).
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            if (!initial)
+                MaxAdapter.UpdateConsent(s.AdStorage);
 #endif
 
             // QA snapshot: ad_user_data tracks ad_personalization (both gated on ATT on iOS).

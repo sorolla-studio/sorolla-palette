@@ -10,7 +10,7 @@ namespace Sorolla.Palette
     /// <summary>
     ///     Entry point for Palette SDK.
     ///     Auto-initializes at startup - NO MANUAL SETUP REQUIRED.
-    ///     MAX SDK handles consent flow (CMP → ATT) automatically.
+    ///     Runs the consent flow (Google UMP, then ATT on iOS) before ads start.
     /// </summary>
     [DefaultExecutionOrder(-1000)]
     public class SorollaBootstrapper : MonoBehaviour
@@ -37,7 +37,7 @@ namespace Sorolla.Palette
         {
             // Only the AutoInit-created instance drives initialization. A second bootstrapper
             // (e.g. one manually dropped into a scene) would otherwise call Palette.Initialize
-            // a second time and double-subscribe MAX callbacks during the CMP window.
+            // and run the consent flow a second time.
             if (s_instance != this)
             {
                 PaletteLog.Warning("[Palette] Extra SorollaBootstrapper found - the SDK auto-creates its own. Destroying this duplicate.");
@@ -119,33 +119,30 @@ namespace Sorolla.Palette
 
         IEnumerator Initialize()
         {
-#if UNITY_IOS && !UNITY_EDITOR
-    #if !(SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED)
-            // No MAX → handle ATT manually (native dialog only, no soft prompt)
-            // Wait for the app to be fully visible before requesting ATT.
-            // Calling too early (before window scene is active) causes iOS to
-            // silently drop the request and return NOT_DETERMINED without showing the dialog.
-            yield return null; // let first frame render
-            yield return new WaitForSeconds(1f); // ensure app has focus
-
-            var currentStatus = ATTBridge.GetStatus();
-            if (currentStatus == ATTBridge.AuthorizationStatus.NotDetermined)
-            {
-                bool attResponseReceived = false;
-                ATTBridge.RequestAuthorization(_ =>
-                {
-                    attResponseReceived = true;
-                });
-
-                // Wait for the user to respond to the ATT dialog
-                while (!attResponseReceived)
-                    yield return null;
-            }
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+            // Full: analytics start now with ads denied. Then Google UMP (consent update, then its form
+            // where required), then ATT on iOS, and only then MAX (Palette.OnConsentGathered): AppLovin's
+            // own consent flow stays off, so the player never sees its terms alert.
+            Palette.Initialize();
+    #if UNITY_IOS && !UNITY_EDITOR
+            yield return WaitForVisibleApp();
+    #endif
+            bool gathered = false;
+            UmpBridge.Gather(() => gathered = true);
+            while (!gathered)
+                yield return null;
+    #if UNITY_IOS && !UNITY_EDITOR
+            yield return RequestAttIfNotDetermined();
+    #endif
+            Palette.OnConsentGathered();
+#elif UNITY_IOS && !UNITY_EDITOR
+            // Prototype on iOS: no GDPR form and no ads. Resolve ATT BEFORE Initialize so the boot
+            // fan-out reads the final status; analytics stay ON regardless of ATT (no ads to gate).
+            yield return WaitForVisibleApp();
+            yield return RequestAttIfNotDetermined();
 
             var finalStatus = ATTBridge.GetStatus();
             PaletteLog.Vital($"[Palette] Standalone ATT resolved: {finalStatus}");
-            // Resolve ATT BEFORE Initialize so Palette.ResolveBootSignals reads the final status.
-            // No-MAX boot keeps analytics ON regardless of ATT (no ads to gate).
             Palette.Initialize();
             // Ship ATT decision to analytics. Palette.Initialize set IsInitialized=true
             // on the non-MAX path so this fires immediately (not queued).
@@ -154,14 +151,36 @@ namespace Sorolla.Palette
                 { "att_status", Palette.AttString(finalStatus) },
                 { "source", "standalone" },
             });
-            yield break;
-    #endif
-#endif
-            // MAX installed: CMP → ATT handled by MAX during its async init. Palette resolves boot
-            // signals to analytics-ON / ads-denied; ad consent is elevated after MAX resolves CMP
-            // (OnMaxConsentChanged). Non-iOS / Editor without MAX: no ATT, ads absent, analytics ON.
+#else
+            // Prototype elsewhere: no ATT, ads absent, analytics ON.
             Palette.Initialize();
             yield break;
+#endif
         }
+
+#if UNITY_IOS && !UNITY_EDITOR
+        // Wait for the app to be fully visible before a consent form or the ATT request. Calling too
+        // early (before the window scene is active) makes iOS silently drop the ATT request and
+        // return NOT_DETERMINED without showing the dialog.
+        static IEnumerator WaitForVisibleApp()
+        {
+            yield return null; // let first frame render
+            yield return new WaitForSeconds(1f); // ensure app has focus
+        }
+
+        // Native ATT dialog only (no soft prompt). Skipped once the status is determined, including
+        // when Google UMP's IDFA explainer message already asked during the consent flow.
+        static IEnumerator RequestAttIfNotDetermined()
+        {
+            if (ATTBridge.GetStatus() != ATTBridge.AuthorizationStatus.NotDetermined) yield break;
+
+            bool attResponseReceived = false;
+            ATTBridge.RequestAuthorization(_ => attResponseReceived = true);
+
+            // Wait for the user to respond to the ATT dialog
+            while (!attResponseReceived)
+                yield return null;
+        }
+#endif
     }
 }
