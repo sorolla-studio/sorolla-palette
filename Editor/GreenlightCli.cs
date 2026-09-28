@@ -27,6 +27,7 @@ namespace Sorolla.Palette.Editor
     public static class GreenlightCli
     {
         const double ProbeTimeoutSeconds = 30;
+        const string PendingPathKey = "Sorolla.Palette.GreenlightCli.PendingPath";
 
         static string s_path;
         static double s_deadline;
@@ -54,6 +55,28 @@ namespace Sorolla.Palette.Editor
                 return;
             }
 
+            SessionState.SetString(PendingPathKey, s_path);
+            WaitForProbe();
+        }
+
+        /// <summary>
+        ///     A package change during the run (the SDK version sync on a project's first open, or a repair
+        ///     above) reloads the domain, which drops the update subscription and every static: the batch run
+        ///     then idles forever with no report and no exit code. SessionState survives the reload, so the
+        ///     pending report re-arms here. Repairs do not run again; the first settle tick re-runs the checks,
+        ///     which claims the probes afresh.
+        /// </summary>
+        [InitializeOnLoadMethod]
+        static void ResumeAfterDomainReload()
+        {
+            string path = SessionState.GetString(PendingPathKey, "");
+            if (path.Length == 0) return;
+            s_path = path;
+            WaitForProbe();
+        }
+
+        static void WaitForProbe()
+        {
             s_deadline = EditorApplication.timeSinceStartup + ProbeTimeoutSeconds;
             EditorApplication.update += WaitForProbeThenWrite;
         }
@@ -114,6 +137,7 @@ namespace Sorolla.Palette.Editor
         /// </summary>
         static void Finish(int exitCode)
         {
+            SessionState.EraseString(PendingPathKey);
             if (Application.isBatchMode)
             {
                 EditorApplication.Exit(exitCode);

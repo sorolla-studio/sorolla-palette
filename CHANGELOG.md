@@ -18,6 +18,9 @@ All notable changes to this project will be documented in this file.
   run on the main thread.
 - The Vitals debug menu no longer triggers Unity 6.6's `FindFirstObjectByType` obsolete warning when
   it looks for an existing EventSystem.
+- The command-line greenlight report no longer hangs when a package change reloads scripts mid-run,
+  as on a project's first open when the SDK raises a dependency version. It resumes after the reload,
+  writes the report and exits.
 
 ### Documentation
 
