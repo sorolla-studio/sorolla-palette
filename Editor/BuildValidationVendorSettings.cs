@@ -31,7 +31,7 @@ namespace Sorolla.Palette.Editor
             }
 
             MaxSettingsSanitizer.SyncEmbeddedSdkKey();
-            MaxSettingsSanitizer.SyncConsentFlowSettings();
+            MaxSettingsSanitizer.DisableConsentFlow();
 
             if (!MaxSettingsSanitizer.IsSdkKeyConfigured())
             {
@@ -48,18 +48,19 @@ namespace Sorolla.Palette.Editor
                 return;
             }
 
-            if (!MaxSettingsSanitizer.IsConsentFlowConfigured())
+            // Palette runs Google UMP and ATT itself before MAX starts. AppLovin's own flow would ask a
+            // second time and show its "Terms and Privacy Policy" alert, so it must stay off.
+            if (!MaxSettingsSanitizer.IsConsentFlowDisabled())
             {
                 results.Add(Error(
                     ReadinessChecks.MaxSettings,
-                    "AppLovin consent flow auto-sync failed.\n" +
-                    "  The shared privacy policy URL could not be written to AppLovin internal settings " +
-                    "(Assets/MaxSdk/Resources/AppLovinSettings.asset).\n" +
-                    "  Without it the consent flow ships without a privacy policy, and the sync has already " +
-                    "retried this pass.",
-                    "Open AppLovin > Integration Manager > Consent Flow, enable it, and set the privacy " +
-                    "policy URL to exactly:\n" +
-                    $"  {PaletteConstants.PrivacyPolicyUrl}"));
+                    "AppLovin's consent flow could not be turned off.\n" +
+                    "  Palette shows the Google consent form and the iOS tracking prompt itself. With AppLovin's " +
+                    "flow on, players would get a second consent flow and AppLovin's \"Terms and Privacy " +
+                    "Policy\" alert.\n" +
+                    "  The setting lives in ProjectSettings/AppLovinInternalSettings.json, and turning it off " +
+                    "has already been retried this pass.",
+                    "Open AppLovin > Integration Manager and untick \"Enable MAX Terms and Privacy Policy Flow\"."));
                 return;
             }
 
@@ -80,11 +81,10 @@ namespace Sorolla.Palette.Editor
             string switchHint = $", or switch Build Settings to {(activeIsIos ? "Android" : "iOS")} " +
                                 $"if this game does not ship on {platformName}";
 
-            // The consent flow above is Google UMP: it initializes the Google Mobile Ads SDK, which aborts
-            // when no AdMob application id is present in the manifest / Info.plist. AppLovin writes that id
-            // from AppLovinSettings, so an empty field ships a consent flow that cannot run. Same owner,
-            // capability, scope, severity, and studio action as the rest of this row, so it grades here
-            // rather than as its own check.
+            // Palette's consent flow is Google UMP, which reads the AdMob application id from the manifest /
+            // Info.plist to find the studio's GDPR message. AppLovin writes that id from AppLovinSettings, so
+            // an empty field ships a consent flow that cannot run. Same owner, capability, scope, severity,
+            // and studio action as the rest of this row, so it grades here rather than as its own check.
             ValidationResult adMob = GradeMaxAdMobAppId(
                 MaxSettingsSanitizer.GetAdMobAppId(activeIsIos), platformName, switchHint);
             if (adMob != null)
@@ -138,7 +138,7 @@ namespace Sorolla.Palette.Editor
                 return Unverifiable(
                     ReadinessChecks.MaxSettings,
                     $"Could not read the AdMob {platformName} application id from AppLovinSettings.\n" +
-                    "  The property is missing on this AppLovin version, so the consent flow's AdMob id " +
+                    "  The property is missing on this AppLovin version, so the AdMob id the Google consent form needs " +
                     "could not be checked either way.",
                     "Confirm the AdMob App ID field in AppLovin Integration Manager, then copy this report " +
                     "to Sorolla if the row does not clear");
@@ -148,7 +148,7 @@ namespace Sorolla.Palette.Editor
                 ? Error(
                     ReadinessChecks.MaxSettings,
                     $"AdMob application id for {platformName} is empty in AppLovinSettings.\n" +
-                    "  The AppLovin consent flow (Google UMP) cannot initialize without it, so no consent " +
+                    "  The Google consent form (UMP) cannot load without it, so no consent " +
                     "is collected and ads do not serve.",
                     // Names who provisions the id, not just where it goes: the app is created in SOROLLA's
                     // AdMob account, so a studio cannot generate this value and there is no local source of

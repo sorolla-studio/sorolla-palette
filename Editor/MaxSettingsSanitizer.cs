@@ -300,30 +300,18 @@ namespace Sorolla.Palette.Editor
 #endif
         }
 
-        public static bool IsConsentFlowConfigured()
+        /// <summary>
+        ///     Whether AppLovin's own consent flow (its UMP integration and its "Terms and Privacy Policy"
+        ///     alert) is off. Palette runs Google UMP and ATT itself before MAX starts, so it must be. False
+        ///     when the setting cannot be read.
+        /// </summary>
+        public static bool IsConsentFlowDisabled()
         {
 #if SOROLLA_MAX_INSTALLED
             try
             {
-                var settingsType = GetAppLovinInternalSettingsType();
-                if (settingsType == null)
-                    return false;
-
-                var instanceProp = settingsType.GetProperty("Instance",
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                var instance = instanceProp?.GetValue(null);
-                if (instance == null)
-                    return false;
-
-                var urlProp = settingsType.GetProperty("ConsentFlowPrivacyPolicyUrl",
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                string currentUrl = urlProp?.GetValue(instance) as string;
-
-                var enabledProp = settingsType.GetProperty("ConsentFlowEnabled",
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                bool enabled = enabledProp != null && (bool)enabledProp.GetValue(instance);
-
-                return enabled && PaletteConstants.IsExpectedPrivacyPolicyUrl(currentUrl);
+                var enabled = GetConsentFlowEnabledProperty(out object settings);
+                return enabled != null && !(bool)enabled.GetValue(settings);
             }
             catch (System.Exception e)
             {
@@ -336,60 +324,26 @@ namespace Sorolla.Palette.Editor
         }
 
         /// <summary>
-        ///     Auto-set the shared privacy policy URL and enable consent flow.
+        ///     Turns AppLovin's consent flow off. Returns true when the setting changed.
         /// </summary>
-        public static bool SyncConsentFlowSettings()
+        public static bool DisableConsentFlow()
         {
 #if SOROLLA_MAX_INSTALLED
             try
             {
-                var settingsType = GetAppLovinInternalSettingsType();
-                if (settingsType == null)
+                var enabled = GetConsentFlowEnabledProperty(out object settings);
+                if (enabled == null || !(bool)enabled.GetValue(settings))
                     return false;
 
-                var instanceProp = settingsType.GetProperty("Instance",
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                var instance = instanceProp?.GetValue(null);
-                if (instance == null)
-                    return false;
-
-                bool changed = false;
-
-                // Enforce the shared publisher privacy policy URL.
-                var urlProp = settingsType.GetProperty("ConsentFlowPrivacyPolicyUrl",
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                if (urlProp != null)
-                {
-                    string currentUrl = urlProp.GetValue(instance) as string;
-                    if (!PaletteConstants.IsExpectedPrivacyPolicyUrl(currentUrl))
-                    {
-                        urlProp.SetValue(instance, PaletteConstants.PrivacyPolicyUrl);
-                        changed = true;
-                    }
-                }
-
-                // Ensure consent flow is enabled
-                var enabledProp = settingsType.GetProperty("ConsentFlowEnabled",
-                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                if (enabledProp != null && !(bool)enabledProp.GetValue(instance))
-                {
-                    enabledProp.SetValue(instance, true);
-                    changed = true;
-                }
-
-                if (changed)
-                {
-                    var saveMethod = settingsType.GetMethod("Save",
-                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                    saveMethod?.Invoke(instance, null);
-                    Debug.Log($"{Tag} Synced consent flow settings");
-                }
-
-                return changed;
+                enabled.SetValue(settings, false);
+                settings.GetType().GetMethod("Save",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)?.Invoke(settings, null);
+                Debug.Log($"{Tag} Disabled AppLovin's consent flow: Palette runs Google UMP and ATT itself");
+                return true;
             }
             catch (System.Exception e)
             {
-                Debug.LogWarning($"{Tag} Failed to sync consent flow settings: {e.Message}");
+                Debug.LogWarning($"{Tag} Failed to disable AppLovin's consent flow: {e.Message}");
                 return false;
             }
 #else
@@ -397,5 +351,17 @@ namespace Sorolla.Palette.Editor
 #endif
         }
 
+#if SOROLLA_MAX_INSTALLED
+        static System.Reflection.PropertyInfo GetConsentFlowEnabledProperty(out object settings)
+        {
+            var settingsType = GetAppLovinInternalSettingsType();
+            settings = settingsType?.GetProperty("Instance",
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)?.GetValue(null);
+            return settings == null
+                ? null
+                : settingsType.GetProperty("ConsentFlowEnabled",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        }
+#endif
     }
 }

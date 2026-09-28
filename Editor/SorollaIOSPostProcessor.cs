@@ -38,9 +38,9 @@ namespace Sorolla.Palette.Editor
 
             // 3. Consent Mode v2 DEFAULTS (Google Analytics for Firebase).
             // These govern the very first native ping — notably first_open, which fires at launch
-            // BEFORE the runtime CMP/ATT resolves. analytics_storage defaults GRANTED so the install
+            // BEFORE the runtime UMP/ATT flow resolves. analytics_storage defaults GRANTED so the install
             // is counted with an app-instance-id (otherwise it fires cookieless and is uncountable in
-            // GA4 standard reports). Ad signals default DENIED until the CMP resolves at runtime.
+            // GA4 standard reports). Ad signals default DENIED until consent resolves at runtime.
             // Runtime SetConsent (FirebaseAdapterImpl) overrides these once consent is known.
             // Keys per Google tag-platform app-consent guide. Guarded so studio overrides win.
             SetDefaultBoolIfAbsent(rootDict, "GOOGLE_ANALYTICS_DEFAULT_ALLOW_ANALYTICS_STORAGE", true);
@@ -49,6 +49,25 @@ namespace Sorolla.Palette.Editor
             SetDefaultBoolIfAbsent(rootDict, "GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS", false);
 
             File.WriteAllText(plistPath, plist.WriteToString());
+
+            RemoveAppLovinConsentFlow(buildPath);
+        }
+
+        // 4. AppLovin's consent flow stays off: Palette runs Google UMP and ATT itself. AppLovin only ever
+        // adds its flow entry to AppLovin-Settings.plist and never removes it, so an Append build over an
+        // Xcode project made while the flow was on would still show AppLovin's flow at launch.
+        static void RemoveAppLovinConsentFlow(string buildPath)
+        {
+            string settingsPath = Path.Combine(buildPath, "AppLovin-Settings.plist");
+            if (!File.Exists(settingsPath)) return;
+
+            var settings = new PlistDocument();
+            settings.ReadFromFile(settingsPath);
+            if (settings.root["ConsentFlowInfo"] == null) return;
+
+            settings.root.values.Remove("ConsentFlowInfo");
+            settings.WriteToFile(settingsPath);
+            Debug.Log("[Palette] Removed AppLovin's consent flow from AppLovin-Settings.plist (Palette runs Google UMP and ATT itself)");
         }
 
         static void SetDefaultBoolIfAbsent(PlistElementDict rootDict, string key, bool value)

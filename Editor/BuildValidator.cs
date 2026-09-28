@@ -188,11 +188,11 @@ namespace Sorolla.Palette.Editor
                     fixes.Add("Enabled AppLovin Ad Review (Quality Service)");
             });
 
-            // MAX Consent Flow - sync shared publisher privacy policy URL
-            Repair("AppLovin consent flow sync", () =>
+            // AppLovin's consent flow stays off: Palette runs Google UMP and ATT itself.
+            Repair("AppLovin consent flow off", () =>
             {
-                if (MaxSettingsSanitizer.SyncConsentFlowSettings())
-                    fixes.Add("Synced AppLovin consent flow settings");
+                if (MaxSettingsSanitizer.DisableConsentFlow())
+                    fixes.Add("Turned off AppLovin's consent flow");
             });
 
             // GameAnalytics whitelist spelling: only entries that already mean a value Palette sends, only
