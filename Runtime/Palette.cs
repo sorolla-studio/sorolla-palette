@@ -734,12 +734,13 @@ namespace Sorolla.Palette
                 PaletteLog.Verbose($"{Tag} [Consent Diagnostics] TCF tcString={(tcStringPresent ? "present" : "absent")}, gdprApplies={gdprApplies}, purposeConsents={(purposeConsents.Length > 0 ? purposeConsents : "absent")}");
                 if (purposeConsents.Length > 0)
                 {
-                    // Purposes 1 (storage), 3 (ad personalization), 4 (ad selection) must be '1'
+                    // Purposes 1 (storage), 3 (ad personalization), 4 (ad selection) must be '1'. A missing
+                    // one is the player's own choice in the form, not an integration problem: info, not a warning.
                     bool p1 = purposeConsents[0] == '1';
                     bool p3 = purposeConsents.Length > 2 && purposeConsents[2] == '1';
                     bool p4 = purposeConsents.Length > 3 && purposeConsents[3] == '1';
                     if (!p1 || !p3 || !p4)
-                        PaletteLog.Warning($"{Tag} Consent hint: required TCF ad purposes are missing; ads may be non-personalized. Rebuild with verbose logging to inspect purpose bits.");
+                        PaletteLog.Vital($"{Tag} Consent hint: the player refused TCF ad purposes; ads are non-personalized. Rebuild with verbose logging to inspect purpose bits.");
                 }
             }
             if (ConsentStatus == Adapters.ConsentStatus.Unknown)

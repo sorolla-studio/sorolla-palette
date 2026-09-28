@@ -43,6 +43,9 @@ All notable changes to this project will be documented in this file.
 - The command-line greenlight report no longer hangs when a package change reloads scripts mid-run,
   as on a project's first open when the SDK raises a dependency version. It resumes after the reload,
   writes the report and exits.
+- A player who refuses ad purposes in the consent form no longer raises an SDK warning at launch, so
+  Vitals no longer reports "action needed" for a correct refusal. The consent hint still prints as
+  information.
 
 ### Removed (breaking)
 
