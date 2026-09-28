@@ -47,6 +47,7 @@ Practical effect: an EEA user emits one identified `first_open` before the CMP r
    ```
    This identifier lets us show you more relevant ads and measure ad performance - for example, ads for games similar to this one.
    ```
+   Palette also ships this text in German, Spanish, French, Japanese, Korean and Chinese (Simplified and Traditional). If you set your own text, Palette leaves it and adds no translations: provide your own `InfoPlist.strings` per language.
 
 ## What players see
 

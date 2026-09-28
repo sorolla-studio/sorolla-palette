@@ -24,7 +24,9 @@ All notable changes to this project will be documented in this file.
   The GDPR message published in AdMob, and the Google Ad Manager or AdMob adapter with its App ID,
   remain required: the consent form reads that App ID.
 - iOS: with AppLovin's flow off, AppLovin no longer writes its tracking prompt text or its
-  translations. The ATT prompt shows Palette's English text unless the game sets its own.
+  translations. Palette's own text now ships in the same languages AppLovin covered (German, Spanish,
+  French, Japanese, Korean, Simplified and Traditional Chinese) besides English. A game that sets its
+  own text keeps it, and Palette adds no translations to it.
 
 ### Fixed
 

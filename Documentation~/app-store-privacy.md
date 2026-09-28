@@ -93,7 +93,7 @@ Sorolla SDK automatically handles this. When you build, Unity merges manifests f
 To track installs (Facebook/Adjust) or show personalized ads (MAX), you **must** use the ATT popup.
 
 *   **How to Trigger**: the SDK requests ATT for you at launch. With MAX installed it asks after the Google consent form, where one is shown.
-*   **Info.plist Text**: The SDK writes a default `NSUserTrackingUsageDescription` when the build has none (see [GDPR & Consent](guides/gdpr.md)). A post-build step of your own that sets the text takes precedence.
+*   **Info.plist Text**: The SDK writes a default `NSUserTrackingUsageDescription` when the build has none (see [GDPR & Consent](guides/gdpr.md)). A post-build step of your own that sets the text takes precedence. The default text is translated into German, Spanish, French, Japanese, Korean and Chinese; your own text gets no translations from Palette.
     *   *Example*: "This identifier will be used to deliver personalized ads to you."
 
 
