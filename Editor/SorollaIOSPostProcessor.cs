@@ -11,9 +11,12 @@ namespace Sorolla.Palette.Editor
     {
         const string TrackingDescription = "This identifier lets us show you more relevant ads and measure ad performance - for example, ads for games similar to this one.";
 
-        // The languages AppLovin's consent flow used to translate its tracking prompt text into.
+        // The languages AppLovin's consent flow used to write its tracking prompt text in. English needs its
+        // own folder too: without one, iOS picks a player's second language (French under an English phone
+        // UI, say) over the Info.plist text.
         static readonly (string locale, string text)[] TrackingDescriptionTranslations =
         {
+            ("en", TrackingDescription),
             ("de", "Mit dieser Kennung können wir dir relevantere Werbung zeigen und die Werbeleistung messen, zum Beispiel Werbung für Spiele, die diesem ähneln."),
             ("es", "Este identificador nos permite mostrarte anuncios más relevantes y medir su rendimiento; por ejemplo, anuncios de juegos similares a este."),
             ("fr", "Cet identifiant nous permet de vous montrer des publicités plus pertinentes et de mesurer leurs performances, par exemple des publicités pour des jeux similaires à celui-ci."),
@@ -71,35 +74,32 @@ namespace Sorolla.Palette.Editor
         }
 
         // 5. Palette's tracking prompt text in the languages above. Each <locale>.lproj folder is copied to
-        // the bundle root, where iOS reads its InfoPlist.strings. A locale the Xcode project already
-        // localizes elsewhere is left to its owner: two <locale>.lproj folders would collide in the bundle.
+        // the bundle root, where iOS reads its InfoPlist.strings. An Append build over a project exported
+        // while AppLovin's flow was on still references AppLovin's folder for the same language (AppLovin
+        // empties it once its flow is off); both would land at the same place in the app, so it goes.
         static void LocalizeTrackingDescription(string buildPath)
         {
             string projectPath = PBXProject.GetPBXProjectPath(buildPath);
             var project = new PBXProject();
             project.ReadFromFile(projectPath);
-            string projectText = project.WriteToString();
             string mainTarget = project.GetUnityMainTargetGuid();
 
             foreach ((string locale, string text) in TrackingDescriptionTranslations)
             {
-                string folder = $"SorollaResources/{locale}.lproj";
-                bool referenced = projectText.Contains(folder);
-                if (!referenced && projectText.Contains($"{locale}.lproj"))
-                {
-                    Debug.Log($"[Palette] The Xcode project already has {locale}.lproj; left the tracking prompt translation to it");
-                    continue;
-                }
+                string appLovinFolder = project.FindFileGuidByProjectPath($"AppLovinMAXResources/{locale}.lproj");
+                if (appLovinFolder != null)
+                    project.RemoveFile(appLovinFolder);
 
+                string folder = $"SorollaResources/{locale}.lproj";
                 Directory.CreateDirectory(Path.Combine(buildPath, folder));
                 File.WriteAllText(Path.Combine(buildPath, folder, "InfoPlist.strings"),
                     $"\"NSUserTrackingUsageDescription\" = \"{text}\";\n");
-                if (!referenced)
+                if (!project.ContainsFileByProjectPath(folder))
                     project.AddFileToBuild(mainTarget, project.AddFolderReference(folder, folder));
             }
 
             project.WriteToFile(projectPath);
-            Debug.Log("[Palette] Localized the tracking prompt text (de, es, fr, ja, ko, zh-Hans, zh-Hant)");
+            Debug.Log("[Palette] Localized the tracking prompt text (en, de, es, fr, ja, ko, zh-Hans, zh-Hant)");
         }
 
         // 4. AppLovin's consent flow stays off: Palette runs Google UMP and ATT itself. AppLovin only ever
