@@ -14,6 +14,11 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Interstitial and rewarded ad revenue reaches Adjust and Firebase the moment AppLovin MAX reports it, while the
+  ad is still on screen. Since 3.18.1, Palette held it until the ad closed, so revenue from ads during which the
+  app was closed or killed never reached Adjust's "AppLovin MAX SDK" ad revenue source or Firebase `ad_impression`
+  (typically 15-30% of ad revenue). Adjust's "AppLovin MAX" source and the MAX dashboard come from AppLovin's
+  servers and were not affected. Games must leave `MaxSdkBase.InvokeEventsOnUnityMainThread` unset.
 - Report details update even when health counts stay the same. Expanded diagnoses and the report's
   scroll container survive refreshes, and the header updates on every tab. Copied reports calculate
   their verdict when copied instead of using the one captured when the button was created.

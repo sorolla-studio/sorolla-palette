@@ -80,12 +80,13 @@ namespace Sorolla.Palette.Adapters
             MaxSdk.SetVerboseLogging(verboseLogging);
             MaxSdk.SetCreativeDebuggerEnabled(verboseLogging);
 
-            // Pin all MAX publisher callbacks to the Unity main thread. The default marshals most
-            // events to the main thread, but per-event keepInBackground flags (or any code setting
-            // this property false) can deliver a callback on a background thread - and Palette's
-            // pending-event queues are not thread-safe (B-2). Forcing true guarantees main-thread delivery
-            // for every event routed through MAX's InvokeEvent.
-            MaxSdkBase.InvokeEventsOnUnityMainThread = true;
+            // Keep MAX's own per-event threading (null). A fullscreen ad pauses Unity, so MAX reports its
+            // revenue on a background thread: it must reach Adjust and Firebase there, because an app
+            // closed or killed during the ad never runs its main thread again. True held that revenue
+            // until the ad closed and lost it (3.18.1-4.0.8); false would move every other ad callback
+            // off the main thread. Palette state reached from MAX's thread hands itself to the main
+            // thread (MainThread).
+            MaxSdkBase.InvokeEventsOnUnityMainThread = null;
 
             MaxSdkCallbacks.OnSdkInitializedEvent += OnSdkInit;
 

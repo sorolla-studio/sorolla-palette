@@ -349,6 +349,8 @@ namespace Sorolla.Palette
 
         static void RecordAdRevenue(MaxAdRevenueInfo info)
         {
+            // MAX reports fullscreen revenue off the main thread; the event log reads the Unity clock.
+            if (!MainThread.IsCurrent) { MainThread.Post(() => RecordAdRevenue(info)); return; }
             RecordAdRevenue(info.Network, info.Revenue, info.Currency, info.AdFormat, info.RevenuePrecision);
         }
 

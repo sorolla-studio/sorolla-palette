@@ -54,6 +54,10 @@ namespace Sorolla.Palette.Adapters
         internal static void Record(AdapterDiagnosticVendor vendor, AdapterDiagnosticStatus status,
             string code, string detail)
         {
+            // The latest-outcome arrays are unsynchronized, and listeners get outcomes in one main-thread
+            // order; MAX reports fullscreen ad revenue off the main thread.
+            if (!MainThread.IsCurrent) { MainThread.Post(() => Record(vendor, status, code, detail)); return; }
+
             var outcome = new AdapterDiagnosticOutcome(vendor, status, code, detail);
             int index = (int)vendor;
             s_latest[index] = outcome;

@@ -391,6 +391,9 @@ namespace Sorolla.Palette.Adapters
         void QueueOrExecute(Action action)
         {
             if (IsReady) { action(); return; }
+            // Init completes and the queue flushes on the main thread; an early call from a vendor
+            // thread joins it there, so it cannot land in the queue after the flush.
+            if (!MainThread.IsCurrent) { MainThread.Post(() => QueueOrExecute(action)); return; }
             if (_initFailed)
             {
                 AdapterDiagnostics.Record(AdapterDiagnosticVendor.FirebaseAnalytics, AdapterDiagnosticStatus.DispatchDropped,
