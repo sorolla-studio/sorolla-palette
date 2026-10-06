@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [4.0.9] - 2026-10-06
+
 ### Changed
 
 - Vitals opens with Report, Console and Actions tabs available immediately. The gesture that opens
