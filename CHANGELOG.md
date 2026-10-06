@@ -16,11 +16,11 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- Interstitial and rewarded ad revenue reaches Adjust and Firebase the moment AppLovin MAX reports it, while the
-  ad is still on screen. Since 3.18.1, Palette held it until the ad closed, so revenue from ads during which the
-  app was closed or killed never reached Adjust's "AppLovin MAX SDK" ad revenue source or Firebase `ad_impression`
-  (typically 15-30% of ad revenue). Adjust's "AppLovin MAX" source and the MAX dashboard come from AppLovin's
-  servers and were not affected. Games must leave `MaxSdkBase.InvokeEventsOnUnityMainThread` unset.
+- Interstitial and rewarded ad revenue reaches Adjust and Firebase as soon as AppLovin MAX reports it, while the ad
+  is still on screen. In 3.18.1 to 4.0.8 it waited until the ad closed, so revenue from ads during which the app
+  was closed or killed never reached Adjust's "AppLovin MAX SDK" ad revenue source or Firebase `ad_impression`.
+  Adjust's "AppLovin MAX" source and the MAX dashboard were not affected. Games must leave
+  `MaxSdkBase.InvokeEventsOnUnityMainThread` unset.
 - Report details update even when health counts stay the same. Expanded diagnoses and the report's
   scroll container survive refreshes, and the header updates on every tab. Copied reports calculate
   their verdict when copied instead of using the one captured when the button was created.
@@ -502,9 +502,9 @@ report that carries every row plus the SDK commit of the checkout it was generat
 Editor UI overhaul on top of 3.18.2. Editor-side: the Palette window (SorollaWindow) is fully rebuilt on UI Toolkit with a shared design-token system; runtime-side changes are confined to the debug console overlay's draw code/theme (no init, consent, analytics, ads, or QA-bridge logic touched). Design pass reviewed and accepted screen-by-screen on 2026-07-08.
 
 ### Added
-- **Design-token system** (`Editor/UI/tokens.uss` + `TOKENS.md`): status colors, radii, spacing, type scale as USS custom properties; background/text tokens derive from the live editor skin (dark verified; light implemented, pending human verification) instead of hardcoded values.
-- **Reusable editor UI components** (`Editor/UI/`, namespace `Sorolla.Palette.Editor.UI`): StatusBadge, CalloutCard, SectionHeader, CheckRow/CollapsibleCheckGroup, ValidatedField (live per-keystroke validation, neutral-when-empty semantics), CodeSnippetBlock (copy-to-clipboard), HeroHeader (🎨 icon + Prototype|Full segmented mode switch).
-- **PaletteStyleGalleryWindow** (`Palette/Style Gallery`): renders every component/state on one page, including a debug forced-light-mode toggle for skin testing without re-skinning the editor.
+- **Design-token system**: status colors, radii, spacing, type scale as USS custom properties; background/text tokens derive from the live editor skin instead of hardcoded values.
+- **Reusable editor UI components**: StatusBadge, CalloutCard, SectionHeader, CheckRow/CollapsibleCheckGroup, ValidatedField (live per-keystroke validation, neutral-when-empty semantics), CodeSnippetBlock (copy-to-clipboard), HeroHeader (🎨 icon + Prototype|Full segmented mode switch).
+- **PaletteStyleGalleryWindow**: renders every component/state on one page, including a debug forced-light-mode toggle for skin testing without re-skinning the editor.
 
 ### Changed
 - **SorollaWindow rebuilt on UI Toolkit**: hero header with segmented Prototype|Full mode switch (replaces the old Mode box; same confirmation + package flow), collapsible Build Health checks (collapsed by default), SDK overview vendor rows, ValidatedFields for MAX ad-unit IDs (16-hex format check, empty stays neutral) and Adjust tokens (contextual "required for Full-mode builds" hint), real compilable Quick Start snippets (source-verified API calls) replacing prose pseudo-code, unified small-button style, footer links. Opens as a utility window (no dock-tab strip), single-instance.
@@ -515,7 +515,7 @@ Editor UI overhaul on top of 3.18.2. Editor-side: the Palette window (SorollaWin
 
 ## [3.18.2] - 2026-07-06
 
-Editor-tooling fixes + a runtime refactor batch (behavior-preserving intended, compile-verified only) on top of 3.18.1, plus two init/consent-path robustness fixes, per-key Remote Config visibility in the QA bridge, and public purchasing-API docs. One telemetry payload changed and one public type was removed (see below). Verified on-device (romba iOS, Full mode, release build) before tagging.
+Editor-tooling fixes, two initialization and consent robustness fixes, per-key Remote Config visibility in the QA bridge, and public purchasing-API docs. One telemetry payload changed and one public type was removed (see below).
 
 ### Added
 - **QA bridge: per-key Remote Config values + sources** (`remote_config.values` in `/qa/snapshot`): every key Firebase knows plus every registered in-app default, each with the value the Palette getters would serve and its true source (`firebase_remote` fetched/cached, `firebase_default`, `gameanalytics`, `in_app_default`, `missing`). Reads live adapter state rather than logs, so a release (non-development) build can be QA'd for Remote Config delivery - "did the console change reach the device" is now answerable from one snapshot.
@@ -530,7 +530,6 @@ Editor-tooling fixes + a runtime refactor batch (behavior-preserving intended, c
 - **A throwing or silently-failing vendor init can no longer strand SDK initialization**: each vendor boot init runs behind a catch-continue guard (`SafeInit`), so one vendor throwing no longer skips the others or the transition to `IsInitialized`; and if MAX never fires `OnSdkInitialized`, a 30s foreground watchdog completes init in a degraded no-ads state instead of wedging forever. `CompleteInitialization` is now idempotent, so the watchdog and the MAX callback racing can never double-flush the pending queue or fire `OnInitialized` twice.
 
 ### Changed
-- **Runtime refactor (behavior-preserving intended)**: `ConsentCoordinator` extracted from the `Palette` facade; purchase tracking split into `PurchaseDedupLedger` / `PurchaseOrderAdapter` / `StoreEnvironmentResolver`; shared `PendingActionQueue` and `MaxAdRevenueRelay` extracted; init ready-path unified into one `CompleteInitialization` with a pre-flush hook; diagnostics monolith split (`SorollaDiagnostics` 1,985 -> 538 lines across 11 extractions: 7 partials + `SorollaRuntimeProblemClassifier` + console `Theme`/`TapUnlock`/`ScrollDrag`). `StoreEnvironmentResolver` is `internal` (editor tests reach it via `InternalsVisibleTo`); it was briefly public in intermediate commits, never part of the intended public surface.
 - **Telemetry**: the `sorolla_purchase_data_quality_failure` low-level payload is unified with the pending-order builder: param `amount` renamed to `raw_price`, `platform` and `source` added. The low-level path has been internal-only since 3.14.1 and is nearly unreachable in production; the pending-order payload is byte-identical.
 - **iOS Apple-payload log line re-tagged** from `[Palette]` to `[Palette:PurchaseOrderAdapter]` (log-grep scripts keying on the old tag need updating).
 
@@ -549,7 +548,7 @@ Editor-tooling fixes + a runtime refactor batch (behavior-preserving intended, c
 
 ## [3.18.0] - 2026-06-23
 
-Consent model unification + SDK remediation. The boot path and the CMP-resolution path now run through one resolver and one idempotent fan-out, so Prototype inherits the same consent-mode model (analytics / ad_storage / ad_personalization) the Full/MAX path already used, plus a batch of correctness fixes from the 2026-06 architecture audit.
+Consent model unification. The boot path and the consent (CMP) path now share one resolver and one fan-out, so Prototype mode uses the same consent-mode model (analytics / ad_storage / ad_personalization) as Full mode, plus a batch of correctness fixes.
 
 ### Fixed
 - **iOS ATT denial no longer blacks out GameAnalytics** in Prototype / no-MAX builds: analytics consent is governed by GDPR decline, not ATT, so denying ATT (which has no bearing on first-party analytics) no longer disables GameAnalytics submission. GameAnalytics also survives across relaunch.
@@ -579,7 +578,7 @@ Consent model unification + SDK remediation. The boot path and the CMP-resolutio
 Diagnostics parity patch: Sorolla Vitals and `/qa/snapshot` now read the same adapter outcome state instead of independently inferring readiness from log text.
 
 ### Added
-- **Internal adapter diagnostics channel** (`Runtime/Adapters/AdapterDiagnostics.cs`): MAX, Adjust, Firebase Core/Analytics/Crashlytics/Remote Config, GameAnalytics, and Facebook report registered/initializing/ready/dispatch/warning/failure/unavailable outcomes into one runtime state surface.
+- **Internal adapter diagnostics channel**: MAX, Adjust, Firebase Core/Analytics/Crashlytics/Remote Config, GameAnalytics, and Facebook report registered/initializing/ready/dispatch/warning/failure/unavailable outcomes into one runtime state surface.
 
 ### Changed
 - **Vitals and `/qa/snapshot` adapter statuses now share one source of truth**: real adapter outcomes can override stale log-scraped state, so failures become visible in both QA surfaces consistently.
@@ -598,7 +597,7 @@ Diagnostics parity patch: Sorolla Vitals and `/qa/snapshot` now read the same ad
 ## [3.17.4] - 2026-06-17
 
 ### Changed
-- **QA bridge auto-starts in all builds** (`Runtime/Diagnostics/QaBridge/`): release builds now bind the loopback bridge on launch instead of staying dormant until a debug-console arm tap. The bridge still binds only `127.0.0.1` / `localhost` and is reached by local process or USB forward.
+- **QA bridge auto-starts in all builds**: release builds now bind the loopback bridge on launch instead of staying dormant until a debug-console arm tap. The bridge still binds only `127.0.0.1` / `localhost` and is reached by local process or USB forward.
 - **QA bridge password gate**: every `/qa/*` request now requires the shared QA bridge password via `X-Sorolla-QA-Password`, `Authorization: Bearer ...`, or `qa_password=...`. There is one auth rule across Editor, development, and release builds.
 - **Diagnostics console bridge row simplified**: the old `Dormant` / `Arm` / `Disarm` release-state UI is replaced by an auto-running status with a `Restart` / `Retry` recovery button for port-bind failures.
 
@@ -608,7 +607,7 @@ Diagnostics parity patch: Sorolla Vitals and `/qa/snapshot` now read the same ad
 ## [3.17.3] - 2026-06-16
 
 ### Changed
-- **Vendor dependency bumps** in `SdkRegistry.cs` (the SSOT the package resolver reconciles `manifest.json` against): GameAnalytics `7.10.6` -> `8.0.1`, AppLovin MAX `8.6.2` -> `8.6.4`. Both device-validated on Android (`com.sorolla.palette`): clean init, GameAnalytics ships events, AppLovin MAX reports `Max-Unity-8.6.4`, `[Palette] Ready!` reached. GameAnalytics 8.x's `configurations` -> `configurations_v3` Remote Config export change does not affect us (we use Firebase Remote Config, not GameAnalytics Remote Config). Firebase/Facebook/Adjust deps unchanged.
+- **Vendor dependency bumps**: GameAnalytics `7.10.6` -> `8.0.1`, AppLovin MAX `8.6.2` -> `8.6.4`. GameAnalytics 8.x renames its Remote Config export (`configurations` -> `configurations_v3`); Palette reads Firebase Remote Config, so this does not affect it. Firebase, Facebook and Adjust are unchanged.
 
 ### Fixed
 - **Runtime SDK version truth**: `Palette.SdkVersion` now matches `package.json` (`3.17.3`). This fixes Sorolla Vitals and `/qa/snapshot` reporting `3.17.2` on builds that include the GameAnalytics / AppLovin MAX dependency bumps.
@@ -625,10 +624,10 @@ Remote Config freshness is now first-class in the QA surfaces: the bridge snapsh
 
 ## [3.17.1] - 2026-06-12
 
-QA agent bridge (Phase 1+2): a loopback HTTP bridge inside the diagnostics layer so QA tooling reads structured SDK state instead of grepping device logs. One diagnostics core, two frontends: anything the bridge exposes is also visible/tappable in the on-screen debug console.
+QA bridge: a loopback HTTP bridge in the diagnostics layer, so QA tools read structured SDK state instead of device logs. Everything the bridge exposes is also visible in the on-screen debug console.
 
 ### Added
-- **QA bridge `GET /qa/snapshot`** (`Runtime/Diagnostics/QaBridge/`): structured JSON of SDK state (sdk/mode/build, consent + resolved consent-mode signals + IABTCF presence, adapter statuses, identity/attribution, ads, runtime problems) on `127.0.0.1:8765`. Built only from state the SDK already tracks (no ad-adapter changes). Reached over a USB forward (`adb forward tcp:8765 tcp:8765` / usbmux `iproxy 8765 8765`).
+- **QA bridge `GET /qa/snapshot`**: structured JSON of SDK state (sdk/mode/build, consent + resolved consent-mode signals + IABTCF presence, adapter statuses, identity/attribution, ads, runtime problems) on `127.0.0.1:8765`. Built only from state the SDK already tracks (no ad-adapter changes). Reached over a USB forward (`adb forward tcp:8765 tcp:8765` / usbmux `iproxy 8765 8765`).
 - **Access-gated bridge lifecycle**: compiled into ALL builds (no compile define). Auto-starts in the Editor and development builds; in release builds it stays dormant until a human arms it from the debug console ("QA Bridge" section), and a relaunch starts dormant again. Binds loopback only, never `0.0.0.0` (no iOS Local Network prompt).
 - **QA bridge `POST /qa/exec`** (fire-and-ack): `{"action":"..."}` dispatches a registered action on the main thread and replies `{"ok":true}` immediately (`{"ok":false,"detail":"unknown_action"}` otherwise); the snapshot is the source of truth for the outcome. Ships `show_rewarded`, `show_interstitial`, `open_privacy_options`, `refresh_consent`, `track_test_event`, `level_start`, `level_complete`, `economy_earn`, `economy_spend`.
 - **Shared action registry** (`QaActionRegistry`, one core / two frontends): the debug console buttons and the bridge dispatch through the exact same delegates. The delegate signature already accepts an args bag so game-registered actions slot in later without re-shaping the registry.
@@ -673,7 +672,7 @@ Remote Config redesign: the SDK now owns the fetch lifecycle (auto-fetch, retry,
 - `Palette.FetchRemoteConfig(cb)` -> delete the call; move the callback body to `Palette.OnRemoteConfigChanged += keys => ...` (it also fires on first load and immediately at subscribe time if values are readable). For a boot gate: `await Palette.WaitForRemoteConfig(5f)`.
 - `Palette.IsRemoteConfigReady()` -> `Palette.RemoteConfigStatus >= RemoteConfigStatus.Cached` (or `Live` for this-session freshness).
 - `Palette.OnRemoteConfigUpdated += h` -> `Palette.OnRemoteConfigChanged += h` (same signature). If you set `AutoActivateRemoteConfigUpdates = false`, subscribe `OnRemoteConfigUpdateAvailable` for the not-yet-activated signal.
-- Getter signatures (`GetRemoteConfig/Int/Float/Bool`) and `SetRemoteConfigDefaults` are unchanged - read sites need no edits.
+- Getter signatures and `SetRemoteConfigDefaults` are unchanged - read sites need no edits.
 - Behavior seam: with Firebase RC installed, a key registered via `SetRemoteConfigDefaults` resolves at the Firebase tier (in-app default) and is never served from GameAnalytics. If you run GA A/B experiments alongside Firebase RC, do not register defaults for GA-experiment keys.
 - Game-side wrappers that existed to sequence boot (subscribe `Palette.OnInitialized` -> fetch -> reload-on-callback) collapse to one `OnRemoteConfigChanged` subscription.
 
@@ -682,32 +681,32 @@ Remote Config redesign: the SDK now owns the fetch lifecycle (auto-fetch, retry,
 Correctness batch: stop two silent revenue/analytics-quality leaks (negative ad-revenue sentinel, wiped Remote Config defaults), make event rejection and the ad-revenue health row consistent across vendors, and harden the pre-consent flush so one vendor throw can't strand the queue. No public `Palette` API changed.
 
 ### Fixed
-- **Negative MAX ad-revenue (`Revenue = -1`) was forwarded as real revenue** (`Runtime/Adapters/MAX/MaxAdapterImpl.cs`). AppLovin MAX sets `AdInfo.Revenue = -1` when an impression has no valid revenue (error or test mode, per AppLovin docs). The adapter forwarded it verbatim to Adjust / Firebase (`ad_impression` `value`) / TikTok, pushing negative revenue into ROAS. `TrackAdRevenue` now drops the fan-out and logs a Warning with the raw value when `Revenue < 0`.
-- **Studio Remote Config defaults set before SDK init were wiped** (`Runtime/Adapters/Firebase/FirebaseRemoteConfigAdapterImpl.cs`). `Palette.Initialize` calls `FirebaseRemoteConfigAdapter.Initialize(defaults: null)`, and the impl unconditionally assigned `_pendingDefaults = defaults`, so defaults a studio set from `Awake`/`OnEnable` via `SetRemoteConfigDefaults` were overwritten with null and a key absent remotely resolved to type-zero instead of the in-code default. `Initialize` now merges and only touches `_pendingDefaults` when the caller actually supplied defaults.
-- **GA4 reserved event names were dropped Firebase-side only** (`Runtime/Palette.EventValidation.cs`, `Runtime/Adapters/EventNameSanitizer.cs`, `Runtime/Adapters/Firebase/FirebaseAdapterImpl.cs`). The reserved-name rejection lived two layers below the shared `Palette` validation gate, so `Palette.TrackEvent("error")` was dropped by Firebase but still reached GameAnalytics, invisible in BigQuery. The reserved-name list moved to the shared `EventNameSanitizer.ReservedEventNames` and is now rejected at the shared gate for every vendor; the Firebase-side name check is removed (the prefix check stays as a defensive layer for internal callers that bypass the gate).
-- **GameAnalytics design-event value depended on Dictionary iteration order** (`Runtime/Palette.EventValidation.cs`). `ExtractFirstNumericValue` returned the first numeric param it happened to iterate, so the same `TrackEvent` could send different GA values run to run. Replaced with `ExtractDesignEventValue`, which reads only the documented `value` key (0 if absent).
-- **Pre-consent flush loops aborted on the first vendor throw** (`Runtime/Palette.cs`, `Runtime/Adapters/Firebase/FirebaseAdapterImpl.cs`, `Runtime/Adapters/Firebase/FirebaseCrashlyticsAdapterImpl.cs`). A single exception while draining a queued-event/action queue stranded the rest and, for `Palette.FlushPending`, also skipped `OnInitialized` and the consent markers (it runs inside `OnMaxSdkInitialized`). All three loops now catch-and-continue per item with a Warning.
-- **`consent_resolved` was emitted after the pre-consent events it should precede** (`Runtime/Palette.cs`). `OnMaxSdkInitialized` ran `FlushPending()` before `TrackEvent("consent_resolved")` (and `att_decision`), so every pre-consent event dispatched before the session's consent marker and BigQuery queries windowing on it missed the whole batch. The markers are now emitted before the flush.
-- **Adjust attribution/ID getters dropped their callback before init** (`Runtime/Adapters/Adjust/AdjustAdapterImpl.cs`). `GetAttribution`/`GetAdid`/`GetGoogleAdId`/`GetIdfa` did `if (!_init) return;` without invoking the callback, breaking the documented `callback(null)` contract, hanging callers and producing false timeout Warnings on the Sorolla Vitals identity rows. They now invoke `callback(null)` on the early-out. (also clears the false Warnings)
-- **Ad-revenue Vitals row was a verbose-only log sniff** (`Runtime/Adapters/MAX/MaxAdapterImpl.cs`, `Runtime/Diagnostics/SorollaDiagnostics.cs`). The "Ad revenue" health row was driven by a `"TrackAdRevenue:"` log match, and the only emitters were Verbose logs gated behind `Debug.isDebugBuild`, so release builds always read "No revenue callback observed". The row is now driven directly by `SorollaDiagnostics.RecordAdRevenue`, called inside `MaxAdapterImpl.TrackAdRevenue` independent of log verbosity and installed vendors; the log-sniff is removed.
-- **ISO-4217 currency gate accepted lowercase but forwarded it un-normalized** (`Runtime/Purchasing/Palette.PurchaseTracking.cs`). A lowercase code like `usd` passed the case-insensitive gate and was forwarded verbatim, where Firebase/GA4 and MMPs expect uppercase. `TrackPurchase` now uppercases the currency before the gate and fan-out.
+- **Negative MAX ad-revenue (`Revenue = -1`) was forwarded as real revenue**. AppLovin MAX sets `AdInfo.Revenue = -1` when an impression has no valid revenue (error or test mode, per AppLovin docs). The adapter forwarded it verbatim to Adjust / Firebase (`ad_impression` `value`) / TikTok, pushing negative revenue into ROAS. `TrackAdRevenue` now drops the fan-out and logs a Warning with the raw value when `Revenue < 0`.
+- **Studio Remote Config defaults set before SDK init were wiped**. `Palette.Initialize` calls `FirebaseRemoteConfigAdapter.Initialize(defaults: null)`, and the impl unconditionally assigned `_pendingDefaults = defaults`, so defaults a studio set from `Awake`/`OnEnable` via `SetRemoteConfigDefaults` were overwritten with null and a key absent remotely resolved to type-zero instead of the in-code default. `Initialize` now merges and only touches `_pendingDefaults` when the caller actually supplied defaults.
+- **GA4 reserved event names were dropped Firebase-side only**. The reserved-name rejection lived two layers below the shared `Palette` validation gate, so `Palette.TrackEvent("error")` was dropped by Firebase but still reached GameAnalytics, invisible in BigQuery. The reserved-name list moved to the shared `EventNameSanitizer.ReservedEventNames` and is now rejected at the shared gate for every vendor; the Firebase-side name check is removed (the prefix check stays as a defensive layer for internal callers that bypass the gate).
+- **GameAnalytics design-event value depended on Dictionary iteration order**. `ExtractFirstNumericValue` returned the first numeric param it happened to iterate, so the same `TrackEvent` could send different GA values run to run. Replaced with `ExtractDesignEventValue`, which reads only the documented `value` key (0 if absent).
+- **Pre-consent flush loops aborted on the first vendor throw**. A single exception while draining a queued-event/action queue stranded the rest and, for `Palette.FlushPending`, also skipped `OnInitialized` and the consent markers (it runs inside `OnMaxSdkInitialized`). All three loops now catch-and-continue per item with a Warning.
+- **`consent_resolved` was emitted after the pre-consent events it should precede**. `OnMaxSdkInitialized` ran `FlushPending()` before `TrackEvent("consent_resolved")` (and `att_decision`), so every pre-consent event dispatched before the session's consent marker and BigQuery queries windowing on it missed the whole batch. The markers are now emitted before the flush.
+- **Adjust attribution/ID getters dropped their callback before init**. `GetAttribution`/`GetAdid`/`GetGoogleAdId`/`GetIdfa` did `if (!_init) return;` without invoking the callback, breaking the documented `callback(null)` contract, hanging callers and producing false timeout Warnings on the Sorolla Vitals identity rows. They now invoke `callback(null)` on the early-out. (also clears the false Warnings)
+- **Ad-revenue Vitals row was a verbose-only log sniff**. The "Ad revenue" health row was driven by a `"TrackAdRevenue:"` log match, and the only emitters were Verbose logs gated behind `Debug.isDebugBuild`, so release builds always read "No revenue callback observed". The row is now driven directly by `SorollaDiagnostics.RecordAdRevenue`, called inside `MaxAdapterImpl.TrackAdRevenue` independent of log verbosity and installed vendors; the log-sniff is removed.
+- **ISO-4217 currency gate accepted lowercase but forwarded it un-normalized**. A lowercase code like `usd` passed the case-insensitive gate and was forwarded verbatim, where Firebase/GA4 and MMPs expect uppercase. `TrackPurchase` now uppercases the currency before the gate and fan-out.
 
 ### Added
-- **`revenue_precision` param on the Firebase `ad_impression` event** (`Runtime/Adapters/MAX/MaxAdapterImpl.cs`, `Runtime/Adapters/FirebaseAdapter.cs`, `Runtime/Adapters/Firebase/FirebaseAdapterImpl.cs`). MAX's `AdInfo.RevenuePrecision` (`publisher_defined` / `exact` / `estimated` / `undefined` / empty) is now forwarded when present, so revenue can be filtered by estimate quality. The internal `IFirebaseAdapter.TrackAdImpression` signature gained a `revenuePrecision` parameter; no public API changed.
+- **`revenue_precision` param on the Firebase `ad_impression` event**. MAX's `AdInfo.RevenuePrecision` (`publisher_defined` / `exact` / `estimated` / `undefined` / empty) is now forwarded when present, so revenue can be filtered by estimate quality. The internal `IFirebaseAdapter.TrackAdImpression` signature gained a `revenuePrecision` parameter; no public API changed.
 
 ### Changed
-- **`ad_format` on `ad_impression` is now lowercase** (`Runtime/Adapters/MAX/MaxAdapterImpl.cs`), matching the higher-volume `ad_show_requested` / `ad_show_failed` funnel events, which were already lowercase. Previously `ad_impression` sent `REWARDED` / `INTERSTITIAL`. **Historical-data seam:** any BigQuery/GA4 query that does `GROUP BY ad_format` across impression and funnel events, or that spans the upgrade date, must `LOWER(ad_format)` to join the pre- and post-3.16.2 casing.
+- **`ad_format` on `ad_impression` is now lowercase**, matching the higher-volume `ad_show_requested` / `ad_show_failed` funnel events, which were already lowercase. Previously `ad_impression` sent `REWARDED` / `INTERSTITIAL`. **Historical-data seam:** any BigQuery/GA4 query that does `GROUP BY ad_format` across impression and funnel events, or that spans the upgrade date, must `LOWER(ad_format)` to join the pre- and post-3.16.2 casing.
 
 ## [3.16.1] - 2026-06-10
 
 Stop two silent revenue-inflation paths (persisted purchase dedup, single ad-revenue subscription) and tag Firebase purchase events with a client-observed store environment so iOS sandbox/TestFlight revenue is filterable.
 
 ### Fixed
-- **Purchase dedup was session-memory only, so a crash/restart re-counted the purchase** (`Runtime/Purchasing/Palette.PurchaseTracking.cs`). Unity IAP v5 re-delivers an unconfirmed purchase by re-firing `OnPurchasePending` on the next app launch, but the dedup set was an in-memory `HashSet` that died with the process, so the same purchase fanned out to every vendor again after a restart while the code comments and `architecture.md` claimed crash-replay immunity. The set is now persisted to `PlayerPrefs` (FIFO, capped at 512 ids) so dedup survives process death and the immunity is real. The dedup key also now prefers the store's original-transaction id when available, so an iOS restore / re-delivery of a non-consumable (new `TransactionID`, same `OriginalTransactionID`) is recognised as already-counted instead of new revenue. Note: this key assumes consumables + one-shot non-consumables (the current portfolio); auto-renewable subscriptions share an `OriginalTransactionID` across renewals and would need a different key.
-- **A second `Palette.Initialize` in the CMP window doubled ad revenue for the whole session** (`Runtime/Palette.cs`, `Runtime/Adapters/MAX/MaxAdapterImpl.cs`, `Runtime/SorollaBootstrapper.cs`). On the MAX path `IsInitialized` only flips true after the CMP resolves (~1-3s), so the `if (IsInitialized) return` guard did not block a second `Initialize()` in that window: it re-ran `InitializeMax()`, which re-subscribed `OnSdkInitializedEvent` via `+=`, so when MAX finished it re-registered the ad-revenue callbacks and every impression paid out twice to Adjust / Firebase / TikTok. Closed with three guards set synchronously at entry: `s_initStarted` in `Palette.Initialize` (the choke point), `_initStarted` in `MaxAdapterImpl.Initialize` (defense-in-depth, same window bug at the impl layer), and an `s_instance != this` reject in `SorollaBootstrapper.Start` (kills a stray manually-placed bootstrapper).
+- **Purchase dedup was session-memory only, so a crash/restart re-counted the purchase**. Unity IAP v5 re-delivers an unconfirmed purchase by re-firing `OnPurchasePending` on the next app launch, but the dedup set was an in-memory `HashSet` that died with the process, so the same purchase fanned out to every vendor again after a restart while the code comments and `architecture.md` claimed crash-replay immunity. The set is now persisted to `PlayerPrefs` (FIFO, capped at 512 ids) so dedup survives process death and the immunity is real. The dedup key also now prefers the store's original-transaction id when available, so an iOS restore / re-delivery of a non-consumable (new `TransactionID`, same `OriginalTransactionID`) is recognised as already-counted instead of new revenue. Note: this key assumes consumables + one-shot non-consumables (the current portfolio); auto-renewable subscriptions share an `OriginalTransactionID` across renewals and would need a different key.
+- **A second `Palette.Initialize` in the CMP window doubled ad revenue for the whole session**. On the MAX path `IsInitialized` only flips true after the CMP resolves (~1-3s), so the `if (IsInitialized) return` guard did not block a second `Initialize()` in that window: it re-ran `InitializeMax()`, which re-subscribed `OnSdkInitializedEvent` via `+=`, so when MAX finished it re-registered the ad-revenue callbacks and every impression paid out twice to Adjust / Firebase / TikTok. Closed with three guards set synchronously at entry: `s_initStarted` in `Palette.Initialize` (the choke point), `_initStarted` in `MaxAdapterImpl.Initialize` (defense-in-depth, same window bug at the impl layer), and an `s_instance != this` reject in `SorollaBootstrapper.Start` (kills a stray manually-placed bootstrapper).
 
 ### Added
-- **`store_environment` param on the Firebase GA4 `purchase` event** (`Runtime/Purchasing/Palette.PurchaseTracking.cs`, `Runtime/Adapters/FirebaseAdapter.cs`, `Runtime/Adapters/Firebase/FirebaseAdapterImpl.cs`). The SDK logs `purchase` after local metadata validation (positive price, ISO-4217 currency, TxID dedup) but with no store verification and no environment marker, so TestFlight/sandbox purchases land in the same GA4 stream as production revenue and could not be filtered out. The event now carries `store_environment` so dashboards/BigQuery can filter client-side purchase telemetry. On **iOS** the value is decoded from the StoreKit JWS (`order.Info.Apple.jwsRepresentation`) `environment` claim and normalized to `production`, `sandbox`, `xcode`, or `unknown`, independent of build type (TestFlight is a release build but transacts against `sandbox`). This is an unverified client label for analytics only: no purchase is verified or dropped, and canonical production revenue still requires server-side / Adjust receipt verification. On **Android**, legacy `Product` tracking, and when the iOS JWS is absent/undecodable, the value is `unknown`: there is no reliable client-side sandbox signal on Google Play (that is a server-side Play Developer API determination), so it is labelled honestly rather than guessed. The value is also recorded in the Sorolla Vitals diagnostics dispatch and the `TrackPurchase: accepted` log line.
+- **`store_environment` param on the Firebase GA4 `purchase` event**. The SDK logs `purchase` after local metadata validation (positive price, ISO-4217 currency, TxID dedup) but with no store verification and no environment marker, so TestFlight/sandbox purchases land in the same GA4 stream as production revenue and could not be filtered out. The event now carries `store_environment` so dashboards/BigQuery can filter client-side purchase telemetry. On **iOS** the value is decoded from the StoreKit JWS (`order.Info.Apple.jwsRepresentation`) `environment` claim and normalized to `production`, `sandbox`, `xcode`, or `unknown`, independent of build type (TestFlight is a release build but transacts against `sandbox`). This is an unverified client label for analytics only: no purchase is verified or dropped, and canonical production revenue still requires server-side / Adjust receipt verification. On **Android**, legacy `Product` tracking, and when the iOS JWS is absent/undecodable, the value is `unknown`: there is no reliable client-side sandbox signal on Google Play (that is a server-side Play Developer API determination), so it is labelled honestly rather than guessed. The value is also recorded in the Sorolla Vitals diagnostics dispatch and the `TrackPurchase: accepted` log line.
 
   Note: the internal `FirebaseAdapter.TrackPurchase` signature gained a `storeEnvironment` parameter. No public `Palette` API changed: `Palette.AttachPurchaseTracking` is unchanged and derives the value automatically.
 
@@ -716,19 +715,19 @@ Stop two silent revenue-inflation paths (persisted purchase dedup, single ad-rev
 Firebase install-count recovery (iOS Consent Mode), iOS ATT-gated ad personalization, consent-telemetry schema reshape, diagnostics console device-input fix, and dead-code/API cleanup.
 
 ### Fixed
-- **Firebase severely undercounted installs on iOS — `first_open` fired cookieless and was uncountable in GA4** (`Runtime/Adapters/Firebase/FirebaseAdapterImpl.cs`, `Runtime/Adapters/FirebaseAdapter.cs`, `Runtime/Palette.cs`, `Editor/SorollaIOSPostProcessor.cs`, `Editor/AndroidManifestSanitizer.cs`, `Editor/GradlePropertiesFixer.cs`). On the MAX (Full-mode) path the SDK booted Firebase with analytics consent **denied** and waited for the CMP to resolve. iOS fires the native `first_open` at launch — before the CMP/ATT resolves — so the install was tagged `analytics_storage=denied` with no app-instance-id (`user_pseudo_id` null), and GA4 standard reports cannot count cookieless events as installs/users below the ~1000/day behavioral-modeling threshold. Adjust and GameAnalytics register the install at SDK init regardless of consent, which is why their numbers matched each other and ran well above Firebase across all games. Confirmed in BigQuery: ~50% and ~27% of iOS `first_open` cookieless on two shipped games; Android ~0–10% (consent resolves fast, no ATT). Regression dates to v3.6.0 (consent-gated collection + boot-denied); the cookieless signature began at v3.9.1 (Consent Mode v2).
+- **Firebase severely undercounted installs on iOS — `first_open` fired cookieless and was uncountable in GA4**. On the MAX (Full-mode) path the SDK booted Firebase with analytics consent **denied** and waited for the CMP to resolve. iOS fires the native `first_open` at launch — before the CMP/ATT resolves — so the install was tagged `analytics_storage=denied` with no app-instance-id (`user_pseudo_id` null), and GA4 standard reports cannot count cookieless events as installs/users below the ~1000/day behavioral-modeling threshold. Adjust and GameAnalytics register the install at SDK init regardless of consent, which is why their numbers matched each other and ran well above Firebase across all games. Confirmed in BigQuery: ~50% and ~27% of iOS `first_open` cookieless on two shipped games; Android ~0–10% (consent resolves fast, no ATT). Regression dates to v3.6.0 (consent-gated collection + boot-denied); the cookieless signature began at v3.9.1 (Consent Mode v2).
 
   Fix: analytics consent is now **decoupled from ad consent**. `analytics_storage` defaults **granted** so `first_open` is counted with an app-instance-id; the three ad signals (`ad_storage` / `ad_personalization` / `ad_user_data`) stay **denied** until the CMP resolves. The defaults are written as platform Consent Mode v2 defaults so they govern the first native ping: Android `<meta-data google_analytics_default_allow_*>` injected into the merged manifest at `IPostGenerateGradleAndroidProject`, and iOS `GOOGLE_ANALYTICS_DEFAULT_ALLOW_*` `Info.plist` keys at `OnPostProcessBuild`. At runtime `analytics_storage` is downgraded to denied only for a confirmed GDPR decline (`ConsentStatus.Denied`); every other state (NotApplicable / Required / Unknown / Obtained) keeps analytics granted. The hard `SetAnalyticsCollectionEnabled(false)` call is removed — it didn't reliably suppress on iOS and only stripped the install's identifier; collection is now always enabled, which also clears the persisted-disabled state older builds left on returning devices.
 
-- **Sorolla Vitals diagnostics console could not be opened on device (worked in the Editor)** (`Runtime/Diagnostics/InputSystem/AssemblyInfo.cs` (new), `Runtime/Diagnostics/InputSystem/SorollaDiagnosticsInputSystemBackend.cs`, `Runtime/link.xml`). The new-Input-System touch backend lives in an optional companion assembly that nothing references — it self-registers via `[RuntimeInitializeOnLoadMethod]`. Unlike every adapter assembly it had no stripping protection, so IL2CPP managed stripping removed it on device builds: the backend never registered, the console received no touch input, and the 5-tap open gesture did nothing (the Editor works because Mono doesn't strip). Fix: added `[assembly: AlwaysLinkAssembly]` (`AssemblyInfo.cs`), `[Preserve]` on the backend class + its `Register()` method, and a `link.xml` entry — matching the adapter assemblies. The protection is gated by the assembly's `ENABLE_INPUT_SYSTEM` define constraint, so legacy-Input-Manager-only projects (where the assembly does not compile) are unaffected.
+- **The Vitals diagnostics console could not be opened on device builds (it worked in the Editor).** IL2CPP code stripping removed the console's touch input for the new Input System, so the 5-tap gesture did nothing. That input code is now protected from stripping. Projects that use only the legacy Input Manager are unaffected.
 
-- **iOS: ad personalization was signaled to Firebase/Facebook as "granted" for ATT-denied users who accepted the CMP** (`Runtime/Palette.cs`, `Runtime/Adapters/Firebase/FirebaseAdapterImpl.cs`, `Runtime/Adapters/FirebaseAdapter.cs`, `Runtime/SorollaBootstrapper.cs`). `ad_personalization` / `ad_user_data` (and Facebook advertiser tracking) followed the GDPR/UMP decision alone, so an EEA user who consented in the CMP but denied Apple ATT was reported personalized — contrary to Apple's rule that personalized ads require **both** ATT-authorized **and** consent. Fix: those two ad signals + Facebook now require GDPR consent **AND** (on iOS) ATT-authorized, via `AdPersonalizationAllowed`; `ad_storage` continues to follow the GDPR/UMP decision and `analytics_storage` continues to follow the decoupled rule above. `AttStatus` is always `Authorized` off-iOS, so this is a no-op on Android. Facebook `UpdateConsent` is now re-asserted on every consent resolution (moved above the ad-bucket early-return) so an ATT change is never missed when the GDPR bucket is unchanged. Adjust stays gated on the GDPR decision only — its native ATT handling withholds the IDFA — so SKAdNetwork / organic install attribution is unaffected.
+- **iOS: ad personalization was signaled to Firebase/Facebook as "granted" for ATT-denied users who accepted the CMP**. `ad_personalization` / `ad_user_data` (and Facebook advertiser tracking) followed the GDPR/UMP decision alone, so an EEA user who consented in the CMP but denied Apple ATT was reported personalized — contrary to Apple's rule that personalized ads require **both** ATT-authorized **and** consent. Fix: those two ad signals + Facebook now require GDPR consent **AND** (on iOS) ATT-authorized, via `AdPersonalizationAllowed`; `ad_storage` continues to follow the GDPR/UMP decision and `analytics_storage` continues to follow the decoupled rule above. `AttStatus` is always `Authorized` off-iOS, so this is a no-op on Android. Facebook `UpdateConsent` is now re-asserted on every consent resolution (moved above the ad-bucket early-return) so an ATT change is never missed when the GDPR bucket is unchanged. Adjust stays gated on the GDPR decision only — its native ATT handling withholds the IDFA — so SKAdNetwork / organic install attribution is unaffected.
 
-- **Firebase analytics events were dropped silently after a failed init** (`Runtime/Adapters/Firebase/FirebaseAdapterImpl.cs`). When Firebase init failed (e.g. missing `GoogleService-Info.plist` or dependencies) queued events were discarded with no signal — they appeared in Sorolla Vitals but never reached Firebase ("in the game, not in Firebase realtime"). Now logs a one-time warning naming the likely cause instead of dropping silently.
+- **Firebase analytics events were dropped silently after a failed init**. When Firebase init failed (e.g. missing `GoogleService-Info.plist` or dependencies) queued events were discarded with no signal — they appeared in Sorolla Vitals but never reached Firebase ("in the game, not in Firebase realtime"). Now logs a one-time warning naming the likely cause instead of dropping silently.
 
 ### Changed
-- **Consent telemetry param schema reshaped** (`Runtime/Palette.cs`, `Runtime/SorollaBootstrapper.cs`). `consent_resolved` / `consent_changed` / `att_decision` now emit `{ gdpr, att_status (iOS only), personalized_ads, analytics }`, separating the raw user decisions (`gdpr`, `att_status`) from the SDK-resolved outcomes (`personalized_ads`, `analytics`). Key renames from the previous shape: `max_status` → `gdpr`, `consent` → `personalized_ads`, and `analytics_consent` → `analytics`; `att_status` keeps its name but is now also emitted on `consent_resolved` / `consent_changed` (previously `att_decision` only). All enum values are now lowercase snake_case (`gdpr`: `obtained|denied|not_applicable|required|unknown`; `att_status`: `authorized|denied|restricted|not_determined` — previously PascalCase), and the constant `source` discriminator is dropped from `consent_resolved` / `consent_changed` (kept on `att_decision`). **Breaking for first-party GA4 / BigQuery dashboards or saved queries keyed on the old `max_status` / `consent` / `analytics_consent` names, or filtering `att_status` on PascalCase values** — they will return empty / mismatch after this release.
-- **Trimmed dead adapter API and duplicated editor/sanitizer logic** (`Runtime/Adapters/*`, `Editor/*`). Removed unused adapter methods with no remaining consumer; deduplicated the Android manifest / gradle sanitizers and editor define logic. No public `Palette` API change. The legacy `AutoTracker` / `TrackPurchase(Product)` purchase shim is **retained** — game backends still on the legacy Unity IAP integration path consume it; its removal is deferred until those migrate to `Palette.AttachPurchaseTracking` (Unity IAP v5 `StoreController`).
+- **Consent telemetry param schema reshaped**. `consent_resolved` / `consent_changed` / `att_decision` now emit `{ gdpr, att_status (iOS only), personalized_ads, analytics }`, separating the raw user decisions (`gdpr`, `att_status`) from the SDK-resolved outcomes (`personalized_ads`, `analytics`). Key renames from the previous shape: `max_status` → `gdpr`, `consent` → `personalized_ads`, and `analytics_consent` → `analytics`; `att_status` keeps its name but is now also emitted on `consent_resolved` / `consent_changed` (previously `att_decision` only). All enum values are now lowercase snake_case (`gdpr`: `obtained|denied|not_applicable|required|unknown`; `att_status`: `authorized|denied|restricted|not_determined` — previously PascalCase), and the constant `source` discriminator is dropped from `consent_resolved` / `consent_changed` (kept on `att_decision`). **Breaking for first-party GA4 / BigQuery dashboards or saved queries keyed on the old `max_status` / `consent` / `analytics_consent` names, or filtering `att_status` on PascalCase values** — they will return empty / mismatch after this release.
+- **Trimmed dead adapter API and duplicated editor/sanitizer logic**. Removed unused adapter methods with no remaining consumer; deduplicated the Android manifest / gradle sanitizers and editor define logic. No public `Palette` API change. The legacy `AutoTracker` / `TrackPurchase(Product)` purchase shim is **retained** — game backends still on the legacy Unity IAP integration path consume it; its removal is deferred until those migrate to `Palette.AttachPurchaseTracking` (Unity IAP v5 `StoreController`).
 
 ### Behavior change
 - Builds now ship Consent Mode v2 default keys in the Android manifest and iOS `Info.plist` (analytics granted, ads denied), and Firebase analytics collection is always enabled. An EEA user emits one identified `first_open` before the CMP resolves; ad personalization remains gated by the CMP at all times. This restores install parity with Adjust / GameAnalytics. Studios with strict EEA analytics requirements should review the posture in `FirebaseAdapterImpl.ApplyConsentSignals` and the injected Consent Mode defaults.
@@ -741,8 +740,8 @@ No public `Palette` C# API change — `Palette.Initialize`, the economy / purcha
 Diagnostics input-system compatibility release.
 
 ### Fixed
-- **Sorolla Vitals input handling now follows the host project's active Unity input backend** (`Runtime/Diagnostics/*`): new Input System-only games compile and run the diagnostics gesture/mouse path without touching `UnityEngine.Input`, while old Input Manager-only projects keep the legacy path without taking a dependency on `com.unity.inputsystem`.
-- **Input System support is isolated in an optional companion assembly** (`Runtime/Diagnostics/InputSystem/*`): the new backend is compiled only when `ENABLE_INPUT_SYSTEM` is present and registers itself at runtime, avoiding compile-time dependency issues for legacy projects.
+- **Sorolla Vitals input handling now follows the host project's active Unity input backend**: new Input System-only games compile and run the diagnostics gesture/mouse path without touching `UnityEngine.Input`, while old Input Manager-only projects keep the legacy path without taking a dependency on `com.unity.inputsystem`.
+- **Input System support is isolated in an optional companion assembly**: the new backend is compiled only when `ENABLE_INPUT_SYSTEM` is present and registers itself at runtime, avoiding compile-time dependency issues for legacy projects.
 
 ### Notes
 - The SDK does not mutate a game's `EventSystem`. Projects using uGUI still need the EventSystem input module that matches their Player Settings (`InputSystemUIInputModule` for new Input System-only, `StandaloneInputModule` for old Input Manager-only).
@@ -752,7 +751,7 @@ Diagnostics input-system compatibility release.
 Firebase economy event placement-attribution fix.
 
 ### Fixed
-- **Economy earn events lose source category in BigQuery** (`Runtime/Adapters/Firebase/FirebaseAdapterImpl.cs`, `Runtime/Palette.Economy.cs`): `TrackResourceEvent` previously dropped the `EconomySource`/`EconomySink` enum entirely on both flows and gated the granular itemId to spend events only. Earn events arrived in BigQuery with `virtual_currency_name` + `value` only — analysts could not tell apart `LevelReward` run-rewards from `LevelReward` chest claims, or distinguish `AdReward` bonuses from progression rewards. Reported from a partner game's integration QA.
+- **Economy earn events lose source category in BigQuery**: `TrackResourceEvent` previously dropped the `EconomySource`/`EconomySink` enum entirely on both flows and gated the granular itemId to spend events only. Earn events arrived in BigQuery with `virtual_currency_name` + `value` only — analysts could not tell apart `LevelReward` run-rewards from `LevelReward` chest claims, or distinguish `AdReward` bonuses from progression rewards. Reported from a partner game's integration QA.
 
   Param shape, post-fix — mirrors GA4's spec-defined asymmetry between earn and spend (canonical `item_name` slot exists on spend, not on earn):
   - `earn_virtual_currency` emits `virtual_currency_name`, `value`, **`source`** (snake-cased `EconomySource` enum), and **`source_item`** (the granular `itemId` string when the caller supplies one — absent otherwise).
@@ -768,44 +767,44 @@ No public Palette API change: `Palette.Economy.Earn(currency, amount, source, it
 Code-only Sorolla Vitals and studio documentation refresh.
 
 ### Added
-- **Sorolla Vitals runtime console** (`Runtime/Diagnostics/*`): code-only OnGUI diagnostics console opened by five taps in the top-left safe area or `Palette.ShowDebugger()`, with SDK health, event/ad/purchase smoke checks, copied reports, and runtime problem summaries.
-- **Validation checklist** (`Documentation~/validation.md`): separate Prototype and Full-mode soft-launch validation tracks.
+- **Sorolla Vitals runtime console**: code-only OnGUI diagnostics console opened by five taps in the top-left safe area or `Palette.ShowDebugger()`, with SDK health, event/ad/purchase smoke checks, copied reports, and runtime problem summaries.
+- **Validation checklist**: separate Prototype and Full-mode soft-launch validation tracks.
 
 ### Changed
-- **Debug UI sample removed** (`Samples~/DebugUI`, `package.json`): the prefab/sample-based Debug UI is replaced by the built-in Vitals console; package dependencies are reduced to `com.unity.ugui`.
-- **Diagnostics capture expanded** (`Runtime/Palette*.cs`, `Runtime/Adapters/*`): level, economy, custom event, ad, MAX, Adjust, and purchase signals feed Vitals.
-- **Mode source of truth hardened** (`Editor/SorollaSettings.cs`, `Editor/Sdk/DefineSymbols.cs`): editor mode resolves from `Assets/Resources/SorollaConfig.asset` and removes legacy mode defines.
-- **Studio docs reframed** (`Documentation~/quick-start.md`, `Documentation~/switching-to-full.md`, `Documentation~/guides/*`): Prototype is the fast GameAnalytics/Facebook/Firebase path; Full mode is the soft-launch migration path; stale public API references were replaced with `Palette.Level.*`, `Palette.Economy.*`, and `Palette.AttachPurchaseTracking(...)`.
+- **Debug UI sample removed**: the prefab/sample-based Debug UI is replaced by the built-in Vitals console; package dependencies are reduced to `com.unity.ugui`.
+- **Diagnostics capture expanded**: level, economy, custom event, ad, MAX, Adjust, and purchase signals feed Vitals.
+- **Mode source of truth hardened**: editor mode resolves from `Assets/Resources/SorollaConfig.asset` and removes legacy mode defines.
+- **Studio docs reframed**: Prototype is the fast GameAnalytics/Facebook/Firebase path; Full mode is the soft-launch migration path; stale public API references were replaced with `Palette.Level.*`, `Palette.Economy.*`, and `Palette.AttachPurchaseTracking(...)`.
 
 ### Fixed
-- **Docs build references** (`Documentation~/docfx/sdk.csproj`): added Unity Input Legacy and Text Rendering module references required by the Vitals console.
+- **Docs build references**: added Unity Input Legacy and Text Rendering module references required by the Vitals console.
 
 ## [3.15.2] - 2026-05-05
 
 Follow-up editor settings hardening.
 
 ### Fixed
-- **MAX consent flow sync** (`Runtime/PaletteConstants.cs`, `Editor/MaxSettingsSanitizer.cs`, `Editor/BuildValidationVendorSettings.cs`): the publisher privacy policy URL is now centralized in `PaletteConstants` and enforced exactly in `AppLovinSettings`, same as the shared MAX SDK key. Build Health verifies that consent flow is enabled and the URL matches the expected shared value.
+- **MAX consent flow sync**: the publisher privacy policy URL is now centralized in `PaletteConstants` and enforced exactly in `AppLovinSettings`, same as the shared MAX SDK key. Build Health verifies that consent flow is enabled and the URL matches the expected shared value.
 
 ## [3.15.1] - 2026-05-05
 
 Hotfix for Palette editor state sync.
 
 ### Fixed
-- **MAX shared SDK key sync** (`Runtime/PaletteConstants.cs`, `Editor/MaxSettingsSanitizer.cs`, `Editor/SorollaWindow.cs`, `Editor/BuildValidationVendorSettings.cs`): restores the embedded publisher-level AppLovin MAX SDK key. Palette auto-syncs `AppLovinSettings` from this exact key during editor auto-fixes before validation; MAX is no longer treated as a user-configured SDK key.
-- **Mode source of truth** (`Editor/SorollaSettings.cs`, `Editor/SorollaWindow.cs`, `Editor/BuildValidationConfig.cs`): existing `Resources/SorollaConfig.asset` now drives Palette editor mode on reload. Fresh EditorPrefs can no longer auto-select Prototype and overwrite a project that is already configured for Full mode.
+- **MAX shared SDK key sync**: restores the embedded publisher-level AppLovin MAX SDK key. Palette auto-syncs `AppLovinSettings` from this exact key during editor auto-fixes before validation; MAX is no longer treated as a user-configured SDK key.
+- **Mode source of truth**: existing `Resources/SorollaConfig.asset` now drives Palette editor mode on reload. Fresh EditorPrefs can no longer auto-select Prototype and overwrite a project that is already configured for Full mode.
 
 ## [3.15.0] - 2026-05-04
 
 SDK QA hardening release. Adds purchase-verification diagnostics, MAX retry hardening, modularized build validation, and Debug UI purchase tooling.
 
 ### Added
-- **Adjust iOS purchase verification diagnostics** (`Runtime/Purchasing/Palette.PurchaseTracking.cs`, `Runtime/Adapters/Adjust/AdjustAdapterImpl.cs`): logs the purchase verification callback status, numeric code, and message. Also logs Apple payload presence for the unified receipt, app receipt, JWS representation, original transaction ID, and store name. This makes sandbox/production environment mismatches and dashboard setup issues visible during QA without exposing raw receipt payloads.
-- **MAX ad load retry backoff** (`Runtime/Adapters/MAX/MaxAdapterImpl.cs`): failed rewarded/interstitial load attempts now retry through SDK-managed coroutine timing instead of immediately hammering reload calls.
-- **Debug UI IAP test harness** (`Samples~/DebugUI/Scripts/Controllers/DebugPurchaseTester.cs`): adds a Unity IAP v5 QA purchase path wired through `Palette.AttachPurchaseTracking` so SDK purchase tracking can be exercised from the sample UI.
-- **Build health notifier and modular build-validation files** (`Editor/BuildValidation*.cs`, `Editor/BuildHealthConsoleNotifier.cs`, `Editor/BuildValidatorPreprocessor.cs`): splits the build validator into focused checks for packages, Firebase, Gradle, Android manifest, config, vendor settings, and console reporting.
-- **Economy item ID sanitizer tests** (`Tests/Editor/EconomyItemIdSanitizerTests.cs`): covers item-id normalization behavior used by economy events.
-- **Firebase Remote Config public guide** (`Documentation~/guides/firebase-remote-config.md`).
+- **Adjust iOS purchase verification diagnostics**: logs the purchase verification callback status, numeric code, and message. Also logs Apple payload presence for the unified receipt, app receipt, JWS representation, original transaction ID, and store name. This makes sandbox/production environment mismatches and dashboard setup issues visible during QA without exposing raw receipt payloads.
+- **MAX ad load retry backoff**: failed rewarded/interstitial load attempts now retry through SDK-managed coroutine timing instead of immediately hammering reload calls.
+- **Debug UI IAP test harness**: adds a Unity IAP v5 QA purchase path wired through `Palette.AttachPurchaseTracking` so SDK purchase tracking can be exercised from the sample UI.
+- **Build health notifier and modular build-validation files**: splits the build validator into focused checks for packages, Firebase, Gradle, Android manifest, config, vendor settings, and console reporting.
+- **Economy item ID sanitizer tests**: covers item-id normalization behavior used by economy events.
+- **Firebase Remote Config public guide**.
 
 ### Changed
 - **Runtime internals split into focused partials**: purchase tracking, remote config, and event validation were moved out of the monolithic `Palette.cs` into dedicated files. Public integration paths remain the same.
@@ -827,7 +826,7 @@ Policy split:
 - **Curated enums (`CurrencyId`, `EconomySource`, `EconomySink`) and `Economy.Earn/Spend` amount** stay strict (drop on invalid). Finite known values / impossible transactions are corruption, not recoverable signal.
 
 ### Changed
-- **`Palette.Level.Start/Complete/Fail`** (`Runtime/Palette.Level.cs`): removed the `level <= 0` / `world <= 0` validation. `level == 0` / `world == 0` are now silent (valid). `level < 0` / `world < 0` log a warning and pass through: `Level.{verb}: level={N} is negative; event passed through. Check for uninitialized int or off-by-one.`
+- **`Palette.Level.Start/Complete/Fail`**: removed the `level <= 0` / `world <= 0` validation. `level == 0` / `world == 0` are now silent (valid). `level < 0` / `world < 0` log a warning and pass through: `Level.{verb}: level={N} is negative; event passed through. Check for uninitialized int or off-by-one.`
 - Internal: `Validate(...) -> bool` replaced by `WarnIfNegative(string, int, int?)` — no clamping, no return value gating the emit.
 
 ## [3.14.3] - 2026-04-22
@@ -881,9 +880,6 @@ Foolproof-path cleanup, same pattern as 3.14.1. Four deprecated-but-public APIs 
 ### Migration
 All four removed APIs had `[Obsolete]` warnings in prior releases pointing at the typed replacements. Studios who acted on those warnings are already on the canonical path and need no migration. Studios still on the legacy API should follow the Obsolete message: `TrackProgression` → `Palette.Level.Start/Complete/Fail`, `TrackResource` → `Palette.Economy.Earn/Spend`, `TrackDesign` → `Palette.TrackEvent`.
 
-### Notes
-- `Documentation~/api-reference.md` is auto-regenerated; stale 3.14.1 / 3.14.2 entries will remain until the next `Tools~/build-docs.sh` regen. Source of truth is the access modifier on `Runtime/Palette.cs`.
-
 ## [3.14.1] - 2026-04-22
 
 Fool-proof the canonical purchase-tracking path: `Palette.TrackPurchase` is no longer reachable from studio code. 3.14.0 made `AttachPurchaseTracking` the canonical wiring; 3.14.1 finishes the job by removing the direct-call escape hatch so there's literally one way to integrate purchase tracking and it cannot be miswired, double-called, or called with malformed data.
@@ -914,18 +910,15 @@ _store.OnPurchasePending += order =>     // studio keeps fulfillment-only handle
 };
 ```
 
-### Notes
-- `Documentation~/api-reference.md` is auto-regenerated from XML doc comments via `Tools~/build-docs.sh`. The pre-3.14.1 `TrackPurchase` entries will remain stale in the markdown until the next regen; source of truth is the `internal` modifier on `Runtime/Palette.cs`.
-
 ## [3.14.0] - 2026-04-22
 
-Purchase-tracking hardening + fullscreen-ad screen-wake. Purchase side was triggered by QA evidence that `OnPurchaseConfirmed` can fire twice per purchase about one second apart on Google Play in-session, doubling downstream analytics revenue (Unity IAP v5 + Google Play framework quirk, separate from Unity's documented `OnPurchasePending` crash-replay behaviour). The dedup guard is now enforced SDK-side so integrations cannot produce duplicate purchase analytics regardless of which callback they subscribe to, and the wiring has been collapsed to a single idempotent call that cannot be miswired. Ads side closes a long-standing UX hole where some mediated networks don't set `FLAG_KEEP_SCREEN_ON` reliably during fullscreen ads, letting the device dim or sleep mid-impression.
+Purchase-tracking hardening and screen wake during fullscreen ads. Google Play can fire `OnPurchaseConfirmed` twice for one purchase, about one second apart, which doubled purchase revenue in analytics. Palette now deduplicates purchases itself, whichever callback the game uses, and the wiring is one idempotent call. Some mediated networks do not keep the screen on during fullscreen ads; Palette now does, so the device no longer dims or sleeps during an ad.
 
 ### Added
 - **`Palette.AttachPurchaseTracking(StoreController store)`**: one-call wiring for Unity IAP v5 purchase tracking. Subscribes `OnPurchasePending += Palette.TrackPurchase` on the SDK's behalf so analytics fan-out cannot be forgotten or miswired. Idempotent via a session-scoped `HashSet<StoreController>` — repeat calls with the same controller are logged and dropped. Manual subscription (`_store.OnPurchasePending += Palette.TrackPurchase;`) still works identically for studios that want to own the wiring. Gated on `UNITY_PURCHASING_INSTALLED`.
 
 ### Fixed
-- **Duplicate purchase analytics from Google Play `OnPurchaseConfirmed` double-fire**: QA observed `OnPurchaseConfirmed` firing twice about one second apart per purchase on Google Play, inflating Firebase/Adjust/GA/TikTok revenue by 2x. Fix is session-wide TxID dedup enforced inside the low-level `Palette.TrackPurchase(double, string, ...)` chokepoint that every overload funnels through. All three entry points (`TrackPurchase(PendingOrder)`, `TrackPurchase(Product)`, `TrackPurchase(double, ...)` low-level) are now idempotent per `transactionId` for the session: second call with the same non-empty TxID is dropped before fan-out to Adjust/Firebase/GA/TikTok with a `Debug.LogWarning`. Fails open on empty/null TxID (cannot dedup what we cannot observe). Placed after price/currency validation so a bad-payload first call does not burn the TxID slot for a corrected retry. Also covers Unity-documented `OnPurchasePending` crash-replay (see https://docs.unity.com/ugs/en-us/manual/iap/manual/purchases — "may be called at any point following a successful initialization ... consider implementing your own de-duplication logic"). Studios are **not required** to keep their own TxID HashSet for analytics any more.
+- **Duplicate purchase analytics from Google Play `OnPurchaseConfirmed` double-fire**: Google Play can fire `OnPurchaseConfirmed` twice per purchase, doubling Firebase/Adjust/GA/TikTok revenue. Every `TrackPurchase` overload now drops a second call with the same non-empty transaction ID in the same session, before it reaches any vendor, and logs a warning. Calls without a transaction ID are not deduplicated. Validation runs first, so a rejected call does not block a corrected retry. This also covers Unity's documented `OnPurchasePending` replay after a crash ([Unity IAP docs](https://docs.unity.com/ugs/en-us/manual/iap/manual/purchases)). Games no longer need their own transaction-ID set for analytics.
 - **Screen sleeping / dimming during fullscreen ads** (`MaxAdapterImpl`): MAX and mediated ad networks do not consistently set `FLAG_KEEP_SCREEN_ON` on every adapter, so on long rewarded/interstitial impressions the device could dim or sleep — ruining the impression and the reward handshake. `AcquireScreenWake()` (`Screen.sleepTimeout = NeverSleep`) now wraps `MaxSdk.ShowRewardedAd` / `ShowInterstitial`, paired with `ReleaseScreenWake()` in `OnRewardedAdHidden` / `OnRewardedAdDisplayFailed` / `OnInterstitialAdHidden` / `OnInterstitialAdDisplayFailed` (saves and restores the prior timeout rather than hardcoding back to `SystemSetting`). `Application.focusChanged` is subscribed as a safety net — if a callback is somehow missed, the wake lock is released the moment the app regains focus, so the device can never get stuck in never-sleep mode after an ad.
 
 ### Changed
@@ -936,7 +929,7 @@ Purchase-tracking hardening + fullscreen-ad screen-wake. Purchase side was trigg
 
 ## [3.13.0] - 2026-04-21
 
-Revenue-integrity release. Triggered by a live-fire BigQuery audit that exposed Android purchases landing in Firebase with `currency="Tier"` / `value=NULL` (`firebase_error=19 / error_value="currency"` observed in raw events) and an iOS `transaction_id` regression after a Unity IAP v5 CorePro migration. A full vendor-deprecation audit ran in parallel: every third-party API the SDK calls was cross-checked against live 2026 documentation (AppLovin / Axon, Adjust v5, Firebase Unity 13.x, Facebook v18, GameAnalytics, Unity IAP 5.2.1). This release ships the Unity IAP v5 migration path plus three best-practice gaps closed (Crashlytics fatal routing, Adjust iOS ATT wait, GA4 `items[]` shape).
+Revenue-integrity release. Fixes Android purchases reaching Firebase with `currency="Tier"` and no value, and missing iOS `transaction_id` after the Unity IAP v5 migration. Every third-party API Palette calls was checked against current vendor documentation (AppLovin, Adjust v5, Firebase Unity 13.x, Facebook v18, GameAnalytics, Unity IAP 5.2.1). Adds the Unity IAP v5 migration path, Crashlytics fatal routing, the Adjust iOS ATT wait and the GA4 `items[]` shape.
 
 ### Added
 - **`Palette.TrackPurchase(PendingOrder)`**: canonical Unity IAP v5 overload. Reads `order.Info.TransactionID` + `order.Info.Receipt` while the order is still in `Pending` state — the only lifecycle point that captures `transactionId` reliably on consumables. Subscribe to `StoreController.OnPurchasePending` and call **before** `StoreController.ConfirmPurchase(order)`. Per [Unity IAP 5.2.1 `IOrderInfo` docs](https://docs.unity3d.com/Packages/com.unity.purchasing@5.2/api/UnityEngine.Purchasing.IOrderInfo.html), both fields are cleared for consumables once the order transitions to `ConfirmedOrder`. Preserves the existing price/currency validation and fires `sorolla_purchase_data_quality_failure` with `source: "pending_order"` on invalid metadata.
@@ -978,7 +971,7 @@ _storeController.OnPurchasePending += order =>
 ```
 
 ### Expected dashboard deltas after rollout
-- **iOS Firebase revenue may drop ~50%** once consumer-side duplicate-fire in `HandlePurchaseConfirmed` is resolved (tracked separately by the integration agent). Each purchase was firing twice ~1s apart with the same payload, inflating aggregate revenue. Correction, not regression.
+- **iOS Firebase revenue may drop ~50%** in games whose purchase handler fired each purchase twice, once that handler is fixed. This removes double counting; it is not a regression.
 - **Android Firebase `purchase` events may drop** as the SDK starts rejecting invalid-currency payloads. Affected purchases surface in the `sorolla_purchase_data_quality_failure` event stream with raw metadata; these were previously landing with `value=NULL` and unattributable anyway.
 - **Crashlytics fatal count will rise**: C# uncaught exceptions now land in the fatal bucket rather than non-fatal. Not new crashes — re-categorization.
 
@@ -992,7 +985,7 @@ Surfaces AppLovin's built-in ad-network debug tools through the `Palette` API so
 
 ## [3.12.0] - 2026-04-21
 
-Follow-up to `3.11.0`. Cleaned up consent fan-out to remove a redundant second propagation pass, deleted a dead Adjust init branch that no deployment path actually reaches, and reshaped ad-failure telemetry toward user-intent events so offline / VPN / no-fill sessions show up in the in-app funnel instead of disappearing into MAX's dashboard.
+Consent and ad-failure telemetry cleanup. Consent reaches each vendor in one pass, and ad-failure events now record what the player tried to do, so offline, VPN and no-fill sessions appear in the in-app funnel.
 
 ### Added
 - **`ad_show_requested` analytics event**: fired on every `Palette.ShowRewardedAd` / `Palette.ShowInterstitialAd` call. Params: `ad_format` (`rewarded` | `interstitial`). Pairs with the existing `ad_impression` event so studios can compute `show_rate = ad_impression / ad_show_requested` in Firebase / BigQuery - the missing denominator for ads-not-shown analysis.
@@ -1006,7 +999,7 @@ Follow-up to `3.11.0`. Cleaned up consent fan-out to remove a redundant second p
 
 ## [3.11.0] - 2026-04-21
 
-Consent propagation hardening, prompted by a production consent drop where ATT/CMP decisions were invisible in our own analytics. Three coupled fixes so Adjust honors mid-session consent, no events are lost during the MAX CMP resolution window, and the ATT / CMP decision is queryable from our own data.
+Consent propagation hardening. Adjust now honors consent changes during a session, no events are lost while MAX's consent dialog resolves, and the ATT and consent decisions are recorded as analytics events.
 
 ### Added
 - **`AdjustAdapter.UpdateConsent(bool)`**: consent now propagates to Adjust on both initial MAX CMP resolution and mid-session changes via `ShowPrivacyOptions()`. Denied consent calls `Adjust.Disable()` (reversible - user can re-grant later via the privacy form); consent granted calls `Adjust.Enable()`. `GdprForgetMe` deliberately not used here - reserved for explicit "delete my data" user actions.
@@ -1022,11 +1015,11 @@ Consent propagation hardening, prompted by a production consent drop where ATT/C
 ### Fixed
 - **Adjust ignored mid-session consent changes**: `Palette.OnMaxConsentChanged` propagated to GA / Firebase / Facebook but not Adjust. EU users who revoked via the privacy form kept getting attribution events - GDPR exposure. Now propagates to Adjust too alongside the others.
 - **Adjust enabled despite initial consent denied**: `Palette.OnMaxSdkInitialized` unconditionally called `InitializeAdjust` after CMP resolved regardless of the resolved `consent` bool, so tracking began for users who said no. Now calls `AdjustAdapter.UpdateConsent(consent)` immediately after init to disable if denied.
-- **ATT / CMP decisions invisible in our own analytics**: SDK logged decisions locally only. When consent rates dropped overnight, there was no first-party event to query against GA / Firebase. The three new events above close that gap - cohorts can be built on `att_status` / `max_status` directly.
+- **ATT / CMP decisions were not in analytics**: the SDK logged them only on the device. The three new events above make them queryable in GA and Firebase, so cohorts can be built on `att_status` / `max_status`.
 
 ## [3.10.0] - 2026-04-20
 
-DX-first pass on progression + economy APIs. Continues the `3.9.2` `TrackPurchase` hotfix pattern (see `Internal~/dx-first-audit.md`): primitive-accepting, stringly-typed entry points get typed wrappers so studios can't silently corrupt data via typos.
+Typed progression and economy APIs: string-based entry points get typed wrappers, so a typo can no longer corrupt the data silently.
 
 ### Added
 - **`Palette.Level.Start(int level, int? world=null)` / `Complete(int level, int? world=null, int score=0)` / `Fail(int level, int? world=null, int score=0)`**: typed level progression API. Replaces `TrackProgression(ProgressionStatus, string, string, string, int, Dictionary)` - no more 3-slot string arrays, no more stringly-typed status, no manual duration math. Optional trailing `Dictionary<string, object> extraParams` preserves the escape hatch for Firebase-specific context. Input validated: non-positive `level` or `world` is rejected with a clear log.
@@ -1162,7 +1155,6 @@ DX-first pass on progression + economy APIs. Continues the `3.9.2` `TrackPurchas
 - **Firebase progression mapping**: `level_fail` added (was only `level_start`/`level_end`). Canonical level name built from progression parts (`"world3_level12"`)
 
 ### Documentation
-- Removed internal working files from the repo (agent context files, bug reports, completed plans)
 - Promoted architecture.md and dashboard-setup.md from internal/ to public docs
 - Updated api-reference.md, firebase guide, README, quick-start for v3.7.0 API
 
