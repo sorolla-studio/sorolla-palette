@@ -326,7 +326,7 @@ report that carries every row plus the SDK commit of the checkout it was generat
   a mistake the credential probe cannot see, because the collector accepts any platform string
   on valid credentials.
 
-- **Greenlight CLI** (`Sorolla.Palette.Editor.GreenlightCli.Report`): headless `-executeMethod`
+- **Greenlight CLI**: headless `-executeMethod`
   entry point that writes the canonical Copy Report text to a file (`-sorollaReportPath`), waiting
   for the GameAnalytics credential probe to settle, so CI and command-line workflows can read the
   exact report the window shows.
@@ -651,12 +651,12 @@ Remote Config redesign: the SDK now owns the fetch lifecycle (auto-fetch, retry,
 - **`Palette.OnRemoteConfigChanged(IReadOnlyCollection<string> changedKeys)`**: fires on every served-value swap - first cached load, fetch activation, real-time update, GameAnalytics configs ready. Late subscribers fire immediately if values are already readable, so there is no subscribe-before-fetch ordering to get right. Keys are empty when the change is unspecified (re-read what you care about). Replaces both the `FetchRemoteConfig` callback and `OnRemoteConfigUpdated`.
 - **`Palette.OnRemoteConfigUpdateAvailable(keys)`**: fires instead of activation when `AutoActivateRemoteConfigUpdates` is false; the game applies the update via `ActivateRemoteConfigAsync()` at a safe moment (then `OnRemoteConfigChanged` fires).
 - **`Palette.WaitForRemoteConfig(timeoutSeconds = 5, minStatus = Cached)`**: awaitable gate for fetch-critical moments (loading screen, behind a network wall). Devices that have fetched before pass instantly via the disk cache.
-- **Fetch retry** (`FirebaseRemoteConfigAdapterImpl`): the boot fetch was one-shot - a transient network blip at cold start (cellular waking, captive wifi) lost the whole session to defaults with no retry (observed as intermittent "RC not fetched" sessions on romba). Failed fetches now retry at 5s/30s/120s and on every app-foreground until one lands.
+- **Fetch retry**: the boot fetch was one-shot - a transient network blip at cold start (cellular waking, captive wifi) lost the whole session to defaults with no retry. Failed fetches now retry at 5s/30s/120s and on every app-foreground until one lands.
 - **Dev-build key diagnostics**: once values are readable, reading a key that exists in no tier (remote, GA, registered defaults) warns once per key - typos and unpublished parameters were previously silent forever. Unparseable values (e.g. `"abc"` read as int) also warn.
 - **Cached-freshness signal at boot**: values activated in a previous session are detected (`ConfigInfo.FetchTime`) and reported as `Cached` before the fetch completes.
 
 ### Changed
-- **One resolution path for every getter** (`Palette.RemoteConfig.cs`): Firebase (remote/cached/in-app default) -> GameAnalytics -> `SetRemoteConfigDefaults` values -> call-site default, identical for string and typed reads. Previously the string getter fell back per-key to GA while typed getters never consulted GA once Firebase was ready, so one logical key could be served by two backends in one session.
+- **One resolution path for every getter**: Firebase (remote/cached/in-app default) -> GameAnalytics -> `SetRemoteConfigDefaults` values -> call-site default, identical for string and typed reads. Previously the string getter fell back per-key to GA while typed getters never consulted GA once Firebase was ready, so one logical key could be served by two backends in one session.
 - **Uniform value parsing**: bools accept `true/false`, `1/0`, `yes/no`, `on/off` case-insensitively on every tier (GA-tier bools previously only parsed `true`/`false`, silently dropping dashboard-typical `1`/`0`); numbers parse invariant-culture on every tier. A remote value explicitly set to `""` is now delivered (previously mapped to the call-site default).
 - **`SetRemoteConfigDefaults` is vendor-neutral**: values are kept in SDK state (serving the GA-only path, previously a silent no-op without Firebase) and still registered with Firebase so dashboard `useInAppDefault` parameters resolve. Defaults set before init now merge instead of queue-replace.
 - **GameAnalytics remote configs join the lifecycle**: GA configs becoming ready raises `OnRemoteConfigChanged` (and drives status when Firebase RC is absent or failed). Previously there was no readiness signal at all on the GA path - studios had to poll.
@@ -834,8 +834,8 @@ Policy split:
 Interstitial-ad callback symmetry + a pre-existing bug fix. Rewarded has had `(onComplete, onFailed)` since 3.x; interstitial had only `(onComplete)` and — worse — internally fired `_onInterstitialComplete` on `OnInterstitialAdDisplayFailed` and on the not-ready-at-show guard, mis-reporting failure as success. Studios relying on onComplete to gate game-flow transitions were getting told the ad played when it didn't.
 
 ### Fixed
-- **`OnInterstitialAdDisplayFailed` mis-invoked `onComplete`** (`MaxAdapterImpl`): when a mediated network failed to display an interstitial mid-show, the SDK fired the studio's completion callback, signalling success. Now fires `onFailed`.
-- **Not-ready-at-show guard mis-invoked `onComplete`** (`MaxAdapterImpl.ShowInterstitialAd`): if `ShowInterstitialAd` was called while `!_init`, `!_interstitialReady`, or `!MaxSdk.IsInterstitialReady`, the SDK called `onComplete` as if the ad had shown. Now calls `onFailed`.
+- **`OnInterstitialAdDisplayFailed` mis-invoked `onComplete`**: when a mediated network failed to display an interstitial mid-show, the SDK fired the studio's completion callback, signalling success. Now fires `onFailed`.
+- **Not-ready-at-show guard mis-invoked `onComplete`**: if `ShowInterstitialAd` was called while `!_init`, `!_interstitialReady`, or `!MaxSdk.IsInterstitialReady`, the SDK called `onComplete` as if the ad had shown. Now calls `onFailed`.
 - **Unavailable-MAX fallback mis-invoked `onComplete`** (`Palette.ShowInterstitialAd` on builds without MAX): now calls `onFailed`. Aligns with the rewarded no-MAX branch which already routes to `onFailed`.
 
 ### Changed (BREAKING)
@@ -919,7 +919,7 @@ Purchase-tracking hardening and screen wake during fullscreen ads. Google Play c
 
 ### Fixed
 - **Duplicate purchase analytics from Google Play `OnPurchaseConfirmed` double-fire**: Google Play can fire `OnPurchaseConfirmed` twice per purchase, doubling Firebase/Adjust/GA/TikTok revenue. Every `TrackPurchase` overload now drops a second call with the same non-empty transaction ID in the same session, before it reaches any vendor, and logs a warning. Calls without a transaction ID are not deduplicated. Validation runs first, so a rejected call does not block a corrected retry. This also covers Unity's documented `OnPurchasePending` replay after a crash ([Unity IAP docs](https://docs.unity.com/ugs/en-us/manual/iap/manual/purchases)). Games no longer need their own transaction-ID set for analytics.
-- **Screen sleeping / dimming during fullscreen ads** (`MaxAdapterImpl`): MAX and mediated ad networks do not consistently set `FLAG_KEEP_SCREEN_ON` on every adapter, so on long rewarded/interstitial impressions the device could dim or sleep — ruining the impression and the reward handshake. `AcquireScreenWake()` (`Screen.sleepTimeout = NeverSleep`) now wraps `MaxSdk.ShowRewardedAd` / `ShowInterstitial`, paired with `ReleaseScreenWake()` in `OnRewardedAdHidden` / `OnRewardedAdDisplayFailed` / `OnInterstitialAdHidden` / `OnInterstitialAdDisplayFailed` (saves and restores the prior timeout rather than hardcoding back to `SystemSetting`). `Application.focusChanged` is subscribed as a safety net — if a callback is somehow missed, the wake lock is released the moment the app regains focus, so the device can never get stuck in never-sleep mode after an ad.
+- **Screen sleeping / dimming during fullscreen ads**: MAX and mediated ad networks do not consistently set `FLAG_KEEP_SCREEN_ON` on every adapter, so on long rewarded/interstitial impressions the device could dim or sleep — ruining the impression and the reward handshake. `AcquireScreenWake()` (`Screen.sleepTimeout = NeverSleep`) now wraps `MaxSdk.ShowRewardedAd` / `ShowInterstitial`, paired with `ReleaseScreenWake()` in `OnRewardedAdHidden` / `OnRewardedAdDisplayFailed` / `OnInterstitialAdHidden` / `OnInterstitialAdDisplayFailed` (saves and restores the prior timeout rather than hardcoding back to `SystemSetting`). `Application.focusChanged` is subscribed as a safety net — if a callback is somehow missed, the wake lock is released the moment the app regains focus, so the device can never get stuck in never-sleep mode after an ad.
 
 ### Changed
 - **`Documentation~/architecture.md` Purchase Attribution diagram**: canonical wiring is now `Palette.AttachPurchaseTracking(_store)`; dedup chokepoint documented on the low-level `TrackPurchase`.
@@ -941,10 +941,10 @@ Revenue-integrity release. Fixes Android purchases reaching Firebase with `curre
 
 ### Changed
 - **Low-level `Palette.TrackPurchase(double amount, string currency, …)` currency guard**: upgraded from warn-and-proceed to **drop** on non-ISO 4217 currency. Revenue integrity > coverage — a wrong-currency event corrupts every downstream pipeline. Better no event than broken revenue.
-- **Firebase Crashlytics** (`FirebaseCrashlyticsAdapterImpl`):
+- **Firebase Crashlytics**:
   - `Crashlytics.ReportUncaughtExceptionsAsFatal = true` set on init (v10.4.0+ recommended pattern, per https://firebase.google.com/docs/crashlytics/unity/customize-crash-reports). Uncaught C# exceptions now surface as **fatal** in the Crashlytics dashboard; previously they were either missed or miscategorized as non-fatal.
   - `Application.logMessageReceived` handler no longer calls `LogException` for `LogType.Exception` — native auto-capture handles those now, and manual logging would double-report (fatal + non-fatal) the same exception. `LogType.Error` and `LogType.Assert` are still captured as `Crashlytics.Log` breadcrumbs for context.
-- **Firebase `purchase` event items[]** (`FirebaseAdapterImpl.TrackPurchase`): now includes `ParameterPrice` (= event value, single-item IAP) and `ParameterQuantity` (= 1) alongside the existing `ParameterItemID`. Required by GA4's canonical purchase shape for the Monetization > In-app purchases per-product breakdown to populate; previously only total revenue flowed via top-level `value` and the per-product drill-down was degraded.
+- **Firebase `purchase` event items[]**: now includes `ParameterPrice` (= event value, single-item IAP) and `ParameterQuantity` (= 1) alongside the existing `ParameterItemID`. Required by GA4's canonical purchase shape for the Monetization > In-app purchases per-product breakdown to populate; previously only total revenue flowed via top-level `value` and the per-product drill-down was degraded.
 - **Adjust iOS `AttConsentWaitingInterval = 60`** on `AdjustConfig` (`AdjustAdapterImpl.Initialize`). Delays install event up to 60s so Adjust captures IDFA after the ATT prompt resolves; previously installs could fire before ATT landed → IDFA missing → degraded attribution on non-SKAN paths. No-op on Android.
 - **`Documentation~/architecture.md` Purchase Attribution diagram**: now documents the v5 entry point (`OnPurchasePending` → `TrackPurchase(PendingOrder)`) as the canonical path; legacy `Product` / `AutoTracker` paths shown as transition shims.
 
@@ -1176,7 +1176,7 @@ Typed progression and economy APIs: string-based entry points get typed wrappers
 
 ### Fixed
 - **SDK initialization deferred until MAX consent resolves**: `Palette.IsInitialized` and `OnInitialized` now fire after MAX CMP completes, preventing pre-consent data from reaching downstream SDKs. `SorollaBootstrapper` passes `consent:false` when MAX is installed.
-- **Google Ad Manager required for UMP consent**: MAX needs a Google mediated network adapter (Ad Manager or AdMob) installed in Integration Manager for the UMP form to render. Without it, only the MAX privacy popup appeared - GDPR CMP dialog was silently missing. Documented across gdpr.md, switching-to-full.md, CLAUDE.md, and internal runbook.
+- **Google Ad Manager required for UMP consent**: MAX needs a Google mediated network adapter (Ad Manager or AdMob) installed in Integration Manager for the UMP form to render. Without it, only the MAX privacy popup appeared - GDPR CMP dialog was silently missing. Documented in gdpr.md and switching-to-full.md.
 - **Firebase event names**: Remapped to GA4 official constants (`level_start`, `level_end`, `level_up`, `earn_virtual_currency`, `spend_virtual_currency`)
 - **GameActivity detection**: Uses `SerializedObject` to read `androidApplicationEntry` for Unity 2022-6 compatibility (was using compile-time version checks)
 - **`DexingArtifactTransform` fix**: Guarded to Unity < 6 only (AGP 8.10.0 doesn't need it)
