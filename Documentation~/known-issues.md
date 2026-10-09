@@ -6,6 +6,22 @@ Entry format: symptom, root cause, fix, prevention. Each entry records the date 
 
 ---
 
+## iOS: Firebase missing after `pod install` (Firebase is no longer in the Podfile)
+
+**First seen**: 2026-10-09, a partner game (Firebase packages 13.7.0).
+
+**Symptom**: After an SDK update, the iOS build reports missing Firebase packages. The exported `Podfile` lists the other vendors but no Firebase pod, so running `pod install` does not install Firebase.
+
+**Root cause**: Firebase 13.7.0 requires External Dependency Manager 1.2.187 or later, which turns on its iOS Resolver's **Swift Package Manager Integration** by default. Firebase is then added to the Xcode project as Swift packages instead of CocoaPods; the other vendors stay on CocoaPods. A build that expects Firebase from CocoaPods no longer gets it.
+
+**Fix**: Either option works; pick one per project.
+1. Keep the default: build from Unity as usual. Xcode downloads the Firebase Swift packages during the build (it needs access to GitHub).
+2. Keep Firebase on CocoaPods: **Assets > External Dependency Manager > iOS Resolver > Settings**, turn off **Swift Package Manager Integration**, commit `ProjectSettings/GvhProjectSettings.xml`, and export again with **Replace**.
+
+**Prevention**: When an SDK update raises the Firebase version to 13.7.0, expect this change on iOS.
+
+---
+
 ## Compile errors in GameAnalytics after upgrading to Unity 6.5 or later (CS0619 `hierarchyWindowItemOnGUI`, `InstanceIDToObject`)
 
 **First seen**: 2026-09-21 (Unity 6000.6.0f1, GameAnalytics 8.0.1).

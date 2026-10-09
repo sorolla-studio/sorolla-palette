@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Documentation
+
+- Known issues explain why Firebase is no longer in the iOS `Podfile` with Firebase 13.7.0 (it arrives as Swift
+  packages) and how to keep it on CocoaPods instead.
+
 ## [4.0.9] - 2026-10-06
 
 ### Changed
