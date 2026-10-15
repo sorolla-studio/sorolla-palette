@@ -186,7 +186,6 @@ namespace Sorolla.Palette
             QaJson.StringMember(sb, ref first, "status", state.ConsentStatus);
             QaJson.StringMember(sb, ref first, "geography", state.ConsentGeography);
             QaJson.StringMember(sb, ref first, "att", state.Att);
-            QaJson.BoolMember(sb, ref first, "can_request_ads", state.CanRequestAds);
             QaJson.BoolMember(sb, ref first, "form_shown_this_session", state.ConsentFormShownThisSession);
 
             QaJson.Comma(sb, ref first);

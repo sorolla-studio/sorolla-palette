@@ -145,7 +145,6 @@ namespace Sorolla.Palette
             SorollaDiagnostics.RecordEventDispatch("vitals", "consent_refreshed", new Dictionary<string, object>
             {
                 { "status", Palette.ConsentStatus.ToString() },
-                { "can_request_ads", Palette.CanRequestAds },
             });
             SorollaDiagnostics.RefreshIdentifiers();
         }

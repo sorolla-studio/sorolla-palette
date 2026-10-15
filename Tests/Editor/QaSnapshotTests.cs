@@ -27,7 +27,6 @@ namespace Sorolla.Palette.Editor.Tests
             Set(state, "ConsentStatus", "Obtained");
             Set(state, "ConsentGeography", "gdpr");
             Set(state, "Att", "authorized");
-            Set(state, "CanRequestAds", true);
             Set(state, "ConsentSignalsKnown", true);
             Set(state, "AdStorageConsent", true);
             Set(state, "AdPersonalizationConsent", false);

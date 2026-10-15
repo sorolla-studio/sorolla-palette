@@ -289,17 +289,11 @@ namespace Sorolla.Palette
             if (consentSeverity == SorollaDiagnosticSeverity.Waiting)
                 AddDiagnosed(rows, "Consent", "UMP consent", consentSeverity, consentDetail,
                     ConsentWaitingDiagnosis());
+            else if (consentSeverity == SorollaDiagnosticSeverity.Info) // a recorded refusal
+                AddDiagnosed(rows, "Consent", "UMP consent", consentSeverity, consentDetail,
+                    ConsentDeniedDiagnosis());
             else
                 Add(rows, "Consent", "UMP consent", consentSeverity, consentDetail);
-
-            if (!Palette.CanRequestAds)
-            {
-                AddDiagnosed(rows, "Consent", "Can request ads", SorollaDiagnosticSeverity.Info, "False",
-                    CannotRequestAdsDiagnosis(), SorollaDiagnosticKind.Observed);
-                return;
-            }
-
-            Add(rows, "Consent", "Can request ads", SorollaDiagnosticSeverity.Pass, "True");
         }
 
         static void AddMaxAdRows(List<SorollaDiagnosticRow> rows, Snapshot snapshot, CapabilityState ads)
@@ -442,20 +436,20 @@ namespace Sorolla.Palette
             return config.adjustSandboxMode ? "Adjust Sandbox" : "Adjust Production";
         }
 
+        // Ads load in every consent state; the label says how MAX serves them.
         static string ConsentHeaderLabel()
         {
-            if (Palette.CanRequestAds) return "Ads OK";
-
             switch (Palette.ConsentStatus)
             {
+                case ConsentStatus.Obtained:
+                case ConsentStatus.NotApplicable:
+                    return "Ads OK";
+                case ConsentStatus.Denied:
+                    return "Ads non-personalized";
                 case ConsentStatus.Required:
                     return "Consent Required";
-                case ConsentStatus.Denied:
-                    return "Consent Denied";
-                case ConsentStatus.Unknown:
-                    return "Consent Unknown";
                 default:
-                    return "Ads Blocked";
+                    return "Consent Unknown";
             }
         }
 
@@ -508,7 +502,7 @@ namespace Sorolla.Palette
         {
             string detail = snapshot.ConsentSummaryDetail ?? "";
             if (!snapshot.ConsentSummarySeen) return SorollaDiagnosticSeverity.Waiting;
-            if (detail.Contains("Obtained") || detail.Contains("NotApplicable") || detail.Contains("canRequestAds=True"))
+            if (detail.Contains("Obtained") || detail.Contains("NotApplicable"))
                 return SorollaDiagnosticSeverity.Pass;
             if (detail.Contains("Denied")) return SorollaDiagnosticSeverity.Info;
             return SorollaDiagnosticSeverity.Waiting;

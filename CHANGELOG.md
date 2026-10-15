@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Removed
+
+- `Palette.CanRequestAds`. It was false for players who refused consent or had not answered yet, and its
+  docs said to show ads only when it was true, which blocked every ad for those players. Palette passes
+  the consent answer to AppLovin MAX, which serves non-personalized ads to players who refuse, so ads
+  need no consent gate. Use `IsInterstitialAdReady` / `IsRewardedAdReady` to know whether an ad is
+  loaded, and `ConsentStatus` for consent UI. The QA bridge snapshot no longer has
+  `consent.can_request_ads`, and the consent summary log no longer prints `canRequestAds`.
+
+### Changed
+
+- For a player who refused consent, the copied Vitals report's header reads "Ads non-personalized",
+  and the UMP consent row (under healthy checks) explains that ads still load. Vitals no longer says
+  refused or undecided consent blocks ad requests.
+
 ### Documentation
 
 - Known issues explain why Firebase is no longer in the iOS `Podfile` with Firebase 13.7.0 (it arrives as Swift

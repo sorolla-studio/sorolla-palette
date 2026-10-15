@@ -110,15 +110,14 @@ Delete and reinstall the app to test the first-run consent flow again.
 // Check if privacy button should be shown
 bool showButton = Palette.PrivacyOptionsRequired;
 
-// Current consent status
+// Current consent status (for UI and analytics; ads need no gating on it)
 ConsentStatus status = Palette.ConsentStatus;
-
-// Can ads be shown?
-bool canShow = Palette.CanRequestAds;
 
 // Show privacy options dialog
 Palette.ShowPrivacyOptions(onComplete: () => { });
 ```
+
+Don't gate ads on consent. Palette passes the player's answer to AppLovin MAX, which serves non-personalized ads to players who refuse. Call `ShowInterstitialAd` / `ShowRewardedAd` as usual, and use `IsInterstitialAdReady` / `IsRewardedAdReady` to know whether an ad is loaded.
 
 ---
 
@@ -131,4 +130,4 @@ Palette.ShowPrivacyOptions(onComplete: () => { });
 | Consent stays `Unknown`, with an SDK error | Google UMP answered but recorded nothing: publish a GDPR message for this app in AdMob (Privacy & messaging). Until then every player gets ads without consent and no Adjust attribution |
 | Consent stays `Unknown`, with a warning | The device was offline. Ad consent stays denied until Google UMP answers; relaunch online |
 | AppLovin "Terms and Privacy Policy" alert appears | Untick **MAX Terms and Privacy Policy Flow** in the Integration Manager (Palette's build check does this), then rebuild |
-| Ads not loading after consent | Wait for consent callback to complete |
+| Ads not loading after consent | Ads start once the consent flow completes, whatever the answer. Check `IsInterstitialAdReady` / `IsRewardedAdReady`; a player who refused gets non-personalized ads, which may fill less |

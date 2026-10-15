@@ -159,7 +159,6 @@ namespace Sorolla.Palette
                 ConsentStatus = Palette.ConsentStatus.ToString(),
                 ConsentGeography = ConsentGeography(Palette.ConsentStatus),
                 Att = AttForSnapshot(),
-                CanRequestAds = Palette.CanRequestAds,
                 ConsentFormShownThisSession = snap.ConsentFormShownThisSession,
                 ConsentSignalsKnown = snap.ConsentSignalsKnown,
                 AdStorageConsent = snap.AdStorageConsent,

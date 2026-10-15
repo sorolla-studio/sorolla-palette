@@ -183,8 +183,7 @@ namespace Sorolla.Palette
                     ? "Loaded — ready to show"
                     : "Not loaded — tap to probe";
             if (_consentActionDetail != null)
-                _consentActionDetail.text = Palette.ConsentStatus
-                    + (Palette.CanRequestAds ? " · can request ads" : " · cannot request ads");
+                _consentActionDetail.text = Palette.ConsentStatus.ToString();
 
             if (_bridgeActionLabel == null || _bridgeActionDetail == null) return;
             bool bridgeArmed = QaBridgeServer.IsArmed;

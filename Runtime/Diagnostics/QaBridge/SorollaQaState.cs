@@ -33,7 +33,6 @@ namespace Sorolla.Palette
         public string ConsentStatus;     // Unknown | NotApplicable | Required | Obtained | Denied
         public string ConsentGeography;  // gdpr | non_gdpr | unknown (derived from consent status)
         public string Att;               // authorized | denied | restricted | not_determined
-        public bool CanRequestAds;
         public bool ConsentFormShownThisSession;
         public bool ConsentSignalsKnown;
         public bool AdStorageConsent;

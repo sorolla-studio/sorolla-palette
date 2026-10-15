@@ -141,14 +141,14 @@ namespace Sorolla.Palette
 
         // ---- Consent ----
 
-        internal static (string why, string signal, string fix) CannotRequestAdsDiagnosis() => (
-            "The user has not granted the consent Google UMP collects before ads can be requested (GDPR/consent-mode gate), or consent was explicitly denied.",
-            "No ad request leaves the device; Show rewarded/Show interstitial both report \"not loaded\" even though every other adapter row can still pass.",
-            "This is often correct behavior, not a bug - a real user in a consent-required region who declines ads. To re-test the accepted-consent path: tap \"Reset consent\" on the Consent row under TEST YOUR GAME, then accept in the CMP form that reopens.");
+        internal static (string why, string signal, string fix) ConsentDeniedDiagnosis() => (
+            "The player refused consent in the Google UMP form.",
+            "Ads still load and show, non-personalized: AppLovin MAX gets the refusal and passes it to the ad networks. Adjust and the Firebase ad signals stay off. Google demand may fill less.",
+            "Nothing to fix - this is the player's choice. To re-test the accepted-consent path: tap \"Retest consent\" under TEST YOUR GAME, then accept in the form that reopens.");
 
         internal static (string why, string signal, string fix) ConsentWaitingDiagnosis() => (
             "The consent flow has not produced a resolved status yet.",
-            "Ad requests stay blocked while consent is Required or Unknown.",
+            "Ads still load, with consent treated as refused until the player answers; Google demand may not fill.",
             "Bring the app to the foreground and complete the CMP form. If no form appears and the status stays Unknown, check the device is online and that the GDPR message is published in AdMob, then relaunch.");
 
         internal static (string why, string signal, string fix) PurchaseVerificationFailureDiagnosis() => (

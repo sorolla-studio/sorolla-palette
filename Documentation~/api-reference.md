@@ -43,7 +43,8 @@ public static bool VerboseLogging { get; }
 ```
 #### ConsentStatus
 Current consent status, read from the consent record Google UMP keeps on the device.
-Use this to determine ad loading/showing in GDPR regions.
+For UI and analytics. Ads need no gating on it: Palette passes the decision to AppLovin
+MAX, which serves non-personalized ads to players who refuse.
 
 ```csharp title="Declaration"
 public static ConsentStatus ConsentStatus { get; }
@@ -54,22 +55,6 @@ Canonical read for game code and debug UI — prefer this over reaching into ATT
 
 ```csharp title="Declaration"
 public static ATTBridge.AuthorizationStatus AttStatus { get; }
-```
-#### CanRequestAds
-Whether ads can be requested (consent obtained or not required).
-Use this to gate ad loading/showing in GDPR regions.
-
-```csharp title="Declaration"
-public static bool CanRequestAds { get; }
-```
-
-###### Example
-
-```csharp
-if (Palette.CanRequestAds)
-    Palette.ShowRewardedAd(onComplete, onFailed);
-else
-    Debug.Log("Consent required");
 ```
 #### PrivacyOptionsRequired
 Whether a privacy options button should be shown in settings.

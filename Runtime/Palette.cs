@@ -30,7 +30,7 @@ namespace Sorolla.Palette
         static bool s_initStarted;
 
         // Resolved ad-storage consent. Drives Adjust init and the change-gated consent event below.
-        // Internal-only: studios read ConsentStatus / CanRequestAds, never this raw flag.
+        // Internal-only: studios read ConsentStatus, never this raw flag.
         static bool s_adConsent;
 
         // R1 (DR-129): last ATT status we fanned consent out for. Compared on app-focus so a
@@ -52,7 +52,8 @@ namespace Sorolla.Palette
 
         /// <summary>
         ///     Current consent status, read from the consent record Google UMP keeps on the device.
-        ///     Use this to determine ad loading/showing in GDPR regions.
+        ///     For UI and analytics. Ads need no gating on it: Palette passes the decision to AppLovin
+        ///     MAX, which serves non-personalized ads to players who refuse.
         /// </summary>
         /// <remarks>
         ///     Values: Unknown, NotApplicable, Required, Obtained, Denied.
@@ -74,23 +75,6 @@ namespace Sorolla.Palette
             ATTBridge.AuthorizationStatus.Restricted => "restricted",
             _ => "not_determined",
         };
-
-        /// <summary>
-        ///     Whether ads can be requested (consent obtained or not required).
-        ///     Use this to gate ad loading/showing in GDPR regions.
-        /// </summary>
-        /// <example>
-        ///     if (Palette.CanRequestAds)
-        ///         Palette.ShowRewardedAd(onComplete, onFailed);
-        ///     else
-        ///         Debug.Log("Consent required");
-        /// </example>
-#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-        public static bool CanRequestAds =>
-            ConsentStatus == Adapters.ConsentStatus.Obtained || ConsentStatus == Adapters.ConsentStatus.NotApplicable;
-#else
-        public static bool CanRequestAds => false;
-#endif
 
         /// <summary>
         ///     Whether a privacy options button should be shown in settings.
@@ -736,7 +720,7 @@ namespace Sorolla.Palette
 
         static void LogConsentDiagnostics(bool umpAnswered)
         {
-            string summary = $"Consent summary: canRequestAds={CanRequestAds}, consentStatus={ConsentStatus}";
+            string summary = $"Consent summary: consentStatus={ConsentStatus}";
             PaletteLog.Vital($"{Tag} {summary}");
             SorollaDiagnostics.RecordConsentSummary(summary);
 

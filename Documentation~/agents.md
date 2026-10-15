@@ -43,7 +43,7 @@ Returns the full runtime state as one JSON object:
 | `snapshot_schema`, `verdict` | Snapshot contract version and the authoritative Vitals verdict (`failing`, `action_needed`, `not_proven`, `pass`) |
 | `sdk`, `mode`, `development_build`, `armed`, `ready`, `device_wall_clock` | SDK version, active mode, build flavor, bridge listening state, init-complete flag, device clock |
 | `build` | Application id, platform, app version, and Unity build GUID used to match the installed binary to the editor's post-build receipt |
-| `consent` | `status`, `geography`, `att` (iOS only; `null` on every other platform), `can_request_ads`, `form_shown_this_session`, `signals` (`analytics_storage`/`ad_storage`/`ad_personalization`/`ad_user_data`, each `"granted"`/`"denied"`/`"unknown"`), `iabtcf` (`tc_string_present`, `purpose_consents`) |
+| `consent` | `status`, `geography`, `att` (iOS only; `null` on every other platform), `form_shown_this_session`, `signals` (`analytics_storage`/`ad_storage`/`ad_personalization`/`ad_user_data`, each `"granted"`/`"denied"`/`"unknown"`), `iabtcf` (`tc_string_present`, `purpose_consents`) |
 | `remote_config` | `status`, `fetch_seen`, `fetch_success`, `values` (per-key `value` + `source`) |
 | `adapters` | Per-vendor init state string for `max`, `adjust`, `firebase`, `gameanalytics`, `facebook`, plus `crashlytics_ready`/`crashlytics_outcome` |
 | `identity` | `att` (iOS only; `null` elsewhere), `advertising_id_present`, `advertising_id_zeroed`, `adjust_adid_present`, `attribution_network`, `adjust_environment`, `fb_att_enabled`, `fb_att_applied` |
