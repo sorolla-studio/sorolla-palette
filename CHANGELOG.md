@@ -13,17 +13,14 @@ All notable changes to this project will be documented in this file.
   loaded, and `ConsentStatus` for consent UI. The QA bridge snapshot no longer has
   `consent.can_request_ads`, and the consent summary log no longer prints `canRequestAds`.
 
-### Fixed
-
-- `Palette.PrivacyOptionsRequired` no longer returns true for a player outside a consent region, so
-  that player is no longer offered a privacy settings button for a form that changes nothing. Google's
-  consent platform reports a privacy options entry point as required wherever it published choices the
-  player can change, including regions where it also reports that GDPR does not apply: in Brazil the
-  button appeared although no consent form is shown there. The answer now follows the same consent
-  record as `Palette.ConsentStatus` and is false when that resolves `NotApplicable`. A player whose
-  record is unread or unanswered still gets the button.
-
 ### Changed
+
+- `Palette.PrivacyOptionsRequired` is now false whenever `Palette.ConsentStatus` is `NotApplicable`,
+  so the privacy settings button cannot contradict the consent status shown beside it. Google's
+  consent platform reports a privacy options entry point as required wherever it published choices
+  the player can change, and Palette separately reads "GDPR does not apply" from the same consent
+  record; the two are not guaranteed to agree. A player whose consent record is unread or unanswered
+  still gets the button, and a player in a consent region is unaffected.
 
 - For a player who refused consent, the copied Vitals report's header reads "Ads non-personalized",
   and the UMP consent row (under healthy checks) explains that ads still load. Vitals no longer says

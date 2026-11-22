@@ -109,18 +109,21 @@ namespace Sorolla.Palette
         internal static bool PrivacyOptionsRequired => OffersPrivacyOptions(Status, UmpBridge.PrivacyOptionsRequired);
 #endif
 
-        // UMP's privacyOptionsRequirementStatus answers REQUIRED wherever a published message gave the
-        // player choices to change, which includes regions this SDK resolves NotApplicable: AppLovin
-        // places Brazil in its Gdpr geography, and before this rule Brazilian players were offered a
-        // privacy button for a form that governs nothing (the same region blindness as the consent
-        // defect 4.0.8 fixed, which is why this reads the same record rather than asking a second
-        // source). NotApplicable is UMP's own IABTCF_gdprApplies=0, so UMP is still the authority; this
-        // only stops the requirement status from outvoting it. Unknown and Required keep the button:
-        // the record is unread or unanswered, and hiding it there would strand a player who cannot
-        // reach their own consent choices. Scope: correct while AdMob publishes only the EEA/UK GDPR
-        // message. Publishing a non-GDPR privacy message (a US state message) would make
-        // gdprApplies=0 players ones who DO need the entry point, and this rule would need the
-        // published message set as its input instead of the GDPR status alone.
+        // A defensive invariant, not a reproduction. History: up to 4.0.7 this answer was
+        // MaxSdk.CmpService.HasSupportedCmp, which is "a CMP is installed" and takes no region input at
+        // all, so it was true everywhere; 4.0.8 replaced it with UMP's own privacyOptionsRequirementStatus,
+        // which Google does scope by the published message. That is the fix. What is NOT established is
+        // that the two can never disagree: the requirement status is documented as REQUIRED wherever a
+        // published message gave the player choices to change, and this SDK separately resolves
+        // NotApplicable from IABTCF_gdprApplies=0 in the same record. No device has been seen offering a
+        // button where this SDK resolves NotApplicable; the point of the rule is that if UMP ever does,
+        // the button cannot contradict the consent decision shown next to it. Both halves still come from
+        // UMP, so no second region source is introduced. Unknown and Required keep the button: the record
+        // is unread or unanswered, and hiding it there would strand a player who cannot otherwise reach
+        // their own consent choices. Scope: this reads the GDPR status alone, which is right while AdMob
+        // publishes only the EEA/UK GDPR message. Publishing a non-GDPR privacy message (a US state
+        // message) would make gdprApplies=0 players ones who DO need the entry point, and the rule would
+        // then need the published message set as its input.
         internal static bool OffersPrivacyOptions(Adapters.ConsentStatus gdpr, bool umpRequiresPrivacyOptions) =>
             umpRequiresPrivacyOptions && gdpr != Adapters.ConsentStatus.NotApplicable;
 

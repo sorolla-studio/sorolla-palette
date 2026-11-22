@@ -65,8 +65,8 @@ namespace Sorolla.Palette.Editor.Tests
         // Record unread or unwritten: keep the button rather than strand a player who cannot
         // otherwise reach their own consent choices.
         [TestCase(ConsentStatus.Unknown,       true,  true)]
-        // Brazil: AppLovin's Gdpr geography makes UMP answer REQUIRED while UMP's own record says
-        // IABTCF_gdprApplies=0. No button.
+        // The case the rule exists for, not one observed on a device: UMP's requirement status says
+        // REQUIRED while its own record says IABTCF_gdprApplies=0. The button loses to the record.
         [TestCase(ConsentStatus.NotApplicable, true,  false)]
         // UMP says there is no form to reopen: never a button, whatever the region.
         [TestCase(ConsentStatus.Obtained,      false, false)]
