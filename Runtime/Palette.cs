@@ -84,7 +84,7 @@ namespace Sorolla.Palette
         ///     privacyButton.gameObject.SetActive(Palette.PrivacyOptionsRequired);
         /// </example>
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-        public static bool PrivacyOptionsRequired => UmpBridge.PrivacyOptionsRequired;
+        public static bool PrivacyOptionsRequired => ConsentCoordinator.PrivacyOptionsRequired;
 #else
         public static bool PrivacyOptionsRequired => false;
 #endif

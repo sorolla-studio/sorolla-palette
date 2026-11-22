@@ -52,5 +52,31 @@ namespace Sorolla.Palette.Editor.Tests
             Assert.AreEqual(adPersonalization,  s.AdPersonalization,  $"ad_personalization {ctx}");
             Assert.AreEqual(advertiserTracking, s.AdvertiserTracking, $"advertiser_tracking {ctx}");
         }
+
+        // The privacy-options entry point follows the same GDPR status the signals above do, so a
+        // player UMP resolved as outside GDPR is not offered a button for a form that governs
+        // nothing. UMP still owns whether a form exists at all (the bool); this only stops its
+        // requirement status from outvoting an explicit "GDPR does not apply".
+        //
+        // gdpr, umpRequiresPrivacyOptions  ->  offered
+        [TestCase(ConsentStatus.Obtained,      true,  true)]
+        [TestCase(ConsentStatus.Denied,        true,  true)]
+        [TestCase(ConsentStatus.Required,      true,  true)]
+        // Record unread or unwritten: keep the button rather than strand a player who cannot
+        // otherwise reach their own consent choices.
+        [TestCase(ConsentStatus.Unknown,       true,  true)]
+        // Brazil: AppLovin's Gdpr geography makes UMP answer REQUIRED while UMP's own record says
+        // IABTCF_gdprApplies=0. No button.
+        [TestCase(ConsentStatus.NotApplicable, true,  false)]
+        // UMP says there is no form to reopen: never a button, whatever the region.
+        [TestCase(ConsentStatus.Obtained,      false, false)]
+        [TestCase(ConsentStatus.Required,      false, false)]
+        [TestCase(ConsentStatus.NotApplicable, false, false)]
+        public void OffersPrivacyOptions_FollowsResolvedGdprStatus(
+            ConsentStatus gdpr, bool umpRequiresPrivacyOptions, bool offered)
+        {
+            Assert.AreEqual(offered, ConsentCoordinator.OffersPrivacyOptions(gdpr, umpRequiresPrivacyOptions),
+                $"(gdpr={gdpr}, umpRequiresPrivacyOptions={umpRequiresPrivacyOptions})");
+        }
     }
 }

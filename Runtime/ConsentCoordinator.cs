@@ -101,6 +101,30 @@ namespace Sorolla.Palette
         internal static ConsentSignals ResolveCurrent(ATTBridge.AuthorizationStatus att) => Resolve(Status, AdPurposesGranted, att, AdsPresent);
 
         /// <summary>
+        ///     Whether to offer a privacy options entry point, behind <see cref="Palette.PrivacyOptionsRequired"/>.
+        ///     UMP owns whether a form exists to reopen; <see cref="Status"/> owns whether the player is in a
+        ///     consent region, and both answers come from the same place as the consent decision.
+        /// </summary>
+#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
+        internal static bool PrivacyOptionsRequired => OffersPrivacyOptions(Status, UmpBridge.PrivacyOptionsRequired);
+#endif
+
+        // UMP's privacyOptionsRequirementStatus answers REQUIRED wherever a published message gave the
+        // player choices to change, which includes regions this SDK resolves NotApplicable: AppLovin
+        // places Brazil in its Gdpr geography, and before this rule Brazilian players were offered a
+        // privacy button for a form that governs nothing (the same region blindness as the consent
+        // defect 4.0.8 fixed, which is why this reads the same record rather than asking a second
+        // source). NotApplicable is UMP's own IABTCF_gdprApplies=0, so UMP is still the authority; this
+        // only stops the requirement status from outvoting it. Unknown and Required keep the button:
+        // the record is unread or unanswered, and hiding it there would strand a player who cannot
+        // reach their own consent choices. Scope: correct while AdMob publishes only the EEA/UK GDPR
+        // message. Publishing a non-GDPR privacy message (a US state message) would make
+        // gdprApplies=0 players ones who DO need the entry point, and this rule would need the
+        // published message set as its input instead of the GDPR status alone.
+        internal static bool OffersPrivacyOptions(Adapters.ConsentStatus gdpr, bool umpRequiresPrivacyOptions) =>
+            umpRequiresPrivacyOptions && gdpr != Adapters.ConsentStatus.NotApplicable;
+
+        /// <summary>
         ///     Re-reads the TCF record into <see cref="Status"/> (Full only). Main thread only: the
         ///     record is PlayerPrefs on iOS.
         /// </summary>
