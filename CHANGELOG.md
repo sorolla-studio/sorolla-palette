@@ -4,12 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-11-23
+
 ### Added
 
 - Firebase event `sorolla_purchase_verification` (`status`, `code`, `message`, `product_id`): Adjust's answer to each
-  purchase. The device log warns when Adjust does not verify one. BigQuery check: count the event by `code`.
+  purchase. The device log warns when Adjust does not verify one, except an environment mismatch (code 20040).
+  BigQuery check: count the event by `code`.
 
-### Removed
+### Removed (breaking)
 
 - `Palette.CanRequestAds`. It was false for players who refused consent or had not answered yet, and its
   docs said to show ads only when it was true, which blocked every ad for those players. Palette passes
