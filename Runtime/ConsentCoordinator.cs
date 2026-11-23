@@ -101,33 +101,6 @@ namespace Sorolla.Palette
         internal static ConsentSignals ResolveCurrent(ATTBridge.AuthorizationStatus att) => Resolve(Status, AdPurposesGranted, att, AdsPresent);
 
         /// <summary>
-        ///     Whether to offer a privacy options entry point, behind <see cref="Palette.PrivacyOptionsRequired"/>.
-        ///     UMP owns whether a form exists to reopen; <see cref="Status"/> owns whether the player is in a
-        ///     consent region, and both answers come from the same place as the consent decision.
-        /// </summary>
-#if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-        internal static bool PrivacyOptionsRequired => OffersPrivacyOptions(Status, UmpBridge.PrivacyOptionsRequired);
-#endif
-
-        // A defensive invariant, not a reproduction. History: up to 4.0.7 this answer was
-        // MaxSdk.CmpService.HasSupportedCmp, which is "a CMP is installed" and takes no region input at
-        // all, so it was true everywhere; 4.0.8 replaced it with UMP's own privacyOptionsRequirementStatus,
-        // which Google does scope by the published message. That is the fix. What is NOT established is
-        // that the two can never disagree: the requirement status is documented as REQUIRED wherever a
-        // published message gave the player choices to change, and this SDK separately resolves
-        // NotApplicable from IABTCF_gdprApplies=0 in the same record. No device has been seen offering a
-        // button where this SDK resolves NotApplicable; the point of the rule is that if UMP ever does,
-        // the button cannot contradict the consent decision shown next to it. Both halves still come from
-        // UMP, so no second region source is introduced. Unknown and Required keep the button: the record
-        // is unread or unanswered, and hiding it there would strand a player who cannot otherwise reach
-        // their own consent choices. Scope: this reads the GDPR status alone, which is right while AdMob
-        // publishes only the EEA/UK GDPR message. Publishing a non-GDPR privacy message (a US state
-        // message) would make gdprApplies=0 players ones who DO need the entry point, and the rule would
-        // then need the published message set as its input.
-        internal static bool OffersPrivacyOptions(Adapters.ConsentStatus gdpr, bool umpRequiresPrivacyOptions) =>
-            umpRequiresPrivacyOptions && gdpr != Adapters.ConsentStatus.NotApplicable;
-
-        /// <summary>
         ///     Re-reads the TCF record into <see cref="Status"/> (Full only). Main thread only: the
         ///     record is PlayerPrefs on iOS.
         /// </summary>
