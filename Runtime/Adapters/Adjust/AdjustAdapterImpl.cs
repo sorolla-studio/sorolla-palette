@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using AdjustSdk;
 using UnityEngine;
 using UnityEngine.Scripting;
@@ -188,13 +189,25 @@ namespace Sorolla.Palette.Adapters
             }
             var e = BuildPurchaseEvent(eventToken, amount, currency, productId, deduplicationId);
             e.TransactionId = transactionId;
-            Adjust.VerifyAndTrackAppStorePurchase(e, verificationResult =>
+            Adjust.VerifyAndTrackAppStorePurchase(e, result => ReportVerification("iOS", productId, result));
+        }
+
+        static void ReportVerification(string platform, string productId, AdjustPurchaseVerificationResult result)
+        {
+            string code = VerificationCode(result);
+            string detail = $"{platform} purchase verification: status={result.VerificationStatus}, code={result.Code}";
+            PaletteLog.Vital($"[Palette:Adjust] {detail}");
+            PaletteLog.Verbose($"[Palette:Adjust] {platform} purchase verification message: {result.Message}");
+            if (code == "purchase_verification_failed")
+                PaletteLog.Warning($"[Palette:Adjust] Adjust did not verify the purchase of '{productId}' (code {result.Code}).");
+            AdapterDiagnostics.Record(AdapterDiagnosticVendor.Adjust, AdapterDiagnosticStatus.DispatchAccepted, code, detail);
+            // Adjust's reports carry no code: this event is the only remote record of why a purchase was refused.
+            FirebaseAdapter.TrackEvent("sorolla_purchase_verification", new Dictionary<string, object>
             {
-                PaletteLog.Vital($"[Palette:Adjust] iOS purchase verification: status={verificationResult.VerificationStatus}, code={verificationResult.Code}");
-                PaletteLog.Verbose($"[Palette:Adjust] iOS purchase verification message: {verificationResult.Message}");
-                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Adjust, AdapterDiagnosticStatus.DispatchAccepted,
-                    VerificationCode(verificationResult),
-                    $"iOS purchase verification: status={verificationResult.VerificationStatus}, code={verificationResult.Code}");
+                { "status", result.VerificationStatus },
+                { "code", result.Code },
+                { "message", result.Message },
+                { "product_id", productId },
             });
         }
 
@@ -224,14 +237,7 @@ namespace Sorolla.Palette.Adapters
             }
             var e = BuildPurchaseEvent(eventToken, amount, currency, productId, deduplicationId);
             e.PurchaseToken = purchaseToken;
-            Adjust.VerifyAndTrackPlayStorePurchase(e, verificationResult =>
-            {
-                PaletteLog.Vital($"[Palette:Adjust] Android purchase verification: status={verificationResult.VerificationStatus}, code={verificationResult.Code}");
-                PaletteLog.Verbose($"[Palette:Adjust] Android purchase verification message: {verificationResult.Message}");
-                AdapterDiagnostics.Record(AdapterDiagnosticVendor.Adjust, AdapterDiagnosticStatus.DispatchAccepted,
-                    VerificationCode(verificationResult),
-                    $"Android purchase verification: status={verificationResult.VerificationStatus}, code={verificationResult.Code}");
-            });
+            Adjust.VerifyAndTrackPlayStorePurchase(e, result => ReportVerification("Android", productId, result));
         }
 
         public void TrackPurchaseSimple(string eventToken, double amount, string currency, string deduplicationId, string productId)

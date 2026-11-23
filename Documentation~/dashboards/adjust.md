@@ -13,7 +13,7 @@ This isn't a preference — the SDK's config schema holds exactly one Adjust App
 - One Adjust app (multi-platform), App Token copied into `Tools > Sorolla Palette SDK` → the **Adjust** group.
 - A **Purchase** event created in the dashboard, with its Event Token — needed if this game sells IAP.
 - Environment set to **Sandbox** while testing, **Production** before release.
-- Server-side **purchase verification** enabled under the app's Event settings, if selling IAP (this is the one dashboard toggle the SDK cannot read back — see below).
+- Server-side **purchase verification** enabled under the app's Protection tab, if selling IAP (this is the one dashboard toggle the SDK cannot read back — see below).
 
 Full procedure: [Adjust help center](https://help.adjust.com/en/article/set-up-adjust). Sorolla's internal dashboard-creation runbook: [dashboard-setup.md](../dashboard-setup.md).
 
@@ -28,7 +28,7 @@ Nothing about Adjust dashboard configuration is probeable from the SDK today —
 
 | Row | State | Meaning |
 |---|---|---|
-| _(no window row)_ | Nothing — this is dashboard work | Full mode only. No probe can close this. Adjust dashboard → the app → Event settings → confirm purchase verification is ON. A wrong setting here surfaces on device as verification code 20007 despite a healthy store and Firebase path. |
+| _(no window row)_ | Nothing — this is dashboard work | Full mode only. No probe can close this. Adjust dashboard → the app → Protection → confirm purchase verification is ON. A wrong setting here surfaces on device as verification code 20011 (off) or 20007 (store connection missing) despite a healthy store and Firebase path. |
 
 A wrong or stale App Token doesn't fail loud in the verdict today — it shows up as the `adjust` adapter state in a device snapshot (`/qa/snapshot` → `adapters.adjust`) not reaching an initialized state, or as `identity.adjust_adid_present` staying false. Check those if Adjust events aren't appearing in the dashboard despite the config looking right.
 

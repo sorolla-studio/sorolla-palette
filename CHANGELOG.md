@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Firebase event `sorolla_purchase_verification` (`status`, `code`, `message`, `product_id`): Adjust's answer to each
+  purchase. The device log warns when Adjust does not verify one. BigQuery check: count the event by `code`.
+
 ### Removed
 
 - `Palette.CanRequestAds`. It was false for players who refused consent or had not answered yet, and its
@@ -25,6 +30,11 @@ All notable changes to this project will be documented in this file.
 - For a player who refused consent, the copied Vitals report's header reads "Ads non-personalized",
   and the UMP consent row (under healthy checks) explains that ads still load. Vitals no longer says
   refused or undecided consent blocks ad requests.
+
+### Fixed
+
+- Adjust did not verify purchases (code 20020) in games whose Unity product IDs differ from the store's. Palette now
+  sends the store's ID. **Those games see product names change** in Adjust, Firebase and GameAnalytics.
 
 ### Documentation
 

@@ -48,7 +48,7 @@ namespace Sorolla.Palette.Purchasing
             string transactionId = order.Info?.TransactionID;
 
             return new RawPurchaseData(
-                productId: product.definition.id,
+                productId: product.definition.storeSpecificId,
                 rawCurrency: md?.isoCurrencyCode,
                 rawPrice: md?.localizedPrice ?? 0m,
                 transactionId: transactionId,
