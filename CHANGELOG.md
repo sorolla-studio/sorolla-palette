@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Removed
+
+- QA bridge snapshot `consent.form_shown_this_session`. Only the privacy options form set it, so it read false
+  when the consent form showed at launch.
+
 ## [4.1.0] - 2026-11-23
 
 ### Added

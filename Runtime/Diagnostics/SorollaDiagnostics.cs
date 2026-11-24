@@ -132,7 +132,6 @@ namespace Sorolla.Palette
         static bool s_adPersonalizationConsent;
         static bool s_adUserDataConsent;
         static bool s_analyticsStorageConsent;
-        static bool s_consentFormShownThisSession;
 
         internal static void EnsureLogBridge()
         {
@@ -287,16 +286,6 @@ namespace Sorolla.Palette
                 s_adPersonalizationConsent = adPersonalization;
                 s_adUserDataConsent = adUserData;
                 s_analyticsStorageConsent = analyticsStorage;
-            }
-        }
-
-        // Marks that a consent form was displayed this session. Enables relaunch-persistence gates:
-        // a second-launch snapshot with form_shown_this_session=false confirms consent persisted.
-        internal static void MarkConsentFormShown()
-        {
-            lock (s_lock)
-            {
-                s_consentFormShownThisSession = true;
             }
         }
 
@@ -613,7 +602,6 @@ namespace Sorolla.Palette
             public bool AdPersonalizationConsent;
             public bool AdUserDataConsent;
             public bool AnalyticsStorageConsent;
-            public bool ConsentFormShownThisSession;
         }
     }
 }

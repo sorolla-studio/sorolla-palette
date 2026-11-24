@@ -54,7 +54,6 @@ namespace Sorolla.Palette
             sb.AppendLine("[Consent]");
             sb.AppendLine($"status: {state.ConsentStatus} | geography: {state.ConsentGeography} | " +
                           $"att: {state.Att ?? "n/a (iOS only)"}");
-            sb.AppendLine($"form_shown_this_session: {state.ConsentFormShownThisSession}");
             sb.AppendLine($"signals known: {state.ConsentSignalsKnown} | ad_storage: {state.AdStorageConsent} | ad_personalization: {state.AdPersonalizationConsent} | ad_user_data: {state.AdUserDataConsent} | analytics_storage: {state.AnalyticsStorageConsent}");
             sb.AppendLine($"iabtcf tc_string_present: {state.TcStringPresent}");
             sb.AppendLine();

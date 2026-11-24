@@ -111,8 +111,6 @@ namespace Sorolla.Palette
         public static void ShowPrivacyOptions(Action onComplete = null)
         {
 #if SOROLLA_MAX_ENABLED && APPLOVIN_MAX_INSTALLED
-            // The UMP form is being displayed; mark it for the QA snapshot's persistence signal.
-            SorollaDiagnostics.MarkConsentFormShown();
             UmpBridge.ShowPrivacyOptions(() =>
             {
                 ResolveConsent();

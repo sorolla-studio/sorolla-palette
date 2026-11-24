@@ -100,7 +100,6 @@ namespace Sorolla.Palette
                     AdPersonalizationConsent = s_adPersonalizationConsent,
                     AdUserDataConsent = s_adUserDataConsent,
                     AnalyticsStorageConsent = s_analyticsStorageConsent,
-                    ConsentFormShownThisSession = s_consentFormShownThisSession,
                 };
             }
         }
@@ -159,7 +158,6 @@ namespace Sorolla.Palette
                 ConsentStatus = Palette.ConsentStatus.ToString(),
                 ConsentGeography = ConsentGeography(Palette.ConsentStatus),
                 Att = AttForSnapshot(),
-                ConsentFormShownThisSession = snap.ConsentFormShownThisSession,
                 ConsentSignalsKnown = snap.ConsentSignalsKnown,
                 AdStorageConsent = snap.AdStorageConsent,
                 AdPersonalizationConsent = snap.AdPersonalizationConsent,
